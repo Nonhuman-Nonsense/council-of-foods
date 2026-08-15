@@ -46,7 +46,7 @@ export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): 
  * human panelists; the chair is passed separately so it can be described to
  * the agent as itself.
  */
-type CouncilRoster = {
+export type CouncilRoster = {
   selectedNames: string[];
   chairName: string;
   /**
@@ -56,6 +56,30 @@ type CouncilRoster = {
    * excludes panelists.
    */
   isFull: boolean;
+  /**
+   * Named human panelists already in the council. Only populated by the
+   * human-panelist events below — omitting it for character events keeps
+   * their existing (minor, unreported) omission of panelists from the roster
+   * line unchanged, rather than widening every character-event call site for
+   * a cosmetic gap. It's load-bearing for human events specifically: without
+   * it, a message can say "the visitor just described a panelist" and "the
+   * council is currently just yourself, the moderator" in the same breath —
+   * a direct contradiction that led the agent to re-add a panelist that was
+   * already on screen (see the human_details_confirmed case below).
+   */
+  panelistNames?: string[];
+};
+
+/**
+ * A human panelist's details as the visitor is entering them. `isComplete`
+ * mirrors the per-panelist readiness check the UI itself uses (name required
+ * always, description required outside museum mode), so the agent's picture
+ * of "still needs X" matches what's actually blocking the Start button.
+ */
+export type HumanDetails = {
+  humanName: string;
+  humanDescription: string;
+  isComplete: boolean;
 };
 
 export type MeetingSetupUserEvent =
@@ -71,7 +95,13 @@ export type MeetingSetupUserEvent =
     }
   | ({ type: "character_selected" } & CouncilRoster)
   | ({ type: "character_deselected" } & CouncilRoster)
-  | ({ type: "characters_randomized" } & CouncilRoster);
+  | ({ type: "characters_randomized" } & CouncilRoster)
+  | ({ type: "human_added" } & CouncilRoster)
+  // Fired while typing (debounced) — a weak, easily-superseded signal.
+  | ({ type: "human_details_typed" } & CouncilRoster & HumanDetails)
+  // Fired on deliberately leaving the field — a stronger "I'm done" signal,
+  // reacted to sooner.
+  | ({ type: "human_details_confirmed" } & CouncilRoster & HumanDetails);
 
 /**
  * What changed since the agent was last told about the council. Reactions are
@@ -115,17 +145,26 @@ function joinNames(names: string[]): string {
 /** Reaction delay per event kind, in ms. */
 const TOPIC_REACTION_DELAY_MS = 300;
 const CHARACTER_REACTION_DELAY_MS = 1000;
+const HUMAN_TYPING_REACTION_DELAY_MS = 5000;
 
 /**
- * How long to wait after a click before reacting. Topic picks are one-shot, so
- * they react almost immediately. Character picks come in bursts — the visitor
- * chooses up to six foods — and reacting to each one would interrupt the agent
- * repeatedly, so they get a longer window to coalesce into one reaction.
+ * How long to wait after an action before reacting.
+ * - Topic picks are one-shot: react almost immediately.
+ * - Character picks come in bursts — up to six foods — so they get a window
+ *   to coalesce into one reaction.
+ * - Typing a panelist's details is the weakest signal: a long pause could
+ *   just be the visitor thinking, so it gets the longest window.
+ * - Leaving the field (blur) is a deliberate "I'm done" signal and reacts
+ *   promptly rather than waiting out whatever's left of the typing window.
  */
 export function getMeetingSetupReactionDelayMs(event: MeetingSetupUserEvent): number {
-  return event.type === "topic_previewed" || event.type === "topic_committed"
-    ? TOPIC_REACTION_DELAY_MS
-    : CHARACTER_REACTION_DELAY_MS;
+  if (event.type === "topic_previewed" || event.type === "topic_committed") {
+    return TOPIC_REACTION_DELAY_MS;
+  }
+  if (event.type === "human_details_typed") {
+    return HUMAN_TYPING_REACTION_DELAY_MS;
+  }
+  return CHARACTER_REACTION_DELAY_MS;
 }
 
 /**
@@ -136,6 +175,16 @@ export function getMeetingSetupReactionDelayMs(event: MeetingSetupUserEvent): nu
  */
 const CUT_OFF_NOTE =
   "If your previous sentence was cut off, do not finish it — react to this instead.";
+
+/**
+ * A panelist typed directly into the screen is already saved there — the
+ * human_panelist tool is only for a visitor who asks the agent (by voice) to
+ * add someone. Without this, "the visitor just described a panelist" reads as
+ * a request to save it, and the agent would call the tool and create a
+ * duplicate of a panelist that already exists.
+ */
+const ALREADY_SAVED_NOTE =
+  "This was typed directly into the screen and is already saved — do not call human_panelist for it, just react.";
 
 /**
  * Synthetic user turn describing a click the visitor just made, used to prompt
@@ -159,11 +208,12 @@ export function buildMeetingSetupReactionMessage(
  * Renders the council so the agent speaks of the chair as itself — "and myself,
  * Water, as the moderator" — rather than listing itself as a third party.
  */
-function describeCouncil({ selectedNames, chairName, isFull }: CouncilRoster): string {
+function describeCouncil({ selectedNames, chairName, isFull, panelistNames }: CouncilRoster): string {
+  const others = [...selectedNames, ...(panelistNames ?? [])];
   const asModerator = `yourself, ${chairName}, as the moderator`;
-  const roster = selectedNames.length === 0
+  const roster = others.length === 0
     ? `The council is currently just ${asModerator}.`
-    : `The council is now ${selectedNames.join(", ")}, and ${asModerator}.`;
+    : `The council is now ${others.join(", ")}, and ${asModerator}.`;
   // The UI has no room for another pick at this point — a natural, optional
   // aside rather than an instruction, so it only comes up if it fits.
   if (!isFull) return roster;
@@ -187,6 +237,24 @@ function describeSituation(
       const change = describeChanges(changes);
       if (change == null) return null;
       return `${change}. ${describeCouncil(event)} React briefly.`;
+    }
+    case "human_added":
+      return `added a new human panelist to the council. ${describeCouncil(event)} They still need a name and a short description — you could invite them to fill that in. ${ALREADY_SAVED_NOTE}`;
+    // `describeSituation`'s caller prepends "The visitor just ", so this reads
+    // as "...finished describing..." / "...typed more details...".
+    case "human_details_typed":
+    case "human_details_confirmed": {
+      const { humanName, humanDescription, isComplete } = event;
+      if (isComplete) {
+        return `finished describing a human panelist: named "${humanName}", described as "${humanDescription}". ${describeCouncil(event)} React briefly, perhaps to the description itself. ${ALREADY_SAVED_NOTE}`;
+      }
+      const missing = humanName.length === 0 && humanDescription.length === 0
+        ? "a name and a short description"
+        : humanName.length === 0
+          ? "a name"
+          : "a short description";
+      const named = humanName.length > 0 ? ` (currently named "${humanName}")` : "";
+      return `typed more details for a human panelist${named}, but it still needs ${missing}. ${describeCouncil(event)} You could remind them, briefly. ${ALREADY_SAVED_NOTE}`;
     }
   }
 }

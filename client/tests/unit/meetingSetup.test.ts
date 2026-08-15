@@ -159,6 +159,111 @@ describe("buildMeetingSetupReactionMessage", () => {
 
     expect(message.toLowerCase()).not.toContain("full");
   });
+
+  it("mentions a newly added human panelist still needs details", () => {
+    const message = buildMeetingSetupReactionMessage({ type: "human_added", ...roster });
+
+    expect(message.toLowerCase()).toContain("name");
+    expect(message.toLowerCase()).toContain("description");
+  });
+
+  /**
+   * Mirrors the UI's own per-panelist readiness check: name always required,
+   * description required outside museum mode. The agent shouldn't ask for
+   * something the visitor was never asked to provide.
+   */
+  describe("human details", () => {
+    it("invites a reaction to the description once both fields are filled", () => {
+      const message = buildMeetingSetupReactionMessage({
+        type: "human_details_confirmed",
+        humanName: "Alex",
+        humanDescription: "A curious economist",
+        isComplete: true,
+        ...roster,
+      });
+
+      expect(message).toContain("Alex");
+      expect(message).toContain("A curious economist");
+    });
+
+    it("names a missing name specifically, not description", () => {
+      const message = buildMeetingSetupReactionMessage({
+        type: "human_details_typed",
+        humanName: "",
+        humanDescription: "A curious economist",
+        isComplete: false,
+        ...roster,
+      });
+
+      expect(message.toLowerCase()).toContain("name");
+      expect(message.toLowerCase()).not.toContain("description");
+    });
+
+    it("names a missing description specifically, not name", () => {
+      const message = buildMeetingSetupReactionMessage({
+        type: "human_details_typed",
+        humanName: "Alex",
+        humanDescription: "",
+        isComplete: false,
+        ...roster,
+      });
+
+      expect(message.toLowerCase()).toContain("description");
+      expect(message).toContain("Alex");
+    });
+
+    it("names both as missing when neither is filled", () => {
+      const message = buildMeetingSetupReactionMessage({
+        type: "human_details_typed",
+        humanName: "",
+        humanDescription: "",
+        isComplete: false,
+        ...roster,
+      });
+
+      expect(message.toLowerCase()).toContain("name");
+      expect(message.toLowerCase()).toContain("description");
+    });
+
+    /**
+     * The reported bug: the message said "the visitor just finished
+     * describing a panelist" and, in the same breath, "the council is
+     * currently just yourself, the moderator" — omitting the very panelist it
+     * just described. That contradiction led the agent to call the
+     * add-panelist tool again and create a duplicate.
+     */
+    it("includes the panelist in the roster line rather than contradicting itself", () => {
+      const message = buildMeetingSetupReactionMessage({
+        type: "human_details_confirmed",
+        humanName: "Leo Fidjeland",
+        humanDescription: "I am not sure what to write here",
+        isComplete: true,
+        selectedNames: [],
+        chairName: "Water",
+        isFull: false,
+        panelistNames: ["Leo Fidjeland"],
+      });
+
+      expect(message).not.toContain("currently just yourself");
+      expect(message).toContain("Leo Fidjeland");
+    });
+
+    it.each(["human_added", "human_details_typed", "human_details_confirmed"] as const)(
+      "tells the agent not to call the add-panelist tool for a %s event",
+      (type) => {
+        const message = buildMeetingSetupReactionMessage({
+          type,
+          humanName: "Alex",
+          humanDescription: "A curious economist",
+          isComplete: true,
+          ...roster,
+        } as Parameters<typeof buildMeetingSetupReactionMessage>[0]);
+
+        expect(message).toContain("human_panelist");
+        expect(message.toLowerCase()).toContain("already saved");
+      },
+    );
+  });
 });
 
 describe("getMeetingSetupReactionDelayMs", () => {
@@ -191,6 +296,31 @@ describe("getMeetingSetupReactionDelayMs", () => {
     ];
 
     expect(new Set(delays).size).toBe(1);
+  });
+
+  const humanDetails = { humanName: "Alex", humanDescription: "", isComplete: false, ...roster };
+
+  /**
+   * A typing pause could just be the visitor thinking mid-sentence, so it
+   * needs a long window — long enough that reacting to a genuine pause still
+   * feels responsive, but short false-triggers on ordinary pauses don't.
+   */
+  it("gives a typing pause a longer window than a confirmed pick", () => {
+    const typingDelay = getMeetingSetupReactionDelayMs({ type: "human_details_typed", ...humanDetails });
+    const characterDelay = getMeetingSetupReactionDelayMs({ type: "character_selected", ...roster });
+
+    expect(typingDelay).toBeGreaterThan(characterDelay);
+  });
+
+  /**
+   * Leaving the field is a deliberate "I'm done" signal — it should react
+   * promptly rather than waiting out whatever's left of the typing window.
+   */
+  it("reacts to a confirmed pick as promptly as leaving the field", () => {
+    const confirmedDelay = getMeetingSetupReactionDelayMs({ type: "human_details_confirmed", ...humanDetails });
+    const typingDelay = getMeetingSetupReactionDelayMs({ type: "human_details_typed", ...humanDetails });
+
+    expect(confirmedDelay).toBeLessThan(typingDelay);
   });
 });
 

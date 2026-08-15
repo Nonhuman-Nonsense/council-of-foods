@@ -6,7 +6,13 @@ import VideoPreloader from "@main/VideoPreloader";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum, selectedFoodNames } from "./meetingSetup";
+import {
+  buildMeetingCharactersPayload,
+  orderSelectedCharactersForMuseum,
+  selectedFoodNames,
+  type CouncilRoster,
+  type HumanDetails,
+} from "./meetingSetup";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
@@ -31,6 +37,20 @@ export interface SelectCharactersProps {
   onCharacterSelected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
   onCharacterDeselected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
   onCharactersRandomized?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
+  /**
+   * A new human panelist slot was added (still unnamed, undescribed). Object
+   * form, matching the other human-panelist callbacks below — unlike the
+   * character callbacks above, these need `panelistNames` too, so the
+   * council roster the agent hears doesn't omit a panelist in the same
+   * message that just told it one exists.
+   */
+  onHumanAdded?: (roster: CouncilRoster) => void;
+  /**
+   * The visitor is typing a panelist's name or description (debounced) or has
+   * just left the field (a stronger "I'm done" signal, reacted to sooner).
+   */
+  onHumanDetailsTyped?: (details: HumanDetails & CouncilRoster) => void;
+  onHumanDetailsConfirmed?: (details: HumanDetails & CouncilRoster) => void;
 }
 
 function getCharacterImageUrl(id: string): string | undefined {
@@ -64,6 +84,9 @@ function SelectCharacters({
   onCharacterSelected,
   onCharacterDeselected,
   onCharactersRandomized,
+  onHumanAdded,
+  onHumanDetailsTyped,
+  onHumanDetailsConfirmed,
 }: SelectCharactersProps): React.ReactElement {
   const {
     selectedCharacters,
@@ -127,6 +150,38 @@ function SelectCharacters({
     return useMeetingSetupStore.getState().selectedCharacters.length >= maxCharacters;
   }
 
+  /** Mirrors the per-panelist readiness check in the effect above (name
+   *  always required, description required outside museum mode). */
+  function isHumanComplete(name: string, description: string): boolean {
+    const needsDescription = !isMuseumMode && description.length === 0;
+    return name.length > 0 && !needsDescription;
+  }
+
+  /**
+   * Named human panelists already in the council. Same "read fresh" reasoning
+   * as `currentSelectedFoodNames` — this runs right after `setHumans`, so the
+   * component's own `humans` snapshot from the last render would be stale.
+   */
+  function currentPanelistNames(): string[] {
+    const store = useMeetingSetupStore.getState();
+    return store.humans
+      .slice(0, store.numberOfHumans)
+      .map((human) => human.name)
+      .filter((name) => name.length > 0);
+  }
+
+  function buildHumanDetailsPayload(name: string, description: string): HumanDetails & CouncilRoster {
+    return {
+      humanName: name,
+      humanDescription: description,
+      isComplete: isHumanComplete(name, description),
+      selectedNames: currentSelectedFoodNames(),
+      chairName,
+      isFull: isCouncilFull(),
+      panelistNames: currentPanelistNames(),
+    };
+  }
+
   function atLeastTwoCharacters(): boolean {
     return selectedCharacters.filter((id) => !id.startsWith("panelist")).length >= minCharacters;
   }
@@ -160,7 +215,17 @@ function SelectCharacters({
     if (idx >= MAXHUMANS) return;
     if (!humans[idx]) return;
     setNumberOfHumans((prev) => Math.min(MAXHUMANS, prev + 1));
+    // `AddHumanButton` only calls this when it isn't `selectLimitReached`
+    // (checked against the same store state), so this always succeeds —
+    // never targets an existing panelist either, since `idx` only ever
+    // advances to the next never-yet-added slot.
     selectCharacter(humans[idx]);
+    onHumanAdded?.({
+      selectedNames: currentSelectedFoodNames(),
+      chairName,
+      isFull: isCouncilFull(),
+      panelistNames: currentPanelistNames(),
+    });
   }
 
   function selectCharacter(character: Character): void {
@@ -224,6 +289,39 @@ function SelectCharacters({
     }
   }, [isMuseumMode, selectedCharacters, setSelectedCharacters]);
 
+  // Read fresh inside the cleanup below rather than closing over `humans`
+  // directly — otherwise it could report whatever the panelist's details
+  // were when editing *started*, not what they'd become by the time the
+  // visitor moved on.
+  const humansRef = useRef(humans);
+  useEffect(() => {
+    humansRef.current = humans;
+  });
+
+  /**
+   * "Confirmed" reaction: fires when the visitor moves away from a panelist
+   * they were editing. Keyed on `lastSelected` rather than textarea blur —
+   * `lastSelected` only changes on a real click, whereas blur also fires when
+   * merely *hovering* a different card unmounts the active textarea (see
+   * `infoToShow` below), which would otherwise misfire this on stray mouse
+   * movement while the visitor is still mid-sentence.
+   */
+  useEffect(() => {
+    const editingId = lastSelected;
+    if (!editingId || !isPanelistId(editingId)) return;
+    return () => {
+      const index = panelistIndexFromId(editingId);
+      if (index === null) return;
+      const human = humansRef.current[index];
+      if (!human) return;
+      // Nothing was ever typed — a click-in-click-out with no edit isn't
+      // worth reacting to.
+      if (human.name.length === 0 && human.description.length === 0) return;
+      onHumanDetailsConfirmed?.(buildHumanDetailsPayload(human.name, human.description));
+    };
+    // Deliberately keyed only on lastSelected; see comment above.
+  }, [lastSelected]);
+
   function infoToShow(): React.ReactNode {
     if (hoveredCharacter === "addhuman") {
       return <CharacterInfo character={characterSetupData.addHuman} />;
@@ -251,6 +349,9 @@ function SelectCharacters({
           lastSelected={lastSelected}
           setHumans={setHumans}
           setRecheckHumansReady={setRecheckHumansReady}
+          onDetailsChanged={(name, description) =>
+            onHumanDetailsTyped?.(buildHumanDetailsPayload(name, description))
+          }
         />
       );
     } else {
@@ -462,6 +563,8 @@ interface HumanInfoProps {
   lastSelected?: string | null;
   unfocus?: boolean;
   setRecheckHumansReady: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Fired (debounced upstream) whenever the name or description changes. */
+  onDetailsChanged?: (name: string, description: string) => void;
 }
 
 function HumanInfo({
@@ -470,6 +573,7 @@ function HumanInfo({
   lastSelected,
   unfocus,
   setRecheckHumansReady,
+  onDetailsChanged,
 }: HumanInfoProps): React.ReactElement | null {
   const isMobile = useMobile();
   const nameArea = useRef<HTMLTextAreaElement>(null);
@@ -513,6 +617,7 @@ function HumanInfo({
       return next;
     });
     setRecheckHumansReady((prev) => !prev);
+    onDetailsChanged?.(nameArea.current?.value ?? "", val);
   }
 
   function nameChanged(_e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -528,6 +633,7 @@ function HumanInfo({
         return next;
       });
       setRecheckHumansReady((prev) => !prev);
+      onDetailsChanged?.(val, descriptionArea.current?.value ?? "");
     }
   }
 

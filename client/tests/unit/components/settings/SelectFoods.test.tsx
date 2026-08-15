@@ -278,5 +278,133 @@ describe('SelectCharacters Component', () => {
             expect(selectedNames.length).toBeGreaterThan(0);
             expect(selectedNames).not.toContain(chair.name);
         });
+
+        describe('human panelist callbacks', () => {
+            it('reports a newly added panelist', () => {
+                const onHumanAdded = vi.fn();
+                render(<ControlledSelectCharacters onHumanAdded={onHumanAdded} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+
+                expect(onHumanAdded).toHaveBeenCalledTimes(1);
+                const [roster] = onHumanAdded.mock.calls[0];
+                expect(roster.chairName).toBe(chair.name);
+                expect(roster.isFull).toBe(false);
+                // Panelists aren't foods — adding one shouldn't appear here.
+                expect(roster.selectedNames).toEqual([]);
+                // The freshly added panelist has no name yet, so it isn't
+                // listed as a named participant either.
+                expect(roster.panelistNames).toEqual([]);
+            });
+
+            it('reports typed details, distinguishing what is still missing', () => {
+                const onHumanDetailsTyped = vi.fn();
+                render(<ControlledSelectCharacters onHumanDetailsTyped={onHumanDetailsTyped} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                const nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
+                fireEvent.change(nameInput, { target: { value: 'Alex' } });
+
+                expect(onHumanDetailsTyped).toHaveBeenLastCalledWith(expect.objectContaining({
+                    humanName: 'Alex',
+                    humanDescription: '',
+                    isComplete: false,
+                }));
+
+                const descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
+                fireEvent.change(descInput, { target: { value: 'A curious economist' } });
+
+                expect(onHumanDetailsTyped).toHaveBeenLastCalledWith(expect.objectContaining({
+                    humanName: 'Alex',
+                    humanDescription: 'A curious economist',
+                    isComplete: true,
+                }));
+            });
+
+            it('reports confirmed details once the visitor clicks elsewhere', () => {
+                const onHumanDetailsConfirmed = vi.fn();
+                render(<ControlledSelectCharacters onHumanDetailsConfirmed={onHumanDetailsConfirmed} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Alex' },
+                });
+
+                expect(onHumanDetailsConfirmed).not.toHaveBeenCalled();
+
+                clickCharacter(firstParticipant.name);
+
+                expect(onHumanDetailsConfirmed).toHaveBeenCalledWith(expect.objectContaining({
+                    humanName: 'Alex',
+                    humanDescription: '',
+                    isComplete: false,
+                    // Already selected (even mid-edit), so it belongs in the
+                    // roster — the reaction message says "the council is now
+                    // Alex..." rather than omitting them entirely.
+                    panelistNames: ['Alex'],
+                }));
+            });
+
+            /**
+             * The reported bug: a message said "the visitor just finished
+             * describing a panelist" and, in the same breath, "the council is
+             * currently just yourself, the moderator" — a direct contradiction
+             * that led the agent to call the add-panelist tool again, creating
+             * a duplicate. The roster must include every named panelist, not
+             * just foods, so the two halves of the message never disagree.
+             */
+            it('includes named panelists in the roster so the message never contradicts itself', () => {
+                const onHumanDetailsConfirmed = vi.fn();
+                render(<ControlledSelectCharacters onHumanDetailsConfirmed={onHumanDetailsConfirmed} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Leo Fidjeland' },
+                });
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humandesc'), {
+                    target: { value: 'I am not sure what to write here' },
+                });
+
+                clickCharacter(firstParticipant.name);
+
+                expect(onHumanDetailsConfirmed).toHaveBeenCalledWith(expect.objectContaining({
+                    humanName: 'Leo Fidjeland',
+                    isComplete: true,
+                    panelistNames: ['Leo Fidjeland'],
+                }));
+            });
+
+            it('does not report confirmed details for a click-in-click-out with no edit', () => {
+                const onHumanDetailsConfirmed = vi.fn();
+                render(<ControlledSelectCharacters onHumanDetailsConfirmed={onHumanDetailsConfirmed} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                clickCharacter(firstParticipant.name);
+
+                expect(onHumanDetailsConfirmed).not.toHaveBeenCalled();
+            });
+
+            /**
+             * Hovering a different card swaps the info panel and unmounts the
+             * active textarea (see `infoToShow`), which fires a native blur —
+             * but hovering isn't "the visitor is done", so this must not count
+             * as confirming. Regression test for relying on blur instead of
+             * `lastSelected`.
+             */
+            it('does not report confirmed details from merely hovering another card', () => {
+                const onHumanDetailsConfirmed = vi.fn();
+                render(<ControlledSelectCharacters onHumanDetailsConfirmed={onHumanDetailsConfirmed} />);
+
+                fireEvent.click(screen.getByAltText('add human'));
+                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
+                    target: { value: 'Alex' },
+                });
+
+                fireEvent.mouseEnter(screen.getByAltText(firstParticipant.name));
+                fireEvent.mouseLeave(screen.getByAltText(firstParticipant.name));
+
+                expect(onHumanDetailsConfirmed).not.toHaveBeenCalled();
+            });
+        });
     });
 });

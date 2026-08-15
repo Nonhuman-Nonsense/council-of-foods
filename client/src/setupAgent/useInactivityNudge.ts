@@ -9,6 +9,14 @@ type UseInactivityNudgeParams = {
   delayMs: number;
   enabled: boolean;
   onNudgeFired?: () => void;
+  /**
+   * Opaque value that changes whenever the visitor does something the hook
+   * can't otherwise observe — e.g. typing in a text field, which touches
+   * neither `agentSpeaking` nor `lastUserTranscript`. Any change resets the
+   * countdown, same as a transcript change. Compared by reference/value each
+   * render, so a fresh object each time (like a click-event record) works.
+   */
+  lastActivity?: unknown;
 };
 
 /**
@@ -17,7 +25,8 @@ type UseInactivityNudgeParams = {
  *
  * Timer starts when `agentSpeaking` is false (audio ended).
  * Timer clears when `agentSpeaking` is true (agent speaking again).
- * Timer resets when `lastUserTranscript` changes (visitor spoke).
+ * Timer resets when `lastUserTranscript` changes (visitor spoke) or
+ * `lastActivity` changes (visitor did something else, e.g. typing).
  *
  * Does nothing until the agent has spoken at least once.
  */
@@ -30,6 +39,7 @@ export function useInactivityNudge({
   delayMs,
   enabled,
   onNudgeFired,
+  lastActivity,
 }: UseInactivityNudgeParams): void {
   const agentHasSpokenRef = useRef(false);
   const sendMessageRef = useRef(sendMessage);
@@ -66,6 +76,6 @@ export function useInactivityNudge({
       requestResponseRef.current();
     }, delayMs);
     return () => clearTimeout(id);
-   
-  }, [agentSpeaking, lastUserTranscript, enabled, delayMs]);
+
+  }, [agentSpeaking, lastUserTranscript, enabled, delayMs, lastActivity]);
 }

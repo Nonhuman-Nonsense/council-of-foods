@@ -129,7 +129,10 @@ export default function MeetingSetupAgent({
     micOpen: button.pressed,
   });
   const { interruptAndRespond, muted } = agent;
-  const { nudgeFired, clearNudge } = useAgentPresence({ agent, phase });
+  // Any click or keystroke counts as activity — resets the idle nudge and the
+  // absolute idle teardown, so the agent doesn't ask "are you there?" (or tear
+  // the session down) while the visitor is mid-sentence typing a description.
+  const { nudgeFired, clearNudge } = useAgentPresence({ agent, phase, lastActivity: lastUserEvent });
 
   /**
    * The council as the agent was last told it. Reactions are debounced, so one

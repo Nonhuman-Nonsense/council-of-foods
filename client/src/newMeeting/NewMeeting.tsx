@@ -1,4 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
+import type { CouncilRoster, HumanDetails } from "./meetingSetup";
 import { useEffect } from "react";
 import { useOutletContext } from "react-router";
 import SelectTopic from "./SelectTopic";
@@ -62,6 +63,18 @@ export default function NewMeeting() {
     });
   }
 
+  function handleHumanAdded(roster: CouncilRoster) {
+    setLastUserEvent({ type: "human_added", ...roster });
+  }
+
+  function handleHumanDetailsTyped(details: HumanDetails & CouncilRoster) {
+    setLastUserEvent({ type: "human_details_typed", ...details });
+  }
+
+  function handleHumanDetailsConfirmed(details: HumanDetails & CouncilRoster) {
+    setLastUserEvent({ type: "human_details_confirmed", ...details });
+  }
+
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
     setStep("characters");
@@ -86,6 +99,9 @@ export default function NewMeeting() {
           onCharacterSelected={handleCharacterSelected}
           onCharacterDeselected={handleCharacterDeselected}
           onCharactersRandomized={handleCharactersRandomized}
+          onHumanAdded={handleHumanAdded}
+          onHumanDetailsTyped={handleHumanDetailsTyped}
+          onHumanDetailsConfirmed={handleHumanDetailsConfirmed}
         />
       )}
     </>
