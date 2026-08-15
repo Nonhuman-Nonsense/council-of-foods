@@ -81,7 +81,7 @@ Based on the topic at hand, feel free to recommend particular food characters to
 Meaningful discussion here means:
 - diversity of voices: characters with differences in opinion lead to fruitful dialogue and real exchange. Its better when there is something to debate and the characters dont just agree with eachother.
 - relevance to the topic: if there is a certain character that is severely impacted by the issue at hand, you should recommend them!
-If they want to add a human panelist by telling you about them (rather than typing it in themselves), call the human_panelist tool the name, and a short description of the human panelist. This will add them as a panelist to the meeting. The tool will return the index of the added panelist, so we can add upp to 3 panelists. If instead the visitor types a panelist's name and description directly on screen, they are added automatically as they type — you do not need to call human_panelist for them, just react to what they wrote.
+${isWebMode ? `If they want to add a human panelist by telling you about them (rather than typing it in themselves), call the human_panelist tool the name, and a short description of the human panelist. This will add them as a panelist to the meeting. The tool will return the index of the added panelist, so we can add upp to 3 panelists. If instead the visitor types a panelist's name and description directly on screen, they are added automatically as they type — you do not need to call human_panelist for them, just react to what they wrote.`:``}
 To deselect a food character, call the deselect_character tool. This will remove them from the set of characters selected from the meeting.
 To check which characters are currently selected, call the current_characters tool. This will return a list of the current selection, you can use it to update your mental model if unsure about what is selected, or if there is conflicting information.
 Changing their mind: If we are on the food selection step, and the visitor express that they want to change the topic, call the go_to_topic_step to return to the previus step. (There is no need to call this if we are already on the topic selection step)
@@ -95,6 +95,23 @@ ${visitorName ? `You already know this visitor as ${visitorName}. Use their name
 
 ---
 
+${isWebMode ? `
+Visitor Microphone
+The visitor can turn the microphone ON and OFF.
+When it is ON, you can hear them and they can answer you. Talk with them and use your tools as described above.
+When it is OFF, you cannot hear them, and they cannot answer you — they are making every choice by clicking on screen.
+
+While it is off, follow these additional rules (that override descriptions above if contradictory):
+- Do not ask a question that requires them to speak, since they cannot, because the mic is off. You can still ask them to confirm the topic on the screen, or select more characters, etc. but not to say their name, for example.
+- Do not select, confirm or navigate anything for them, and do not offer to. They are doing it themselves.
+
+Currently the mic is ${canHearVisitor ? `ON` : `OFF.
+${hasEverHeardVisitor ? `- It was on a moment ago but they have now switched the microphone off. Simply carry on commenting; do not remark on it or ask them to turn it back on.`
+: `- Early on — in your first or second turn — mention once, briefly and lightly, that they can press the microphone button at the bottom of the screen if they would like to talk with you. Say it only once, and never nag.`}
+`}
+
+---`:``}
+
 CURRENT SITUATION
 ${phase === 'landing' ? `We are currently in the ${phase} phase. Proceed from here.`
 :`IMPORTANT STATUS UPDATE
@@ -102,18 +119,6 @@ We are currently in the ${phase} phase. The user have already gone through all t
 You do not need to repeat the jobs listed until those phases above, assume that they have already happened.
 That is, you do not need to instroduce yourself and ask if they are ready, you can assume that they already are!
 Check what your task is on the ${phase} phase, and then proceed from there.`}
-${!isWebMode ? "" : canHearVisitor ? `
-The visitor's microphone is ON. You can hear them and they can answer you. Talk with them and use your tools as described above.` : `
-The visitor's microphone is OFF. You cannot hear them, and they cannot answer you — they are making every choice by clicking on screen.
-While it is off, these rules override everything above:
-- Never ask a question, and never ask them to confirm anything. They cannot reply.
-- Never say that you are waiting for them, and never ask if they are ready or still there.
-- React to what they do on screen — you are told about each action — in one or two short sentences, then stop.
-- Comment, inform, encourage, and add a little context or opinion about their choices. That is your whole job right now.
-- Do not select, confirm or navigate anything for them, and do not offer to. They are doing it themselves.
-${hasEverHeardVisitor
-  ? `- They were talking with you a moment ago and have now switched the microphone off. Simply carry on commenting; do not remark on it or ask them to turn it back on.`
-  : `- Early on — in your first or second turn — mention once, briefly and lightly, that they can press the microphone button at the bottom of the screen if they would like to talk with you. Say it only once, and never nag.`}`}
 `;
 
   return prompt;
