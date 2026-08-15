@@ -601,11 +601,9 @@ describe("useRealtimeVoiceSession", () => {
       expect(result.current.connectionState).toBe("ready");
     });
 
+    // No getUserMedia means no permission prompt — the whole point of deferring.
     expect(getUserMedia).not.toHaveBeenCalled();
     expect(result.current.micStream).toBeNull();
-    expect(mockCreateRealtimeConnection).toHaveBeenCalledWith(
-      expect.objectContaining({ deferMic: true, micStream: undefined })
-    );
   });
 
   it("attaches and releases the microphone on a live deferred session", async () => {

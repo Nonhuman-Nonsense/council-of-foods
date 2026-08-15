@@ -296,14 +296,15 @@ describe("useSetupAgent", () => {
       result.current.toggleMic();
     });
     await waitFor(() => expect(sendUserMessage).toHaveBeenCalledOnce());
-    expect(sendUserMessage.mock.calls[0][0]).toContain("microphone on");
 
     act(() => {
       result.current.toggleMic();
     });
     await waitFor(() => expect(sendUserMessage).toHaveBeenCalledTimes(2));
-    expect(sendUserMessage.mock.calls[1][0]).toContain("microphone off");
 
+    // The wording is copy; that each direction says something different, and
+    // that neither asks the agent to speak, is the contract.
+    expect(sendUserMessage.mock.calls[0][0]).not.toBe(sendUserMessage.mock.calls[1][0]);
     expect(interruptAndRespond).not.toHaveBeenCalled();
     expect(requestAgentResponse).not.toHaveBeenCalled();
   });

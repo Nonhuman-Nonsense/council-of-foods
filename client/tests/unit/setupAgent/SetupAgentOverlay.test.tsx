@@ -64,26 +64,28 @@ describe('SetupAgentOverlay', () => {
     expect(onStart).toHaveBeenCalledOnce();
   });
 
-  it('shows the mic button as ready to click while the agent is off', () => {
-    // Off is a real state, not a pending one: the click restarts everything.
-    render(<SetupAgentOverlay {...baseProps} muted isReady={false} />);
+  it('shows the right mic button state for the session', () => {
+    const cases: Array<{ muted: boolean; isReady: boolean; micOn: boolean; expected: string }> = [
+      // Off is a real state, not a pending one: the click restarts everything,
+      // so it stays clickable even though the session is not ready.
+      { muted: true, isReady: false, micOn: false, expected: 'off' },
+      // Only a live session that hasn't finished connecting waits.
+      { muted: false, isReady: false, micOn: false, expected: 'connecting' },
+      { muted: false, isReady: true, micOn: false, expected: 'off' },
+      { muted: false, isReady: true, micOn: true, expected: 'on' },
+    ];
 
-    expect(screen.getByTestId('realtime-mic-button')).toHaveAttribute('data-mic-state', 'off');
-  });
+    for (const { muted, isReady, micOn, expected } of cases) {
+      const { unmount } = render(
+        <SetupAgentOverlay {...baseProps} muted={muted} isReady={isReady} micOn={micOn} />,
+      );
 
-  it('spins the mic button while a live session is not ready yet', () => {
-    render(<SetupAgentOverlay {...baseProps} muted={false} isReady={false} />);
-
-    expect(screen.getByTestId('realtime-mic-button')).toHaveAttribute(
-      'data-mic-state',
-      'connecting',
-    );
-  });
-
-  it('marks the mic button as on once the visitor is talking', () => {
-    render(<SetupAgentOverlay {...baseProps} micOn />);
-
-    expect(screen.getByTestId('realtime-mic-button')).toHaveAttribute('data-mic-state', 'on');
+      expect(
+        screen.getByTestId('realtime-mic-button'),
+        `muted=${muted} ready=${isReady} micOn=${micOn}`,
+      ).toHaveAttribute('data-mic-state', expected);
+      unmount();
+    }
   });
 
   it('does not render a clickable mic button in museum mode', () => {

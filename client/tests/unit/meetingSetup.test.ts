@@ -110,13 +110,11 @@ describe("diffCouncil", () => {
 describe("buildMeetingSetupReactionMessage", () => {
   const roster = { selectedNames: ["Bean", "Meat"], chairName: "Water", isFull: false };
 
-  it("tells the agent the visitor left the welcome screen", () => {
-    // Without this the agent keeps working from the welcome step after a
-    // visitor clicks "Let's go" — the only way past it with the mic off.
-    const message = buildMeetingSetupReactionMessage({ type: "setup_started" });
-
-    expect(message).toContain("welcome screen");
-    expect(message).toContain("topic selection");
+  it("reports the visitor leaving the welcome screen", () => {
+    // The wording is copy; that this event is reported at all is the contract.
+    // Silence here is what left the agent working from the welcome step after a
+    // visitor clicked "Let's go" — the only way past it with the mic off.
+    expect(buildMeetingSetupReactionMessage({ type: "setup_started" })).not.toBe("");
   });
 
   it("names every food added since the last reaction, not just the last click", () => {

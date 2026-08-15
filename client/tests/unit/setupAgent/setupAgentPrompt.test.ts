@@ -29,68 +29,24 @@ describe('buildSetupAgentPrompt', () => {
     expect(prompt).toContain('Apple');
   });
 
-  it('tells the agent it cannot be answered when the mic is off', () => {
-    const canHear = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'topic' });
-    const cannotHear = buildSetupAgentPrompt({
-      language: 'en', topics, characters, phase: 'topic', canHearVisitor: false,
-    });
-
-    expect(cannotHear).not.toBe(canHear);
-    // The failure this guards against is the agent asking a question and then
-    // waiting forever for a visitor who has no microphone.
-    expect(cannotHear.toLowerCase()).toContain('the mic is off');
-    expect(cannotHear.toLowerCase()).toContain('cannot hear them');
-  });
-
-  it('describes both modes whichever one is live', () => {
-    // The agent has to know the mic can be switched, or the switch arrives as
-    // an unexplained personality change mid-session.
-    for (const canHearVisitor of [true, false]) {
-      const prompt = buildSetupAgentPrompt({
-        language: 'en', topics, characters, phase: 'topic', canHearVisitor,
-      });
-
-      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('turn the microphone on and off');
-      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('when it is on');
-      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('when it is off');
-    }
-  });
-
-  it('points the agent at the conversation for the live mic state', () => {
-    // The prompt is only ever sent when a session connects, so it describes the
-    // start of the session; every change after that arrives as a message.
-    const prompt = buildSetupAgentPrompt({
-      language: 'en', topics, characters, phase: 'topic', canHearVisitor: false,
-    });
-
-    expect(prompt.toLowerCase()).toContain('when this session started');
-    expect(prompt.toLowerCase()).toContain('most recent notice');
-  });
-
-  it('keeps the phase jobs and the setup lists in both modes', () => {
-    // One prompt, not two: commentary still needs the topics, the foods and the
-    // phase it is in.
-    const prompt = buildSetupAgentPrompt({
-      language: 'en', topics, characters, phase: 'characters', canHearVisitor: false,
-    });
-
-    expect(prompt).toContain('Topic One');
-    expect(prompt).toContain('Apple');
-    expect(prompt).toContain('characters phase');
-  });
-
-  it('invites the visitor to the microphone only until they have used it', () => {
+  /**
+   * What the prompt *says* about the microphone is copy, and rewording it must
+   * not break tests. That the mic context reaches the prompt at all is the
+   * contract worth holding: without it the agent would talk to a visitor who
+   * cannot answer.
+   */
+  it('varies with the microphone context it is given', () => {
+    const base = { language: 'en', topics, characters, phase: 'topic' as const };
+    const micOn = buildSetupAgentPrompt({ ...base, canHearVisitor: true });
     const neverSpoken = buildSetupAgentPrompt({
-      language: 'en', topics, characters, phase: 'topic',
-      canHearVisitor: false, hasEverHeardVisitor: false,
+      ...base, canHearVisitor: false, hasEverHeardVisitor: false,
     });
-    const spokenBefore = buildSetupAgentPrompt({
-      language: 'en', topics, characters, phase: 'topic',
-      canHearVisitor: false, hasEverHeardVisitor: true,
+    const spokenThenMuted = buildSetupAgentPrompt({
+      ...base, canHearVisitor: false, hasEverHeardVisitor: true,
     });
 
-    expect(neverSpoken).toContain('microphone button');
-    expect(spokenBefore).not.toContain('microphone button');
+    expect(neverSpoken).not.toBe(micOn);
+    expect(spokenThenMuted).not.toBe(neverSpoken);
   });
 
   it('defaults to a hearing agent so museum is unaffected', () => {

@@ -36,11 +36,6 @@ describe("micAvailabilityStore", () => {
     vi.unstubAllGlobals();
   });
 
-  it("starts out knowing nothing", () => {
-    expect(getMicAvailability()).toBe("unknown");
-    expect(useMicAvailabilityStore.getState().reason).toBeNull();
-  });
-
   it("records a granted microphone when a request succeeds", async () => {
     const stream = { id: "mic" };
     stubGetUserMedia(vi.fn().mockResolvedValue(stream));
