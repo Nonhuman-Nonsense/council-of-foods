@@ -26,6 +26,22 @@ export class RealtimeHttpError extends Error {
   }
 }
 
+/**
+ * Thrown when a realtime HTTP call exceeds its own timeout.
+ *
+ * Deliberately *not* an `AbortError`: callers use `AbortError` to mean "we
+ * cancelled this ourselves, drop it silently", and a timeout is the opposite —
+ * nobody asked for it and it should be retried. Before this existed, a visitor
+ * who left the mic permission prompt open longer than the bootstrap timeout
+ * silently stranded the session in "connecting" forever.
+ */
+export class RealtimeTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RealtimeTimeoutError";
+  }
+}
+
 /** Why microphone acquisition failed. Drives error classification + messaging. */
 export type MicrophoneErrorReason =
   | "insecure_context" // page not served over HTTPS/localhost — mediaDevices unavailable
@@ -124,14 +140,21 @@ export async function acquireMicrophone(): Promise<MediaStream> {
 // Error classifier
 // ---------------------------------------------------------------------------
 
-export type RealtimeErrorKind = "fatal" | "retryable";
+/**
+ * - `fatal` — retrying won't help and the app cannot continue as intended.
+ * - `retryable` — transient, worth another attempt.
+ * - `unavailable` — the voice agent can't run, but the app is fine without it.
+ *   Web-only: the visitor keeps a fully usable, clickable interface.
+ */
+export type RealtimeErrorKind = "fatal" | "retryable" | "unavailable";
 
 /**
- * Classify a realtime connection error as fatal (won't recover with retries)
- * or retryable (transient — worth attempting again).
+ * Classify a realtime connection error.
  *
- * `isMuseumMode` affects mic-permission handling: kiosks should always have a
- * mic, so `NotAllowedError` is treated as a transient OS hiccup there.
+ * `isMuseumMode` decides how microphone failures land. A kiosk with no working
+ * mic is genuinely broken and should surface as a terminal error; a web visitor
+ * who declines the prompt has simply chosen not to talk, and the setup flow
+ * still works entirely by clicking.
  */
 export function classifyRealtimeError(
   err: unknown,
@@ -145,18 +168,84 @@ export function classifyRealtimeError(
   }
   // Invalid bootstrap shape — a structural/config problem
   if (err instanceof Error && err.message.includes("response invalid")) return "fatal";
-  // Any microphone acquisition failure is fatal — retrying getUserMedia can
-  // never resolve a blocked permission, missing hardware, or a busy device.
-  // Surfacing the specific message immediately is always more useful than
-  // an endless reconnect loop.
-  if (err instanceof MicrophoneUnavailableError) return "fatal";
-  // Legacy path (should now be wrapped by MicrophoneUnavailableError): mic
-  // permission denied is fatal on web (user choice), retryable in museum.
-  if (err instanceof Error && err.name === "NotAllowedError") {
-    return opts?.isMuseumMode ? "retryable" : "fatal";
+  // Microphone failures never resolve by retrying — a blocked permission,
+  // missing hardware or busy device all need the user (or a technician) to act.
+  if (err instanceof MicrophoneUnavailableError) {
+    return opts?.isMuseumMode ? "fatal" : "unavailable";
   }
-  // Everything else (network, ICE timeout, pc_failed, dc_error, etc.) = retryable
+  // Legacy path (should now be wrapped by MicrophoneUnavailableError).
+  if (err instanceof Error && err.name === "NotAllowedError") {
+    return opts?.isMuseumMode ? "fatal" : "unavailable";
+  }
+  // Everything else (network, timeout, ICE, pc_failed, dc_error, etc.) = retryable
   return "retryable";
+}
+
+// ---------------------------------------------------------------------------
+// Microphone permission state
+// ---------------------------------------------------------------------------
+
+/** `"unsupported"` means the Permissions API can't tell us — assume a prompt. */
+export type MicPermissionState = "granted" | "prompt" | "denied" | "unsupported";
+
+/** Permissions API support for the `microphone` name is uneven (Chromium yes,
+ *  Firefox rejects the name, Safari partial), so every path is guarded. */
+function micPermissionQuery(): Promise<PermissionStatus> | null {
+  const permissions = typeof navigator !== "undefined" ? navigator.permissions : undefined;
+  if (!permissions || typeof permissions.query !== "function") return null;
+  try {
+    return permissions.query({ name: "microphone" as PermissionName });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Best-effort read of the microphone permission, used to decide whether a
+ * `getUserMedia` call would prompt, succeed silently, or fail instantly.
+ * Never throws — an unknown answer is reported as `"unsupported"`.
+ */
+export async function queryMicPermission(): Promise<MicPermissionState> {
+  const query = micPermissionQuery();
+  if (!query) return "unsupported";
+  try {
+    const status = await query;
+    return status.state as MicPermissionState;
+  } catch {
+    return "unsupported";
+  }
+}
+
+/**
+ * Subscribe to microphone permission changes, so a visitor who allows the mic
+ * from browser site settings is noticed without a page reload.
+ * Returns an unsubscribe function; a no-op where the API is unsupported.
+ */
+export function watchMicPermission(
+  onChange: (state: MicPermissionState) => void,
+): () => void {
+  let cancelled = false;
+  let detach: (() => void) | null = null;
+
+  const query = micPermissionQuery();
+  if (query) {
+    void query
+      .then((status) => {
+        if (cancelled) return;
+        const handler = () => onChange(status.state as MicPermissionState);
+        status.addEventListener("change", handler);
+        detach = () => status.removeEventListener("change", handler);
+      })
+      .catch(() => {
+        /* unsupported — nothing to watch */
+      });
+  }
+
+  return () => {
+    cancelled = true;
+    detach?.();
+    detach = null;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -182,8 +271,24 @@ export type RealtimeConnection = {
   pc: RTCPeerConnection;
   /** Active data channel ("oai-events"). */
   dc: RTCDataChannel;
-  /** Local microphone stream we created (so callers can stop tracks). */
-  micStream: MediaStream;
+  /**
+   * Microphone stream currently being sent, or `null` when the session is
+   * listening-only. Mutates on {@link RealtimeConnection.attachMic} /
+   * {@link RealtimeConnection.detachMic} — read it, don't cache it.
+   */
+  micStream: MediaStream | null;
+  /**
+   * Start sending a microphone without renegotiating: the audio sender already
+   * exists (see `deferMic`), so `replaceTrack` is enough. Any previously
+   * attached stream is stopped and released.
+   */
+  attachMic: (stream: MediaStream) => Promise<void>;
+  /**
+   * Stop sending audio and release the microphone (so the browser's recording
+   * indicator goes away). The sender stays in place, so a later `attachMic`
+   * needs no renegotiation either.
+   */
+  detachMic: () => void;
   /** Closes everything in the right order; safe to call multiple times. */
   close: () => void;
 };
@@ -201,9 +306,19 @@ export type CreateConnectionParams = {
   callBodyExtras?: Record<string, unknown>;
   /**
    * When passed (e.g. acquired in parallel with bootstrap in the hook), skips an
-   * internal `getUserMedia` call.
+   * internal `getUserMedia` call. Ignored when `deferMic` is set.
    */
   micStream?: MediaStream;
+  /**
+   * Connect without a microphone — no `getUserMedia`, so **no permission
+   * prompt**. An empty `sendrecv` audio transceiver is negotiated instead, so
+   * the agent can talk immediately and the visitor can hand over their mic
+   * later via {@link RealtimeConnection.attachMic} with no renegotiation.
+   *
+   * Verified against Inworld: the empty m-line is accepted, and transcription
+   * starts as soon as packets appear.
+   */
+  deferMic?: boolean;
   /** Forwarded to ontrack so the caller can attach <audio>. */
   onRemoteTrack: (track: MediaStreamTrack) => void;
   /** Receives all data channel JSON events. */
@@ -232,12 +347,23 @@ async function fetchWithTimeout(
   externalSignal?: AbortSignal
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timeout = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
   const onExternalAbort = () => controller.abort();
   externalSignal?.addEventListener("abort", onExternalAbort);
   try {
     if (externalSignal?.aborted) controller.abort();
     return await councilFetch(input, { ...init, signal: controller.signal });
+  } catch (err) {
+    // Re-brand our own timeout so callers don't mistake it for a caller-driven
+    // cancellation and drop the session on the floor.
+    if (timedOut && !externalSignal?.aborted) {
+      throw new RealtimeTimeoutError(`Realtime request timed out after ${timeoutMs}ms`);
+    }
+    throw err;
   } finally {
     window.clearTimeout(timeout);
     externalSignal?.removeEventListener("abort", onExternalAbort);
@@ -395,6 +521,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     callHeaders,
     callBodyExtras,
     micStream: micStreamParam,
+    deferMic = false,
     onRemoteTrack,
     onEvent,
     onOpen,
@@ -406,6 +533,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
   let pc: RTCPeerConnection | null = null;
   let dc: RTCDataChannel | null = null;
   let micStream: MediaStream | null = null;
+  let audioSender: RTCRtpSender | null = null;
 
   const teardownPartial = () => {
     try {
@@ -423,7 +551,9 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
   try {
     throwIfAborted(signal);
 
-    if (micStreamParam) {
+    if (deferMic) {
+      log("deferred mic — connecting without getUserMedia");
+    } else if (micStreamParam) {
       micStream = micStreamParam;
     } else {
       log("getUserMedia");
@@ -469,7 +599,16 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       if (e.track.kind === "audio") onRemoteTrack(e.track);
     };
 
-    micStream.getAudioTracks().forEach((t) => pc!.addTrack(t, micStream!));
+    if (micStream) {
+      micStream.getAudioTracks().forEach((t) => {
+        audioSender = pc!.addTrack(t, micStream!);
+      });
+    } else {
+      // Empty sendrecv transceiver: the m-line is negotiated as if a mic were
+      // present, so attaching one later is a plain replaceTrack. Nothing is
+      // sent until then — no packets, no input-audio cost.
+      audioSender = pc.addTransceiver("audio", { direction: "sendrecv" }).sender;
+    }
 
     log("createOffer");
     const offer = await pc.createOffer();
@@ -488,23 +627,55 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     let closed = false;
     const finalPc = pc;
     const finalDc = dc;
-    const finalMic = micStream;
-    const close = () => {
-      if (closed) return;
-      closed = true;
+    const finalSender = audioSender;
+
+    const stopMic = () => {
       try {
-        finalDc.close();
+        connection.micStream?.getTracks().forEach((t) => t.stop());
       } catch { /* ignore */ }
-      try {
-        finalPc.getSenders().forEach((s) => s.track?.stop());
-        finalPc.close();
-      } catch { /* ignore */ }
-      try {
-        finalMic.getTracks().forEach((t) => t.stop());
-      } catch { /* ignore */ }
+      connection.micStream = null;
     };
 
-    return { pc: finalPc, dc: finalDc, micStream: finalMic, close };
+    const connection: RealtimeConnection = {
+      pc: finalPc,
+      dc: finalDc,
+      micStream,
+
+      attachMic: async (stream: MediaStream) => {
+        if (closed) return;
+        const track = stream.getAudioTracks()[0];
+        if (!track) throw new Error("Microphone stream has no audio track");
+        if (!finalSender) throw new Error("Realtime connection has no audio sender");
+        await finalSender.replaceTrack(track);
+        // Release the previous mic only once the new one is live, so a failed
+        // swap leaves the session audible rather than silently deaf.
+        stopMic();
+        connection.micStream = stream;
+        log("mic attached");
+      },
+
+      detachMic: () => {
+        if (closed) return;
+        void finalSender?.replaceTrack(null).catch(() => { /* already gone */ });
+        stopMic();
+        log("mic detached");
+      },
+
+      close: () => {
+        if (closed) return;
+        closed = true;
+        try {
+          finalDc.close();
+        } catch { /* ignore */ }
+        try {
+          finalPc.getSenders().forEach((s) => s.track?.stop());
+          finalPc.close();
+        } catch { /* ignore */ }
+        stopMic();
+      },
+    };
+
+    return connection;
   } catch (err) {
     teardownPartial();
     throw err;

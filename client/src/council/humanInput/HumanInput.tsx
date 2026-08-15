@@ -621,7 +621,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
       // Gate the mic: track stays in the peer connection but sends no audio.
       // STT only bills on real audio, so this warm connection is free.
-      const tracks = connection.micStream.getAudioTracks();
+      const tracks = connection.micStream?.getAudioTracks() ?? [];
       tracks.forEach(track => {
         track.enabled = false;
       });
@@ -683,7 +683,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     completedTranscriptKeysRef.current.clear();
     setTranscriptSegments([]);
     setPreviousTranscript(inputValue);
-    const tracks = connectionRef.current.micStream.getAudioTracks();
+    const tracks = connectionRef.current.micStream?.getAudioTracks() ?? [];
     tracks.forEach(track => {
       track.enabled = true;
     });
@@ -720,7 +720,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
     connectionStateRef.current = "finishing";
     setConnectionState("finishing");
-    connectionRef.current.micStream.getAudioTracks().forEach(track => {
+    connectionRef.current.micStream?.getAudioTracks().forEach(track => {
       track.enabled = false;
     });
     setMicStream(null);

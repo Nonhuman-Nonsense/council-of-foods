@@ -42,15 +42,32 @@ vi.mock("@realtime/realtimeEventLoop", () => ({
   },
 }));
 
+const mockClassifyRealtimeError = vi.hoisted(() => vi.fn((..._args: unknown[]) => "retryable"));
+
+const MockMicrophoneUnavailableError = vi.hoisted(
+  () =>
+    class extends Error {
+      constructor(readonly reason: string, message: string) {
+        super(message);
+        this.name = "MicrophoneUnavailableError";
+      }
+    }
+);
+
 vi.mock("@realtime/realtimeConnection", () => ({
   fetchRealtimeBootstrap: (...args: unknown[]) => mockFetchRealtimeBootstrap(...args),
   createRealtimeConnection: (...args: unknown[]) => mockCreateRealtimeConnection(...args),
   acquireMicrophone: () =>
     navigator.mediaDevices.getUserMedia({ audio: true }),
-  classifyRealtimeError: () => "retryable",
+  classifyRealtimeError: (...args: unknown[]) => mockClassifyRealtimeError(...args),
   computeRealtimeRetryDelay: () => 0,
+  MicrophoneUnavailableError: MockMicrophoneUnavailableError,
   REALTIME_RETRY_BASE_MS: 1000,
   REALTIME_RETRY_MAX_MS: 15000,
+}));
+
+vi.mock("@realtime/micAvailabilityStore", () => ({
+  requestMicrophone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
 }));
 
 vi.mock("@realtime/remoteAudioAnchor", () => ({
@@ -113,17 +130,30 @@ beforeEach(() => {
     iceServers: [],
   });
 
-  mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
-    onOpen();
-    return {
-      close: vi.fn(),
-      micStream: {
-        getTracks: () => [{ stop: vi.fn() }],
-        getAudioTracks: () => [{ enabled: false }],
-      },
-      dc: { readyState: "open", send: vi.fn() },
-    };
-  });
+  mockClassifyRealtimeError.mockReturnValue("retryable");
+
+  mockCreateRealtimeConnection.mockImplementation(
+    async ({ onOpen, deferMic }: { onOpen: () => void; deferMic?: boolean }) => {
+      onOpen();
+      const connection = {
+        close: vi.fn(),
+        micStream: deferMic
+          ? null
+          : {
+              getTracks: () => [{ stop: vi.fn() }],
+              getAudioTracks: () => [{ enabled: false }],
+            },
+        attachMic: vi.fn(async (stream: unknown) => {
+          connection.micStream = stream as typeof connection.micStream;
+        }),
+        detachMic: vi.fn(() => {
+          connection.micStream = null;
+        }),
+        dc: { readyState: "open", send: vi.fn() },
+      };
+      return connection;
+    }
+  );
 
   vi.stubGlobal("navigator", {
     ...navigator,
@@ -557,6 +587,110 @@ describe("useRealtimeVoiceSession", () => {
       result.current.setMicEnabled(false);
     });
     expect(result.current.micStream).toBeNull();
+  });
+
+  it("connects without asking for the microphone when deferMic is set", async () => {
+    const getUserMedia = vi.fn();
+    vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia } });
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, deferMic: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(result.current.micStream).toBeNull();
+    expect(mockCreateRealtimeConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ deferMic: true, micStream: undefined })
+    );
+  });
+
+  it("attaches and releases the microphone on a live deferred session", async () => {
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, deferMic: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    let attached: boolean | undefined;
+    await act(async () => {
+      attached = await result.current.attachMic();
+    });
+
+    expect(attached).toBe(true);
+    expect(result.current.micStream).not.toBeNull();
+    // Still the same session — attaching a mic must not reconnect.
+    expect(mockCreateRealtimeConnection).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).toBe("ready");
+
+    act(() => {
+      result.current.detachMic();
+    });
+
+    expect(result.current.micStream).toBeNull();
+    expect(result.current.connectionState).toBe("ready");
+  });
+
+  it("reports an unavailable microphone without killing the session", async () => {
+    const onUnavailable = vi.fn();
+    const onFatalError = vi.fn();
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, deferMic: true, onUnavailable, onFatalError })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    mockClassifyRealtimeError.mockReturnValue("unavailable");
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      mediaDevices: {
+        getUserMedia: vi
+          .fn()
+          .mockRejectedValue(new MockMicrophoneUnavailableError("permission_denied", "blocked")),
+      },
+    });
+
+    let attached: boolean | undefined;
+    await act(async () => {
+      attached = await result.current.attachMic();
+    });
+
+    expect(attached).toBe(false);
+    expect(onUnavailable).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "permission_denied" })
+    );
+    expect(onFatalError).not.toHaveBeenCalled();
+    // The agent keeps talking; only listening is off the table.
+    expect(result.current.connectionState).toBe("ready");
+  });
+
+  it("retries instead of going quiet when the connect times out", async () => {
+    // Regression: a timeout surfaces as an AbortError from fetch. Treating that
+    // as our own cancellation left the session stuck on "connecting" forever.
+    mockFetchRealtimeBootstrap.mockRejectedValueOnce(
+      Object.assign(new Error("Realtime request timed out after 15000ms"), {
+        name: "RealtimeTimeoutError",
+      })
+    );
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: false },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
   });
 
   it("forwards onSessionReady from the event loop", async () => {

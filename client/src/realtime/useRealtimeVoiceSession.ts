@@ -5,8 +5,11 @@ import {
   computeRealtimeRetryDelay,
   createRealtimeConnection,
   fetchRealtimeBootstrap,
+  MicrophoneUnavailableError,
+  type MicrophoneErrorReason,
   type RealtimeConnection,
 } from "@realtime/realtimeConnection";
+import { requestMicrophone } from "@realtime/micAvailabilityStore";
 import type { ConfigureSessionOptions } from "@realtime/realtimeEventLoop";
 import { createEventLoop } from "@realtime/realtimeEventLoop";
 import {
@@ -105,6 +108,12 @@ export type UseRealtimeVoiceSessionParams = {
   authHeaders?: Record<string, string>;
   /** Push-to-talk: mic track starts disabled; open via `setMicEnabled`. */
   pttMic?: boolean;
+  /**
+   * Connect without a microphone, so the session never triggers a permission
+   * prompt on its own. The agent can speak immediately; the visitor hands over
+   * their mic later with {@link UseRealtimeVoiceSessionResult.attachMic}.
+   */
+  deferMic?: boolean;
   /** Expose `agentSpeaking` while agent audio is playing (Inworld: subtitle clock; else: response lifecycle). */
   trackAgentSpeaking?: boolean;
   /** Setup-agent: optional remote audio sink (created on body if absent). */
@@ -124,6 +133,12 @@ export type UseRealtimeVoiceSessionParams = {
   retryPolicy?: RealtimeRetryPolicy;
   /** Called when a fatal, non-recoverable error occurs. Goes through the main error pipeline. */
   onFatalError?: (e: { message: string; source: string; cause?: unknown }) => void;
+  /**
+   * Called when the microphone can't be used but the app is fine without it
+   * (web). Not an error path: no retry, no overlay, no client report — the
+   * caller decides whether to say anything.
+   */
+  onUnavailable?: (e: { reason: MicrophoneErrorReason; message: string }) => void;
   /** Called on the first retryable failure (connection is now down). */
   onConnectionLost?: () => void;
   /** Called when connection is re-established after having been lost. */
@@ -145,6 +160,14 @@ export type UseRealtimeVoiceSessionResult = {
   agentSpeaking: boolean;
   micStream: MediaStream | null;
   setMicEnabled: (open: boolean) => void;
+  /**
+   * Ask for the microphone and start sending it on the live session (no
+   * reconnect). Resolves `false` when the mic couldn't be obtained — the
+   * session keeps running, listening-only.
+   */
+  attachMic: () => Promise<boolean>;
+  /** Stop sending audio and release the microphone. */
+  detachMic: () => void;
   sendUserMessage: (text: string) => void;
   /** Ask the model to respond when no response is in flight. */
   requestAgentResponse: () => void;
@@ -169,7 +192,15 @@ function attachRemoteAudio(
   if (!audioElement) {
     document.body.appendChild(el);
   }
-  void el.play().catch(() => {});
+  // A rejected play() means the browser's autoplay policy blocked us — the
+  // session is live and billing, but the visitor hears nothing, which is
+  // indistinguishable from a working agent that has gone quiet. Never swallow it.
+  void el.play().catch((err: unknown) => {
+    log.event("ERROR", "realtime remote audio blocked by autoplay policy", {
+      name: err instanceof Error ? err.name : undefined,
+      message: err instanceof Error ? err.message : String(err),
+    });
+  });
   return el;
 }
 
@@ -192,6 +223,7 @@ export function useRealtimeVoiceSession(
     triggerGreetingOnReady,
     authHeaders,
     pttMic = false,
+    deferMic = false,
     trackAgentSpeaking = false,
     audioElement,
     sessionActive = true,
@@ -200,6 +232,7 @@ export function useRealtimeVoiceSession(
     isMuseumMode = false,
     retryPolicy,
     onFatalError,
+    onUnavailable,
     onConnectionLost,
     onConnectionRestored,
     onExhausted,
@@ -248,6 +281,7 @@ export function useRealtimeVoiceSession(
   const onSessionReadyRef = useRef(onSessionReady);
   const retryPolicyRef = useRef(retryPolicy);
   const onFatalErrorRef = useRef(onFatalError);
+  const onUnavailableRef = useRef(onUnavailable);
   const onConnectionLostRef = useRef(onConnectionLost);
   const onConnectionRestoredRef = useRef(onConnectionRestored);
   const onExhaustedRef = useRef(onExhausted);
@@ -259,6 +293,7 @@ export function useRealtimeVoiceSession(
     onSessionReadyRef.current = onSessionReady;
     retryPolicyRef.current = retryPolicy;
     onFatalErrorRef.current = onFatalError;
+    onUnavailableRef.current = onUnavailable;
     onConnectionLostRef.current = onConnectionLost;
     onConnectionRestoredRef.current = onConnectionRestored;
     onExhaustedRef.current = onExhausted;
@@ -406,10 +441,13 @@ export function useRealtimeVoiceSession(
       // further down still fires normally and handles the real error on that path.
       bootstrapPromise.catch(() => {});
 
-      const micStreamValue: MediaStream = await acquireMicrophone();
+      // Deferred-mic sessions never call getUserMedia here, so they never
+      // prompt: an empty audio sender is negotiated and the visitor can hand
+      // over their mic later via attachMic().
+      const micStreamValue: MediaStream | null = deferMic ? null : await acquireMicrophone();
 
       if (isStale()) {
-        micStreamValue.getTracks().forEach((t) => t.stop());
+        micStreamValue?.getTracks().forEach((t) => t.stop());
         return;
       }
 
@@ -417,17 +455,17 @@ export function useRealtimeVoiceSession(
       try {
         bootstrapValue = await bootstrapPromise;
       } catch (bootErr) {
-        micStreamValue.getTracks().forEach((t) => t.stop());
+        micStreamValue?.getTracks().forEach((t) => t.stop());
         throw bootErr;
       }
 
       if (isStale()) {
-        micStreamValue.getTracks().forEach((t) => t.stop());
+        micStreamValue?.getTracks().forEach((t) => t.stop());
         return;
       }
 
       const { provider, session: defaults, iceServers } = bootstrapValue;
-      setMicTracksEnabled(micStreamValue, !pttMic);
+      if (micStreamValue) setMicTracksEnabled(micStreamValue, !pttMic);
 
       serverDefaultsRef.current = defaults;
 
@@ -663,7 +701,8 @@ export function useRealtimeVoiceSession(
           ? { "Content-Type": "application/json", ...authHeaders }
           : undefined,
         callBodyExtras: { feature, provider, language },
-        micStream: micStreamValue,
+        micStream: micStreamValue ?? undefined,
+        deferMic,
         log: realtimeDebugLog,
         signal: controller.signal,
         onRemoteTrack: (track) => {
@@ -740,8 +779,13 @@ export function useRealtimeVoiceSession(
 
       setConnectionState("ready");
     } catch (e) {
-      const isAbort = e instanceof Error && e.name === "AbortError";
-      if (isAbort || isStale()) {
+      // Only *our* controller firing means "we cancelled this, drop it". A
+      // network timeout also surfaces as an AbortError from fetch, and treating
+      // that as a cancellation used to strand the session in "connecting"
+      // forever — the exact case of a visitor sitting on the mic prompt.
+      const isOwnAbort =
+        controller.signal.aborted && e instanceof Error && e.name === "AbortError";
+      if (isOwnAbort || isStale()) {
         conn?.close();
         return;
       }
@@ -756,6 +800,13 @@ export function useRealtimeVoiceSession(
         setError(msg);
         setConnectionState("error");
         onFatalErrorRef.current?.({ message: msg, source: `realtime.${feature}`, cause: e });
+      } else if (kind === "unavailable") {
+        // The agent can't run, but the app is fine — go quiet, don't retry.
+        setConnectionState("idle");
+        onUnavailableRef.current?.({
+          reason: e instanceof MicrophoneUnavailableError ? e.reason : "unknown",
+          message: msg,
+        });
       } else {
         scheduleRetry();
       }
@@ -767,6 +818,7 @@ export function useRealtimeVoiceSession(
     language,
     authHeadersKey,
     pttMic,
+    deferMic,
     trackAgentSpeaking,
     buildSessionConfig,
     triggerGreetingOnReady,
@@ -812,6 +864,45 @@ export function useRealtimeVoiceSession(
     setMicTracksEnabled(stream, open);
     setMicStream(open ? stream : null);
   }, []);
+
+  const attachMic = useCallback(async (): Promise<boolean> => {
+    const conn = connectionRef.current;
+    if (!conn) return false;
+    if (conn.micStream) return true;
+
+    try {
+      const stream = await requestMicrophone();
+      // The session can be torn down while the permission prompt is open.
+      if (connectionRef.current !== conn) {
+        stream.getTracks().forEach((t) => t.stop());
+        return false;
+      }
+      await conn.attachMic(stream);
+      setMicStream(stream);
+      log.event("REALTIME", "mic attached", { feature });
+      return true;
+    } catch (e) {
+      const kind = classifyRealtimeError(e, { isMuseumMode: isMuseumModeRef.current });
+      const message = e instanceof Error ? e.message : "The microphone could not be accessed.";
+      log.event("ERROR", "mic attach failed", { feature, kind, message });
+
+      if (kind === "unavailable") {
+        onUnavailableRef.current?.({
+          reason: e instanceof MicrophoneUnavailableError ? e.reason : "unknown",
+          message,
+        });
+      } else {
+        onFatalErrorRef.current?.({ message, source: `realtime.${feature}.mic`, cause: e });
+      }
+      return false;
+    }
+  }, [feature]);
+
+  const detachMic = useCallback(() => {
+    connectionRef.current?.detachMic();
+    setMicStream(null);
+    log.event("REALTIME", "mic detached", { feature });
+  }, [feature]);
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
     const el = remoteAudioRef.current;
@@ -903,6 +994,8 @@ export function useRealtimeVoiceSession(
     agentSpeaking,
     micStream,
     setMicEnabled,
+    attachMic,
+    detachMic,
     sendUserMessage,
     requestAgentResponse,
     interruptAndRespond,
