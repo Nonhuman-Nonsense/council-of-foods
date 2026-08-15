@@ -324,61 +324,74 @@ codebase already has the mechanism for "something happened the model cannot perc
 click-reaction pipeline (`buildMeetingSetupReactionMessage` → `(The visitor just selected…)`).
 A mic toggle is the same shape.
 
-In the same effect that detects the transition and calls `reconfigureSession()`:
+Both directions send a plain `sendUserMessage` — a fact on the record, with **no response
+requested**:
 
-| Transition | Message | Delivery |
-|---|---|---|
-| off → on | "The visitor just turned their microphone on. You can hear them now — greet them briefly and let them lead." | `interruptAndRespond` — they just asked for attention; barge in if mid-sentence |
-| on → off | "The visitor just turned their microphone off. You can no longer hear them — go back to commenting on what they click, and don't ask them anything." | `sendUserMessage` only — no response requested |
+| Transition | Message |
+|---|---|
+| off → on | `(The visitor just turned their microphone on — you can hear them now.)` |
+| on → off | `(The visitor just turned their microphone off.)` |
 
-The asymmetry is the point: turning the mic **on** is an invitation to talk, so the agent should
-answer. Turning it **off** is a request for less, so it should go quiet and wait for the next
-click.
+Neither should make the agent talk. Someone who just pressed the mic button is about to speak,
+and an "ah, I can hear you now" would collide head-on with their first sentence; someone who
+just muted has asked for less, not more. In both cases the agent only needs to *know*. The
+next thing it says is prompted by the visitor — a click, a sentence, or the idle nudge.
 
-Ordering matters: `reconfigureSession()` first, then the message. Otherwise the agent reacts to
-"you can hear them now" while still holding the commentator brief and the read-only tool set.
+The messages state the fact and nothing else. The prompt already carries the rules for each
+mode, and restating them here would be a second, drifting copy.
 
 Not routed through `MeetingSetupAgent`'s click-reaction path on purpose: that path exists to
 *debounce and merge* rapid clicks, and a mic toggle is a single deliberate act with nothing to
 merge. Keeping it in the hook also keeps "mic state changed" as one unit.
 
-### 3. Tools: a latch, not a switch
+### 3. Tools: always present, gated at the handler
 
-Phase 3 filters tools by `canHearVisitor`, which is bidirectional — so tools vanish the moment
-the mic goes off. That breaks a real case: **the visitor says "pick that one" and immediately
-turns the mic off.** The command is legitimate, the tool call arrives a beat later, and the tool
-is already gone.
+Phase 3 filtered the tool *list* by mic state, which forced a `session.update` on every change.
+Two problems: the bidirectional version deleted tools the moment the mic went off — breaking
+"pick that one" followed immediately by muting, where the call lands a beat after the words —
+and even the latched version made the session config the carrier for something the prompt can
+state in a sentence.
 
-Change the gate to a latch — `hasEverHeardVisitor`, sticky true once the mic has been on at
-least once:
+So: **the agent always holds every tool**, and the gate moves to the handlers.
 
-| State | Tools |
+| State | Behaviour |
 |---|---|
-| Mic never turned on this session | read-only (`current_topic`, `current_characters`) |
-| Mic on, or has been on at any point | full set, permanently |
+| Visitor has never spoken this session | state-changing handlers refuse with an instructive error; `current_topic` / `current_characters` still work |
+| Visitor has spoken at any point | every handler works normally, mic on or off |
 
-So the tool set changes at most once per session, and only ever grows. Museum starts latched
-(it always has a microphone).
+`hasEverHeardVisitor` stays a latch, so the guard only ever opens, never closes — the
+spoken-then-muted command still lands. Museum starts latched.
 
-This also subsumes the "fail commands when the mic was never on" idea: before the latch the
-tools do not exist, so there is nothing to fail. After it, we rely on the agent's judgement,
-backed by the current-state block telling it the visitor is clicking rather than talking.
+The refusal is a safety net, not the mechanism: the prompt tells the agent not to act for a
+visitor who is clicking their own way through, and the guard is there for when it tries anyway.
+Its error text should explain rather than scold — *"The visitor has not spoken to you yet; they
+are choosing on screen themselves"* — so the agent narrates instead of apologising.
 
 **Tool descriptions stay as they are.** Writing "only available when the microphone is on" into
-each description would contradict reality in the exact case the latch exists for — mic off,
-tools present, acting on something just spoken. One source of truth for the rule (the situation
-block) beats the same rule restated in thirteen descriptions that cannot see the current state.
+each one would contradict reality in the exact case the latch exists for — mic off, tools
+present, acting on something just spoken.
 
-### Optional: a runtime guard
+### 4. No `reconfigureSession` for the setup agent at all
 
-If spurious post-latch calls turn out to be a real problem in testing, the cheap fix is a
-predicate in the state-changing tool handlers: allow when the mic is on, or when the last user
-transcript arrived within a grace window (~15–30 s, covering "spoke, then turned it off").
-Reject with an instructive error — *"The visitor is not speaking right now; they are choosing on
-screen themselves"* — so the agent narrates instead of apologising.
+With the tool list static and mic state carried conversationally, nothing in the session config
+depends on the microphone any more — so the setup agent never re-sends it. `configureSession`
+does more than deliver instructions ([realtimeEventLoop.ts:279](../client/src/realtime/realtimeEventLoop.ts#L279)):
+it sets `sessionReady = false` and clears `pendingDeferredResponse`, `pendingCreateEventId` and
+`createRejectedRetries`. Doing that on a mic toggle can silently drop a click reaction that was
+queued waiting for the session to be ready.
 
-Worth deferring until we have seen the failure. Its cost is real: a rejected call makes the
-agent say something awkward, and a badly tuned window rejects legitimate commands.
+`reconfigureSession` goes back to meaning what the meta agent uses it for: the job itself
+changed. That agent swaps prompt, tools and handlers wholesale per phase
+([MeetingMetaAgent.tsx:94](../client/src/museum/metaAgent/MeetingMetaAgent.tsx#L94)) — a
+different agent on the same connection. Turning a microphone on and off is not that.
+
+**Consequence for the prompt:** instructions are only ever sent at connect, so anything in them
+that depends on mic state describes the session's *starting* state. Phrase it that way — "when
+this session started, the microphone was OFF" is true forever, where "currently the mic is OFF"
+silently rots after the first toggle. The mic section then needs one line saying the visitor can
+switch it at any time and that the agent is told when they do, so the conversation is the
+authority on the current state. (A reconnect rebuilds the prompt from the live state, so a
+dropped session with the mic on still describes reality correctly.)
 
 ---
 
@@ -463,10 +476,13 @@ when its mic icon is clicked.
    crossing between them does not. `useSetupAgent` now takes `instructions`/`tools` as builders
    over a `SetupAgentContext`, which stays; the two-prompt split and the bidirectional tool
    filter do not.
-3b. ~~**The crossing** (§5b) — single prompt with a `CURRENT SITUATION` mic block; transition
-   announced after `reconfigureSession()` (`interruptAndRespond` on mic-on, `sendUserMessage` on
-   mic-off); tools latched on `hasEverHeardVisitor`.~~ **done**. The runtime guard on
-   post-latch tool calls stays deferred until testing shows it is needed.
+3b. ~~**The crossing** (§5b) — single prompt describing both modes; the transition announced in
+   the conversation; tools latched on `hasEverHeardVisitor`.~~ **done**.
+3d. ~~**Drop `reconfigureSession` from the setup agent** (§5b, revised) — static tool list,
+   handler-level guard on `hasEverHeardVisitor`, both mic notices sent as plain
+   `sendUserMessage` with no response requested, prompt phrased as the session's starting
+   state.~~ **done** — the setup agent now never re-sends its session config; `reconfigureSession`
+   is the meta agent's alone.
 3c. ~~**"Let's go" was invisible to the agent.**~~ **done** — every other step change
    already reached the agent as a `MeetingSetupUserEvent`, but the landing button was a bare
    `<Link>` that notified nobody, so a mic-off visitor moved to topic selection while the agent

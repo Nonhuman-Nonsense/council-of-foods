@@ -9,8 +9,10 @@ import {
   useMicAvailabilityStore,
 } from "@realtime/micAvailabilityStore";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
+import { VISITOR_SILENT_SAFE_TOOLS } from "./setupAgentTools";
+import { log } from "@/logger";
 
-/** What the agent's instructions and tools are allowed to depend on. */
+/** What the agent's instructions are allowed to depend on. */
 export type SetupAgentContext = {
   /**
    * The visitor's microphone is live right now. False on web until they press
@@ -26,24 +28,31 @@ export type SetupAgentContext = {
 };
 
 /**
- * Told to the agent in-conversation when the microphone changes hands. A
- * `session.update` changes what the agent *is* but never tells it that anything
- * *happened*, so without these it keeps narrating in the wrong register.
+ * Put on the record when the microphone changes hands. Neither asks for a
+ * reply: a visitor who just pressed the mic button is about to speak, and an
+ * "I can hear you now" would land on top of their first sentence; a visitor who
+ * just muted asked for less, not more. The agent only needs to know.
+ *
+ * They state the fact and nothing else — the prompt carries the rules for each
+ * mode, and repeating them here would be a second copy to drift out of step.
  */
-const MIC_ON_MESSAGE =
-  "(The visitor just turned their microphone on. You can hear them now — greet them briefly and let them lead.)";
-const MIC_OFF_MESSAGE =
-  "(The visitor just turned their microphone off. You can no longer hear them — go back to commenting on what they do on screen, and do not ask them anything.)";
+const MIC_ON_MESSAGE = "(The visitor just turned their microphone on — you can hear them now.)";
+const MIC_OFF_MESSAGE = "(The visitor just turned their microphone off.)";
+
+/** Returned instead of acting when the agent reaches for a tool it should not use yet. */
+const TOOL_REFUSED_ERROR =
+  "The visitor has not spoken to you yet — they are choosing on screen themselves. Comment on what they do instead.";
 
 export type UseSetupAgentParams = {
   language: string;
   /**
-   * Built from the live context rather than passed as a value: whether the
-   * agent can hear the visitor changes both what it is told and what it may do,
-   * and that state lives in here.
+   * Built from the live context rather than passed as a value: what the agent
+   * is told depends on whether it can hear the visitor, and that state lives in
+   * here. Only read when a session connects — mic changes after that are put on
+   * the record in the conversation instead of re-sending the session config.
    */
   instructions: (ctx: SetupAgentContext) => string;
-  tools: (ctx: SetupAgentContext) => RealtimeTool[];
+  tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
   audioElement?: HTMLAudioElement | null;
   autoStart?: boolean;
@@ -89,7 +98,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const {
     language,
     instructions: buildInstructions,
-    tools: buildTools,
+    tools,
     toolHandlers,
     audioElement,
     autoStart = true,
@@ -137,10 +146,33 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     () => buildInstructions({ canHearVisitor, hasEverHeardVisitor }),
     [buildInstructions, canHearVisitor, hasEverHeardVisitor],
   );
-  const tools = useMemo(
-    () => buildTools({ canHearVisitor, hasEverHeardVisitor }),
-    [buildTools, canHearVisitor, hasEverHeardVisitor],
-  );
+
+  /**
+   * The agent always holds every tool, so the session config never has to
+   * change — but a visitor who has never spoken is driving the page by hand,
+   * and a tool call would move it under them. Refuse instead of acting, with
+   * an error the agent can narrate.
+   */
+  const hasEverHeardVisitorRef = useRef(hasEverHeardVisitor);
+  hasEverHeardVisitorRef.current = hasEverHeardVisitor;
+
+  const guardedToolHandlers = useMemo(() => {
+    return Object.fromEntries(
+      Object.entries(toolHandlers).map(([name, handler]): [string, ToolHandler] => {
+        if (VISITOR_SILENT_SAFE_TOOLS.includes(name)) return [name, handler];
+        return [
+          name,
+          (args) => {
+            if (!hasEverHeardVisitorRef.current) {
+              log.event("REALTIME", "setup agent tool refused", { name });
+              return { ok: false, error: TOOL_REFUSED_ERROR };
+            }
+            return handler(args);
+          },
+        ];
+      }),
+    );
+  }, [toolHandlers]);
 
   const onConnectionLost = useCallback(() => {
     if (isMuseumMode) setConnectionError("setup-agent", true);
@@ -155,7 +187,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     language,
     instructions,
     tools,
-    toolHandlers,
+    toolHandlers: guardedToolHandlers,
     triggerGreetingOnReady: true,
     pttMic,
     // Web never prompts on connect; the mic arrives later via attachMic().
@@ -180,50 +212,29 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   }, [agentMode, micOpen, muted, session.setMicEnabled]);
 
   /**
-   * Hand the microphone over, or take it back, on a live session: push the
-   * updated instructions and tools, then say what happened.
+   * Put a mic change on the record. Nothing in the session config depends on
+   * the microphone, so this is the whole update — no `session.update`, which
+   * would also reset the turn machinery and can drop a queued click reaction.
    *
-   * The `session.update` alone would leave the agent holding a new brief with
-   * no idea it changed — it would keep talking in the old register until
-   * something else provoked a response, which for a visitor who just pressed
-   * the mic button looks like being ignored.
-   *
-   * Skips the first pass after each connect: the session was already configured
-   * with the current context when the channel opened.
+   * Skips the first pass after each connect: the instructions the session
+   * opened with already describe the microphone as it was at that moment.
    */
-  const configuredForRef = useRef<boolean | null>(null);
+  const announcedMicRef = useRef<boolean | null>(null);
   useEffect(() => {
     if (!isReady) {
-      configuredForRef.current = null;
+      announcedMicRef.current = null;
       return;
     }
-    if (configuredForRef.current === null) {
-      configuredForRef.current = canHearVisitor;
+    if (announcedMicRef.current === null) {
+      announcedMicRef.current = canHearVisitor;
       return;
     }
-    if (configuredForRef.current === canHearVisitor) return;
-    configuredForRef.current = canHearVisitor;
+    if (announcedMicRef.current === canHearVisitor) return;
+    announcedMicRef.current = canHearVisitor;
 
-    // Order matters: reconfigure first, so the agent reacts to the news while
-    // already holding the matching brief and tools. The event loop defers the
-    // response until the provider acks `session.updated`.
-    session.reconfigureSession();
-
-    if (canHearVisitor) {
-      // They just asked for attention — barge in if mid-sentence and answer.
-      session.interruptAndRespond(MIC_ON_MESSAGE, "mic-on");
-    } else {
-      // They asked for less. Update the record, but stay quiet until the next
-      // thing they do on screen.
-      session.sendUserMessage(MIC_OFF_MESSAGE);
-    }
-  }, [
-    isReady,
-    canHearVisitor,
-    session.reconfigureSession,
-    session.interruptAndRespond,
-    session.sendUserMessage,
-  ]);
+    // No response requested either way — see the message constants.
+    session.sendUserMessage(canHearVisitor ? MIC_ON_MESSAGE : MIC_OFF_MESSAGE);
+  }, [isReady, canHearVisitor, session.sendUserMessage]);
 
   // Hand the mic over once the session can take it. Covers all three routes in:
   // a click while connected, a click that had to start the agent first, and a

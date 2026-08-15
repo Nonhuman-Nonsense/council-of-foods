@@ -105,15 +105,16 @@ export default function MeetingSetupAgent({
     [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames],
   );
 
-  const tools = useCallback(
-    ({ hasEverHeardVisitor }: SetupAgentContext) =>
+  // Static: the agent holds every tool from the start, and useSetupAgent
+  // refuses the ones it should not use yet.
+  const tools = useMemo(
+    () =>
       createSetupAgentTools({
         otherLanguages,
         topics: setupTopics,
         characters: setupCharacters,
         agentMode,
         isWebMode: !isMuseumMode,
-        hasEverHeardVisitor,
       }),
     [otherLanguages, setupTopics, setupCharacters, agentMode, isMuseumMode],
   );

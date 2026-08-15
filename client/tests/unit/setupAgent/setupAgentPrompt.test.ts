@@ -50,9 +50,21 @@ describe('buildSetupAgentPrompt', () => {
         language: 'en', topics, characters, phase: 'topic', canHearVisitor,
       });
 
-      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('turn their microphone on or off');
-      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('you are told whenever they switch it');
+      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('turn the microphone on and off');
+      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('when it is on');
+      expect(prompt.toLowerCase(), String(canHearVisitor)).toContain('when it is off');
     }
+  });
+
+  it('points the agent at the conversation for the live mic state', () => {
+    // The prompt is only ever sent when a session connects, so it describes the
+    // start of the session; every change after that arrives as a message.
+    const prompt = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'topic', canHearVisitor: false,
+    });
+
+    expect(prompt.toLowerCase()).toContain('when this session started');
+    expect(prompt.toLowerCase()).toContain('most recent notice');
   });
 
   it('keeps the phase jobs and the setup lists in both modes', () => {
