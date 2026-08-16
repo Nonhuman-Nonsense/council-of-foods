@@ -4,7 +4,15 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
-import { createRealtimeConnection } from '@/realtime/realtimeConnection';
+import {
+    acquireMicrophone,
+    createRealtimeConnection,
+    MicrophoneUnavailableError,
+} from '@/realtime/realtimeConnection';
+import {
+    setMicAvailability,
+    useMicAvailabilityStore,
+} from '@realtime/micAvailabilityStore';
 import { BUTTON_BANNER_IDLE_MS } from '@museum/button/useButtonBanner';
 import type { AgentMode } from '@/settings/councilSettings';
 import type { ButtonOwner } from '@museum/button/buttonStore';
@@ -65,9 +73,21 @@ vi.mock('@api/realtimeSession', () => ({
     bootstrapHumanInputRealtimeSession: vi.fn(),
 }));
 
-vi.mock('@/realtime/realtimeConnection', () => ({
-    createRealtimeConnection: vi.fn(),
-}));
+vi.mock('@/realtime/realtimeConnection', async (importOriginal) => {
+    // The availability store wraps acquireMicrophone and narrows on
+    // MicrophoneUnavailableError, so both have to survive the mock.
+    const actual = await importOriginal<typeof import('@/realtime/realtimeConnection')>();
+    return {
+        ...actual,
+        createRealtimeConnection: vi.fn(),
+        // Handed straight to the (mocked) connection, so it needs no behaviour.
+        acquireMicrophone: vi.fn(async () => ({
+            id: 'acquired-mic',
+            getAudioTracks: () => [],
+            getTracks: () => [],
+        })),
+    };
+});
 
 vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
     LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
@@ -175,6 +195,7 @@ describe('HumanInput Component', () => {
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
+        useMicAvailabilityStore.getState().resetForTests();
         mockUseMobile.mockReturnValue(false);
         mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
@@ -483,6 +504,82 @@ describe('HumanInput Component', () => {
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
         });
+    });
+
+    // ── Blocked microphone ─────────────────────────────────────────────────────
+
+    it('should not connect at all when the microphone is known to be blocked', async () => {
+        // Connecting needs a mic, so a failed attempt lands back on idle and
+        // re-fires the auto-connect effect — an unbounded loop. Typing has to
+        // keep working, so the visitor is simply left alone.
+        setMicAvailability('unavailable', 'permission_denied');
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        // The mic control stays clickable rather than spinning forever.
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
+        expect(createRealtimeConnection).not.toHaveBeenCalled();
+        expect(screen.getByPlaceholderText('human.placeholder')).toBeInTheDocument();
+    });
+
+    it('should explain the block when the visitor clicks the mic, and keep typing usable', async () => {
+        setMicAvailability('unavailable', 'permission_denied');
+        vi.mocked(acquireMicrophone).mockRejectedValueOnce(
+            new MicrophoneUnavailableError('permission_denied', 'blocked'),
+        );
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        fireEvent.click(await screen.findByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(useMicAvailabilityStore.getState().noticeOpen).toBe(true);
+        });
+        expect(createRealtimeConnection).not.toHaveBeenCalled();
+    });
+
+    it('should connect and record when a blocked microphone is allowed on click', async () => {
+        setMicAvailability('unavailable', 'permission_denied');
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection());
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        fireEvent.click(await screen.findByTestId('icon-record_voice_off'));
+
+        // One gesture: permission, connection, and recording under way.
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+        expect(useMicAvailabilityStore.getState().noticeOpen).toBe(false);
     });
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────

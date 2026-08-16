@@ -216,21 +216,36 @@ Two consequences worth knowing up front:
   own resume ([useAgentPresence.ts:70](../client/src/setupAgent/useAgentPresence.ts#L70)) — the
   teardown/resume path itself is well-trodden, this is only about which line it opens with.
 
-### Blocked overlay
+### Blocked overlay — one trigger, no consumer opens it
 
-Unchanged from the previous plan: a `MicrophoneBlocked` overlay in the shape of `ResetWarning`,
-rendered from `Main.tsx` next to `CouncilError`/`Reconnecting`, driven by a shared store so
-`HumanInput` can raise it too. Trigger table:
+A `MicrophoneBlocked` overlay in the shape of `ResetWarning`, rendered from `Main.tsx` next to
+`CouncilError`/`Reconnecting`, wrapped in `OverlayWrapper` so it gets the app's standard
+dismissal — the corner ✕ and click-anywhere-outside — for free.
+
+**Every microphone request in the app goes through `requestMicrophone()`**, which records the
+outcome in the store *and* owns the overlay:
+
+```ts
+requestMicrophone({ userInitiated: true })   // a mic button — explain a failure
+requestMicrophone()                          // a background pre-warm — stay quiet
+```
+
+So consumers never open the overlay, never import it, and never learn the rules; they say only
+whether the visitor asked. The distinction is load-bearing rather than decorative:
+`HumanInput` pre-warms the mic automatically when the participation phase opens, and a modal
+appearing mid-meeting because of a background failure would be exactly the unprompted
+interruption we ruled out for the setup agent.
 
 | Trigger | Overlay? |
 |---|---|
-| Mic button clicked while blocked, or click → attempt → denied | **Yes** |
-| `HumanInput` mic icon clicked while blocked | **Yes** |
-| Anything automatic | No — the agent simply keeps talking without listening |
+| Setup agent mic button, or `HumanInput` mic icon | **Yes** — `userInitiated` |
+| Automatic re-attach after a reconnect, `HumanInput` pre-warm | No |
 
-Since the mic is now only ever requested from a click, "silent first denial" mostly stops
-existing as a case: every denial is a response to an explicit request, and so every denial
-earns the overlay.
+**Not merged with `ResetWarning`/`AutoplayWarning`.** They share an `<h2>/<h4>` shape but differ
+in what their buttons mean — confirm/cancel a destructive action, acknowledge information, or a
+timed auto-confirm. A generic warning component would need a props union covering all three to
+save about a dozen lines. What "reuse" was actually wanted here was the ✕ and click-outside,
+and that comes from `OverlayWrapper`, which is orthogonal to merging the content components.
 
 ---
 
@@ -487,7 +502,13 @@ when its mic icon is clicked.
    already reached the agent as a `MeetingSetupUserEvent`, but the landing button was a bare
    `<Link>` that notified nobody, so a mic-off visitor moved to topic selection while the agent
    was still working from the welcome step. Added a `setup_started` event, fired from the link.
-4. **HumanInput** — blocked-aware pre-warm, overlay on mic click, loop fix.
+4. ~~**HumanInput** — blocked-aware pre-warm, overlay on mic click, loop fix.~~ **done**, and
+   smaller than planned once the overlay moved into `requestMicrophone`: `HumanInput` skips the
+   pre-warm when the store says the mic is unavailable (which is the loop fix), and its mic
+   click acquires permission, connects with the stream, and records — one gesture. Typing is
+   untouched throughout. `createRealtimeConnection`'s internal `getUserMedia` fallback is gone:
+   every caller now supplies a stream or sets `deferMic`, so no path can prompt behind the
+   store's back.
 5. **Enablement** — flip web `agentMode` to `always-on` once costs are understood.
 
 Known loose ends, none blocking:

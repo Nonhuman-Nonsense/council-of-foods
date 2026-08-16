@@ -305,8 +305,9 @@ export type CreateConnectionParams = {
   /** Optional extra JSON fields appended to the call body. */
   callBodyExtras?: Record<string, unknown>;
   /**
-   * When passed (e.g. acquired in parallel with bootstrap in the hook), skips an
-   * internal `getUserMedia` call. Ignored when `deferMic` is set.
+   * The microphone to send. Required unless `deferMic` is set — callers acquire
+   * it themselves (through `requestMicrophone`, so the availability store sees
+   * the outcome) rather than letting this module prompt behind their back.
    */
   micStream?: MediaStream;
   /**
@@ -556,8 +557,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     } else if (micStreamParam) {
       micStream = micStreamParam;
     } else {
-      log("getUserMedia");
-      micStream = await acquireMicrophone();
+      throw new Error("createRealtimeConnection needs a micStream unless deferMic is set");
     }
     throwIfAborted(signal);
 

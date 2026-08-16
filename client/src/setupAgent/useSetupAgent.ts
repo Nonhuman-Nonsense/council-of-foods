@@ -3,11 +3,7 @@ import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRe
 import type { AgentMode } from "@/settings/councilSettings";
 import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
-import {
-  openMicNotice,
-  refreshMicAvailability,
-  useMicAvailabilityStore,
-} from "@realtime/micAvailabilityStore";
+import { refreshMicAvailability, useMicAvailabilityStore } from "@realtime/micAvailabilityStore";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import { VISITOR_SILENT_SAFE_TOOLS } from "./setupAgentTools";
 import { log } from "@/logger";
@@ -245,14 +241,13 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
     let cancelled = false;
     void (async () => {
-      const attached = await session.attachMic();
+      // requestMicrophone explains a failed request the visitor made, and stays
+      // quiet for an automatic re-attach after a reconnect.
+      const attached = await session.attachMic({
+        userInitiated: micRequestedByUserRef.current,
+      });
       if (cancelled) return;
-      if (!attached) {
-        setMicOn(false);
-        // Only explain when they asked for it — an automatic re-attach that
-        // fails should not throw an overlay in front of a browsing visitor.
-        if (micRequestedByUserRef.current) openMicNotice();
-      }
+      if (!attached) setMicOn(false);
       micRequestedByUserRef.current = false;
     })();
 

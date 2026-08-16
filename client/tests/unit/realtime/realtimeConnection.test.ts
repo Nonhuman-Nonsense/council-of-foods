@@ -357,44 +357,41 @@ describe("realtimeConnection", () => {
     expect(audioTrack.stop).toHaveBeenCalledTimes(2);
   });
 
-  it("waits for ICE gathering, can use getUserMedia, and sets the remote description", async () => {
+  it("waits for ICE gathering before exchanging SDP", async () => {
     stubRtcGlobals();
     MockPeerConnection.nextIceGatheringState = "gathering";
-    const micTrack = new MockTrack("audio");
-    const getUserMedia = stubGetUserMedia(
-      vi.fn().mockResolvedValue(new MockMediaStream([micTrack]) as unknown as MediaStream)
-    );
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ sdp: "answer-sdp" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      )
-    );
+    stubCallAnswer();
 
-    const connectionPromise = createRealtimeConnection({
+    const connection = await createRealtimeConnection({
       session: { type: "realtime" },
       iceServers: [],
       callPath: "/api/realtime/call",
+      micStream: new MockMediaStream() as unknown as MediaStream,
       onEvent: vi.fn(),
       onRemoteTrack: vi.fn(),
     });
 
-    const connection = await connectionPromise;
     const pc = MockPeerConnection.instances[0];
-
-    expect(getUserMedia).toHaveBeenCalledWith({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false,
-      },
-    });
     expect(pc.setRemoteDescription).toHaveBeenCalledWith({ type: "answer", sdp: "answer-sdp" });
 
     connection.close();
+  });
+
+  it("refuses to connect with neither a microphone nor deferMic", async () => {
+    // Acquiring one here would prompt behind the caller's back and leave the
+    // availability store none the wiser.
+    stubRtcGlobals();
+    stubCallAnswer();
+
+    await expect(
+      createRealtimeConnection({
+        session: { type: "realtime" },
+        iceServers: [],
+        callPath: "/api/realtime/call",
+        onEvent: vi.fn(),
+        onRemoteTrack: vi.fn(),
+      })
+    ).rejects.toThrow(/micStream/);
   });
 
   it("tears down partial state when call creation fails", async () => {

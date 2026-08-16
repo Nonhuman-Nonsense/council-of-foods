@@ -61,6 +61,34 @@ describe("micAvailabilityStore", () => {
     }
   });
 
+  it("explains a failure the visitor asked for, and only that", async () => {
+    // One trigger for the overlay, so no consumer has to remember to open it —
+    // and a background pre-warm never throws a modal in front of anyone.
+    const cases: Array<{ userInitiated: boolean; noticeOpen: boolean }> = [
+      { userInitiated: true, noticeOpen: true },
+      { userInitiated: false, noticeOpen: false },
+    ];
+
+    for (const { userInitiated, noticeOpen } of cases) {
+      useMicAvailabilityStore.getState().resetForTests();
+      stubGetUserMedia(
+        vi.fn().mockRejectedValue(Object.assign(new Error("x"), { name: "NotAllowedError" })),
+      );
+
+      await expect(requestMicrophone({ userInitiated })).rejects.toThrow();
+
+      expect(useMicAvailabilityStore.getState().noticeOpen, String(userInitiated)).toBe(noticeOpen);
+    }
+  });
+
+  it("says nothing when the visitor's request succeeds", async () => {
+    stubGetUserMedia(vi.fn().mockResolvedValue({ id: "mic" }));
+
+    await requestMicrophone({ userInitiated: true });
+
+    expect(useMicAvailabilityStore.getState().noticeOpen).toBe(false);
+  });
+
   it("drops a stale reason once the microphone is available again", () => {
     setMicAvailability("unavailable", "permission_denied");
     setMicAvailability("granted");

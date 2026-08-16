@@ -171,20 +171,38 @@ export function watchMicAvailability(): () => void {
   });
 }
 
+export type RequestMicrophoneOptions = {
+  /**
+   * The visitor asked for this — a mic button, not a background pre-warm. A
+   * failed request they made deserves an explanation; one they never made
+   * should stay quiet rather than throwing a modal in front of them.
+   */
+  userInitiated?: boolean;
+};
+
 /**
- * `acquireMicrophone` plus bookkeeping: every mic request in the app should go
- * through here so the store reflects what the browser actually did, rather than
- * each caller remembering to report it. Rethrows unchanged.
+ * `acquireMicrophone` plus bookkeeping: every mic request in the app goes
+ * through here, so the store reflects what the browser actually did and the
+ * "microphone is blocked" overlay has exactly one trigger. Callers never open
+ * that overlay themselves — they just say whether the visitor asked.
+ *
+ * Rethrows unchanged.
  */
-export async function requestMicrophone(): Promise<MediaStream> {
+export async function requestMicrophone(
+  { userInitiated = false }: RequestMicrophoneOptions = {},
+): Promise<MediaStream> {
   try {
     const stream = await acquireMicrophone();
     setMicAvailability("granted");
     return stream;
   } catch (err) {
     if (err instanceof MicrophoneUnavailableError) {
-      log.event("REALTIME", "microphone unavailable", { reason: err.reason });
+      log.event("REALTIME", "microphone unavailable", {
+        reason: err.reason,
+        userInitiated,
+      });
       setMicAvailability("unavailable", err.reason);
+      if (userInitiated) openMicNotice();
     }
     throw err;
   }

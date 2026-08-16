@@ -164,8 +164,11 @@ export type UseRealtimeVoiceSessionResult = {
    * Ask for the microphone and start sending it on the live session (no
    * reconnect). Resolves `false` when the mic couldn't be obtained — the
    * session keeps running, listening-only.
+   *
+   * Pass `userInitiated` when this came from the visitor pressing something, so
+   * a failure is explained rather than swallowed.
    */
-  attachMic: () => Promise<boolean>;
+  attachMic: (options?: { userInitiated?: boolean }) => Promise<boolean>;
   /** Stop sending audio and release the microphone. */
   detachMic: () => void;
   sendUserMessage: (text: string) => void;
@@ -865,13 +868,15 @@ export function useRealtimeVoiceSession(
     setMicStream(open ? stream : null);
   }, []);
 
-  const attachMic = useCallback(async (): Promise<boolean> => {
+  const attachMic = useCallback(async (
+    { userInitiated = false }: { userInitiated?: boolean } = {},
+  ): Promise<boolean> => {
     const conn = connectionRef.current;
     if (!conn) return false;
     if (conn.micStream) return true;
 
     try {
-      const stream = await requestMicrophone();
+      const stream = await requestMicrophone({ userInitiated });
       // The session can be torn down while the permission prompt is open.
       if (connectionRef.current !== conn) {
         stream.getTracks().forEach((t) => t.stop());

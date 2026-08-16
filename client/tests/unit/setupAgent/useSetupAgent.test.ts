@@ -216,7 +216,9 @@ describe("useSetupAgent", () => {
     expect(result.current.micOn).toBe(false);
   });
 
-  it("explains a blocked microphone only when the visitor asked for it", async () => {
+  it("marks a mic click as the visitor's own request", async () => {
+    // requestMicrophone explains a failure the visitor asked for; this is the
+    // only signal it has to tell that apart from a background re-attach.
     attachMic.mockResolvedValue(false);
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
 
@@ -226,8 +228,8 @@ describe("useSetupAgent", () => {
       result.current.toggleMic();
     });
 
-    await waitFor(() => expect(result.current.micOn).toBe(false));
-    expect(useMicAvailabilityStore.getState().noticeOpen).toBe(true);
+    await waitFor(() => expect(attachMic).toHaveBeenCalledWith({ userInitiated: true }));
+    expect(result.current.micOn).toBe(false);
   });
 
   it("re-attaches the microphone after a reconnect without nagging", async () => {
@@ -250,8 +252,9 @@ describe("useSetupAgent", () => {
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
     rerender();
 
+    // Not the visitor's request this time, so a failure stays quiet.
     await waitFor(() => expect(attachMic).toHaveBeenCalledTimes(2));
-    expect(useMicAvailabilityStore.getState().noticeOpen).toBe(false);
+    expect(attachMic).toHaveBeenLastCalledWith({ userInitiated: false });
   });
 
   it("never re-sends the session config when the mic changes hands", async () => {

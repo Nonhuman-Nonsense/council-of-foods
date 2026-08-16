@@ -38,6 +38,7 @@ import CouncilError from "./overlay/CouncilError";
 import ErrorBoundary from "./ErrorBoundary";
 import Reconnecting from "./overlay/Reconnecting";
 import MicrophoneBlocked from "./overlay/MicrophoneBlocked";
+import OverlayWrapper from "./overlay/OverlayWrapper";
 import { useErrorStore } from "./overlay/errorStore";
 import { useMicAvailabilityStore, watchMicAvailability } from "@realtime/micAvailabilityStore";
 
@@ -269,7 +270,9 @@ export default function Main(props: MainProps) {
       )}
       {micNoticeOpen && unrecoverableError == null && (
         <Overlay isActive={true} isBlurred={true} layer="system">
-          <MicrophoneBlocked onDismiss={closeMicNotice} />
+          <OverlayWrapper showX={true} cancelOverlay={closeMicNotice}>
+            <MicrophoneBlocked onDismiss={closeMicNotice} />
+          </OverlayWrapper>
         </Overlay>
       )}
       <MainOverlays

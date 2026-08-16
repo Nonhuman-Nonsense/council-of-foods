@@ -13,6 +13,7 @@ import {
   createRealtimeConnection,
   type RealtimeConnection,
 } from "@realtime/realtimeConnection";
+import { requestMicrophone, useMicAvailabilityStore } from "@realtime/micAvailabilityStore";
 import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
@@ -321,6 +322,14 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const finishingNoEventsTimerRef = useRef<number | null>(null);
   const finishingHardTimerRef = useRef<number | null>(null);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  /**
+   * A mic we already know is unusable. Pre-warming into it would fail, land back
+   * on "idle", and re-fire the auto-connect effect forever; typing has to keep
+   * working regardless, so the visitor is left alone until they ask for the mic.
+   */
+  const micUnavailable = useMicAvailabilityStore((s) => s.availability === "unavailable");
+  /** Set when a mic click had to acquire permission first — record once ready. */
+  const pendingRecordRef = useRef(false);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
@@ -365,11 +374,22 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }, [inputValue]);
 
   // Auto-connect: fires on mount (idle) and reconnects if connection drops.
+  // Skipped entirely when the mic is known-unavailable — the connection needs
+  // one, so retrying would only spin.
   useEffect(() => {
-    if (connectionState === "idle") {
+    if (connectionState === "idle" && !micUnavailable) {
       void connect();
     }
-   
+
+  }, [connectionState, micUnavailable]);
+
+  // A mic click that had to ask for permission first: start recording as soon
+  // as the connection it triggered is live, so it behaves like any other click.
+  useEffect(() => {
+    if (connectionState !== "ready" || !pendingRecordRef.current) return;
+    pendingRecordRef.current = false;
+    startRecording();
+
   }, [connectionState]);
 
   // Full cleanup on unmount — aborts any in-flight handshake and closes connection.
@@ -542,7 +562,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
    * Lands in "ready" — no audio is sent until startRecording() is called.
    * Safe to call when state is "idle"; aborts any previous in-flight attempt.
    */
-  async function connect() {
+  async function connect(preAcquiredMic?: MediaStream) {
     const controller = new AbortController();
     startAbortRef.current?.abort();
     startAbortRef.current = controller;
@@ -550,6 +570,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     hiLog("connect-start", { language: i18n.language, phase });
 
     try {
+      // Every mic request goes through the store so it knows what the browser
+      // did; a caller that already holds one passes it straight in.
+      const micStreamForCall = preAcquiredMic ?? (await requestMicrophone());
+
       const bootstrap = await bootstrapHumanInputRealtimeSession(
         { feature: "human-input", language: i18n.language },
         liveKey,
@@ -566,6 +590,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       });
 
       const connection = await createRealtimeConnection({
+        micStream: micStreamForCall,
         session: bootstrap.session,
         iceServers: bootstrap.iceServers,
         callPath: "/api/realtime/call",
@@ -792,6 +817,19 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       startRecording();
     } else if (connectionState === "recording") {
       finishRealtimeSession();
+    } else if (connectionState === "idle" && micUnavailable) {
+      // The visitor is asking for the mic we skipped pre-warming. Try again —
+      // the block may have been lifted since — and let requestMicrophone
+      // explain it if not. Typing is unaffected either way.
+      void (async () => {
+        try {
+          const stream = await requestMicrophone({ userInitiated: true });
+          pendingRecordRef.current = true;
+          await connect(stream);
+        } catch {
+          // Already surfaced by requestMicrophone; stay on the text input.
+        }
+      })();
     }
     // connecting / finishing: no-op — loading UI is shown instead of the button
   }
@@ -904,11 +942,15 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   };
 
   // idle is transient — the auto-connect effect fires immediately, so show a spinner.
+  // Unless the mic is unavailable: then idle is where we stay, and the button
+  // must stay clickable so the visitor can ask for the mic again.
   // In PTT museum mode only show a spinner while the pre-warm is in flight (connecting);
   // once ready, the LED pulsing is the affordance — no on-screen spinner needed.
   const isWaitingForRealtime = isButtonMuseumMode
     ? connectionState === "connecting" || connectionState === "finishing"
-    : connectionState === "idle" || connectionState === "connecting" || connectionState === "finishing";
+    : (connectionState === "idle" && !micUnavailable) ||
+      connectionState === "connecting" ||
+      connectionState === "finishing";
 
   const placeholder = isButtonMuseumMode
     ? t("ptt.humanPlaceholder")
