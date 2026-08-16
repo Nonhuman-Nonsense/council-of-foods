@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import "@testing-library/jest-dom";
 
@@ -61,12 +61,12 @@ describe("RealtimeCaptionOverlay", () => {
   });
 
 
-  it("reserves PTT viz row when showPttVisualizer is true", () => {
+  it("reserves the mic row when showMicRow is true", () => {
     render(
       <RealtimeCaptionOverlay
         lastCaption={null}
         lastUserTranscript={null}
-        showPttVisualizer
+        showMicRow
         micActive={false}
       />,
     );
@@ -75,12 +75,12 @@ describe("RealtimeCaptionOverlay", () => {
     expect(screen.queryByTestId("live-audio-viz")).not.toBeInTheDocument();
   });
 
-  it("reserves the same viz row height when showPttVisualizer is false", () => {
+  it("reserves the same row height when showMicRow is false", () => {
     render(
       <RealtimeCaptionOverlay
         lastCaption={null}
         lastUserTranscript={null}
-        showPttVisualizer={false}
+        showMicRow={false}
         micActive={false}
       />,
     );
@@ -90,18 +90,78 @@ describe("RealtimeCaptionOverlay", () => {
     expect(row).toHaveStyle({ visibility: "hidden" });
   });
 
-  it("shows visualizer when PTT mic is active and stream is present", () => {
+  it("shows visualizer when the mic is active and a stream is present", () => {
     render(
       <RealtimeCaptionOverlay
         lastCaption={null}
         lastUserTranscript={null}
-        showPttVisualizer
+        showMicRow
         micActive
         micStream={{ id: "mock" } as MediaStream}
       />,
     );
 
     expect(screen.getByTestId("live-audio-viz")).toBeInTheDocument();
+  });
+
+  it("keeps the mic button on screen even with the mic off", () => {
+    // It is the only affordance for talking, so unlike the museum indicator it
+    // can't wait for the mic to already be live.
+    render(
+      <RealtimeCaptionOverlay
+        lastCaption={null}
+        lastUserTranscript={null}
+        micActive={false}
+        micButton={{ state: "off", onClick: vi.fn() }}
+      />,
+    );
+
+    expect(screen.getByTestId("realtime-ptt-viz-row")).toHaveStyle({ visibility: "visible" });
+    expect(screen.getByTestId("realtime-mic-button")).toHaveAttribute("data-mic-state", "off");
+  });
+
+  it("ignores clicks while the session is still connecting", () => {
+    const onClick = vi.fn();
+    render(
+      <RealtimeCaptionOverlay
+        lastCaption={null}
+        lastUserTranscript={null}
+        micButton={{ state: "connecting", onClick }}
+      />,
+    );
+
+    const slot = screen.getByTestId("realtime-mic-button");
+    expect(slot).toHaveAttribute("data-mic-state", "connecting");
+    expect(within(slot).queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("toggles the mic from the centre button", () => {
+    const onClick = vi.fn();
+    render(
+      <RealtimeCaptionOverlay
+        lastCaption={null}
+        lastUserTranscript={null}
+        micActive
+        micButton={{ state: "on", onClick }}
+      />,
+    );
+
+    fireEvent.click(within(screen.getByTestId("realtime-mic-button")).getByRole("button"));
+    expect(onClick).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the centre slot inert when no mic button is given", () => {
+    // Museum meta agent: the hardware button owns the mic, the icon only reports.
+    render(
+      <RealtimeCaptionOverlay
+        lastCaption={null}
+        lastUserTranscript={null}
+        showMicRow
+        micActive
+      />,
+    );
+
+    expect(screen.queryByTestId("realtime-mic-button")).not.toBeInTheDocument();
   });
 
   it("uses council subtitle layout marker", () => {

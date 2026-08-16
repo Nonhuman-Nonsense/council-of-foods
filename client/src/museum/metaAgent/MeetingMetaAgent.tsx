@@ -384,7 +384,7 @@ export default function MeetingMetaAgent({
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
         subtitleLayout="council"
-        showPttVisualizer
+        showMicRow
         micStream={micStream}
         micActive={button.pressed}
       />

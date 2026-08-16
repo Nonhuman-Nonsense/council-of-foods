@@ -97,6 +97,18 @@ function currentCouncilParticipants(ctx: SetupAgentToolContext): { characters: s
   return { characters, humans };
 }
 
+/**
+ * The only tools that stay usable before the visitor has ever spoken. Every
+ * other tool changes the UI, and with no spoken instruction to act on, a call
+ * would move the page under a visitor driving it themselves. These two only
+ * read state back, which keeps the agent's commentary honest.
+ *
+ * The agent is always *given* the full set — gating the list would mean
+ * re-sending the session config every time the microphone changed hands.
+ * {@link useSetupAgent} enforces this at the handler instead.
+ */
+export const VISITOR_SILENT_SAFE_TOOLS: readonly string[] = ["current_topic", "current_characters"];
+
 export function createSetupAgentTools({
   otherLanguages,
   topics,

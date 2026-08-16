@@ -1,5 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useSwitchLanguage } from "@/navigation";
 import { useTranslation } from "react-i18next";
 import SetupAgentOverlay from "./SetupAgentOverlay";
@@ -23,7 +23,7 @@ import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgen
 import { useAgentPresence } from "./useAgentPresence";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
-import { useSetupAgent } from "./useSetupAgent";
+import { useSetupAgent, type SetupAgentContext } from "./useSetupAgent";
 import { useErrorStore } from "@main/overlay/errorStore";
 
 type MeetingSetupAgentProps = {
@@ -87,23 +87,43 @@ export default function MeetingSetupAgent({
     [otherLanguages],
   );
 
-  const instructions = useMemo(() => {
-    return buildSetupAgentPrompt({
-      language: agentLanguage,
-      topics: setupTopics,
-      characters: setupCharacters,
-      phase,
-      agentMode,
-      visitorName,
-      otherLanguageNames,
-    });
-  }, [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames]);
+  // Builders, not values: the agent's job changes depending on whether it can
+  // hear the visitor, and that state lives inside useSetupAgent.
+  const instructions = useCallback(
+    ({ canHearVisitor, hasEverHeardVisitor }: SetupAgentContext) =>
+      buildSetupAgentPrompt({
+        language: agentLanguage,
+        topics: setupTopics,
+        characters: setupCharacters,
+        phase,
+        agentMode,
+        visitorName,
+        otherLanguageNames,
+        canHearVisitor,
+        hasEverHeardVisitor,
+      }),
+    [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames],
+  );
+
+  // Static: the agent holds every tool from the start, and useSetupAgent
+  // refuses the ones it should not use yet.
+  const tools = useMemo(
+    () =>
+      createSetupAgentTools({
+        otherLanguages,
+        topics: setupTopics,
+        characters: setupCharacters,
+        agentMode,
+        isWebMode: !isMuseumMode,
+      }),
+    [otherLanguages, setupTopics, setupCharacters, agentMode, isMuseumMode],
+  );
 
   const agent = useSetupAgent({
     language: agentLanguage,
     instructions,
     isMuseumMode,
-    tools: createSetupAgentTools({ otherLanguages, topics: setupTopics, characters: setupCharacters, agentMode, isWebMode: !isMuseumMode }),
+    tools,
     toolHandlers: createSetupAgentToolHandlers({
       topics: setupTopics,
       characters: setupCharacters,
@@ -127,6 +147,7 @@ export default function MeetingSetupAgent({
     }),
     agentMode,
     micOpen: button.pressed,
+    phase,
   });
   const { interruptAndRespond, muted } = agent;
   // Any click or keystroke counts as activity — resets the idle nudge and the
@@ -209,9 +230,10 @@ export default function MeetingSetupAgent({
     }
 
     const timer = setTimeout(() => {
-      const isCharacterEvent = lastUserEvent.type !== "topic_previewed"
-        && lastUserEvent.type !== "topic_committed";
-      const changes = isCharacterEvent
+      // Only roster-carrying events can be diffed — checking for the field
+      // itself keeps this correct as new event kinds are added.
+      const hasRoster = "selectedNames" in lastUserEvent;
+      const changes = hasRoster
         ? diffCouncil(reportedCouncilRef.current, lastUserEvent.selectedNames)
         : undefined;
 
@@ -225,7 +247,7 @@ export default function MeetingSetupAgent({
       // voice interruption rather than queuing behind current audio.
       interruptAndRespond(message, "click-reaction");
 
-      if (isCharacterEvent) {
+      if (hasRoster) {
         reportedCouncilRef.current = lastUserEvent.selectedNames;
       }
     }, getMeetingSetupReactionDelayMs(lastUserEvent));
@@ -238,6 +260,7 @@ export default function MeetingSetupAgent({
       {showMuseumReconnecting && <Loading />}
     <SetupAgentOverlay
       isConnecting={agent.isConnecting}
+      isReady={agent.isReady}
       lastCaption={agent.lastCaption}
       lastUserTranscript={agent.lastUserTranscript}
       muted={agent.muted}
@@ -246,6 +269,8 @@ export default function MeetingSetupAgent({
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}
       micActive={agentMode === "ptt" && !muted && button.pressed}
+      micOn={agent.micOn}
+      onToggleMic={agent.toggleMic}
       onStart={agent.start}
       onStop={agent.stop}
     />

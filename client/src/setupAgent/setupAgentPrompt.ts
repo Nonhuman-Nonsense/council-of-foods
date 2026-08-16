@@ -13,6 +13,18 @@ export type SetupAgentPromptParams = {
   agentMode?: AgentMode;
   visitorName?: string;
   otherLanguageNames?: string[];
+  /**
+   * Whether the visitor's microphone is live right now. False on web until they
+   * press the mic button, which suspends the conversational job: the agent
+   * comments on what is being clicked instead. Defaults to true so museum
+   * (mic always present) is unaffected.
+   */
+  canHearVisitor?: boolean;
+  /**
+   * Whether the visitor has spoken at all this session. Only decides whether to
+   * invite them to use the microphone — pointless once they already have.
+   */
+  hasEverHeardVisitor?: boolean;
 };
 
 /** Add an entry here when adding a new language prompt file. */

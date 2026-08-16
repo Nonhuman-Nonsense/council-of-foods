@@ -61,6 +61,21 @@ describe('createSetupAgentTools', () => {
     const tools = createSetupAgentTools(baseToolParams);
     expect(tools.find((t) => t.name === 'begin_setup')).toBeDefined();
   });
+
+  it('always offers the full tool set, whatever the microphone is doing', () => {
+    // Gating the list would mean re-sending the session config on every mic
+    // change; useSetupAgent refuses the calls instead.
+    const tools = createSetupAgentTools({
+      ...baseToolParams,
+      topics: TOPICS,
+      characters: CHARACTERS,
+      isWebMode: true,
+    });
+
+    expect(tools.find((t) => t.name === 'select_topic')).toBeDefined();
+    expect(tools.find((t) => t.name === 'start_meeting')).toBeDefined();
+    expect(tools.find((t) => t.name === 'current_topic')).toBeDefined();
+  });
 });
 
 vi.mock('@newMeeting/meetingSetup', async (importOriginal) => {
