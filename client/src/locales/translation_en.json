@@ -166,10 +166,10 @@
   },
   "microphone": {
     "title": "Microphone not available",
-    "blocked": "To talk with the guide, allow microphone access for this site in your browser, then press the microphone button again.\nYou can also continue without it — everything can be chosen by clicking.",
-    "noDevice": "No microphone was found on this device.\nYou can continue without it — everything can be chosen by clicking.",
-    "inUse": "The microphone is being used by another application.\nClose it and try again, or continue without it — everything can be chosen by clicking.",
-    "unsupported": "This browser can't give the page a microphone.\nYou can continue without it — everything can be chosen by clicking.",
+    "blocked": "Allow microphone access for this site in your browser,\nthen press the microphone button again.",
+    "noDevice": "No microphone was found on this device.",
+    "inUse": "The microphone is being used by another application.\nClose it and try again.",
+    "unsupported": "This browser can't give the page a microphone.",
     "dismiss": "Got it"
   },
   "queryExtension": {
