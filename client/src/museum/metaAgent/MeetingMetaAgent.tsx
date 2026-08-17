@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useButton, type ButtonLedMode } from "@museum/button/useButton";
+import { useButton } from "@museum/button/useButton";
 import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
@@ -269,12 +269,9 @@ export default function MeetingMetaAgent({
     return () => button.release();
   }, [button.claim, button.release]);
 
-  const ledMode: ButtonLedMode =
-    connectionState !== "ready" ? "off" : metaAgentPhase !== "inactive" && button.pressed ? "on" : "pulse";
-
   useEffect(() => {
-    button.setLed(ledMode);
-  }, [button.setLed, ledMode]);
+    button.setArmed(connectionState === "ready");
+  }, [button.setArmed, connectionState]);
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "meta-agent",

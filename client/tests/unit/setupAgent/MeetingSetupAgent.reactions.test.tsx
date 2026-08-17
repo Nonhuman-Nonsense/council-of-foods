@@ -27,7 +27,7 @@ vi.mock("@/settings/councilSettings", () => ({
 }));
 
 vi.mock("@/museum/button/useButton", () => ({
-  useButton: () => ({ claim: vi.fn(), release: vi.fn(), setLed: vi.fn(), pressed: false, isOwner: true }),
+  useButton: () => ({ claim: vi.fn(), release: vi.fn(), setArmed: vi.fn(), pressed: false, wantsMic: false, isOwner: true }),
 }));
 
 vi.mock("@setupAgent/useSetupAgent", () => ({

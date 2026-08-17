@@ -82,8 +82,8 @@ function Summary({
     if (!isButtonSummaryMode) {
       return;
     }
-    button.setLed("pulse");
-  }, [isButtonSummaryMode, button.setLed]);
+    button.setArmed(true);
+  }, [isButtonSummaryMode, button.setArmed]);
 
   useButtonBanner({
     owner: "summary",

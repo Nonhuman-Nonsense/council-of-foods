@@ -45,6 +45,10 @@ describe("useButtonStore", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.clear();
+    // Pin to museum: this suite is about ownership/transport mechanics, not
+    // gesture semantics, and museum's plain hold-only behaviour keeps a quick
+    // synchronous press/release in these tests from being read as a tap.
+    localStorage.setItem("councilAppMode", "museum");
     _resetButtonStoreForTests();
     useButtonStore.getState().init();
     await useButtonStore.getState().connect();
@@ -54,40 +58,40 @@ describe("useButtonStore", () => {
     _resetButtonStoreForTests();
   });
 
-  it("gates pressed when LED is off", () => {
-    useButtonStore.setState({ ledMode: "off", bridgeStatus: "connected" });
+  it("ignores input while disarmed", () => {
+    useButtonStore.setState({ armed: false, bridgeStatus: "connected" });
     transport.callbacks?.onLine?.({ type: "button_down" });
     expect(useButtonStore.getState().hardwareDown).toBe(true);
     expect(useButtonStore.getState().pressed).toBe(false);
   });
 
-  it("sets pressed when LED accepts input and button goes down", () => {
-    useButtonStore.setState({ ledMode: "pulse", bridgeStatus: "connected" });
+  it("sets pressed when armed and the button goes down", () => {
+    useButtonStore.setState({ armed: true, bridgeStatus: "connected" });
     transport.callbacks?.onLine?.({ type: "button_down" });
     expect(useButtonStore.getState().pressed).toBe(true);
     transport.callbacks?.onLine?.({ type: "button_up" });
     expect(useButtonStore.getState().pressed).toBe(false);
   });
 
-  it("activates pressed when LED transitions off to pulse while space is held", async () => {
+  it("activates a held space the moment the owner arms", async () => {
     useButtonStore.setState({
       keyboardDown: true,
       bridgeStatus: "connected",
     });
     useButtonStore.getState().claimButton("human-input");
-    useButtonStore.getState().setButtonLed("human-input", "off");
+    useButtonStore.getState().setButtonArmed("human-input", false);
     await Promise.resolve();
     expect(useButtonStore.getState().pressed).toBe(false);
 
-    useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     await Promise.resolve();
     expect(useButtonStore.getState().pressed).toBe(true);
   });
 
-  it("enables routing and syncs LED when claim + setButtonLed pulse", async () => {
+  it("routes to the owner and lights the LED on claim + arm", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("human-input");
-    useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
     expect(useButtonStore.getState().ledMode).toBe("pulse");
@@ -97,9 +101,9 @@ describe("useButtonStore", () => {
   it("routes press to the winning owner", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("meta-agent");
-    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    useButtonStore.getState().setButtonArmed("meta-agent", true);
     useButtonStore.getState().claimButton("human-input");
-    useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
     transport.callbacks?.onLine?.({ type: "button_down" });
@@ -108,10 +112,10 @@ describe("useButtonStore", () => {
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
   });
 
-  it("keeps owner when claimed with off LED", async () => {
+  it("keeps ownership while disarmed, with the LED dark", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("meta-agent");
-    useButtonStore.getState().setButtonLed("meta-agent", "off");
+    useButtonStore.getState().setButtonArmed("meta-agent", false);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");
     expect(useButtonStore.getState().ledMode).toBe("off");
@@ -120,9 +124,9 @@ describe("useButtonStore", () => {
   it("autoplay wins over setup-agent when both claim", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("setup-agent");
-    useButtonStore.getState().setButtonLed("setup-agent", "pulse");
+    useButtonStore.getState().setButtonArmed("setup-agent", true);
     useButtonStore.getState().claimButton("autoplay");
-    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().setButtonArmed("autoplay", true);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("autoplay");
   });
@@ -130,9 +134,9 @@ describe("useButtonStore", () => {
   it("staff wins over autoplay when both claim", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("autoplay");
-    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().setButtonArmed("autoplay", true);
     useButtonStore.getState().claimButton("staff");
-    useButtonStore.getState().setButtonLed("staff", "pulse");
+    useButtonStore.getState().setButtonArmed("staff", true);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("staff");
   });
@@ -140,26 +144,26 @@ describe("useButtonStore", () => {
   it("staff wins over human-input when both claim", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("human-input");
-    useButtonStore.getState().setButtonLed("human-input", "on");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     useButtonStore.getState().claimButton("staff");
-    useButtonStore.getState().setButtonLed("staff", "pulse");
+    useButtonStore.getState().setButtonArmed("staff", true);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("staff");
     expect(useButtonStore.getState().ledMode).toBe("pulse");
     expect(transport.setLedMode).toHaveBeenLastCalledWith("pulse");
   });
 
-  it("falls back to human-input LED when staff releases", async () => {
+  it("falls back to the next owner's armed state when staff releases", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("human-input");
-    useButtonStore.getState().setButtonLed("human-input", "on");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     useButtonStore.getState().claimButton("staff");
-    useButtonStore.getState().setButtonLed("staff", "pulse");
+    useButtonStore.getState().setButtonArmed("staff", true);
     useButtonStore.getState().releaseButton("staff");
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("human-input");
-    expect(useButtonStore.getState().ledMode).toBe("on");
-    expect(transport.setLedMode).toHaveBeenLastCalledWith("on");
+    expect(useButtonStore.getState().ledMode).toBe("pulse");
+    expect(transport.setLedMode).toHaveBeenLastCalledWith("pulse");
   });
 
   it("clears hardware press when bridge disconnects but keeps keyboard press", () => {
@@ -167,7 +171,7 @@ describe("useButtonStore", () => {
       pressed: true,
       keyboardDown: true,
       hardwareDown: true,
-      ledMode: "pulse",
+      armed: true,
       bridgeStatus: "connected",
     });
     transport.callbacks?.onStatus?.("disconnected");
@@ -181,7 +185,7 @@ describe("useButtonStore", () => {
       pressed: true,
       hardwareDown: true,
       keyboardDown: false,
-      ledMode: "pulse",
+      armed: true,
       bridgeStatus: "connected",
     });
     transport.callbacks?.onStatus?.("disconnected");
@@ -198,7 +202,7 @@ describe("useButtonStore", () => {
     transport.isSerialDeviceConnected.mockReturnValue(false);
     useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: false });
     useButtonStore.getState().claimButton("human-input");
-    useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     await Promise.resolve();
     expect(useButtonStore.getState().ledMode).toBe("pulse");
     expect(transport.setLedMode).not.toHaveBeenCalled();
@@ -225,7 +229,7 @@ describe("useButtonStore", () => {
       pressed: true,
       hardwareDown: true,
       keyboardDown: false,
-      ledMode: "pulse",
+      armed: true,
       bridgeStatus: "connected",
       serialDeviceConnected: true,
     });
@@ -239,7 +243,7 @@ describe("useButtonStore", () => {
     useButtonStore.setState({
       pressed: true,
       hardwareDown: true,
-      ledMode: "pulse",
+      armed: true,
       bridgeStatus: "connected",
       serialDeviceConnected: true,
     });
@@ -254,7 +258,7 @@ describe("useButtonStore", () => {
       bridgeStatus: "connected",
       serialDeviceConnected: true,
       buttonOwner: "human-input",
-      ledMode: "pulse",
+      armed: true,
     });
     transport.callbacks?.onLine?.({ type: "button_down" });
     expect(useButtonStore.getState().hardwareDown).toBe(true);
@@ -264,9 +268,9 @@ describe("useButtonStore", () => {
   it("does not carry pressed state to the next owner while input is held", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("autoplay");
-    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().setButtonArmed("autoplay", true);
     useButtonStore.getState().claimButton("meta-agent");
-    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    useButtonStore.getState().setButtonArmed("meta-agent", true);
     await Promise.resolve();
 
     transport.callbacks?.onLine?.({ type: "button_down" });
@@ -285,9 +289,9 @@ describe("useButtonStore", () => {
   it("accepts a fresh press from the new owner after release", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("autoplay");
-    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().setButtonArmed("autoplay", true);
     useButtonStore.getState().claimButton("meta-agent");
-    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    useButtonStore.getState().setButtonArmed("meta-agent", true);
     await Promise.resolve();
 
     transport.callbacks?.onLine?.({ type: "button_down" });
@@ -306,9 +310,9 @@ describe("useButtonStore", () => {
   it("autoplay wins over meta-agent when both claim", async () => {
     useButtonStore.setState({ bridgeStatus: "connected" });
     useButtonStore.getState().claimButton("meta-agent");
-    useButtonStore.getState().setButtonLed("meta-agent", "pulse");
+    useButtonStore.getState().setButtonArmed("meta-agent", true);
     useButtonStore.getState().claimButton("autoplay");
-    useButtonStore.getState().setButtonLed("autoplay", "pulse");
+    useButtonStore.getState().setButtonArmed("autoplay", true);
     await Promise.resolve();
     expect(useButtonStore.getState().buttonOwner).toBe("autoplay");
   });
@@ -348,6 +352,97 @@ describe("useButtonStore", () => {
 
     it("resolveActiveButtonBanner returns false without an owner", () => {
       expect(resolveActiveButtonBanner(null, { "human-input": true })).toBe(false);
+    });
+  });
+
+  describe("tap/hold gesture", () => {
+    function pressFor(ms: number): void {
+      useButtonStore.setState({ keyboardDown: true });
+      useButtonStore.getState().syncPressed("keyboard");
+      vi.advanceTimersByTime(ms);
+      useButtonStore.setState({ keyboardDown: false });
+      useButtonStore.getState().syncPressed("keyboard");
+    }
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      useButtonStore.getState().claimButton("setup-agent");
+      useButtonStore.getState().setButtonArmed("setup-agent", true);
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("museum: a quick press never latches — releasing always closes", () => {
+      pressFor(50);
+      expect(useButtonStore.getState().pressed).toBe(false);
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("web: a tap under the threshold latches on, and stays on after release", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+
+      expect(useButtonStore.getState().pressed).toBe(false);
+      expect(useButtonStore.getState().latched).toBe(true);
+    });
+
+    it("web: a second tap unlatches", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(true);
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("web: a hold opens the mic while held and closes fully on release", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      useButtonStore.setState({ keyboardDown: true });
+      useButtonStore.getState().syncPressed("keyboard");
+      vi.advanceTimersByTime(300);
+      expect(useButtonStore.getState().pressed).toBe(true);
+      expect(useButtonStore.getState().latched).toBe(false);
+
+      useButtonStore.setState({ keyboardDown: false });
+      useButtonStore.getState().syncPressed("keyboard");
+      expect(useButtonStore.getState().pressed).toBe(false);
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("web: holding while latched on forces it closed, as an explicit close gesture", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(true);
+
+      pressFor(300);
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("disarming clears a latch left over mid-gesture", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(true);
+
+      useButtonStore.getState().setButtonArmed("setup-agent", false);
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("owner handoff clears a latch — the next owner starts clean", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(true);
+
+      useButtonStore.getState().claimButton("staff");
+      useButtonStore.getState().setButtonArmed("staff", true);
+      expect(useButtonStore.getState().buttonOwner).toBe("staff");
+      expect(useButtonStore.getState().latched).toBe(false);
     });
   });
 });

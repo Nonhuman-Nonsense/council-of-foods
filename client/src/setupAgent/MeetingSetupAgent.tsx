@@ -16,7 +16,7 @@ import {
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
+import { useButton } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { buildSetupAgentPrompt } from "./setupAgentPrompt";
 import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgentTools";
@@ -144,7 +144,7 @@ export default function MeetingSetupAgent({
       switchLanguage,
     }),
     micUpFront: capabilities.micUpFront,
-    micOpen: button.pressed,
+    micOpen: button.wantsMic,
   });
   const { interruptAndRespond, muted } = agent;
   // Any click or keystroke counts as activity — resets the idle nudge and the
@@ -179,7 +179,7 @@ export default function MeetingSetupAgent({
     owner: "setup-agent",
     sessionActive: isMuseumMode && !muted,
     isConnecting: agent.isConnecting,
-    micOpen: button.pressed,
+    micOpen: button.wantsMic,
     agentSpeaking: agent.agentSpeaking && !nudgeFired,
   });
 
@@ -204,22 +204,19 @@ export default function MeetingSetupAgent({
     bumpBannerActivity();
   }, [button.pressed, clearNudge, bumpBannerActivity]);
 
-  const ledMode = useMemo((): ButtonLedMode => {
-    if (!isMuseumMode || muted || agent.isConnecting) return "off";
-    if (button.pressed) return "on";
-    return "pulse";
-  }, [isMuseumMode, muted, agent.isConnecting, button.pressed]);
+  // Armed in both modes now — arming is what makes `pressed`/`wantsMic` live
+  // at all, and space is the web mic gesture from here on. An agent that is
+  // off or still connecting cannot take a voice, so it disarms.
+  const canTakeVoice = !muted && !agent.isConnecting;
 
   useEffect(() => {
-    if (!isMuseumMode) return;
     button.claim();
     return () => button.release();
-  }, [button.claim, button.release, isMuseumMode]);
+  }, [button.claim, button.release]);
 
   useEffect(() => {
-    if (!isMuseumMode) return;
-    button.setLed(ledMode);
-  }, [button.setLed, isMuseumMode, ledMode]);
+    button.setArmed(canTakeVoice);
+  }, [button.setArmed, canTakeVoice]);
 
   useEffect(() => {
     if (!lastUserEvent) {
@@ -266,7 +263,7 @@ export default function MeetingSetupAgent({
       showMicRow={isMuseumMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}
-      micActive={isMuseumMode && !muted && button.pressed}
+      micActive={isMuseumMode && !muted && button.wantsMic}
       micOn={agent.micOn}
       onToggleMic={agent.toggleMic}
       onStart={agent.start}

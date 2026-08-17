@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
 import { useMobile, dvh } from "@/utils";
@@ -18,7 +18,7 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
-import { useButton, type ButtonLedMode } from "@/museum/button/useButton";
+import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
 
@@ -338,14 +338,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   const button = useButton("human-input");
 
-  const humanInputLedMode = useMemo((): ButtonLedMode => {
-    if (connectionState === "recording") return "on";
-    // Finishing: waiting for final transcript — cannot start another take.
-    // Connecting: not ready to record yet. Empty/no-speech releases skip finishing
-    // straight back to ready (pulse) so the visitor can try again.
-    if (connectionState === "finishing" || connectionState === "connecting") return "off";
-    return "pulse";
-  }, [connectionState]);
+  // Finishing: waiting for final transcript — cannot start another take.
+  // Connecting: not ready to record yet. Empty/no-speech releases skip finishing
+  // straight back to ready so the visitor can try again.
+  const canRecord = connectionState === "ready" || connectionState === "recording";
 
   useEffect(() => {
     if (phase !== "active" || !isMuseumMode) return;
@@ -355,8 +351,8 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   useEffect(() => {
     if (phase !== "active") return;
-    button.setLed(humanInputLedMode);
-  }, [button.setLed, phase, humanInputLedMode]);
+    button.setArmed(canRecord);
+  }, [button.setArmed, phase, canRecord]);
 
   // Set on PTT release; cleared on submit or empty release.
   const pendingPttAutoSubmitRef = useRef(false);

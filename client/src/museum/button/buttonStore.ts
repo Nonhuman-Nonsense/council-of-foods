@@ -4,15 +4,19 @@ import {
   isButtonBridgeAvailable,
   type ButtonTransportStatus,
 } from "./buttonBridge";
+import { getCapabilities } from "@/settings/councilSettings";
 import { log } from "@/logger";
 import type { TranslationKey } from "@/i18n";
+
+/** Below this, a press is a tap (toggles the latch); at or above, it's a hold. */
+const TAP_MS = 250;
 
 export type ButtonLedMode = "off" | "pulse" | "on";
 
 export type ButtonOwner = "staff" | "autoplay" | "setup-agent" | "human-input" | "meta-agent" | "summary" | "replay";
 
 export type ButtonClaims = Partial<Record<ButtonOwner, true>>;
-export type ButtonLedModes = Partial<Record<ButtonOwner, ButtonLedMode>>;
+export type ButtonArmed = Partial<Record<ButtonOwner, true>>;
 export type ButtonBannerVisible = Partial<Record<ButtonOwner, boolean>>;
 export type ButtonBannerMessageKeys = Partial<Record<ButtonOwner, TranslationKey>>;
 
@@ -58,12 +62,23 @@ export function mergeButtonOwner(claims: ButtonClaims): ButtonOwner | null {
   return winner;
 }
 
-/** Hardware LED follows the current buttonOwner's LED preference. */
-export function resolveAppliedLedMode(
-  ledModes: ButtonLedModes,
+/** The button responds to input only while its routed owner has armed it. */
+export function resolveAppliedArmed(
+  armedOwners: ButtonArmed,
   buttonOwner: ButtonOwner | null,
-): ButtonLedMode {
-  return buttonOwner ? (ledModes[buttonOwner] ?? "off") : "off";
+): boolean {
+  return buttonOwner ? armedOwners[buttonOwner] === true : false;
+}
+
+/**
+ * The hardware LED is pure display, derived from the state the store already
+ * knows — owners arm the button and never speak of lights. Dark when the button
+ * would ignore a press, solid while it is taking the visitor's voice, pulsing
+ * to invite one.
+ */
+export function resolveLedMode(armed: boolean, wantsMic: boolean): ButtonLedMode {
+  if (!armed) return "off";
+  return wantsMic ? "on" : "pulse";
 }
 
 /** Global ButtonBanner follows the routed owner's visibility flag. */
@@ -79,13 +94,23 @@ export function resolveActiveButtonBanner(
 
 type ButtonStore = {
   pressed: boolean;
+  /**
+   * A tap latched the mic open (capabilities.latchOnTap only — see
+   * `recomputePressed`). Combined with `pressed` by `useButton`'s `wantsMic`;
+   * `pressed` itself stays purely physical so edge-triggered consumers
+   * (autoplay, summary, replay) are unaffected by latching.
+   */
+  latched: boolean;
   /** When true, held input is ignored until all keys/buttons release (owner handoff). */
   ignoreDownUntilRelease: boolean;
   keyboardDown: boolean;
   hardwareDown: boolean;
+  /** The routed owner has armed the button — the gate every press passes. */
+  armed: boolean;
+  /** Derived display only; nothing gates on this. See {@link resolveLedMode}. */
   ledMode: ButtonLedMode;
   claims: ButtonClaims;
-  ledModes: ButtonLedModes;
+  armedOwners: ButtonArmed;
   buttonOwner: ButtonOwner | null;
   bannerVisible: ButtonBannerVisible;
   bannerMessageKeys: ButtonBannerMessageKeys;
@@ -103,7 +128,7 @@ type ButtonStore = {
   enableAutoReconnect: () => void;
   claimButton: (owner: ButtonOwner) => void;
   releaseButton: (owner: ButtonOwner) => void;
-  setButtonLed: (owner: ButtonOwner, mode: ButtonLedMode) => void;
+  setButtonArmed: (owner: ButtonOwner, armed: boolean) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
   setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: TranslationKey | undefined) => void;
   setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
@@ -114,11 +139,32 @@ type ButtonStore = {
 
 let buttonTransport: ButtonTransport | null = null;
 let keyboardInitialized = false;
+/** When the current physical press began; not reactive, so a module var. */
+let pressStartedAt: number | null = null;
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   const tag = target.tagName;
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
+}
+
+/**
+ * Decides tap vs hold on a genuine press→release cycle (`web`'s
+ * `capabilities.latchOnTap` only — museum always takes the hold branch, i.e.
+ * releasing simply closes, whatever the duration). A tap toggles `latched`; a
+ * hold always clears it, which doubles as an explicit "close" gesture for a
+ * mic a previous tap left open. Disarms and owner changes clear `latched`
+ * directly (see `recomputeButtonRouting`) and null out `pressStartedAt` first,
+ * so this function sees nothing to decide and leaves that forced value alone.
+ */
+function resolveLatchOnRelease(currentlyLatched: boolean): boolean {
+  if (pressStartedAt == null) return currentlyLatched;
+  const duration = Date.now() - pressStartedAt;
+  pressStartedAt = null;
+  if (getCapabilities().latchOnTap && duration < TAP_MS) {
+    return !currentlyLatched;
+  }
+  return false;
 }
 
 function recomputePressed(
@@ -127,15 +173,17 @@ function recomputePressed(
   source?: "keyboard" | "button",
 ): void {
   const {
-    ledMode,
+    armed,
     keyboardDown,
     hardwareDown,
     pressed: prevPressed,
+    latched: prevLatched,
+    ledMode: prevLedMode,
     ignoreDownUntilRelease,
   } = get();
   const inputDown = keyboardDown || hardwareDown;
   const ignore = inputDown ? ignoreDownUntilRelease : false;
-  const pressed = !ignore && ledMode !== "off" && inputDown;
+  const pressed = !ignore && armed && inputDown;
 
   if (prevPressed !== pressed && source) {
     log.event("BUTTON", pressed ? "press" : "release", {
@@ -148,7 +196,22 @@ function recomputePressed(
   if (source === "keyboard") {
     updates.keyboardActive = pressed && keyboardDown;
   }
+
+  let latched = prevLatched;
+  if (!prevPressed && pressed) {
+    pressStartedAt = Date.now();
+  } else if (prevPressed && !pressed) {
+    latched = resolveLatchOnRelease(prevLatched);
+    updates.latched = latched;
+  }
+
+  const ledMode = resolveLedMode(armed, pressed || latched);
+  updates.ledMode = ledMode;
   set(updates);
+
+  if (ledMode !== prevLedMode) {
+    void pushLedToHardware(set, get, ledMode);
+  }
 }
 
 function getTransport(
@@ -227,14 +290,11 @@ function bindKeyboard(
   window.addEventListener("keyup", onKeyUp);
 }
 
-async function applyLedMode(
+async function pushLedToHardware(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
   mode: ButtonLedMode,
 ): Promise<void> {
-  set({ ledMode: mode });
-  recomputePressed(set, get);
-
   if (get().bridgeStatus !== "connected") {
     return;
   }
@@ -248,11 +308,11 @@ function recomputeButtonRouting(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
   claims: ButtonClaims,
-  ledModes: ButtonLedModes,
+  armedOwners: ButtonArmed,
 ): void {
   const prevOwner = get().buttonOwner;
   const buttonOwner = mergeButtonOwner(claims);
-  const ledMode = resolveAppliedLedMode(ledModes, buttonOwner);
+  const armed = resolveAppliedArmed(armedOwners, buttonOwner);
   const { keyboardDown, hardwareDown } = get();
   const inputDown = keyboardDown || hardwareDown;
   let ignoreDownUntilRelease = get().ignoreDownUntilRelease;
@@ -265,8 +325,19 @@ function recomputeButtonRouting(
       ignoreDownUntilRelease = false;
     }
   }
-  set({ claims, ledModes, buttonOwner, ignoreDownUntilRelease });
-  void applyLedMode(set, get, ledMode);
+
+  // A latch belongs to the owner and the arming that produced it: the next
+  // owner starts clean, and disarming forces the mic shut rather than leaving
+  // it held open by a gesture that is no longer allowed. Clearing
+  // `pressStartedAt` too stops `recomputePressed` from reading the disarm as a
+  // fast release and latching on from a non-gesture.
+  if (prevOwner !== buttonOwner || !armed) {
+    pressStartedAt = null;
+    set({ latched: false });
+  }
+
+  set({ claims, armedOwners, buttonOwner, armed, ignoreDownUntilRelease });
+  recomputePressed(set, get);
   set({
     activeButtonBanner: resolveActiveButtonBanner(
       buttonOwner,
@@ -325,12 +396,14 @@ function setBannerVisibleForOwner(
 
 export const useButtonStore = create<ButtonStore>((set, get) => ({
   pressed: false,
+  latched: false,
   ignoreDownUntilRelease: false,
   keyboardDown: false,
   hardwareDown: false,
+  armed: false,
   ledMode: "off",
   claims: {},
-  ledModes: {},
+  armedOwners: {},
   buttonOwner: null,
   bannerVisible: {},
   bannerMessageKeys: {},
@@ -361,15 +434,15 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   claimButton: (owner) => {
     log.event("BUTTON", "claim", { owner });
     const claims = { ...get().claims, [owner]: true as const };
-    recomputeButtonRouting(set, get, claims, get().ledModes);
+    recomputeButtonRouting(set, get, claims, get().armedOwners);
   },
 
   releaseButton: (owner) => {
     log.event("BUTTON", "release claim", { owner });
     const claims = { ...get().claims };
     delete claims[owner];
-    const ledModes = { ...get().ledModes };
-    delete ledModes[owner];
+    const armedOwners = { ...get().armedOwners };
+    delete armedOwners[owner];
     const bannerVisible = { ...get().bannerVisible };
     delete bannerVisible[owner];
     const bannerMessageKeys = { ...get().bannerMessageKeys };
@@ -377,7 +450,7 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     const bannerContent = { ...get().bannerContent };
     delete bannerContent[owner];
     set({ bannerVisible, bannerMessageKeys, bannerContent });
-    recomputeButtonRouting(set, get, claims, ledModes);
+    recomputeButtonRouting(set, get, claims, armedOwners);
   },
 
   setButtonBannerVisible: (owner, visible) => {
@@ -392,13 +465,18 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     setBannerContentForOwner(set, get, owner, content);
   },
 
-  setButtonLed: (owner, mode) => {
-    const ledModes = { ...get().ledModes, [owner]: mode };
+  setButtonArmed: (owner, armed) => {
+    const armedOwners = { ...get().armedOwners };
+    if (armed) {
+      armedOwners[owner] = true;
+    } else {
+      delete armedOwners[owner];
+    }
     if (get().buttonOwner === owner) {
-      recomputeButtonRouting(set, get, get().claims, ledModes);
+      recomputeButtonRouting(set, get, get().claims, armedOwners);
       return;
     }
-    set({ ledModes });
+    set({ armedOwners });
   },
 
   resyncLed: async () => {
@@ -417,14 +495,17 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   },
 
   dispose: () => {
+    pressStartedAt = null;
     set({
       pressed: false,
+      latched: false,
       ignoreDownUntilRelease: false,
       keyboardDown: false,
       hardwareDown: false,
+      armed: false,
       ledMode: "off",
       claims: {},
-      ledModes: {},
+      armedOwners: {},
       buttonOwner: null,
       bannerVisible: {},
       bannerMessageKeys: {},
@@ -439,14 +520,17 @@ export function _resetButtonStoreForTests(): void {
   void buttonTransport?.disconnect();
   buttonTransport = null;
   keyboardInitialized = false;
+  pressStartedAt = null;
   useButtonStore.setState({
     pressed: false,
+    latched: false,
     ignoreDownUntilRelease: false,
     keyboardDown: false,
     hardwareDown: false,
+    armed: false,
     ledMode: "off",
     claims: {},
-    ledModes: {},
+    armedOwners: {},
     buttonOwner: null,
     bannerVisible: {},
     bannerMessageKeys: {},

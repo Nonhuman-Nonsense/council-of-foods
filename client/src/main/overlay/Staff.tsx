@@ -346,8 +346,8 @@ function Staff(): ReactElement {
   }, [button.claim, button.release]);
 
   useEffect(() => {
-    button.setLed(button.pressed ? "on" : "pulse");
-  }, [button.setLed, button.pressed]);
+    button.setArmed(true);
+  }, [button.setArmed]);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);

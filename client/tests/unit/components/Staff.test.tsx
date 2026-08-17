@@ -41,14 +41,14 @@ vi.mock('react-i18next', () => ({
 
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
-const mockSetLed = vi.fn();
-const mockSetLedDebugOverlay = vi.fn();
+const mockSetArmed = vi.fn();
+const mockSetArmedDebugOverlay = vi.fn();
 const ledDebugState = { enabled: false };
 
 vi.mock('@/museum/button/buttonDebug', () => ({
   useButtonLedDebugOverlay: () => ({
     ledDebugOverlay: ledDebugState.enabled,
-    setLedDebugOverlay: mockSetLedDebugOverlay,
+    setLedDebugOverlay: mockSetArmedDebugOverlay,
   }),
 }));
 
@@ -57,8 +57,9 @@ vi.mock('@/museum/button/useButton', () => ({
   useButton: () => ({
     claim: mockClaim,
     release: mockRelease,
-    setLed: mockSetLed,
+    setArmed: mockSetArmed,
     pressed: false,
+    wantsMic: false,
     isOwner: false,
   }),
   useButtonConnection: () => ({
@@ -73,7 +74,7 @@ describe('Staff overlay', () => {
   beforeEach(() => {
     localStorage.clear();
     ledDebugState.enabled = false;
-    mockSetLedDebugOverlay.mockClear();
+    mockSetArmedDebugOverlay.mockClear();
     museumButtonState.bridgeStatus = 'disconnected';
     museumButtonState.bridgeError = null;
     museumButtonState.bridgeAvailable = true;
@@ -228,10 +229,10 @@ describe('Staff overlay', () => {
     expect(mockRelease).toHaveBeenCalled();
   });
 
-  it('sets pulse LED by default and on while pressed', () => {
-    mockSetLed.mockClear();
+  it('arms the button so staff can test a press', () => {
+    mockSetArmed.mockClear();
     render(<Staff />);
-    expect(mockSetLed).toHaveBeenCalledWith('pulse');
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
   it('toggles LED debug overlay when push to talk is enabled', () => {
@@ -242,7 +243,7 @@ describe('Staff overlay', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
 
     fireEvent.click(toggle);
-    expect(mockSetLedDebugOverlay).toHaveBeenCalledWith(true);
+    expect(mockSetArmedDebugOverlay).toHaveBeenCalledWith(true);
   });
 
   it('shows hardware toggle when push to talk is enabled', () => {

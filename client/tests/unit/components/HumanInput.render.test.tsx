@@ -25,7 +25,7 @@ const mockCreateRealtimeConnection = vi.mocked(createRealtimeConnection);
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
-const mockSetLed = vi.hoisted(() => vi.fn());
+const mockSetArmed = vi.hoisted(() => vi.fn());
 const mockAppMode = vi.hoisted<{ value: AppMode }>(() => ({ value: "web" }));
 
 const mockButtonState = vi.hoisted<{ pressed: boolean; buttonOwner: string | null }>(() => ({
@@ -126,8 +126,9 @@ vi.mock('@/museum/button/useButton', async () => {
             return {
                 claim: mockClaim,
                 release: mockRelease,
-                setLed: mockSetLed,
+                setArmed: mockSetArmed,
                 pressed,
+                wantsMic: pressed,
                 isOwner: mockButtonState.buttonOwner === owner,
             };
         },
@@ -667,7 +668,7 @@ describe('HumanInput PTT museum mode', () => {
         mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
-        mockSetLed.mockClear();
+        mockSetArmed.mockClear();
         mockButtonState.pressed = false;
         setMockPressed(false);
         mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
@@ -781,10 +782,10 @@ describe('HumanInput PTT museum mode', () => {
         expect(mockClaim).not.toHaveBeenCalled();
     });
 
-    it('claims human-input and sets pulse LED when active in museum mode', async () => {
+    it('claims and arms human-input when active in museum mode', async () => {
         await renderPttReady();
         expect(mockClaim).toHaveBeenCalled();
-        expect(mockSetLed).toHaveBeenCalledWith('pulse');
+        expect(mockSetArmed).toHaveBeenCalledWith(true);
     });
 
     // ── Press → record, release → finish + auto-submit ────────────────────────
@@ -1168,7 +1169,7 @@ describe('HumanInput PTT abandonment', () => {
         mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
-        mockSetLed.mockClear();
+        mockSetArmed.mockClear();
         mockButtonState.pressed = false;
         setMockPressed(false);
         mockBootstrapHumanInputRealtimeSession.mockResolvedValue({

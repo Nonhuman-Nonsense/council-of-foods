@@ -229,3 +229,75 @@ Steps 1–2 are safely landable on their own; 3–5 are where the behaviour actu
   framing.
 - **`AutoplayCoordinator` cleaned up:** eighteen internal `isMuseumMode` guards deleted — it only
   ever mounts under `capabilities.autoplay`, so every one was dead.
+
+## 8. Step 3 — button store gesture + web arming
+
+**Gesture semantics changed from the original §3 sketch.** Discord's "hold vs. tap by
+duration alone" turned out wrong for a shared kiosk: latching is `capabilities.latchOnTap`
+(web only). Museum stays **strictly hold** regardless of duration — a latched-open mic on an
+unattended kiosk has no keyboard to clear it and no on-screen button to reveal it, so a tap
+there is just a short hold. Full rule:
+
+| Gesture | web (`latchOnTap`) | museum |
+|---|---|---|
+| Hold (≥ 250ms) | momentary — opens on press, closes on release | momentary |
+| Tap (< 250ms) | **toggles a latch** — stays open until the next tap | momentary (duration ignored) |
+| Hold while latched on | **forces the latch closed** — an explicit "close" gesture | n/a |
+
+`pressed` stays purely physical (needed by edge-triggered consumers — autoplay dismiss/exit,
+summary restart, replay restart — which would misfire if a tap froze them at `true`). The new
+`ButtonHandle.wantsMic` (`pressed || latched`) is what the three mic consumers (setup agent,
+human input, meta agent) read instead, and is also what drives the derived LED. `pressed === wantsMic` in museum by construction, so
+nothing there changes behaviourally.
+
+Naming lived through a few passes: `talkOpen` (rejected — vague), `userHasSpoken` (rejected —
+collides with the *has-ever-spoken* concept from §4, a different thing), landing on
+`wantsMic` — it reads correctly both standalone (`button.wantsMic`) and as the value already
+being passed into `micOpen:` params at all three call sites.
+
+**The tap decision, and where it lives:** `buttonStore.ts` tracks `pressStartedAt` as a plain
+module variable (not reactive state — nothing renders off it) and decides tap vs. hold only on
+a *genuine* press→release edge inside `recomputePressed`, i.e. only when `pressed` itself
+transitions — not on every store update. That excludes suppressed input during an
+owner-handoff (`ignoreDownUntilRelease`), which never makes `pressed` true, so it never reaches
+the decision at all. `latched` is cleared unconditionally on disarm (`arm("off")`) and on owner
+change, both *before* `recomputePressed` runs so it sees `pressStartedAt == null` and leaves
+the forced value alone — otherwise a disarm mid-press (e.g. the visitor gets muted while
+holding) could read as a fast release and incorrectly latch the mic on.
+
+**`setLed(mode)` → `setArmed(boolean)`, and the LED became derived.** The first pass renamed
+`setLed` to `arm` while keeping the LED-mode enum, but `arm("pulse")` still leaked light
+vocabulary into every caller and `arm(false)` would have read as a contradiction. The store now
+holds an explicit `armed` boolean — the gate `recomputePressed` actually tests — and computes
+`ledMode` purely for display via `resolveLedMode(armed, wantsMic)`: dark when disarmed, solid
+while the mic is open, pulsing otherwise. Owners never mention lights, and a web owner needs no
+light to exist. This also finishes untangling the gate/display conflation step 3 deliberately
+left in place, without adding the second API call that made a split unattractive.
+
+Three owners lost a `useMemo` entirely (`autoplay`, `summary`, `replay` pass a constant
+`true`; `staff` too, since its `pressed ? "on" : "pulse"` is now automatic), and the other
+three collapsed to a plain boolean: `!muted && !agent.isConnecting` (setup agent),
+`connectionState === "ready"` (meta agent), `state === "ready" || state === "recording"`
+(human input).
+
+Two deliberate, sub-second behaviour changes fall out of deriving the LED from `wantsMic`:
+human input's LED now goes solid on press rather than when `connectionState` reaches
+`"recording"` a beat later, and the meta agent's goes solid on a standby press rather than
+waiting for the phase flip that same press triggers. Both were judged improvements; the
+alternative was keeping a three-value enum purely to express them.
+
+**Web arming, scoped to the setup agent only.** `MeetingSetupAgent` now claims/arms the button
+in both modes — that's what makes `wantsMic` live at all in web — with its LED `useMemo` and
+`micOpen`/`micActive` reads moved from `button.pressed` to `button.wantsMic`. This is
+functionally inert today: `useSetupAgent`'s mic-gating effect only fires when
+`capabilities.micUpFront` is true, which web never is, so `wantsMic` toggling in web currently
+does nothing downstream — that's deliberate, it's step 4's job to plug the mic hybrid in behind
+it. `HumanInput`'s button claim stays `isMuseumMode`-only; that widening is step 5.
+
+**Tests:** pinned `buttonStore.test.ts`/`useButton.test.ts`/`buttonIntentIntegration.test.tsx`
+to `councilAppMode=museum` — those suites are about ownership/transport mechanics and default
+to `latchOnTap: true` (web) when unset, which would otherwise read every synchronous
+press-then-release in those tests as a tap. Added a dedicated tap/hold `describe` block in
+`buttonStore.test.ts` covering both modes plus the disarm/owner-change clears. Six mocked
+`useButton` consumers (autoplay, HumanInput, Staff, Summary, MeetingSetupAgent ×2,
+MeetingMetaAgent) needed `setLed` → `arm` and a `wantsMic` field added to their mocks.

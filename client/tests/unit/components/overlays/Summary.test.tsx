@@ -71,15 +71,18 @@ vi.mock('@/settings/councilSettings', () => ({
 
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
-const mockSetLed = vi.fn();
+const mockSetArmed = vi.fn();
 let mockPressed = false;
 
 vi.mock('@museum/button/useButton', () => ({
     useButton: () => ({
         claim: mockClaim,
         release: mockRelease,
-        setLed: mockSetLed,
+        setArmed: mockSetArmed,
         get pressed() {
+            return mockPressed;
+        },
+        get wantsMic() {
             return mockPressed;
         },
         isOwner: true,
@@ -266,7 +269,7 @@ describe('Summary Overlay', () => {
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
         expect(mockClaim).toHaveBeenCalled();
-        expect(mockSetLed).toHaveBeenCalledWith('pulse');
+        expect(mockSetArmed).toHaveBeenCalledWith(true);
         expect(mockUseButtonBanner).toHaveBeenCalledWith(
             expect.objectContaining({
                 owner: 'summary',

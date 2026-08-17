@@ -6,7 +6,7 @@ import { capabilitiesFor, type Capabilities } from "@/settings/capabilities";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
-const mockSetLed = vi.hoisted(() => vi.fn());
+const mockSetArmed = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseSetupAgent = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   isConnecting: false,
@@ -50,8 +50,9 @@ vi.mock("@/museum/button/useButton", () => ({
   useButton: () => ({
     claim: mockClaim,
     release: mockRelease,
-    setLed: mockSetLed,
+    setArmed: mockSetArmed,
     pressed: mockPressed.value,
+    wantsMic: mockPressed.value,
     isOwner: true,
   }),
 }));
@@ -76,6 +77,26 @@ vi.mock("@newMeeting/meetingSetupStore", () => ({
   }),
 }));
 
+/**
+ * `vi.clearAllMocks()` clears calls but not implementations, so a test that
+ * overrides the agent state has to be undone explicitly — otherwise it leaks
+ * into every test after it.
+ */
+function agentState(overrides: Record<string, unknown> = {}) {
+  return {
+    isConnecting: false,
+    lastCaption: null,
+    lastUserTranscript: null,
+    micStream: null,
+    muted: false,
+    setMuted: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    sendUserMessage: vi.fn(),
+    ...overrides,
+  };
+}
+
 const defaultProps = {
   phase: "topic" as const,
   lastUserEvent: null,
@@ -98,6 +119,7 @@ describe("MeetingSetupAgent button ownership", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPressed.value = false;
+    mockUseSetupAgent.mockReturnValue(agentState());
     mockUseCouncilSettings.mockReturnValue(settings("museum"));
   });
 
@@ -105,7 +127,7 @@ describe("MeetingSetupAgent button ownership", () => {
     render(<MeetingSetupAgent {...defaultProps} />);
 
     expect(mockClaim).toHaveBeenCalled();
-    expect(mockSetLed).toHaveBeenCalledWith(expect.any(String));
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
   it("takes the mic up front in museum, and passes the press through", () => {
@@ -121,32 +143,26 @@ describe("MeetingSetupAgent button ownership", () => {
     );
   });
 
-  it("sets LED pulse when ready and not pressed", () => {
-    render(<MeetingSetupAgent {...defaultProps} />);
-    expect(mockSetLed).toHaveBeenCalledWith("pulse");
-  });
-
-  it("sets LED on while pressed", () => {
+  it("stays armed while pressed — arming does not follow the press", () => {
     mockPressed.value = true;
     render(<MeetingSetupAgent {...defaultProps} />);
-    expect(mockSetLed).toHaveBeenCalledWith("on");
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
-  it("sets LED off when agent is connecting", () => {
-    mockUseSetupAgent.mockReturnValue({
-      isConnecting: true,
-      lastCaption: null,
-      lastUserTranscript: null,
-      micStream: null,
-      muted: false,
-      setMuted: vi.fn(),
-      start: vi.fn(),
-      stop: vi.fn(),
-      sendUserMessage: vi.fn(),
-    });
+  it("disarms while the agent is connecting and cannot take a voice", () => {
+    mockUseSetupAgent.mockReturnValue(agentState({ isConnecting: true }));
 
     render(<MeetingSetupAgent {...defaultProps} />);
-    expect(mockSetLed).toHaveBeenCalledWith("off");
+    expect(mockSetArmed).toHaveBeenCalledWith(false);
+  });
+
+  it("claims and arms the button in web mode too — space works there now", () => {
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+
+    expect(mockClaim).toHaveBeenCalled();
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
   it("defers the mic in web mode", () => {

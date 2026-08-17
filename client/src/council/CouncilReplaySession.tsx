@@ -60,8 +60,8 @@ export default function CouncilReplaySession({
     if (!replayActive) {
       return;
     }
-    replayButton.setLed("pulse");
-  }, [replayActive, replayButton.setLed]);
+    replayButton.setArmed(true);
+  }, [replayActive, replayButton.setArmed]);
 
   useButtonBanner({
     owner: "replay",

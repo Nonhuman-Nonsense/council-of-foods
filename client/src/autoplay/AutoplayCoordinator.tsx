@@ -155,12 +155,12 @@ export default function AutoplayCoordinator({
     }
 
     button.claim();
-    button.setLed("pulse");
+    button.setArmed(true);
 
     return () => {
       button.release();
     };
-  }, [phase, button.claim, button.release, button.setLed]);
+  }, [phase, button.claim, button.release, button.setArmed]);
 
   useEffect(() => {
     const pressed = button.pressed;

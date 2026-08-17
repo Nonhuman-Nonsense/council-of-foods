@@ -63,8 +63,11 @@ vi.mock("@/museum/button/useButton", () => ({
   useButton: () => ({
     claim: vi.fn(),
     release: vi.fn(),
-    setLed: vi.fn(),
+    setArmed: vi.fn(),
     get pressed() {
+      return buttonPressed.value;
+    },
+    get wantsMic() {
       return buttonPressed.value;
     },
     isOwner: false,

@@ -9,7 +9,7 @@ import { useErrorStore } from "@main/overlay/errorStore";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
-const mockSetLed = vi.hoisted(() => vi.fn());
+const mockSetArmed = vi.hoisted(() => vi.fn());
 
 const mockButtonState = vi.hoisted(() => ({
   pressed: false,
@@ -48,8 +48,9 @@ vi.mock("@museum/button/useButton", async () => {
       return {
         claim: mockClaim,
         release: mockRelease,
-        setLed: mockSetLed,
+        setArmed: mockSetArmed,
         pressed,
+        wantsMic: pressed,
         isOwner,
       };
     },
@@ -159,7 +160,7 @@ beforeEach(() => {
   sessionCallbacks.onSessionReady = undefined;
   mockClaim.mockClear();
   mockRelease.mockClear();
-  mockSetLed.mockClear();
+  mockSetArmed.mockClear();
 });
 
 describe("MeetingMetaAgent", () => {
@@ -192,10 +193,9 @@ describe("MeetingMetaAgent", () => {
     expect(mockRelease).toHaveBeenCalled();
   });
 
-  it("sets LED pulse in standby and on while active and pressed", () => {
+  it("arms the button once the realtime session is ready", () => {
     render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
-    act(() => setMockPressed(true));
-    expect(mockSetLed).toHaveBeenCalledWith("on");
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
   it("sets active, opens mic, sends snapshot on button press (standby)", () => {
