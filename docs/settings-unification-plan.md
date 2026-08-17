@@ -301,3 +301,53 @@ press-then-release in those tests as a tap. Added a dedicated tap/hold `describe
 `buttonStore.test.ts` covering both modes plus the disarm/owner-change clears. Six mocked
 `useButton` consumers (autoplay, HumanInput, Staff, Summary, MeetingSetupAgent ×2,
 MeetingMetaAgent) needed `setLed` → `arm` and a `wantsMic` field added to their mocks.
+
+
+## 9. Step 4 — mic hybrid, the latch as single source, prompt
+
+**No detaching at all.** The plan's step-3 hybrid ended with "detach on latch-off or after an
+idle timeout"; that was dropped. Once the visitor has handed the mic over they are likely to use
+it again, and `close()` already stops every track — so the browser's recording indicator goes
+out when the session is torn down (mute, meeting start, unmount) with no bookkeeping of ours.
+The mic is acquired once and then only `enabled`-gated, so no press after the first pays for
+`getUserMedia`. `session.micStream` cannot answer "is it attached?" (`setMicEnabled(false)`
+nulls it to stop the visualiser), so attachment is tracked in a ref, reset whenever the session
+drops since a reconnect brings a fresh peer connection.
+
+**One source of truth for the mic.** The on-screen mic button is the same gesture as a tap by
+another input device, so it calls `button.toggleLatch()` rather than keeping its own state;
+`micOn`/`toggleMic` are gone from `useSetupAgent`, which now just receives `micOpen`.
+`wantsMic` additionally requires `armed`, because a click can set the latch before the agent
+has armed the button and a disarmed button must want nothing.
+
+**The agent is told once.** `canHearVisitor` is deleted; only the `hasEverHeardVisitor` latch
+remains, and `MIC_ON_MESSAGE`/`MIC_OFF_MESSAGE` collapse into a single
+`VISITOR_AUDIBLE_MESSAGE` sent the first time the visitor becomes audible mid-session. This is
+not optional politeness: `instructions` are only read at connect, so without it an agent that
+opened mic-less would keep its "they cannot speak, comment only, tools will refuse" rules for
+the rest of the session no matter what it then heard. `reconfigureSession()` would push new
+instructions but resets the turn machinery and can drop a queued click reaction.
+
+**Two bugs found while wiring it:**
+
+- `useAgentPresence` chose its nudge and welcome-back copy from `canHearVisitor` — "do not ask
+  them anything" whenever the mic was shut. Under push-to-talk that is *most of the time*, so a
+  visitor mid-conversation would have been treated as unable to answer. It reads
+  `hasEverHeardVisitor` now.
+- The effect marking a mic-open as the visitor's own request was declared *after* the attach
+  effect. Effects run in declaration order, so the first real request attached with
+  `userInitiated: false` and a denied permission would have failed silently instead of showing
+  the blocked overlay. Moved above, with a comment saying why the order matters.
+
+**Cold start.** Any mic gesture — space, tap, or button — now sets `startedByVisitor`, so a
+press on a page still waiting for an autoplay gesture starts the agent. Previously only the
+mic button did, which would have left space inert on a cold page.
+
+**Window blur clears a held key.** The first web press opens the permission prompt, which can
+take focus and swallow the `keyup`, leaving the mic open with nothing holding it. Losing focus
+now counts as a release (and fixes alt-tab-while-holding too).
+
+**Prompt.** The web "Visitor Microphone" section collapses from a four-way state machine to the
+single latch, tells the agent that a shut mic is normal and not worth remarking on, mentions
+both the space bar and the mic button in the one-time invitation, and tells it to drop the
+silent-visitor rules if it is later told the visitor can talk.

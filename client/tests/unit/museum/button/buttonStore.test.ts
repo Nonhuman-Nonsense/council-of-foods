@@ -423,6 +423,40 @@ describe("useButtonStore", () => {
       expect(useButtonStore.getState().latched).toBe(false);
     });
 
+    it("web: an on-screen click toggles the same latch as a tap", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      useButtonStore.getState().toggleButtonLatch("setup-agent");
+      expect(useButtonStore.getState().latched).toBe(true);
+
+      useButtonStore.getState().toggleButtonLatch("setup-agent");
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("ignores a latch toggle from an owner that does not hold the button", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      useButtonStore.getState().toggleButtonLatch("summary");
+
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("treats losing window focus as a release", () => {
+      // The first web press opens the microphone permission prompt, which can
+      // take focus and swallow the keyup — leaving the mic open with nothing
+      // holding it.
+      localStorage.setItem("councilAppMode", "museum");
+
+      useButtonStore.setState({ keyboardDown: true });
+      useButtonStore.getState().syncPressed("keyboard");
+      expect(useButtonStore.getState().pressed).toBe(true);
+
+      window.dispatchEvent(new Event("blur"));
+
+      expect(useButtonStore.getState().keyboardDown).toBe(false);
+      expect(useButtonStore.getState().pressed).toBe(false);
+    });
+
     it("disarming clears a latch left over mid-gesture", () => {
       localStorage.setItem("councilAppMode", "web");
 

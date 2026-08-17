@@ -55,8 +55,8 @@ const defaultParams = {
   language: "en",
   // Mirrors the real wiring: the brief is built from the mic state at connect,
   // the tool list is static.
-  instructions: ({ canHearVisitor }: SetupAgentContext) =>
-    canHearVisitor ? "Guide the visitor." : "Comment on what the visitor clicks.",
+  instructions: ({ hasEverHeardVisitor }: SetupAgentContext) =>
+    hasEverHeardVisitor ? "Guide the visitor." : "Comment on what the visitor clicks.",
   tools: [{ type: "function" as const, name: "select_topic" }],
   toolHandlers: {
     select_topic: selectTopicHandler,
@@ -176,8 +176,30 @@ describe("useSetupAgent", () => {
     );
 
     act(() => {
-      result.current.toggleMic();
+      void result.current.start();
     });
+
+    await waitFor(() =>
+      expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ autoConnect: true }),
+      ),
+    );
+  });
+
+  it("starts a cold agent from the mic gesture alone", async () => {
+    // Space and the mic button both reach the hook as `micOpen`; either is the
+    // gesture that unblocks audio, so neither should wait for the autoplay probe.
+    mockAutoplay.allowed = false;
+
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
+    expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoConnect: false }),
+    );
+
+    rerender({ micOpen: true });
 
     await waitFor(() =>
       expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
@@ -189,68 +211,54 @@ describe("useSetupAgent", () => {
   it("hands the microphone over when the visitor asks for it", async () => {
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
 
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
+    expect(attachMic).not.toHaveBeenCalled();
 
-    act(() => {
-      result.current.toggleMic();
-    });
+    rerender({ micOpen: true });
 
     await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
-    expect(result.current.micOn).toBe(true);
   });
 
-  it("turns the agent back on when the mic is clicked while it is off", async () => {
-    mockUseRealtimeVoiceSession.mockReturnValue({ ...readySession });
+  it("keeps the microphone once acquired, gating the track between presses", async () => {
+    // Re-acquiring per press would clip the start of every utterance. The
+    // browser releases the mic when the session itself is torn down.
+    const setMicEnabled = vi.fn();
+    mockUseRealtimeVoiceSession.mockReturnValue({ ...readySession, setMicEnabled });
 
-    const { result } = renderHook(() =>
-      useSetupAgent({ ...defaultParams, initialMuted: true }),
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
     );
 
-    act(() => {
-      result.current.toggleMic();
-    });
-
-    // One gesture means both: bring the agent back and take the mic.
-    expect(result.current.muted).toBe(false);
+    rerender({ micOpen: true });
     await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
+
+    rerender({ micOpen: false });
+    await waitFor(() => expect(setMicEnabled).toHaveBeenLastCalledWith(false));
+    expect(detachMic).not.toHaveBeenCalled();
+
+    rerender({ micOpen: true });
+    await waitFor(() => expect(setMicEnabled).toHaveBeenLastCalledWith(true));
+    expect(attachMic).toHaveBeenCalledOnce();
   });
 
-  it("releases the microphone when toggled off", async () => {
-    mockUseRealtimeVoiceSession.mockReturnValue({
-      ...readySession,
-      micStream: { id: "mic" } as unknown as MediaStream,
-    });
-
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
-
-    act(() => {
-      result.current.toggleMic();
-    });
-    expect(result.current.micOn).toBe(true);
-
-    act(() => {
-      result.current.toggleMic();
-    });
-
-    expect(detachMic).toHaveBeenCalledOnce();
-    expect(result.current.micOn).toBe(false);
-  });
-
-  it("marks a mic click as the visitor's own request", async () => {
+  it("marks the visitor's own request so a refusal explains itself", async () => {
     // requestMicrophone explains a failure the visitor asked for; this is the
     // only signal it has to tell that apart from a background re-attach.
     attachMic.mockResolvedValue(false);
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
 
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
 
-    act(() => {
-      result.current.toggleMic();
-    });
+    rerender({ micOpen: true });
 
-    // Wait for the outcome, not the call: the mic intent is dropped after the
-    // attach settles, so asserting on the call alone races the state update.
-    await waitFor(() => expect(result.current.micOn).toBe(false));
+    await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
     expect(attachMic).toHaveBeenCalledWith({ userInitiated: true });
   });
 
@@ -258,21 +266,22 @@ describe("useSetupAgent", () => {
     // The visitor never let go of the mic — a dropped session shouldn't
     // silently take it away, nor throw an overlay if it can't be recovered.
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
-    const { result, rerender } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
 
-    act(() => {
-      result.current.toggleMic();
-    });
+    rerender({ micOpen: true });
     await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
 
-    // Drop: session goes away and comes back with no mic attached.
+    // Drop: session goes away and comes back with no mic attached. The visitor
+    // never let go, so `micOpen` stays true throughout.
     mockUseRealtimeVoiceSession.mockReturnValue({ ...baseSession, connectionState: "connecting" });
-    rerender();
-    expect(result.current.micOn).toBe(true);
+    rerender({ micOpen: true });
 
     attachMic.mockResolvedValue(false);
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
-    rerender();
+    rerender({ micOpen: true });
 
     // Not the visitor's request this time, so a failure stays quiet.
     await waitFor(() => expect(attachMic).toHaveBeenCalledTimes(2));
@@ -286,52 +295,58 @@ describe("useSetupAgent", () => {
     const reconfigureSession = vi.fn();
     mockUseRealtimeVoiceSession.mockReturnValue({ ...readySession, reconfigureSession });
 
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
 
-    act(() => {
-      result.current.toggleMic();
-    });
-    await waitFor(() => expect(result.current.micOn).toBe(true));
-
-    act(() => {
-      result.current.toggleMic();
-    });
-    await waitFor(() => expect(result.current.micOn).toBe(false));
+    rerender({ micOpen: true });
+    await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
+    rerender({ micOpen: false });
 
     expect(reconfigureSession).not.toHaveBeenCalled();
   });
 
-  it("puts a mic change on the record without asking the agent to speak", async () => {
-    // Someone who just pressed the mic button is about to talk — an "I can hear
-    // you now" would land on top of their first sentence.
+  it("tells the agent once when the visitor first becomes audible", async () => {
+    // Instructions are only read at connect, so without this the agent keeps
+    // the "they cannot speak" rules it opened with for the whole session. It
+    // asks for no reply: someone who just opened the mic is about to talk.
     const sendUserMessage = vi.fn();
     const interruptAndRespond = vi.fn();
     const requestAgentResponse = vi.fn();
     mockUseRealtimeVoiceSession.mockReturnValue({
       ...readySession,
-      micStream: { id: "mic" } as unknown as MediaStream,
       sendUserMessage,
       interruptAndRespond,
       requestAgentResponse,
     });
 
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
 
-    act(() => {
-      result.current.toggleMic();
-    });
+    rerender({ micOpen: true });
     await waitFor(() => expect(sendUserMessage).toHaveBeenCalledOnce());
 
-    act(() => {
-      result.current.toggleMic();
-    });
-    await waitFor(() => expect(sendUserMessage).toHaveBeenCalledTimes(2));
+    // Push-to-talk shuts the mic between utterances — a closed mic is not news.
+    rerender({ micOpen: false });
+    rerender({ micOpen: true });
+    rerender({ micOpen: false });
 
-    // The wording is copy; that each direction says something different, and
-    // that neither asks the agent to speak, is the contract.
-    expect(sendUserMessage.mock.calls[0][0]).not.toBe(sendUserMessage.mock.calls[1][0]);
+    expect(sendUserMessage).toHaveBeenCalledOnce();
     expect(interruptAndRespond).not.toHaveBeenCalled();
     expect(requestAgentResponse).not.toHaveBeenCalled();
+  });
+
+  it("says nothing when a session opens already knowing the visitor", async () => {
+    const sendUserMessage = vi.fn();
+    mockUseRealtimeVoiceSession.mockReturnValue({ ...readySession, sendUserMessage });
+
+    renderHook(() => useSetupAgent({ ...defaultParams, micUpFront: true }));
+
+    await waitFor(() => expect(mockUseRealtimeVoiceSession).toHaveBeenCalled());
+    expect(sendUserMessage).not.toHaveBeenCalled();
   });
 
   it("refuses to act for a visitor who has never spoken", () => {
@@ -362,17 +377,14 @@ describe("useSetupAgent", () => {
       micStream: { id: "mic" } as unknown as MediaStream,
     });
 
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
+      { initialProps: { micOpen: false } },
+    );
 
-    act(() => {
-      result.current.toggleMic();
-    });
-    await waitFor(() => expect(result.current.micOn).toBe(true));
-
-    act(() => {
-      result.current.toggleMic();
-    });
-    await waitFor(() => expect(result.current.micOn).toBe(false));
+    rerender({ micOpen: true });
+    await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
+    rerender({ micOpen: false });
 
     handlersFromLastCall().select_topic({ title: "Food Waste" });
     expect(selectTopicHandler).toHaveBeenCalledOnce();
@@ -385,7 +397,7 @@ describe("useSetupAgent", () => {
       useSetupAgent({ ...defaultParams, unattended: true, micUpFront: true }),
     );
 
-    expect(result.current.canHearVisitor).toBe(true);
+    expect(result.current.hasEverHeardVisitor).toBe(true);
     expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
       expect.objectContaining({ instructions: "Guide the visitor." }),
     );
@@ -394,21 +406,21 @@ describe("useSetupAgent", () => {
     expect(selectTopicHandler).toHaveBeenCalledOnce();
   });
 
-  it("drops the mic intent when the agent is switched off", async () => {
+  it("mutes the agent when switched off, which tears the session down", async () => {
+    // Teardown is what releases the microphone — nothing detaches it by hand.
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
     const { result } = renderHook(() => useSetupAgent(defaultParams));
-
-    act(() => {
-      result.current.toggleMic();
-    });
-    await waitFor(() => expect(result.current.micOn).toBe(true));
 
     act(() => {
       result.current.stop();
     });
 
-    expect(result.current.micOn).toBe(false);
     expect(result.current.muted).toBe(true);
+    await waitFor(() =>
+      expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ sessionActive: false }),
+      ),
+    );
   });
 
   it("passes PTT to the shared session and syncs micOpen", () => {

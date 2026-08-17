@@ -48,9 +48,11 @@ export function useAgentPresence({ agent, phase, lastActivity }: UseAgentPresenc
     enabled: !agent.isConnecting && !muted && isDocumentVisible,
     onNudgeFired: () => setNudgeFired(true),
     lastActivity,
-    // A visitor with no microphone isn't "quiet" — they're reading. Asking them
-    // to respond would be asking for something they can't give.
-    message: !agent.canHearVisitor
+    // A visitor who has never had a microphone isn't "quiet" — they're reading.
+    // Asking them to respond would be asking for something they can't give.
+    // Once they have spoken, push-to-talk shuts the mic between utterances, so
+    // a closed mic is no reason to stop talking with them.
+    message: !agent.hasEverHeardVisitor
       ? "The visitor has been still for a while. Say something brief about what is on screen, or offer a thought that might help them choose. Do not ask them anything."
       : phase === "landing"
         ? "The visitor is quiet. Gently prompt them to respond to you."
@@ -82,7 +84,7 @@ export function useAgentPresence({ agent, phase, lastActivity }: UseAgentPresenc
       void agent.start();
     } else if (!muted && !agent.isConnecting && !agent.agentSpeaking) {
       sendUserMessage(
-        !agent.canHearVisitor
+        !agent.hasEverHeardVisitor
           ? "The visitor has returned after a brief absence. Welcome them back in one short sentence. Do not ask them anything."
           : phase === "landing"
             ? "The visitor has returned after a brief absence. Welcome them back and invite them to continue."

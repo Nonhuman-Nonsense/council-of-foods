@@ -30,6 +30,11 @@ export type ButtonHandle = {
    * never speak of lights and a web owner needs no light to exist.
    */
   setArmed: (armed: boolean) => void;
+  /**
+   * Toggle the latch from an on-screen control, exactly as a tap would. Only
+   * meaningful where `capabilities.latchOnTap` allows latching at all.
+   */
+  toggleLatch: () => void;
   /** Routed press — true only when this owner is buttonOwner and armed. */
   pressed: boolean;
   /**
@@ -99,8 +104,11 @@ export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState
 
 export function useButton(owner: ButtonOwner): ButtonHandle {
   const pressed = useButtonStore((state) => state.buttonOwner === owner && state.pressed);
+  // `armed` is required explicitly: `pressed` already implies it, but a latch
+  // set while disarmed (a mic-button click that also wakes the agent) lives
+  // until the arming that follows, and a disarmed button must want nothing.
   const wantsMic = useButtonStore(
-    (state) => state.buttonOwner === owner && (state.pressed || state.latched),
+    (state) => state.buttonOwner === owner && state.armed && (state.pressed || state.latched),
   );
   const isOwner = useButtonStore((state) => state.buttonOwner === owner);
 
@@ -119,8 +127,12 @@ export function useButton(owner: ButtonOwner): ButtonHandle {
     [owner],
   );
 
+  const toggleLatch = useCallback(() => {
+    useButtonStore.getState().toggleButtonLatch(owner);
+  }, [owner]);
+
   return useMemo(
-    () => ({ claim, release, setArmed, pressed, wantsMic, isOwner }),
-    [claim, release, setArmed, pressed, wantsMic, isOwner],
+    () => ({ claim, release, setArmed, toggleLatch, pressed, wantsMic, isOwner }),
+    [claim, release, setArmed, toggleLatch, pressed, wantsMic, isOwner],
   );
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
 import type { AppMode } from "@/settings/councilSettings";
 import { capabilitiesFor, type Capabilities } from "@/settings/capabilities";
@@ -7,6 +7,7 @@ import { capabilitiesFor, type Capabilities } from "@/settings/capabilities";
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetArmed = vi.hoisted(() => vi.fn());
+const mockToggleLatch = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseSetupAgent = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   isConnecting: false,
@@ -51,6 +52,7 @@ vi.mock("@/museum/button/useButton", () => ({
     claim: mockClaim,
     release: mockRelease,
     setArmed: mockSetArmed,
+    toggleLatch: mockToggleLatch,
     pressed: mockPressed.value,
     wantsMic: mockPressed.value,
     isOwner: true,
@@ -62,7 +64,9 @@ vi.mock("@setupAgent/useSetupAgent", () => ({
 }));
 
 vi.mock("@setupAgent/SetupAgentOverlay", () => ({
-  default: () => null,
+  default: (props: { onToggleMic?: () => void }) => (
+    <button type="button" data-testid="mic-toggle" onClick={props.onToggleMic} />
+  ),
 }));
 
 vi.mock("@main/Loading", () => ({
@@ -163,6 +167,32 @@ describe("MeetingSetupAgent button ownership", () => {
 
     expect(mockClaim).toHaveBeenCalled();
     expect(mockSetArmed).toHaveBeenCalledWith(true);
+  });
+
+  it("routes the on-screen mic button through the same latch as a tap", () => {
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
+    const start = vi.fn();
+    mockUseSetupAgent.mockReturnValue(agentState({ start }));
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("mic-toggle"));
+
+    expect(mockToggleLatch).toHaveBeenCalledOnce();
+    // Already running, so nothing to wake.
+    expect(start).not.toHaveBeenCalled();
+  });
+
+  it("wakes a switched-off agent from the mic button, then latches", () => {
+    // Wanting to talk implies wanting to hear the reply.
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
+    const start = vi.fn();
+    mockUseSetupAgent.mockReturnValue(agentState({ muted: true, start }));
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("mic-toggle"));
+
+    expect(start).toHaveBeenCalledOnce();
+    expect(mockToggleLatch).toHaveBeenCalledOnce();
   });
 
   it("defers the mic in web mode", () => {

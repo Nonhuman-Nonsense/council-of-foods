@@ -9,29 +9,25 @@ import { log } from "@/logger";
 /** What the agent's instructions are allowed to depend on. */
 export type SetupAgentContext = {
   /**
-   * The visitor's microphone is live right now. False on web until they press
-   * the mic button — the agent then comments rather than converses.
-   */
-  canHearVisitor: boolean;
-  /**
-   * The visitor has spoken at least once this session. A latch: it never goes
-   * back to false, so the tools the agent earned by being spoken to survive the
-   * mic being switched off again.
+   * The visitor has had a working microphone at least once this session. A
+   * latch: it never goes back to false. Push-to-talk means the mic is shut most
+   * of the time even mid-conversation, so the live state is not something the
+   * agent should track — once they can talk, they can talk.
    */
   hasEverHeardVisitor: boolean;
 };
 
 /**
- * Put on the record when the microphone changes hands. Neither asks for a
- * reply: a visitor who just pressed the mic button is about to speak, and an
- * "I can hear you now" would land on top of their first sentence; a visitor who
- * just muted asked for less, not more. The agent only needs to know.
+ * Sent once, the first time the visitor becomes audible mid-session. Instructions
+ * are only read when a session connects, so without this the agent would keep
+ * the "they cannot speak, comment only" rules it opened with for the rest of the
+ * session, no matter what it then hears.
  *
- * They state the fact and nothing else — the prompt carries the rules for each
- * mode, and repeating them here would be a second copy to drift out of step.
+ * Asks for no reply — the visitor who just opened the mic is about to speak, and
+ * an "I can hear you now" would land on top of their first sentence. It states
+ * the fact and nothing else; the prompt carries the rules.
  */
-const MIC_ON_MESSAGE = "(The visitor just turned their microphone on — you can hear them now.)";
-const MIC_OFF_MESSAGE = "(The visitor just turned their microphone off.)";
+const VISITOR_AUDIBLE_MESSAGE = "(The visitor can talk to you now.)";
 
 /** Returned instead of acting when the agent reaches for a tool it should not use yet. */
 const TOOL_REFUSED_ERROR =
@@ -41,9 +37,9 @@ export type UseSetupAgentParams = {
   language: string;
   /**
    * Built from the live context rather than passed as a value: what the agent
-   * is told depends on whether it can hear the visitor, and that state lives in
-   * here. Only read when a session connects — mic changes after that are put on
-   * the record in the conversation instead of re-sending the session config.
+   * is told depends on whether the visitor has ever been audible, and that state
+   * lives in here. Only read when a session connects — a later first-contact is
+   * put on the record in the conversation instead.
    */
   instructions: (ctx: SetupAgentContext) => string;
   tools: RealtimeTool[];
@@ -56,6 +52,11 @@ export type UseSetupAgentParams = {
    * deferring until a gesture asks for it (capabilities.micUpFront).
    */
   micUpFront?: boolean;
+  /**
+   * The visitor wants the mic open right now — held, or latched by a tap or the
+   * on-screen button. Single source: the button store owns the gesture, so this
+   * hook never keeps a competing copy.
+   */
   micOpen?: boolean;
   /** Nobody is present to fix a failure (capabilities.unattended). */
   unattended?: boolean;
@@ -71,16 +72,16 @@ export type SetupAgentState = {
   isStarting: boolean;
   /** Session is live and able to take a microphone. */
   isReady: boolean;
-  /** True when the agent can actually hear the visitor (museum, or web mic on). */
-  canHearVisitor: boolean;
+  /**
+   * The visitor has had a working microphone at least once. Push-to-talk shuts
+   * the mic between utterances, so this — not the live mic state — is what says
+   * whether the agent may ask them something.
+   */
+  hasEverHeardVisitor: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   agentSpeaking: boolean;
   micStream: MediaStream | null;
-  /** True when the visitor has handed over their microphone (web). */
-  micOn: boolean;
-  /** Web mic control: turns the agent on first if it was off. */
-  toggleMic: () => void;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   start: () => Promise<void>;
@@ -112,14 +113,17 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
-  const [micOn, setMicOn] = useState(false);
   /**
    * The visitor pressed something to start the agent. That press is itself the
    * gesture every browser wants before it will play audio, so it opens the gate
    * without waiting on another check.
    */
   const [startedByVisitor, setStartedByVisitor] = useState(false);
-  /** Distinguishes a click from an automatic re-attach after a reconnect. */
+  /**
+   * The mic opened because the visitor just asked, rather than because a
+   * reconnect found the latch still on. Only a request they made should explain
+   * itself with the blocked-microphone overlay.
+   */
   const micRequestedByUserRef = useRef(false);
   const autoplayAllowed = useAutoplayAllowed();
 
@@ -136,17 +140,16 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const canAutoConnect = unattended || autoplayAllowed || startedByVisitor;
 
   // A mic taken up front is always there (museum); a deferred one arrives only
-  // when the visitor asks for it.
-  const canHearVisitor = micUpFront || micOn;
+  // when the visitor asks for it, and the latch never goes back.
   const [hasEverHeardVisitor, setHasEverHeardVisitor] = useState(micUpFront);
 
   useEffect(() => {
-    if (canHearVisitor) setHasEverHeardVisitor(true);
-  }, [canHearVisitor]);
+    if (micUpFront || micOpen) setHasEverHeardVisitor(true);
+  }, [micUpFront, micOpen]);
 
   const instructions = useMemo(
-    () => buildInstructions({ canHearVisitor, hasEverHeardVisitor }),
-    [buildInstructions, canHearVisitor, hasEverHeardVisitor],
+    () => buildInstructions({ hasEverHeardVisitor }),
+    [buildInstructions, hasEverHeardVisitor],
   );
 
   /**
@@ -208,81 +211,101 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
   const isReady = session.connectionState === "ready";
 
+  // Museum: the mic is already attached, so opening it is only a track toggle.
   useEffect(() => {
     if (!micUpFront || muted) return;
     session.setMicEnabled(micOpen);
   }, [micUpFront, micOpen, muted, session.setMicEnabled]);
 
   /**
-   * Put a mic change on the record. Nothing in the session config depends on
-   * the microphone, so this is the whole update — no `session.update`, which
-   * would also reset the turn machinery and can drop a queued click reaction.
+   * Web: acquire on the first ask, then keep it. Re-acquiring per press would
+   * clip the start of every utterance, so the track stays attached and only its
+   * `enabled` flag follows the gesture. Nothing releases it deliberately — the
+   * browser's recording indicator goes out when the session itself is torn down
+   * (mute, meeting start, unmount), which `close()` already handles.
    *
-   * Skips the first pass after each connect: the instructions the session
-   * opened with already describe the microphone as it was at that moment.
+   * `session.micStream` cannot answer "is it attached?" — `setMicEnabled(false)`
+   * nulls it so the visualiser stops — so attachment is tracked here, and reset
+   * whenever the session drops, since a reconnect brings a fresh peer connection.
    */
-  const announcedMicRef = useRef<boolean | null>(null);
+  const micAttachedRef = useRef(false);
+
   useEffect(() => {
-    if (!isReady) {
-      announcedMicRef.current = null;
+    if (!isReady) micAttachedRef.current = false;
+  }, [isReady]);
+
+  /**
+   * Every route to an open mic is a gesture the visitor just made — space, a
+   * tap, or the on-screen button — so it both counts as their own request and
+   * opens the autoplay gate, starting a cold agent that was still waiting for a
+   * gesture. Only a reconnect re-opens the mic on its own, and that leaves
+   * `micOpen` unchanged so this does not fire. Declared before the attach
+   * effect on purpose — effects run in order, and the attach reads this ref
+   * synchronously.
+   */
+  useEffect(() => {
+    if (!micOpen) return;
+    micRequestedByUserRef.current = true;
+    setStartedByVisitor(true);
+  }, [micOpen]);
+
+  useEffect(() => {
+    if (micUpFront || !isReady) return;
+
+    if (micAttachedRef.current) {
+      session.setMicEnabled(micOpen);
       return;
     }
-    if (announcedMicRef.current === null) {
-      announcedMicRef.current = canHearVisitor;
-      return;
-    }
-    if (announcedMicRef.current === canHearVisitor) return;
-    announcedMicRef.current = canHearVisitor;
-
-    // No response requested either way — see the message constants.
-    session.sendUserMessage(canHearVisitor ? MIC_ON_MESSAGE : MIC_OFF_MESSAGE);
-  }, [isReady, canHearVisitor, session.sendUserMessage]);
-
-  // Hand the mic over once the session can take it. Covers all three routes in:
-  // a click while connected, a click that had to start the agent first, and a
-  // reconnect after a drop — where the visitor never let go of the mic, so
-  // silently dropping it would be the wrong answer.
-  useEffect(() => {
-    if (micUpFront || !micOn || !isReady || session.micStream) return;
+    if (!micOpen) return;
 
     let cancelled = false;
     void (async () => {
-      // requestMicrophone explains a failed request the visitor made, and stays
-      // quiet for an automatic re-attach after a reconnect.
+      // A fresh ask explains a refusal with the blocked overlay; an automatic
+      // re-attach after a reconnect stays quiet.
       const attached = await session.attachMic({
         userInitiated: micRequestedByUserRef.current,
       });
-      if (cancelled) return;
-      if (!attached) setMicOn(false);
       micRequestedByUserRef.current = false;
+      if (cancelled) return;
+      micAttachedRef.current = attached;
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [micUpFront, micOn, isReady, session.micStream, session.attachMic]);
+  }, [micUpFront, micOpen, isReady, session.attachMic, session.setMicEnabled]);
+
+  /**
+   * Tell the agent once, when the visitor first becomes audible. Skipped on the
+   * first pass after each connect: a session that opened already knowing them
+   * was built with instructions that say so.
+   */
+  const heardAtConnectRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!isReady) {
+      heardAtConnectRef.current = null;
+      return;
+    }
+    if (heardAtConnectRef.current === null) {
+      heardAtConnectRef.current = hasEverHeardVisitor;
+      return;
+    }
+    if (heardAtConnectRef.current || !hasEverHeardVisitor) return;
+    heardAtConnectRef.current = true;
+
+    // No response requested — see the message constant.
+    session.sendUserMessage(VISITOR_AUDIBLE_MESSAGE);
+  }, [isReady, hasEverHeardVisitor, session.sendUserMessage]);
+
+  const start = useCallback(async () => {
+    setMuted(false);
+    setStartedByVisitor(true);
+  }, []);
 
   const stop = useCallback(() => {
-    setMicOn(false);
     micRequestedByUserRef.current = false;
     setMuted(true);
   }, []);
-
-  const toggleMic = useCallback(() => {
-    if (micOn) {
-      setMicOn(false);
-      micRequestedByUserRef.current = false;
-      session.detachMic();
-      return;
-    }
-    // Wanting to talk implies wanting to hear the reply, so a mic click also
-    // brings the agent back if it was switched off — or starts it for the first
-    // time, on a page where we were still waiting for a gesture.
-    micRequestedByUserRef.current = true;
-    setMicOn(true);
-    setMuted(false);
-    setStartedByVisitor(true);
-  }, [micOn, session.detachMic]);
 
   return {
     isConnecting:
@@ -290,18 +313,13 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
       (session.connectionState === "ready" && !session.hasReceivedAudioPart),
     isStarting: session.connectionState === "connecting",
     isReady,
-    canHearVisitor,
+    hasEverHeardVisitor,
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,
     micStream: session.micStream,
-    micOn,
-    toggleMic,
     muted,
     setMuted,
-    start: async () => {
-      setMuted(false);
-      setStartedByVisitor(true);
-    },
+    start,
     stop,
     agentSpeaking: session.agentSpeaking,
     sendUserMessage: session.sendUserMessage,

@@ -87,10 +87,10 @@ export default function MeetingSetupAgent({
     [otherLanguages],
   );
 
-  // Builders, not values: the agent's job changes depending on whether it can
-  // hear the visitor, and that state lives inside useSetupAgent.
+  // A builder, not a value: the agent's job changes once the visitor has been
+  // audible, and that latch lives inside useSetupAgent.
   const instructions = useCallback(
-    ({ canHearVisitor, hasEverHeardVisitor }: SetupAgentContext) =>
+    ({ hasEverHeardVisitor }: SetupAgentContext) =>
       buildSetupAgentPrompt({
         language: agentLanguage,
         topics: setupTopics,
@@ -98,7 +98,6 @@ export default function MeetingSetupAgent({
         phase,
         visitorName,
         otherLanguageNames,
-        canHearVisitor,
         hasEverHeardVisitor,
       }),
     [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames],
@@ -218,6 +217,19 @@ export default function MeetingSetupAgent({
     button.setArmed(canTakeVoice);
   }, [button.setArmed, canTakeVoice]);
 
+  /**
+   * The on-screen mic button is the same gesture as a tap, by another input
+   * device — so it toggles the same latch rather than keeping its own state.
+   * Wanting to talk implies wanting to hear the reply, so it also brings the
+   * agent back if it was switched off, or starts it for the first time on a
+   * page still waiting for a gesture. The latch survives the arming that
+   * follows, so setting it here while still disarmed is safe.
+   */
+  const handleToggleMic = useCallback(() => {
+    if (muted) void agent.start();
+    button.toggleLatch();
+  }, [muted, agent.start, button.toggleLatch]);
+
   useEffect(() => {
     if (!lastUserEvent) {
       return;
@@ -263,9 +275,9 @@ export default function MeetingSetupAgent({
       showMicRow={isMuseumMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}
-      micActive={isMuseumMode && !muted && button.wantsMic}
-      micOn={agent.micOn}
-      onToggleMic={agent.toggleMic}
+      micActive={!muted && button.wantsMic}
+      micOn={!muted && button.wantsMic}
+      onToggleMic={handleToggleMic}
       onStart={agent.start}
       onStop={agent.stop}
     />

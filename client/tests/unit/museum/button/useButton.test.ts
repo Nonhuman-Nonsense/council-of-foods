@@ -84,6 +84,24 @@ describe("useButton", () => {
     expect(result.current.pressed).toBe(false);
   });
 
+  it("wants no microphone while disarmed, even with a latch set", async () => {
+    // A click can set the latch before the agent has armed the button; until it
+    // does, the button must not report the mic as open.
+    const { useButton } = await import("@/museum/button/useButton");
+
+    const { result } = renderHook(() => useButton("setup-agent"));
+    act(() => {
+      result.current.claim();
+      useButtonStore.setState({ armed: false, latched: true });
+    });
+    expect(result.current.wantsMic).toBe(false);
+
+    act(() => {
+      useButtonStore.setState({ armed: true });
+    });
+    expect(result.current.wantsMic).toBe(true);
+  });
+
   it("keeps ownership while disarmed", async () => {
     const { useButton } = await import("@/museum/button/useButton");
 

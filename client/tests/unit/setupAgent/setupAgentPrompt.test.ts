@@ -37,21 +37,15 @@ describe('buildSetupAgentPrompt', () => {
    */
   it('varies with the microphone context it is given', () => {
     const base = { language: 'en', topics, characters, phase: 'topic' as const };
-    const micOn = buildSetupAgentPrompt({ ...base, canHearVisitor: true });
-    const neverSpoken = buildSetupAgentPrompt({
-      ...base, canHearVisitor: false, hasEverHeardVisitor: false,
-    });
-    const spokenThenMuted = buildSetupAgentPrompt({
-      ...base, canHearVisitor: false, hasEverHeardVisitor: true,
-    });
+    const hasSpoken = buildSetupAgentPrompt({ ...base, hasEverHeardVisitor: true });
+    const neverSpoken = buildSetupAgentPrompt({ ...base, hasEverHeardVisitor: false });
 
-    expect(neverSpoken).not.toBe(micOn);
-    expect(spokenThenMuted).not.toBe(neverSpoken);
+    expect(neverSpoken).not.toBe(hasSpoken);
   });
 
   it('defaults to a hearing agent so museum is unaffected', () => {
     const explicit = buildSetupAgentPrompt({
-      language: 'en', topics, characters, phase: 'topic', canHearVisitor: true,
+      language: 'en', topics, characters, phase: 'topic', hasEverHeardVisitor: true,
     });
     const implicit = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'topic' });
 

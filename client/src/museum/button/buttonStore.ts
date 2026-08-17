@@ -129,6 +129,7 @@ type ButtonStore = {
   claimButton: (owner: ButtonOwner) => void;
   releaseButton: (owner: ButtonOwner) => void;
   setButtonArmed: (owner: ButtonOwner, armed: boolean) => void;
+  toggleButtonLatch: (owner: ButtonOwner) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
   setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: TranslationKey | undefined) => void;
   setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
@@ -286,8 +287,19 @@ function bindKeyboard(
     recomputePressed(set, get, "keyboard");
   };
 
+  // A keyup can be lost while the window is not focused — most sharply on the
+  // very first web press, where the microphone permission prompt can take focus
+  // mid-hold and the mic would otherwise stay open with nothing holding it.
+  // Treat losing focus as a release; the duration still decides tap vs hold.
+  const onBlur = () => {
+    if (!get().keyboardDown) return;
+    set({ keyboardDown: false });
+    recomputePressed(set, get, "keyboard");
+  };
+
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+  window.addEventListener("blur", onBlur);
 }
 
 async function pushLedToHardware(
@@ -477,6 +489,20 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
       return;
     }
     set({ armedOwners });
+  },
+
+  /**
+   * The same latch a tap toggles, for an on-screen mic button: clicking one is
+   * the same gesture by another input device, so it must not become a second
+   * source of truth. Safe to call while disarmed — arming preserves an existing
+   * latch, so a click that also wakes the agent survives the arming that follows.
+   */
+  toggleButtonLatch: (owner) => {
+    if (get().buttonOwner !== owner) return;
+    const latched = !get().latched;
+    log.event("BUTTON", latched ? "latch on" : "latch off", { owner, source: "click" });
+    set({ latched, ledMode: resolveLedMode(get().armed, get().pressed || latched) });
+    void pushLedToHardware(set, get, get().ledMode);
   },
 
   resyncLed: async () => {
