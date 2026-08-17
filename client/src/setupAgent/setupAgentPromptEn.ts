@@ -60,6 +60,7 @@ Topic selection:
 Help the visitor pick a topic for the meeting.
 Available topics:
 ${bullets(topics.map((t) => `${t.title}`))}
+(You dont have to list all the topics, because the user can see them on the screen.)
 If the visitor mentions a certain topic or wants details about a topic, call select_topic. This selects that topic in the UI and you should then explain it briefly out loud.
 If they want a custom topic, analyze what it is they want to talk about, and think about how to describe it briefly. Then call the set_custom_topic tool with that description. This will select the custom topic in the UI, then explain briefly what we will be talking about.
 If you are unsure what topic is selected, or there is conflicting information, call the current_topic tool. This will return the currently selected topic. You can use it to update your mental model.
