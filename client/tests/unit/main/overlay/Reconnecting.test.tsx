@@ -2,9 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import Reconnecting from "@main/overlay/Reconnecting";
 import { useErrorStore } from "@main/overlay/errorStore";
+import { capabilitiesFor } from "@/settings/capabilities";
 
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false })),
+  vi.fn(() => ({ isMuseumMode: false, capabilities: capabilitiesFor("web") })),
 );
 
 vi.mock("react-i18next", () => ({
@@ -28,7 +29,7 @@ const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
 describe("Reconnecting overlay", () => {
   beforeEach(() => {
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false, capabilities: capabilitiesFor("web") });
     useErrorStore.getState().resetForTests();
   });
 
@@ -65,7 +66,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: escalates via reloadApp when health is not OK", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 503 })),
@@ -96,7 +97,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: reloads when health probe succeeds after waiting phase", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 200 })),
@@ -128,7 +129,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: cancels reload timer on unmount", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn(

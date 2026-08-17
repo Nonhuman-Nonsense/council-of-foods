@@ -40,6 +40,8 @@ where museum implied ptt anyway. Each site gets an explicit capability instead.
 ```ts
 // settings/capabilities.ts
 export type Capabilities = {
+  unattended: boolean;            // nobody present to fix a failure
+  browserUi: boolean;             // visitor has their own browser, pointer, keyboard
   metaAgent: boolean;             // meeting-time agent
   teleprompter: boolean;          // summary scroll mode
   autoSubmitHumanInput: boolean;  // PTT release auto-sends the transcript
@@ -55,6 +57,8 @@ export function capabilitiesFor(mode: AppMode): Capabilities;
 
 | Capability | web | museum |
 |---|---|---|
+| `unattended` | ✗ | ✓ |
+| `browserUi` | ✓ | ✗ |
 | `metaAgent` | ✗ | ✓ |
 | `teleprompter` | ✗ | ✓ |
 | `autoSubmitHumanInput` | ✗ | ✓ |
@@ -204,3 +208,24 @@ Steps 1–2 are safely landable on their own; 3–5 are where the behaviour actu
   behaviour exactly. Steps 3 and 5 widen them to web.
 - The prompt's talk-button line is museum-only until step 4; web says nothing about the space
   bar while the space bar does nothing.
+
+### Follow-up pass (after step 1)
+
+- **`MuseumButton` split three ways.** It was a keyboard binding, a hardware bridge and a debug
+  overlay in one always-mounted component. Now: the keyboard binding is a three-line effect
+  inlined in `Main` (it is global, idempotent and unconditional — a wrapper hook would only be a
+  file to go and find), `HardwareButton` holds the bridge and mounts under `pttHardwareEnabled`,
+  and the LED overlay renders from `Main` under its own flag. Named `HardwareButton` rather than
+  `ButtonBridge` to avoid a case-only clash with `buttonBridge.ts`.
+- **`unattended` added**, replacing `isMuseumMode` at the seven self-recovery sites and as the
+  parameter name through `useRealtimeVoiceSession` / `classifyRealtimeError` — a generic realtime
+  layer had no business knowing about museums.
+- **`browserUi` added** for the ten chrome sites (navbar, hamburger, fullscreen, landing copy,
+  next buttons, add-human button, overlay close X, PDF download, conversation controls, the setup
+  agent's volume corner and mic button).
+- **Left on `isMuseumMode` deliberately:** the human-panelist rules in `SelectCharacters` and
+  `meetingSetup.ts` (what a kiosk meeting *is*, not switchable behaviour), `navigation.ts`
+  (kiosk app-root paths and the health probe), `MuseumSwitchButton`, and the prompt's museum
+  framing.
+- **`AutoplayCoordinator` cleaned up:** eighteen internal `isMuseumMode` guards deleted — it only
+  ever mounts under `capabilities.autoplay`, so every one was dead.

@@ -39,13 +39,13 @@ describe('SetupAgentOverlay', () => {
     onToggleMic: vi.fn(),
   };
 
-  it('offers a volume toggle in web mode', () => {
-    render(<SetupAgentOverlay {...baseProps} isMuseumMode={false} />);
+  it('offers a volume toggle when the visitor has a pointer', () => {
+    render(<SetupAgentOverlay {...baseProps} browserUi />);
     expect(screen.getByTestId('icon-volume_on')).toBeInTheDocument();
   });
 
-  it('hides the volume toggle in museum mode', () => {
-    render(<SetupAgentOverlay {...baseProps} isMuseumMode />);
+  it('hides the volume toggle on a kiosk', () => {
+    render(<SetupAgentOverlay {...baseProps} />);
     expect(screen.queryByTestId('icon-volume_on')).not.toBeInTheDocument();
     expect(screen.queryByTestId('icon-volume_off')).not.toBeInTheDocument();
   });
@@ -55,12 +55,14 @@ describe('SetupAgentOverlay', () => {
     const onStart = vi.fn();
 
     const { rerender } = render(
-      <SetupAgentOverlay {...baseProps} onStop={onStop} onStart={onStart} muted={false} />,
+      <SetupAgentOverlay {...baseProps} browserUi onStop={onStop} onStart={onStart} muted={false} />,
     );
     fireEvent.click(screen.getByTestId('icon-volume_on'));
     expect(onStop).toHaveBeenCalledOnce();
 
-    rerender(<SetupAgentOverlay {...baseProps} onStop={onStop} onStart={onStart} muted />);
+    rerender(
+      <SetupAgentOverlay {...baseProps} browserUi onStop={onStop} onStart={onStart} muted />,
+    );
     fireEvent.click(screen.getByTestId('icon-volume_off'));
     expect(onStart).toHaveBeenCalledOnce();
   });
@@ -90,6 +92,7 @@ describe('SetupAgentOverlay', () => {
       const { unmount } = render(
         <SetupAgentOverlay
           {...baseProps}
+          browserUi
           muted={muted}
           isStarting={isStarting}
           isReady={isReady}
@@ -105,8 +108,8 @@ describe('SetupAgentOverlay', () => {
     }
   });
 
-  it('does not render a clickable mic button in museum mode', () => {
-    render(<SetupAgentOverlay {...baseProps} isMuseumMode showMicRow />);
+  it('does not render a clickable mic button without a pointer', () => {
+    render(<SetupAgentOverlay {...baseProps} showMicRow />);
 
     expect(screen.queryByTestId('realtime-mic-button')).not.toBeInTheDocument();
   });

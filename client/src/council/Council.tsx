@@ -124,7 +124,7 @@ function Council({
     audioContext,
     isPaused,
     setPaused,
-    isMuseumMode,
+    unattended: capabilities.unattended,
     hasMetaAgent: capabilities.metaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
@@ -335,7 +335,7 @@ function Council({
           )}
           {controlsVisible && metaAgentPhase === "inactive" && (
             <ConversationControls
-              hidden={isMuseumMode}
+              hidden={!capabilities.browserUi}
               onSkipBackward={handleOnSkipBackward}
               onSkipForward={handleOnSkipForward}
               onRaiseHand={handleOnRaiseHand}

@@ -57,7 +57,8 @@ export type UseSetupAgentParams = {
    */
   micUpFront?: boolean;
   micOpen?: boolean;
-  isMuseumMode?: boolean;
+  /** Nobody is present to fix a failure (capabilities.unattended). */
+  unattended?: boolean;
 };
 
 export type SetupAgentState = {
@@ -107,7 +108,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     initialMuted = false,
     micUpFront = false,
     micOpen = false,
-    isMuseumMode = false,
+    unattended = false,
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
@@ -132,7 +133,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
    * Deliberately not keyed on the page: a link pasted straight to the topic
    * step is just as cold as the landing page.
    */
-  const canAutoConnect = isMuseumMode || autoplayAllowed || startedByVisitor;
+  const canAutoConnect = unattended || autoplayAllowed || startedByVisitor;
 
   // A mic taken up front is always there (museum); a deferred one arrives only
   // when the visitor asks for it.
@@ -176,12 +177,12 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   }, [toolHandlers]);
 
   const onConnectionLost = useCallback(() => {
-    if (isMuseumMode) setConnectionError("setup-agent", true);
-  }, [isMuseumMode]);
+    if (unattended) setConnectionError("setup-agent", true);
+  }, [unattended]);
 
   const onConnectionRestored = useCallback(() => {
-    if (isMuseumMode) setConnectionError("setup-agent", false);
-  }, [isMuseumMode]);
+    if (unattended) setConnectionError("setup-agent", false);
+  }, [unattended]);
 
   const session = useRealtimeVoiceSession({
     feature: "setup-agent",
@@ -197,8 +198,8 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     audioElement,
     sessionActive: !muted,
     autoConnect: autoStart && canAutoConnect,
-    isMuseumMode,
-    retryPolicy: getRealtimeRetryPolicy(isMuseumMode),
+    unattended,
+    retryPolicy: getRealtimeRetryPolicy(unattended),
     onFatalError: (e) => setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause }),
     onConnectionLost,
     onConnectionRestored,

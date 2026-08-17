@@ -118,7 +118,7 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { isMuseumMode } = useCouncilSettings();
+  const { isMuseumMode, capabilities } = useCouncilSettings();
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {
@@ -534,7 +534,7 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           ))}
-          {!isMuseumMode && numberOfHumans < MAXHUMANS && (
+          {capabilities.browserUi && numberOfHumans < MAXHUMANS && (
             <AddHumanButton
               onMouseEnter={() => setHoveredCharacter("addhuman")}
               onMouseLeave={() => setHoveredCharacter(null)}
@@ -544,7 +544,7 @@ function SelectCharacters({
             />
           )}
         </div>
-        {!isMuseumMode ? (
+        {capabilities.browserUi ? (
           <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
             {buttonOrInfo()}
           </div>

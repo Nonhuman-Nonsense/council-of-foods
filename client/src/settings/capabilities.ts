@@ -14,6 +14,19 @@ import type { AppMode } from "./councilSettings";
  * both modes (a laptop can drive a real button for testing).
  */
 export type Capabilities = {
+  /**
+   * Nobody is present to fix a failure, so the app must recover by itself and
+   * must never come to rest on a dead end: retry forever, auto-reload, offer a
+   * self-restart, and treat a missing microphone as fatal rather than as
+   * something the visitor could go and permit.
+   */
+  unattended: boolean;
+  /**
+   * The visitor drives their own browser with a pointer and a keyboard, so the
+   * page can offer navigation chrome, close buttons, and downloads. A kiosk has
+   * none of that, and an affordance nobody can reach is worse than absent.
+   */
+  browserUi: boolean;
   /** Meeting-time agent that fields interruptions and the soft-cap question. */
   metaAgent: boolean;
   /** Summary renders as a scrolling teleprompter rather than a readable page. */
@@ -38,6 +51,8 @@ export type Capabilities = {
 };
 
 const WEB: Capabilities = {
+  unattended: false,
+  browserUi: true,
   metaAgent: false,
   teleprompter: false,
   autoSubmitHumanInput: false,
@@ -49,6 +64,8 @@ const WEB: Capabilities = {
 };
 
 const MUSEUM: Capabilities = {
+  unattended: true,
+  browserUi: false,
   metaAgent: true,
   teleprompter: true,
   autoSubmitHumanInput: true,

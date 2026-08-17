@@ -38,7 +38,8 @@ export interface UseCouncilMachineProps {
     audioContext: React.RefObject<AudioContext | null>;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
-    isMuseumMode: boolean;
+    /** Nobody is present to resume a paused meeting (capabilities.unattended). */
+    unattended: boolean;
     /** Meeting-time meta agent is available (capabilities.metaAgent). */
     hasMetaAgent: boolean;
     setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
@@ -117,7 +118,7 @@ export function useCouncilMachine({
     audioContext,
     isPaused,
     setPaused,
-    isMuseumMode,
+    unattended,
     hasMetaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
@@ -513,7 +514,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -1060,11 +1061,11 @@ export function useCouncilMachine({
         setPaused,
     ]);
 
-    // Museum resume: environmental interrupts only. Overlay dismiss (X) must not
+    // Unattended resume: environmental interrupts only. Overlay dismiss (X) must not
     // auto-resume, but pausing overlays (incomplete, name, query_extension in web) must
     // block resume — otherwise isPaused oscillates with the overlay-pause effect above.
     useEffect(() => {
-        if (!isMuseumMode || !isPaused) {
+        if (!unattended || !isPaused) {
             return;
         }
 
@@ -1087,7 +1088,7 @@ export function useCouncilMachine({
         connectionError,
         isDocumentVisible,
         metaAgentPhase,
-        isMuseumMode,
+        unattended,
         isPaused,
         visibleOverlay,
         setPaused,

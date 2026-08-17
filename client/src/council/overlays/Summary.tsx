@@ -62,13 +62,13 @@ function Summary({
   const navigate = useNavigate();
   const { rootPath } = useRouting();
   const { t } = useTranslation();
-  const { isMuseumMode, capabilities } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const isButtonSummaryMode = capabilities.teleprompter;
   const teleprompterTopPad = isButtonSummaryMode ? computeTeleprompterTopPadding(isMobile) : 0;
   const autoplayPhase = useAutoplayStore((state) => state.phase);
   const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
   const button = useButton("summary");
-  const showDownload = !isMuseumMode;
+  const showDownload = capabilities.browserUi;
 
   useEffect(() => {
     if (!isButtonSummaryMode) {

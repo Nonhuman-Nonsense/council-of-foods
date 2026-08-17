@@ -120,7 +120,7 @@ export default function MeetingSetupAgent({
   const agent = useSetupAgent({
     language: agentLanguage,
     instructions,
-    isMuseumMode,
+    unattended: capabilities.unattended,
     tools,
     toolHandlers: createSetupAgentToolHandlers({
       topics: setupTopics,
@@ -172,8 +172,8 @@ export default function MeetingSetupAgent({
     );
   }, [phase, setupCharacters]);
 
-  const showMuseumReconnecting =
-    isMuseumMode && !muted && agent.isConnecting && !connectionError;
+  const showBlockingReconnect =
+    capabilities.unattended && !muted && agent.isConnecting && !connectionError;
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "setup-agent",
@@ -254,7 +254,7 @@ export default function MeetingSetupAgent({
 
   return (
     <>
-      {showMuseumReconnecting && <Loading />}
+      {showBlockingReconnect && <Loading />}
     <SetupAgentOverlay
       isConnecting={agent.isConnecting}
       isStarting={agent.isStarting}
@@ -262,7 +262,7 @@ export default function MeetingSetupAgent({
       lastCaption={agent.lastCaption}
       lastUserTranscript={agent.lastUserTranscript}
       muted={agent.muted}
-      isMuseumMode={isMuseumMode}
+      browserUi={capabilities.browserUi}
       showMicRow={isMuseumMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}

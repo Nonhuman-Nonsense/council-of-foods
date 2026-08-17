@@ -27,7 +27,7 @@ const TECHNICAL_SOURCES = new Set(["react-error-boundary"]);
 
 function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
   const { t } = useTranslation();
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const detail = error.message.trim();
   const showGenericOnly = detail.length === 0 || TECHNICAL_SOURCES.has(error.source);
 
@@ -42,7 +42,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
           {detail}
         </p>
       )}
-      {isMuseumMode ? (
+      {capabilities.unattended ? (
         <AutoButton
           timeout={MUSEUM_HEALTH_RETRY_SECONDS}
           guardAction={probeOriginHealth}

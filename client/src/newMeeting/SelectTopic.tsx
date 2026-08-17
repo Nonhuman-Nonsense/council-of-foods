@@ -45,7 +45,7 @@ function SelectTopic({
     customTopic, setCustomTopic,
   } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -283,7 +283,7 @@ function SelectTopic({
             style={textBoxStyle}
           />
 
-          {!isMuseumMode ? (
+          {capabilities.browserUi ? (
             <button
               onClick={proceedForward}
               style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}

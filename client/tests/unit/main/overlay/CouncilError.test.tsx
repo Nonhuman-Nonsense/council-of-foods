@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import CouncilError from "@main/overlay/CouncilError";
+import { capabilitiesFor } from "@/settings/capabilities";
 
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false })),
+  vi.fn(() => ({ isMuseumMode: false, capabilities: capabilitiesFor("web") })),
 );
 
 vi.mock("react-i18next", () => ({
@@ -32,7 +33,7 @@ vi.mock("@assets/error.png?inline", () => ({ default: "data:image/png;base64,tes
 describe("CouncilError overlay", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false, capabilities: capabilitiesFor("web") });
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -57,7 +58,7 @@ describe("CouncilError overlay", () => {
 
   it("museum: navigates after countdown when health is OK", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 200 })),
@@ -90,7 +91,7 @@ describe("CouncilError overlay", () => {
 
   it("museum: does not navigate when health probe fails", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 503 })),
@@ -123,7 +124,7 @@ describe("CouncilError overlay", () => {
   });
 
   it("museum: click navigates immediately without probing health", () => {
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 

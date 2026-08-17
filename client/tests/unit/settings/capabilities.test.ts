@@ -10,6 +10,8 @@ describe("capabilitiesFor", () => {
     {
       mode: "web",
       expected: {
+        unattended: false,
+        browserUi: true,
         metaAgent: false,
         teleprompter: false,
         autoSubmitHumanInput: false,
@@ -23,6 +25,8 @@ describe("capabilitiesFor", () => {
     {
       mode: "museum",
       expected: {
+        unattended: true,
+        browserUi: false,
         metaAgent: true,
         teleprompter: true,
         autoSubmitHumanInput: true,

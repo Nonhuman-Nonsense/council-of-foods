@@ -151,14 +151,14 @@ export type RealtimeErrorKind = "fatal" | "retryable" | "unavailable";
 /**
  * Classify a realtime connection error.
  *
- * `isMuseumMode` decides how microphone failures land. A kiosk with no working
- * mic is genuinely broken and should surface as a terminal error; a web visitor
- * who declines the prompt has simply chosen not to talk, and the setup flow
- * still works entirely by clicking.
+ * `unattended` decides how microphone failures land. A kiosk with no working
+ * mic is genuinely broken and should surface as a terminal error, since nobody
+ * is there to grant a permission; a web visitor who declines the prompt has
+ * simply chosen not to talk, and the setup flow still works by clicking.
  */
 export function classifyRealtimeError(
   err: unknown,
-  opts?: { isMuseumMode?: boolean },
+  opts?: { unattended?: boolean },
 ): RealtimeErrorKind {
   if (err instanceof RealtimeHttpError) {
     // 4xx = configuration/auth error — retrying won't help
@@ -171,11 +171,11 @@ export function classifyRealtimeError(
   // Microphone failures never resolve by retrying — a blocked permission,
   // missing hardware or busy device all need the user (or a technician) to act.
   if (err instanceof MicrophoneUnavailableError) {
-    return opts?.isMuseumMode ? "fatal" : "unavailable";
+    return opts?.unattended ? "fatal" : "unavailable";
   }
   // Legacy path (should now be wrapped by MicrophoneUnavailableError).
   if (err instanceof Error && err.name === "NotAllowedError") {
-    return opts?.isMuseumMode ? "fatal" : "unavailable";
+    return opts?.unattended ? "fatal" : "unavailable";
   }
   // Everything else (network, timeout, ICE, pc_failed, dc_error, etc.) = retryable
   return "retryable";

@@ -540,8 +540,8 @@ describe("classifyRealtimeError", () => {
   it("marks a legacy mic NotAllowedError as unavailable on web, fatal in museum", () => {
     const err = Object.assign(new Error("Permission denied"), { name: "NotAllowedError" });
     expect(classifyRealtimeError(err)).toBe("unavailable");
-    expect(classifyRealtimeError(err, { isMuseumMode: false })).toBe("unavailable");
-    expect(classifyRealtimeError(err, { isMuseumMode: true })).toBe("fatal");
+    expect(classifyRealtimeError(err, { unattended: false })).toBe("unavailable");
+    expect(classifyRealtimeError(err, { unattended: true })).toBe("fatal");
   });
 
   it("marks every mic failure as unavailable on web and fatal in museum", () => {
@@ -551,8 +551,8 @@ describe("classifyRealtimeError", () => {
     for (const reason of reasons) {
       const err = new MicrophoneUnavailableError(reason, "nope");
       expect(classifyRealtimeError(err), reason).toBe("unavailable");
-      expect(classifyRealtimeError(err, { isMuseumMode: false }), reason).toBe("unavailable");
-      expect(classifyRealtimeError(err, { isMuseumMode: true }), reason).toBe("fatal");
+      expect(classifyRealtimeError(err, { unattended: false }), reason).toBe("unavailable");
+      expect(classifyRealtimeError(err, { unattended: true }), reason).toBe("fatal");
     }
   });
 

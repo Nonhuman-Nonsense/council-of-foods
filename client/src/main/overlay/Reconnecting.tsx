@@ -21,17 +21,17 @@ const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 function Reconnecting(): React.ReactElement {
   const isMobile = useMobile();
   const { t } = useTranslation();
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
 
   useEffect(() => {
-    if (!isMuseumMode) return;
+    if (!capabilities.unattended) return;
 
     const timer = window.setTimeout(() => {
       void reloadApp();
     }, MUSEUM_RECONNECTING_RESTART_MS);
 
     return () => clearTimeout(timer);
-  }, [isMuseumMode]);
+  }, [capabilities.unattended]);
 
   return (
     <div>

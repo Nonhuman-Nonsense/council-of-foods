@@ -16,7 +16,8 @@ type SetupAgentOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
-  isMuseumMode?: boolean;
+  /** The visitor has a pointer: show the mic button and the volume control. */
+  browserUi?: boolean;
   /** Museum: show the visualiser row with no on-screen button. */
   showMicRow?: boolean;
   subtitleLayout?: RealtimeSubtitleLayout;
@@ -42,7 +43,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     lastCaption,
     lastUserTranscript,
     muted,
-    isMuseumMode = false,
+    browserUi = false,
     showMicRow = false,
     subtitleLayout = "compact",
     micStream = null,
@@ -92,9 +93,9 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         subtitleLayout={subtitleLayout}
         showMicRow={showMicRow}
         micStream={micStream}
-        micActive={isMuseumMode ? micActive : micOn}
+        micActive={browserUi ? micOn : micActive}
         micButton={
-          !isMuseumMode && onToggleMic
+          browserUi && onToggleMic
             ? {
                 state: micButtonState,
                 onClick: onToggleMic,
@@ -104,7 +105,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         }
       />
 
-      {!isMuseumMode ? (
+      {browserUi ? (
         <div style={controlContainerStyle}>
           <div style={controlSlotStyle}>
             {/* No spinner here: this is a standing intention, clickable from

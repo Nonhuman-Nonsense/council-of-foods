@@ -128,7 +128,7 @@ describe('Landing', () => {
     });
 
     it('hides description and go button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true }));
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true, capabilities: capabilitiesFor('museum') }));
 
         renderLanding();
 

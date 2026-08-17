@@ -143,24 +143,24 @@ describe("useSetupAgent", () => {
     // a link pasted straight to the topic step is as cold as the landing page.
     const cases: Array<{
       autoplayAllowed: boolean;
-      isMuseumMode?: boolean;
+      unattended?: boolean;
       autoConnect: boolean;
     }> = [
       { autoplayAllowed: false, autoConnect: false },
       { autoplayAllowed: true, autoConnect: true },
       // A kiosk has no gesture to wait for.
-      { autoplayAllowed: false, isMuseumMode: true, autoConnect: true },
+      { autoplayAllowed: false, unattended: true, autoConnect: true },
     ];
 
-    for (const { autoplayAllowed, isMuseumMode, autoConnect } of cases) {
+    for (const { autoplayAllowed, unattended, autoConnect } of cases) {
       vi.clearAllMocks();
       mockAutoplay.allowed = autoplayAllowed;
 
-      renderHook(() => useSetupAgent({ ...defaultParams, isMuseumMode }));
+      renderHook(() => useSetupAgent({ ...defaultParams, unattended }));
 
       expect(
         mockUseRealtimeVoiceSession,
-        `autoplay=${autoplayAllowed}${isMuseumMode ? " / museum" : ""}`,
+        `autoplay=${autoplayAllowed}${unattended ? " / unattended" : ""}`,
       ).toHaveBeenCalledWith(expect.objectContaining({ autoConnect }));
     }
   });
@@ -382,7 +382,7 @@ describe("useSetupAgent", () => {
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
 
     const { result } = renderHook(() =>
-      useSetupAgent({ ...defaultParams, isMuseumMode: true, micUpFront: true }),
+      useSetupAgent({ ...defaultParams, unattended: true, micUpFront: true }),
     );
 
     expect(result.current.canHearVisitor).toBe(true);

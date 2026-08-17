@@ -390,7 +390,7 @@ describe('SelectTopic Component', () => {
     });
 
     it('hides next button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true }));
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true, capabilities: capabilitiesFor('museum') }));
 
         render(
             <ControlledSelectTopic
