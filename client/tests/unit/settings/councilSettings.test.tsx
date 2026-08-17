@@ -1,9 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import {
-  AGENT_MODE_STORAGE_KEY,
   APP_MODE_STORAGE_KEY,
-  setAgentMode,
+  clearRetiredSettings,
   setAppMode,
   useCouncilSettings,
   DEV_LOG_DISABLED_CATEGORIES_KEY,
@@ -20,7 +19,6 @@ import {
   MUSEUM_SWITCH_BUTTON_ENABLED_KEY,
   getMuseumSwitchButtonEnabled,
   setMuseumSwitchButtonEnabled,
-  getAgentMode,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
@@ -28,8 +26,7 @@ function SettingsProbe() {
     mode,
     isMuseumMode,
     setAppMode: updateAppMode,
-    agentMode,
-    setAgentMode: updateAgentMode,
+    capabilities,
     pttHardwareEnabled,
     setPttHardwareEnabled: updatePttHardware,
   } = useCouncilSettings();
@@ -37,13 +34,10 @@ function SettingsProbe() {
     <div>
       <span data-testid="mode">{mode}</span>
       <span data-testid="museum">{String(isMuseumMode)}</span>
-      <span data-testid="agent-mode">{agentMode}</span>
+      <span data-testid="meta-agent">{String(capabilities.metaAgent)}</span>
       <span data-testid="ptt-hardware">{String(pttHardwareEnabled)}</span>
       <button type="button" onClick={() => updateAppMode("web")}>
         to-web
-      </button>
-      <button type="button" onClick={() => updateAgentMode("ptt")}>
-        to-ptt
       </button>
       <button type="button" onClick={() => updatePttHardware(true)}>
         hardware-on
@@ -57,22 +51,11 @@ describe("councilSettings", () => {
     localStorage.clear();
   });
 
-  describe("agent mode storage", () => {
-    it("defaults to off when unset without writing storage", () => {
-      expect(getAgentMode()).toBe("off");
-      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBeNull();
-    });
-
-    it("persists explicit agent mode", () => {
-      setAgentMode("ptt");
-      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("ptt");
-      expect(getAgentMode()).toBe("ptt");
-    });
-
-    it("coerces off to always-on when switching to museum", () => {
-      setAppMode("museum");
-      expect(getAgentMode()).toBe("always-on");
-      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("always-on");
+  describe("retired settings", () => {
+    it("drops the stored agent mode so it cannot influence anything", () => {
+      localStorage.setItem("councilAgentMode", "ptt");
+      clearRetiredSettings();
+      expect(localStorage.getItem("councilAgentMode")).toBeNull();
     });
   });
 
@@ -88,12 +71,11 @@ describe("councilSettings", () => {
       expect(getPttHardwareEnabled()).toBe(true);
     });
 
-    it("clears hardware when leaving push-to-talk", () => {
-      setAgentMode("ptt");
+    it("survives a mode switch — hardware is independent of the install", () => {
       setPttHardwareEnabled(true);
-      setAgentMode("always-on");
-      expect(getPttHardwareEnabled()).toBe(false);
-      expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBeNull();
+      setAppMode("museum");
+      setAppMode("web");
+      expect(getPttHardwareEnabled()).toBe(true);
     });
   });
 
@@ -181,7 +163,7 @@ describe("councilSettings", () => {
       expect(screen.getAllByTestId("museum")[0]).toHaveTextContent("true");
     });
 
-    it("syncs agent mode across hook instances via custom event", async () => {
+    it("derives capabilities from the mode, across hook instances", async () => {
       render(
         <>
           <SettingsProbe />
@@ -189,17 +171,16 @@ describe("councilSettings", () => {
         </>,
       );
 
-      const agentModes = screen.getAllByTestId("agent-mode");
-      expect(agentModes[0]).toHaveTextContent("off");
-      expect(agentModes[1]).toHaveTextContent("off");
+      const metaAgent = screen.getAllByTestId("meta-agent");
+      expect(metaAgent[0]).toHaveTextContent("false");
 
       act(() => {
-        setAgentMode("ptt");
+        setAppMode("museum");
       });
 
       await waitFor(() => {
-        expect(agentModes[0]).toHaveTextContent("ptt");
-        expect(agentModes[1]).toHaveTextContent("ptt");
+        expect(metaAgent[0]).toHaveTextContent("true");
+        expect(metaAgent[1]).toHaveTextContent("true");
       });
     });
 
@@ -211,14 +192,6 @@ describe("councilSettings", () => {
       fireEvent.click(screen.getByRole("button", { name: "to-web" }));
       expect(screen.getByTestId("mode")).toHaveTextContent("web");
       expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe("web");
-    });
-
-    it("updates agent mode when setAgentMode is called from a hook", () => {
-      render(<SettingsProbe />);
-
-      expect(screen.getByTestId("agent-mode")).toHaveTextContent("off");
-      fireEvent.click(screen.getByRole("button", { name: "to-ptt" }));
-      expect(screen.getByTestId("agent-mode")).toHaveTextContent("ptt");
     });
 
     it("syncs ptt hardware across hook instances via custom event", async () => {
@@ -244,7 +217,6 @@ describe("councilSettings", () => {
     });
 
     it("updates ptt hardware when setPttHardwareEnabled is called from a hook", () => {
-      localStorage.setItem(AGENT_MODE_STORAGE_KEY, "ptt");
       render(<SettingsProbe />);
 
       fireEvent.click(screen.getByRole("button", { name: "hardware-on" }));

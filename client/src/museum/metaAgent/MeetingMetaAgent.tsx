@@ -91,7 +91,7 @@ const PHASE_AGENT_CONFIG: Record<
   }
 > = {
   interruption: {
-    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle }),
     buildTools: (bundle) => createMetaAgentTools({ promptBundle: bundle }),
     buildToolHandlers: (shared, { onRestartMeeting }) =>
       createMetaAgentToolHandlers({ ...shared, onRestartMeeting }),
@@ -102,7 +102,7 @@ const PHASE_AGENT_CONFIG: Record<
     idleTerminalEventName: "idle auto-resume resume_meeting",
   },
   extension: {
-    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle }),
     buildTools: (bundle) => createExtensionAgentTools({ promptBundle: bundle }),
     buildToolHandlers: (shared, { onExtendMeeting, onConcludeMeeting }) =>
       createExtensionAgentToolHandlers({ ...shared, onExtendMeeting, onConcludeMeeting }),

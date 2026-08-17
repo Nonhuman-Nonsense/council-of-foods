@@ -16,7 +16,6 @@ const baseToolParams = {
   otherLanguages: [] as string[],
   topics: [] as typeof TOPICS,
   characters: [] as typeof CHARACTERS,
-  agentMode: 'always-on' as const,
 };
 
 describe('createSetupAgentTools', () => {

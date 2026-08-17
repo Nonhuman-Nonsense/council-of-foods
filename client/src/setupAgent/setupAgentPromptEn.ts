@@ -3,7 +3,6 @@ import type { SetupAgentPromptParams } from "./setupAgentPrompt";
 
 export function buildEnPrompt({
   phase,
-  agentMode = "always-on",
   visitorName,
   topics,
   characters,
@@ -13,7 +12,6 @@ export function buildEnPrompt({
 }: SetupAgentPromptParams): string {
   const isMuseumMode = getAppMode() === "museum";
   const isWebMode = getAppMode() === "web";
-  const isPtt = agentMode === "ptt";
   const bullets = (lines: string[]) => lines.map((l) => `- ${l}`).join("\n");
   const otherlangs = otherLanguageNames?.join(' or ');
 
@@ -46,7 +44,7 @@ You have different jobs on different phases:
 
 Welcome (A short welcome and to check that the visitor can communicate properly):
 Open with a brief welcome to the Council of Foods, and mention that your are Water, and you will guide them.
-${isPtt ? "Explain that the visitor must use the talk button to speak: hold while talking, release when finished." : ""}
+${isMuseumMode ? "Explain that the visitor must use the talk button to speak: hold while talking, release when finished." : ""}
 ${otherlangs ? `Mention that if they prefer ${otherlangs}, they can just let you know. (e.g. "If you prefer ${otherlangs}, just let me know.") Say this aside in English regardless of your current language. Then continue immediately with your main job in your current language. Do not pause for an answer. If they ask to switch (at any point in the setup), call switch_language with the target language code.` : ""}
 Ask if they are ready to begin.
 When the visitor responds positively (yes, okay, thanks, or anything similar), do TWO things in the same turn: say a short warm acknowledgment out loud (e.g. "Wonderful, let's begin") AND call begin_setup. Always speak and call the tool together — never end a turn silently.

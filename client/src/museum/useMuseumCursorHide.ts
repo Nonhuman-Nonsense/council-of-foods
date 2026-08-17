@@ -21,11 +21,11 @@ function hideCursor(): void {
  * when museum mode is disabled.
  */
 export function useMuseumCursorHide(): void {
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const { hash } = useLocation();
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const active = isMuseumMode && hash !== "#staff";
+  const active = capabilities.cursorHide && hash !== "#staff";
 
   useEffect(() => {
     if (!active) {

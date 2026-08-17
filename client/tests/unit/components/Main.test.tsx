@@ -105,18 +105,7 @@ describe('Main Component', () => {
         localStorage.clear();
     });
 
-    it('does not mount MuseumButton when push-to-talk is off', () => {
-        render(
-            <MemoryRouter initialEntries={['/']}>
-                <Main lang="en" />
-            </MemoryRouter>
-        );
-
-        expect(screen.queryByTestId('museum-button')).not.toBeInTheDocument();
-    });
-
-    it('mounts MuseumButton when push-to-talk is on', async () => {
-        localStorage.setItem('councilAgentMode', 'ptt');
+    it('always mounts MuseumButton — it owns the keyboard binding in both modes', async () => {
 
         render(
             <MemoryRouter initialEntries={['/']}>

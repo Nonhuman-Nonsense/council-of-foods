@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
-import { AGENT_MODE_CHANGE_EVENT, PTT_HARDWARE_CHANGE_EVENT } from "@/settings/councilSettings";
+import { PTT_HARDWARE_CHANGE_EVENT } from "@/settings/councilSettings";
 import React from "react";
 
 const store = vi.hoisted(() => ({
@@ -35,7 +35,6 @@ describe("MuseumButton", () => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem("councilAppMode", "museum");
-    localStorage.setItem("councilAgentMode", "ptt");
     localStorage.setItem("councilPttHardwareEnabled", "true");
     ledDebugState.enabled = false;
   });
@@ -80,31 +79,15 @@ describe("MuseumButton", () => {
     });
   });
 
-  it("disconnects when push-to-talk is turned off", async () => {
-    await renderProvider();
-    vi.clearAllMocks();
-
-    window.dispatchEvent(
-      new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "always-on" }),
-    );
-
-    await vi.waitFor(() => {
-      expect(store.disconnect).toHaveBeenCalled();
-    });
-  });
-
-  it("reconnects when push-to-talk is turned back on", async () => {
+  it("reconnects when hardware is turned back on", async () => {
     await renderProvider();
 
     window.dispatchEvent(
-      new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "always-on" }),
+      new CustomEvent(PTT_HARDWARE_CHANGE_EVENT, { detail: false }),
     );
     await vi.waitFor(() => expect(store.disconnect).toHaveBeenCalled());
 
     vi.clearAllMocks();
-    window.dispatchEvent(
-      new CustomEvent(AGENT_MODE_CHANGE_EVENT, { detail: "ptt" }),
-    );
     window.dispatchEvent(
       new CustomEvent(PTT_HARDWARE_CHANGE_EVENT, { detail: true }),
     );
@@ -114,6 +97,7 @@ describe("MuseumButton", () => {
       expect(store.connect).toHaveBeenCalled();
     });
   });
+
 
   it("disconnects on unmount", async () => {
     const { default: MuseumButton } = await import("@/museum/button/MuseumButton");
@@ -133,15 +117,6 @@ describe("MuseumButton", () => {
     expect(store.init).toHaveBeenCalled();
     expect(store.enableAutoReconnect).toHaveBeenCalled();
     expect(store.connect).toHaveBeenCalled();
-  });
-
-  it("does not init keyboard when push-to-talk is off", async () => {
-    localStorage.setItem("councilAgentMode", "always-on");
-
-    await renderProvider();
-
-    expect(store.init).not.toHaveBeenCalled();
-    expect(store.connect).not.toHaveBeenCalled();
   });
 
   it("renders LED debug overlay when flag is enabled", async () => {

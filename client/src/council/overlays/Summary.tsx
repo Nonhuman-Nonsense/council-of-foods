@@ -62,9 +62,9 @@ function Summary({
   const navigate = useNavigate();
   const { rootPath } = useRouting();
   const { t } = useTranslation();
-  const { isMuseumMode, agentMode } = useCouncilSettings();
-  const isButtonSummaryMode = isMuseumMode && agentMode === "ptt";
-  const teleprompterTopPad = isMuseumMode ? computeTeleprompterTopPadding(isMobile) : 0;
+  const { isMuseumMode, capabilities } = useCouncilSettings();
+  const isButtonSummaryMode = capabilities.teleprompter;
+  const teleprompterTopPad = isButtonSummaryMode ? computeTeleprompterTopPadding(isMobile) : 0;
   const autoplayPhase = useAutoplayStore((state) => state.phase);
   const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
   const button = useButton("summary");
@@ -135,14 +135,14 @@ function Summary({
 
   useAudioSyncedScroll({
     scrollRef,
-    enabled: isMuseumMode,
+    enabled: isButtonSummaryMode,
     playback: summaryPlayback,
     audioContext: audioContext ?? fallbackAudioContext,
     bottomPadding: teleprompterBottomPad,
   });
 
   useLayoutEffect(() => {
-    if (!isMuseumMode) {
+    if (!isButtonSummaryMode) {
       setTeleprompterBottomPad(0);
       return;
     }
@@ -165,7 +165,7 @@ function Summary({
     const observer = new ResizeObserver(updateBottomPadding);
     observer.observe(scrollEl);
     return () => observer.disconnect();
-  }, [isMuseumMode, summary.text, isMobile]);
+  }, [isButtonSummaryMode, summary.text, isMobile]);
 
   const handleCreatePdf = (): void => {
     import("../../Tinos.js").then(() => {
@@ -185,7 +185,7 @@ function Summary({
 
   // Web: flex-fill column — scroll area grows, download row sticks to bottom.
   // Museum: position:fixed full-viewport (unchanged).
-  const summaryWrapper: React.CSSProperties = isMuseumMode
+  const summaryWrapper: React.CSSProperties = isButtonSummaryMode
     ? {
       height: "100%",
       overflowY: "auto",
@@ -198,7 +198,7 @@ function Summary({
       mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
     };
 
-  const wrapper: React.CSSProperties = isMuseumMode
+  const wrapper: React.CSSProperties = isButtonSummaryMode
     ? {
       position: "fixed",
       top: 0,
@@ -235,7 +235,7 @@ function Summary({
     whiteSpace: "pre-wrap",
   };
 
-  const teleprompterContentStyle: React.CSSProperties = isMuseumMode
+  const teleprompterContentStyle: React.CSSProperties = isButtonSummaryMode
     ? {
       paddingTop: teleprompterTopPad,
       paddingBottom: teleprompterBottomPad,
@@ -248,7 +248,7 @@ function Summary({
         <div
           ref={scrollRef}
           style={summaryWrapper}
-          className={isMuseumMode ? "scroll scroll--hide-scrollbar" : "scroll"}
+          className={isButtonSummaryMode ? "scroll scroll--hide-scrollbar" : "scroll"}
           data-testid="summary-protocol"
         >
           <div

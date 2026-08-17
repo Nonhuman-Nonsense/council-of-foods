@@ -35,8 +35,7 @@ vi.mock('@/settings/councilSettings', () => ({
         isMuseumMode: false,
         mode: 'web',
         setAppMode: vi.fn(),
-        agentMode: "off",
-        setAgentMode: vi.fn(),
+        capabilities: capabilitiesFor('web'),
     })),
 }));
 
@@ -44,14 +43,14 @@ import { useMediaQuery } from 'react-responsive';
 import { useMobile } from '@/utils';
 import { useCouncilSettings } from '@/settings/councilSettings';
 import { DEV_LOG_CATEGORIES } from '@/logger';
+import { capabilitiesFor } from '@/settings/capabilities';
 
 function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
     return {
         isMuseumMode: false,
         mode: 'web',
         setAppMode: vi.fn(),
-        agentMode: 'off',
-        setAgentMode: vi.fn(),
+        capabilities: capabilitiesFor('web'),
         pttHardwareEnabled: false,
         setPttHardwareEnabled: vi.fn(),
         museumSwitchButtonEnabled: false,

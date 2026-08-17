@@ -35,10 +35,6 @@
     "placeholder": "Type your question or start recording...",
     "panelist": "What does {{name}} have to say about this?"
   },
-  "agentMode": {
-    "alwaysOn": "Always On",
-    "pushToTalk": "Push to Talk"
-  },
   "ptt": {
     "holdToSpeak": "Push the button to speak",
     "humanPlaceholder": "Press and hold the button to talk, release to submit"
@@ -70,7 +66,6 @@
     "title": "STAFF",
     "panels": {
       "installation": "Installation",
-      "agentMode": "Agent mode",
       "details": "Details & hints",
       "logging": "Logging"
     },

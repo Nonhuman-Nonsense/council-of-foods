@@ -104,7 +104,7 @@ export default function Main(props: MainProps) {
   useWakeLock(isMeetingPath(location.pathname) && !isPaused);
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-  const { isMuseumMode, agentMode, museumSwitchButtonEnabled } = useCouncilSettings();
+  const { isMuseumMode, capabilities, museumSwitchButtonEnabled } = useCouncilSettings();
   const meetingGeneration = useAutoplayStore((s) => s.meetingGeneration);
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   useMuseumCursorHide();
@@ -200,7 +200,7 @@ export default function Main(props: MainProps) {
 
   return (
     <>
-      {isMuseumMode && (
+      {capabilities.autoplay && (
         <Suspense fallback={null}>
           <AutoplayCoordinator
             meetingliveKey={meetingliveKey}
@@ -208,7 +208,7 @@ export default function Main(props: MainProps) {
           />
         </Suspense>
       )}
-      {agentMode === "ptt" && <MuseumButton />}
+      <MuseumButton />
       {!isMeetingPath(location.pathname) && <ButtonBanner />}
       <Background pathname={location.pathname} />
       {!(unrecoverableError != null || connectionError) && !isMuseumMode &&
@@ -259,7 +259,7 @@ export default function Main(props: MainProps) {
               <Route path="*" element={<Navigate to={rootPath} replace />} />
             </Routes>
           </ErrorBoundary>
-          {!isIphone && !isMuseumMode && !(agentMode === "ptt" && ledDebugOverlay) && <FullscreenButton />}
+          {!isIphone && !isMuseumMode && !ledDebugOverlay && <FullscreenButton />}
           {isPortrait && location.pathname !== "/" && <RotateOverlay />}
         </Overlay>
       }

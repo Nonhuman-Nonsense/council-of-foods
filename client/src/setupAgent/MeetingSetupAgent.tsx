@@ -44,7 +44,7 @@ export default function MeetingSetupAgent({
   onStartMeeting,
 }: MeetingSetupAgentProps) {
   const { i18n, t } = useTranslation();
-  const { isMuseumMode, agentMode } = useCouncilSettings();
+  const { isMuseumMode, capabilities } = useCouncilSettings();
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("setup-agent");
   const connectionError = useErrorStore((s) => s.connectionError);
@@ -96,13 +96,12 @@ export default function MeetingSetupAgent({
         topics: setupTopics,
         characters: setupCharacters,
         phase,
-        agentMode,
         visitorName,
         otherLanguageNames,
         canHearVisitor,
         hasEverHeardVisitor,
       }),
-    [setupCharacters, setupTopics, phase, agentLanguage, agentMode, visitorName, otherLanguageNames],
+    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames],
   );
 
   // Static: the agent holds every tool from the start, and useSetupAgent
@@ -113,10 +112,9 @@ export default function MeetingSetupAgent({
         otherLanguages,
         topics: setupTopics,
         characters: setupCharacters,
-        agentMode,
         isWebMode: !isMuseumMode,
       }),
-    [otherLanguages, setupTopics, setupCharacters, agentMode, isMuseumMode],
+    [otherLanguages, setupTopics, setupCharacters, isMuseumMode],
   );
 
   const agent = useSetupAgent({
@@ -145,7 +143,7 @@ export default function MeetingSetupAgent({
       otherLanguages,
       switchLanguage,
     }),
-    agentMode,
+    micUpFront: capabilities.micUpFront,
     micOpen: button.pressed,
   });
   const { interruptAndRespond, muted } = agent;
@@ -179,7 +177,7 @@ export default function MeetingSetupAgent({
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "setup-agent",
-    sessionActive: agentMode === "ptt" && !muted,
+    sessionActive: isMuseumMode && !muted,
     isConnecting: agent.isConnecting,
     micOpen: button.pressed,
     agentSpeaking: agent.agentSpeaking && !nudgeFired,
@@ -207,21 +205,21 @@ export default function MeetingSetupAgent({
   }, [button.pressed, clearNudge, bumpBannerActivity]);
 
   const ledMode = useMemo((): ButtonLedMode => {
-    if (agentMode !== "ptt" || muted || agent.isConnecting) return "off";
+    if (!isMuseumMode || muted || agent.isConnecting) return "off";
     if (button.pressed) return "on";
     return "pulse";
-  }, [agentMode, muted, agent.isConnecting, button.pressed]);
+  }, [isMuseumMode, muted, agent.isConnecting, button.pressed]);
 
   useEffect(() => {
-    if (agentMode !== "ptt") return;
+    if (!isMuseumMode) return;
     button.claim();
     return () => button.release();
-  }, [button.claim, button.release, agentMode]);
+  }, [button.claim, button.release, isMuseumMode]);
 
   useEffect(() => {
-    if (agentMode !== "ptt") return;
+    if (!isMuseumMode) return;
     button.setLed(ledMode);
-  }, [button.setLed, agentMode, ledMode]);
+  }, [button.setLed, isMuseumMode, ledMode]);
 
   useEffect(() => {
     if (!lastUserEvent) {
@@ -265,10 +263,10 @@ export default function MeetingSetupAgent({
       lastUserTranscript={agent.lastUserTranscript}
       muted={agent.muted}
       isMuseumMode={isMuseumMode}
-      agentMode={agentMode}
+      showMicRow={isMuseumMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}
-      micActive={agentMode === "ptt" && !muted && button.pressed}
+      micActive={isMuseumMode && !muted && button.pressed}
       micOn={agent.micOn}
       onToggleMic={agent.toggleMic}
       onStart={agent.start}

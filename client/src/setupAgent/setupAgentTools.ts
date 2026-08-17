@@ -6,7 +6,7 @@ import {
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { getAppMode, type AgentMode } from "@/settings/councilSettings";
+import { getAppMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
 import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
@@ -113,13 +113,11 @@ export function createSetupAgentTools({
   otherLanguages,
   topics,
   characters,
-  agentMode: _agentMode,
   isWebMode = false,
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
-  agentMode: AgentMode;
   isWebMode?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);

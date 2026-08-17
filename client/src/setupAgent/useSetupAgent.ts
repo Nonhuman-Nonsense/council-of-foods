@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
-import type { AgentMode } from "@/settings/councilSettings";
 import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
 import { useAutoplayAllowed } from "@/audio/canAutoplay";
@@ -52,7 +51,11 @@ export type UseSetupAgentParams = {
   audioElement?: HTMLAudioElement | null;
   autoStart?: boolean;
   initialMuted?: boolean;
-  agentMode?: AgentMode;
+  /**
+   * Acquire the mic at connect and gate it with `setMicEnabled`, rather than
+   * deferring until a gesture asks for it (capabilities.micUpFront).
+   */
+  micUpFront?: boolean;
   micOpen?: boolean;
   isMuseumMode?: boolean;
 };
@@ -102,7 +105,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     audioElement,
     autoStart = true,
     initialMuted = false,
-    agentMode = "always-on",
+    micUpFront = false,
     micOpen = false,
     isMuseumMode = false,
   } = params;
@@ -117,7 +120,6 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const [startedByVisitor, setStartedByVisitor] = useState(false);
   /** Distinguishes a click from an automatic re-attach after a reconnect. */
   const micRequestedByUserRef = useRef(false);
-  const pttMic = agentMode === "ptt";
   const autoplayAllowed = useAutoplayAllowed();
 
   /**
@@ -132,10 +134,10 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
    */
   const canAutoConnect = isMuseumMode || autoplayAllowed || startedByVisitor;
 
-  // Museum always has a microphone (hardware button or always-on); on web it
-  // arrives only when the visitor asks for it.
-  const canHearVisitor = isMuseumMode || micOn;
-  const [hasEverHeardVisitor, setHasEverHeardVisitor] = useState(isMuseumMode);
+  // A mic taken up front is always there (museum); a deferred one arrives only
+  // when the visitor asks for it.
+  const canHearVisitor = micUpFront || micOn;
+  const [hasEverHeardVisitor, setHasEverHeardVisitor] = useState(micUpFront);
 
   useEffect(() => {
     if (canHearVisitor) setHasEverHeardVisitor(true);
@@ -188,9 +190,9 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     tools,
     toolHandlers: guardedToolHandlers,
     triggerGreetingOnReady: true,
-    pttMic,
+    pttMic: micUpFront,
     // Web never prompts on connect; the mic arrives later via attachMic().
-    deferMic: !isMuseumMode,
+    deferMic: !micUpFront,
     trackAgentSpeaking: true,
     audioElement,
     sessionActive: !muted,
@@ -206,9 +208,9 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const isReady = session.connectionState === "ready";
 
   useEffect(() => {
-    if (agentMode !== "ptt" || muted) return;
+    if (!micUpFront || muted) return;
     session.setMicEnabled(micOpen);
-  }, [agentMode, micOpen, muted, session.setMicEnabled]);
+  }, [micUpFront, micOpen, muted, session.setMicEnabled]);
 
   /**
    * Put a mic change on the record. Nothing in the session config depends on
@@ -240,7 +242,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   // reconnect after a drop — where the visitor never let go of the mic, so
   // silently dropping it would be the wrong answer.
   useEffect(() => {
-    if (isMuseumMode || !micOn || !isReady || session.micStream) return;
+    if (micUpFront || !micOn || !isReady || session.micStream) return;
 
     let cancelled = false;
     void (async () => {
@@ -257,7 +259,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     return () => {
       cancelled = true;
     };
-  }, [isMuseumMode, micOn, isReady, session.micStream, session.attachMic]);
+  }, [micUpFront, micOn, isReady, session.micStream, session.attachMic]);
 
   const stop = useCallback(() => {
     setMicOn(false);

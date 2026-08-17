@@ -90,7 +90,7 @@ describe('useCouncilMachine', () => {
             isPaused: false,
             setPaused: vi.fn(),
             isMuseumMode: false,
-            agentMode: "off",
+            hasMetaAgent: false,
             setMetaAgentPhase: vi.fn(),
             metaAgentPhase: "inactive",
         };
@@ -697,14 +697,14 @@ describe('useCouncilMachine', () => {
         expect(defaultProps.setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
-    it('museum mode with ptt activates meta-agent extension instead of query_extension overlay', () => {
+    it('the meta agent takes the extension question instead of the query_extension overlay', () => {
         const setMetaAgentPhase = vi.fn();
 
         const { result } = renderHook(() =>
             useCouncilMachine({
                 ...defaultProps,
                 isMuseumMode: true,
-                agentMode: "ptt",
+                hasMetaAgent: true,
                 setMetaAgentPhase,
             } as any),
         );
@@ -720,14 +720,14 @@ describe('useCouncilMachine', () => {
         expect(setMetaAgentPhase).toHaveBeenCalledWith('extension');
     });
 
-    it('museum mode without ptt uses query_extension overlay', () => {
+    it('without a meta agent the query_extension overlay is used', () => {
         const setMetaAgentPhase = vi.fn();
 
         const { result } = renderHook(() =>
             useCouncilMachine({
                 ...defaultProps,
                 isMuseumMode: true,
-                agentMode: "always-on",
+                hasMetaAgent: false,
                 setMetaAgentPhase,
             } as any),
         );

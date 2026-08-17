@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
+import { capabilitiesFor } from "@/settings/capabilities";
 import {
   MUSEUM_CURSOR_HIDDEN_CLASS,
   MUSEUM_CURSOR_IDLE_MS,
@@ -18,7 +19,10 @@ vi.mock("react-router", () => ({
 }));
 
 function setMuseumMode(isMuseumMode: boolean, hash = ""): void {
-  useCouncilSettings.mockReturnValue({ isMuseumMode });
+  useCouncilSettings.mockReturnValue({
+    isMuseumMode,
+    capabilities: capabilitiesFor(isMuseumMode ? "museum" : "web"),
+  });
   useLocation.mockReturnValue({ hash });
 }
 

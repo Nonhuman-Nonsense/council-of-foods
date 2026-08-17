@@ -6,7 +6,6 @@ import RealtimeCaptionOverlay, {
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
-import type { AgentMode } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 
 type SetupAgentOverlayProps = {
@@ -18,7 +17,8 @@ type SetupAgentOverlayProps = {
   lastUserTranscript: string | null;
   muted: boolean;
   isMuseumMode?: boolean;
-  agentMode?: AgentMode;
+  /** Museum: show the visualiser row with no on-screen button. */
+  showMicRow?: boolean;
   subtitleLayout?: RealtimeSubtitleLayout;
   micStream?: MediaStream | null;
   micActive?: boolean;
@@ -43,7 +43,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     lastUserTranscript,
     muted,
     isMuseumMode = false,
-    agentMode = "always-on",
+    showMicRow = false,
     subtitleLayout = "compact",
     micStream = null,
     micActive = false,
@@ -90,7 +90,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         lastUserTranscript={lastUserTranscript}
         hideCaptions={isConnecting || muted}
         subtitleLayout={subtitleLayout}
-        showMicRow={agentMode === "ptt"}
+        showMicRow={showMicRow}
         micStream={micStream}
         micActive={isMuseumMode ? micActive : micOn}
         micButton={

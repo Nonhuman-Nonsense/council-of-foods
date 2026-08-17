@@ -14,7 +14,8 @@ import {
     useMicAvailabilityStore,
 } from '@realtime/micAvailabilityStore';
 import { BUTTON_BANNER_IDLE_MS } from '@museum/button/useButtonBanner';
-import type { AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor } from '@/settings/capabilities';
 import type { ButtonOwner } from '@museum/button/buttonStore';
 import type { RealtimeConnection } from '@/realtime/realtimeConnection';
 
@@ -25,7 +26,7 @@ const mockCreateRealtimeConnection = vi.mocked(createRealtimeConnection);
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetLed = vi.hoisted(() => vi.fn());
-const mockAgentMode = vi.hoisted<{ value: AgentMode }>(() => ({ value: "always-on" }));
+const mockAppMode = vi.hoisted<{ value: AppMode }>(() => ({ value: "web" }));
 
 const mockButtonState = vi.hoisted<{ pressed: boolean; buttonOwner: string | null }>(() => ({
     pressed: false,
@@ -59,11 +60,10 @@ vi.mock('@/utils', () => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => ({
-        agentMode: mockAgentMode.value,
-        isMuseumMode: false,
-        mode: 'web',
+        isMuseumMode: mockAppMode.value === "museum",
+        mode: mockAppMode.value,
         setAppMode: vi.fn(),
-        setAgentMode: vi.fn(),
+        capabilities: capabilitiesFor(mockAppMode.value),
     }),
     getDevLogEnabled: () => false,
     isDevLogCategoryEnabled: () => false,
@@ -663,7 +663,7 @@ describe('HumanInput PTT museum mode', () => {
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
-        mockAgentMode.value = "ptt";
+        mockAppMode.value = "museum";
         mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
@@ -680,7 +680,7 @@ describe('HumanInput PTT museum mode', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
-        mockAgentMode.value = "always-on";
+        mockAppMode.value = "web";
         setMockPressed(false);
     });
 
@@ -774,14 +774,14 @@ describe('HumanInput PTT museum mode', () => {
 
     // ── LED management ────────────────────────────────────────────────────────
 
-    it('does not claim the button when agentMode is not ptt', async () => {
-        mockAgentMode.value = "always-on";
+    it('does not claim the button in web mode', async () => {
+        mockAppMode.value = "web";
         mockClaim.mockClear();
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(mockClaim).not.toHaveBeenCalled();
     });
 
-    it('claims human-input and sets pulse LED when active with agentMode ptt', async () => {
+    it('claims human-input and sets pulse LED when active in museum mode', async () => {
         await renderPttReady();
         expect(mockClaim).toHaveBeenCalled();
         expect(mockSetLed).toHaveBeenCalledWith('pulse');
@@ -1164,7 +1164,7 @@ describe('HumanInput PTT abandonment', () => {
     beforeEach(() => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         mockOnAbandon = vi.fn();
-        mockAgentMode.value = "ptt";
+        mockAppMode.value = "museum";
         mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
@@ -1182,7 +1182,7 @@ describe('HumanInput PTT abandonment', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.clearAllMocks();
-        mockAgentMode.value = "always-on";
+        mockAppMode.value = "web";
         setMockPressed(false);
     });
 
@@ -1297,8 +1297,8 @@ describe('HumanInput PTT abandonment', () => {
         expect(mockOnAbandon).toHaveBeenCalledTimes(1);
     });
 
-    it('does not run when agent mode is not ptt', async () => {
-        mockAgentMode.value = "always-on";
+    it('does not run in web mode', async () => {
+        mockAppMode.value = "web";
         vi.useRealTimers();
 
         render(

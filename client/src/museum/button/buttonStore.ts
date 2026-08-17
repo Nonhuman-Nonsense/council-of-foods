@@ -4,7 +4,6 @@ import {
   isButtonBridgeAvailable,
   type ButtonTransportStatus,
 } from "./buttonBridge";
-import { getAgentMode } from "@/settings/councilSettings";
 import { log } from "@/logger";
 import type { TranslationKey } from "@/i18n";
 
@@ -205,9 +204,10 @@ function bindKeyboard(
   if (keyboardInitialized || typeof window === "undefined") return;
   keyboardInitialized = true;
 
+  // No mode gate: an owner only counts as armed once it sets a non-"off" LED
+  // mode (see recomputePressed), so a mode with nothing claiming the button
+  // never sees a press regardless.
   const onKeyDown = (event: KeyboardEvent) => {
-    const { buttonOwner } = get();
-    if (getAgentMode() !== "ptt" && buttonOwner !== "replay") return;
     if (event.code !== "Space" || event.repeat) return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();
@@ -216,8 +216,6 @@ function bindKeyboard(
   };
 
   const onKeyUp = (event: KeyboardEvent) => {
-    const { buttonOwner } = get();
-    if (getAgentMode() !== "ptt" && buttonOwner !== "replay") return;
     if (event.code !== "Space") return;
     if (isTypingTarget(event.target)) return;
     event.preventDefault();

@@ -1,6 +1,5 @@
 import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
-import type { AgentMode } from "@/settings/councilSettings";
 import { buildEnPrompt } from "./setupAgentPromptEn";
 
 export type SetupAgentTopic = Pick<Topic, "id" | "title" | "description">;
@@ -10,7 +9,6 @@ export type SetupAgentPromptParams = {
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
   phase: MeetingSetupPhase;
-  agentMode?: AgentMode;
   visitorName?: string;
   otherLanguageNames?: string[];
   /**

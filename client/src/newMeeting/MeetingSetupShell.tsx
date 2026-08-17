@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 import { createMeeting } from "@api/createMeeting";
 import { isRootPath, useRouting } from "@/navigation";
 import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
-import { useCouncilSettings } from "@/settings/councilSettings";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
@@ -35,7 +34,6 @@ export default function MeetingSetupShell({
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
   const { newMeetingPath, meetingPath } = useRouting();
-  const { agentMode } = useCouncilSettings();
 
   const [step, setStep] = useState<"topic" | "characters">(() =>
     topicSelection != null ? "characters" : "topic"
@@ -131,16 +129,14 @@ export default function MeetingSetupShell({
   return (
     <>
       <Outlet context={outletContext} />
-      {agentMode !== "off" ? (
-        <MeetingSetupAgent
-          phase={phase}
-          lastUserEvent={lastUserEvent}
-          onBeginSetup={beginSetup}
-          onGoToTopicStep={handleGoToTopicStep}
-          onSelectTopic={handleSelectTopic}
-          onStartMeeting={handleStartMeeting}
-        />
-      ) : null}
+      <MeetingSetupAgent
+        phase={phase}
+        lastUserEvent={lastUserEvent}
+        onBeginSetup={beginSetup}
+        onGoToTopicStep={handleGoToTopicStep}
+        onSelectTopic={handleSelectTopic}
+        onStartMeeting={handleStartMeeting}
+      />
     </>
   );
 }

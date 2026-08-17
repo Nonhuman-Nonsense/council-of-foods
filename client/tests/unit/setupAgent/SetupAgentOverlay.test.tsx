@@ -106,7 +106,7 @@ describe('SetupAgentOverlay', () => {
   });
 
   it('does not render a clickable mic button in museum mode', () => {
-    render(<SetupAgentOverlay {...baseProps} isMuseumMode agentMode="ptt" />);
+    render(<SetupAgentOverlay {...baseProps} isMuseumMode showMicRow />);
 
     expect(screen.queryByTestId('realtime-mic-button')).not.toBeInTheDocument();
   });

@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '@council/overlays/Summary';
-import type { AppMode, AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor, type Capabilities } from '@/settings/capabilities';
 
 vi.mock('qrcode.react', () => ({
     QRCodeCanvas: () => <div data-testid="qrcode">QRCode</div>
@@ -56,14 +57,12 @@ const mockUseCouncilSettings = vi.fn((): {
     isMuseumMode: boolean;
     mode: AppMode;
     setAppMode: () => void;
-    agentMode: AgentMode;
-    setAgentMode: () => void;
+    capabilities: Capabilities;
 } => ({
     isMuseumMode: false,
     mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off',
-    setAgentMode: vi.fn(),
+    capabilities: capabilitiesFor('web'),
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -149,8 +148,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: false,
             mode: 'web',
             setAppMode: vi.fn(),
-            agentMode: 'off',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('web'),
         });
     });
 
@@ -229,8 +227,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
@@ -263,8 +260,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
@@ -286,8 +282,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         const { rerender } = render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
@@ -304,8 +299,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
         mockAutoplayState.phase = 'off';
         mockAutoplayState.summaryProtocolFinished = true;
@@ -324,8 +318,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
         mockAutoplayState.phase = 'active';
         mockAutoplayState.summaryProtocolFinished = true;

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render } from "@testing-library/react";
 import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
-import type { AppMode, AgentMode } from "@/settings/councilSettings";
+import type { AppMode } from "@/settings/councilSettings";
+import { capabilitiesFor, type Capabilities } from "@/settings/capabilities";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -23,14 +24,12 @@ const mockUseCouncilSettings = vi.hoisted(() =>
     isMuseumMode: boolean;
     mode: AppMode;
     setAppMode: () => void;
-    agentMode: AgentMode;
-    setAgentMode: () => void;
+    capabilities: Capabilities;
   } => ({
-    isMuseumMode: false,
-    mode: "web",
+    isMuseumMode: true,
+    mode: "museum",
     setAppMode: vi.fn(),
-    agentMode: "ptt",
-    setAgentMode: vi.fn(),
+    capabilities: capabilitiesFor("museum"),
   })),
 );
 
@@ -86,52 +85,40 @@ const defaultProps = {
   onStartMeeting: vi.fn(),
 };
 
-describe("MeetingSetupAgent PTT (regression)", () => {
+describe("MeetingSetupAgent button ownership", () => {
+  function settings(mode: AppMode) {
+    return {
+      isMuseumMode: mode === "museum",
+      mode,
+      setAppMode: vi.fn(),
+      capabilities: capabilitiesFor(mode),
+    };
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockPressed.value = false;
-    mockUseCouncilSettings.mockReturnValue({
-      isMuseumMode: false,
-      mode: "web",
-      setAppMode: vi.fn(),
-      agentMode: "ptt",
-      setAgentMode: vi.fn(),
-    });
+    mockUseCouncilSettings.mockReturnValue(settings("museum"));
   });
 
-  it("claims the button in web mode when agent mode is ptt (not museum-only)", () => {
+  it("claims the button in museum mode", () => {
     render(<MeetingSetupAgent {...defaultProps} />);
 
     expect(mockClaim).toHaveBeenCalled();
     expect(mockSetLed).toHaveBeenCalledWith(expect.any(String));
   });
 
-  it("passes pressed state to useSetupAgent micOpen in web mode", () => {
+  it("takes the mic up front in museum, and passes the press through", () => {
     mockPressed.value = true;
 
     render(<MeetingSetupAgent {...defaultProps} />);
 
     expect(mockUseSetupAgent).toHaveBeenCalledWith(
       expect.objectContaining({
-        agentMode: "ptt",
+        micUpFront: true,
         micOpen: true,
       }),
     );
-  });
-
-  it("still claims the button in museum mode with ptt", () => {
-    mockUseCouncilSettings.mockReturnValue({
-      isMuseumMode: true,
-      mode: "museum",
-      setAppMode: vi.fn(),
-      agentMode: "ptt",
-      setAgentMode: vi.fn(),
-    });
-
-    render(<MeetingSetupAgent {...defaultProps} />);
-
-    expect(mockClaim).toHaveBeenCalled();
-    expect(mockSetLed).toHaveBeenCalledWith(expect.any(String));
   });
 
   it("sets LED pulse when ready and not pressed", () => {
@@ -162,18 +149,13 @@ describe("MeetingSetupAgent PTT (regression)", () => {
     expect(mockSetLed).toHaveBeenCalledWith("off");
   });
 
-  it("does not claim the button when agent mode is always-on", () => {
-    mockUseCouncilSettings.mockReturnValue({
-      isMuseumMode: false,
-      mode: "web",
-      setAppMode: vi.fn(),
-      agentMode: "always-on",
-      setAgentMode: vi.fn(),
-    });
+  it("defers the mic in web mode", () => {
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
 
     render(<MeetingSetupAgent {...defaultProps} />);
 
-    expect(mockClaim).not.toHaveBeenCalled();
-    expect(mockSetLed).not.toHaveBeenCalled();
+    expect(mockUseSetupAgent).toHaveBeenCalledWith(
+      expect.objectContaining({ micUpFront: false }),
+    );
   });
 });

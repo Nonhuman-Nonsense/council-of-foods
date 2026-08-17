@@ -125,15 +125,15 @@ describe("useSetupAgent", () => {
     });
   });
 
-  it("connects without a microphone in web mode, with one in museum", () => {
+  it("defers the microphone unless it is taken up front", () => {
     renderHook(() => useSetupAgent(defaultParams));
     expect(mockUseRealtimeVoiceSession).toHaveBeenCalledWith(
-      expect.objectContaining({ deferMic: true }),
+      expect.objectContaining({ deferMic: true, pttMic: false }),
     );
 
-    renderHook(() => useSetupAgent({ ...defaultParams, isMuseumMode: true }));
+    renderHook(() => useSetupAgent({ ...defaultParams, micUpFront: true }));
     expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
-      expect.objectContaining({ deferMic: false }),
+      expect.objectContaining({ deferMic: false, pttMic: true }),
     );
   });
 
@@ -378,11 +378,11 @@ describe("useSetupAgent", () => {
     expect(selectTopicHandler).toHaveBeenCalledOnce();
   });
 
-  it("treats museum as always able to hear the visitor", () => {
+  it("treats a mic taken up front as always able to hear the visitor", () => {
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
 
     const { result } = renderHook(() =>
-      useSetupAgent({ ...defaultParams, isMuseumMode: true }),
+      useSetupAgent({ ...defaultParams, isMuseumMode: true, micUpFront: true }),
     );
 
     expect(result.current.canHearVisitor).toBe(true);
@@ -422,7 +422,7 @@ describe("useSetupAgent", () => {
       ({ micOpen }) =>
         useSetupAgent({
           ...defaultParams,
-          agentMode: "ptt",
+          micUpFront: true,
           micOpen,
         }),
       { initialProps: { micOpen: false } },

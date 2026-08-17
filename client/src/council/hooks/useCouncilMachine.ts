@@ -21,7 +21,6 @@ import {
     type PendingIntent,
 } from "./pendingIntentStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
-import type { AgentMode } from "@/settings/councilSettings";
 import { useDocumentVisibility } from "@/utils";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
@@ -40,7 +39,8 @@ export interface UseCouncilMachineProps {
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
     isMuseumMode: boolean;
-    agentMode: AgentMode;
+    /** Meeting-time meta agent is available (capabilities.metaAgent). */
+    hasMetaAgent: boolean;
     setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
     metaAgentPhase: MetaAgentPhase;
 }
@@ -79,17 +79,12 @@ function isOverlayCouncilState(
 function resolveVisibleCouncilOverlay(params: {
     councilState: CouncilState;
     nameOverlayOpen: boolean;
-    isMuseumMode: boolean;
-    agentMode: AgentMode;
+    hasMetaAgent: boolean;
 }): CouncilOverlayType {
     if (params.nameOverlayOpen) {
         return "name";
     }
-    if (
-        params.councilState === "query_extension" &&
-        params.isMuseumMode &&
-        params.agentMode === "ptt"
-    ) {
+    if (params.councilState === "query_extension" && params.hasMetaAgent) {
         return null;
     }
     if (isOverlayCouncilState(params.councilState)) {
@@ -123,7 +118,7 @@ export function useCouncilMachine({
     isPaused,
     setPaused,
     isMuseumMode,
-    agentMode,
+    hasMetaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
 }: UseCouncilMachineProps) {
@@ -197,10 +192,9 @@ export function useCouncilMachine({
         () => resolveVisibleCouncilOverlay({
             councilState,
             nameOverlayOpen,
-            isMuseumMode,
-            agentMode,
+            hasMetaAgent,
         }),
-        [councilState, nameOverlayOpen, isMuseumMode, agentMode],
+        [councilState, nameOverlayOpen, hasMetaAgent],
     );
 
     // The one thing that distinguishes the "another live session holds this meeting" case
@@ -508,7 +502,7 @@ export function useCouncilMachine({
                 }
                 break;
             case 'query_extension':
-                if (isMuseumMode && agentMode === "ptt") {
+                if (hasMetaAgent) {
                     setMetaAgentPhase("extension");
                 }
                 if (textMessages[playNextIndex]?.type !== 'query_extension') {
@@ -519,7 +513,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase, pendingIntent, currentMeetingId]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
