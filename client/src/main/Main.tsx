@@ -40,7 +40,11 @@ import Reconnecting from "./overlay/Reconnecting";
 import MicrophoneBlocked from "./overlay/MicrophoneBlocked";
 import OverlayWrapper from "./overlay/OverlayWrapper";
 import { useErrorStore } from "./overlay/errorStore";
-import { useMicAvailabilityStore, watchMicAvailability } from "@realtime/micAvailabilityStore";
+import {
+  refreshMicAvailability,
+  useMicAvailabilityStore,
+  watchMicAvailability,
+} from "@realtime/micAvailabilityStore";
 
 import MuseumButton from "@/museum/button/MuseumButton";
 import ButtonBanner from "@/museum/button/ButtonBanner";
@@ -108,9 +112,14 @@ export default function Main(props: MainProps) {
   const micNoticeOpen = useMicAvailabilityStore((s) => s.noticeOpen);
   const closeMicNotice = useMicAvailabilityStore((s) => s.closeNotice);
 
-  // A visitor who allows the mic from browser site settings should get a
-  // working mic button immediately, without reloading.
-  useEffect(() => watchMicAvailability(), []);
+  // Learn the microphone permission up front — a mic already blocked lets
+  // HumanInput skip a pre-warm that could only fail — and keep it current, so a
+  // visitor who allows the mic from browser site settings is noticed without a
+  // reload.
+  useEffect(() => {
+    void refreshMicAvailability();
+    return watchMicAvailability();
+  }, []);
 
   useEffect(() => {
     if (i18n.language !== props.lang) {

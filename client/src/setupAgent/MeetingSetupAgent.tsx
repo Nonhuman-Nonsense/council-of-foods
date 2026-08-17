@@ -147,7 +147,6 @@ export default function MeetingSetupAgent({
     }),
     agentMode,
     micOpen: button.pressed,
-    phase,
   });
   const { interruptAndRespond, muted } = agent;
   // Any click or keystroke counts as activity — resets the idle nudge and the
@@ -260,6 +259,7 @@ export default function MeetingSetupAgent({
       {showMuseumReconnecting && <Loading />}
     <SetupAgentOverlay
       isConnecting={agent.isConnecting}
+      isStarting={agent.isStarting}
       isReady={agent.isReady}
       lastCaption={agent.lastCaption}
       lastUserTranscript={agent.lastUserTranscript}

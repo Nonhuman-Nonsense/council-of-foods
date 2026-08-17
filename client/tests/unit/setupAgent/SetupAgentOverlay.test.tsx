@@ -29,6 +29,7 @@ vi.mock('@council/ConversationControlIcon', () => ({
 describe('SetupAgentOverlay', () => {
   const baseProps = {
     isConnecting: false,
+    isStarting: false,
     isReady: true,
     lastCaption: null,
     lastUserTranscript: null,
@@ -65,24 +66,40 @@ describe('SetupAgentOverlay', () => {
   });
 
   it('shows the right mic button state for the session', () => {
-    const cases: Array<{ muted: boolean; isReady: boolean; micOn: boolean; expected: string }> = [
+    const cases: Array<{
+      muted: boolean;
+      isStarting: boolean;
+      isReady: boolean;
+      micOn: boolean;
+      expected: string;
+    }> = [
       // Off is a real state, not a pending one: the click restarts everything,
       // so it stays clickable even though the session is not ready.
-      { muted: true, isReady: false, micOn: false, expected: 'off' },
-      // Only a live session that hasn't finished connecting waits.
-      { muted: false, isReady: false, micOn: false, expected: 'connecting' },
-      { muted: false, isReady: true, micOn: false, expected: 'off' },
-      { muted: false, isReady: true, micOn: true, expected: 'on' },
+      { muted: true, isStarting: false, isReady: false, micOn: false, expected: 'off' },
+      // Not started because we are still waiting for the gesture that lets the
+      // agent be heard. Spinning here would promise a connection that nothing
+      // is coming for, and hide the button that would start one.
+      { muted: false, isStarting: false, isReady: false, micOn: false, expected: 'off' },
+      // Only an attempt actually in flight waits.
+      { muted: false, isStarting: true, isReady: false, micOn: false, expected: 'connecting' },
+      { muted: false, isStarting: false, isReady: true, micOn: false, expected: 'off' },
+      { muted: false, isStarting: false, isReady: true, micOn: true, expected: 'on' },
     ];
 
-    for (const { muted, isReady, micOn, expected } of cases) {
+    for (const { muted, isStarting, isReady, micOn, expected } of cases) {
       const { unmount } = render(
-        <SetupAgentOverlay {...baseProps} muted={muted} isReady={isReady} micOn={micOn} />,
+        <SetupAgentOverlay
+          {...baseProps}
+          muted={muted}
+          isStarting={isStarting}
+          isReady={isReady}
+          micOn={micOn}
+        />,
       );
 
       expect(
         screen.getByTestId('realtime-mic-button'),
-        `muted=${muted} ready=${isReady} micOn=${micOn}`,
+        `muted=${muted} starting=${isStarting} ready=${isReady} micOn=${micOn}`,
       ).toHaveAttribute('data-mic-state', expected);
       unmount();
     }

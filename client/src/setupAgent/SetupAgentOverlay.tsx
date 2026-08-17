@@ -11,6 +11,8 @@ import { z } from "@/zIndexLayers";
 
 type SetupAgentOverlayProps = {
   isConnecting: boolean;
+  /** A connection attempt is in flight — as opposed to simply not started. */
+  isStarting: boolean;
   isReady: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
@@ -35,6 +37,7 @@ type SetupAgentOverlayProps = {
 export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
   const {
     isConnecting,
+    isStarting,
     isReady,
     lastCaption,
     lastUserTranscript,
@@ -52,9 +55,17 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
   const isMobile = useMobile();
   const { t } = useTranslation();
 
-  // Off is a real state, not a spinner: the session is torn down, and clicking
-  // the mic starts everything again. Only a live-but-not-ready session waits.
-  const micButtonState: MicButtonState = muted ? "off" : !isReady ? "connecting" : micOn ? "on" : "off";
+  // Spin only while a connection is genuinely in flight. An agent that is off,
+  // or still waiting for the gesture that lets it be heard, reads as "off" and
+  // is startable by clicking — a spinner there would promise a connection that
+  // nothing is coming for.
+  const micButtonState: MicButtonState = muted
+    ? "off"
+    : isStarting
+      ? "connecting"
+      : isReady && micOn
+        ? "on"
+        : "off";
 
   const controlContainerStyle: CSSProperties = {
     position: "fixed",

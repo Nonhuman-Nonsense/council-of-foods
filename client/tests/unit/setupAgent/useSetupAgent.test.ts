@@ -1,13 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { useSetupAgent, type SetupAgentContext } from "@setupAgent/useSetupAgent";
-import {
-  setMicAvailability,
-  useMicAvailabilityStore,
-} from "@realtime/micAvailabilityStore";
+import { useMicAvailabilityStore } from "@realtime/micAvailabilityStore";
 
 const mockUseRealtimeVoiceSession = vi.hoisted(() => vi.fn());
 const mockRefreshMicAvailability = vi.hoisted(() => vi.fn());
+/** Whether the browser would let the agent be heard right now. */
+const mockAutoplay = vi.hoisted(() => ({ allowed: true }));
+
+vi.mock("@/audio/canAutoplay", () => ({
+  useAutoplayAllowed: () => mockAutoplay.allowed,
+}));
 
 vi.mock("@realtime/useRealtimeVoiceSession", () => ({
   useRealtimeVoiceSession: (params: unknown) => mockUseRealtimeVoiceSession(params),
@@ -69,6 +72,7 @@ function handlersFromLastCall(): Record<string, (args: unknown) => unknown> {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockAutoplay.allowed = true;
   useMicAvailabilityStore.getState().resetForTests();
   attachMic.mockResolvedValue(true);
   mockUseRealtimeVoiceSession.mockReturnValue(baseSession);
@@ -133,37 +137,53 @@ describe("useSetupAgent", () => {
     );
   });
 
-  it("holds the first web connect until the visitor leaves the landing page", () => {
+  it("waits to connect until the agent could actually be heard", () => {
+    // Connecting while audio is blocked loses the greeting into a muted element
+    // and pays for the session anyway. The page it happens on is irrelevant —
+    // a link pasted straight to the topic step is as cold as the landing page.
     const cases: Array<{
-      phase: "landing" | "topic";
-      availability: "unknown" | "prompt" | "granted";
+      autoplayAllowed: boolean;
       isMuseumMode?: boolean;
       autoConnect: boolean;
     }> = [
-      // No gesture yet and no history with this origin — autoplay would eat the
-      // greeting, so wait for "Let's go".
-      { phase: "landing", availability: "prompt", autoConnect: false },
-      { phase: "landing", availability: "unknown", autoConnect: false },
-      // Already granted: the visitor has been here before, so greet them now.
-      { phase: "landing", availability: "granted", autoConnect: true },
-      // Past the landing page the click has happened either way.
-      { phase: "topic", availability: "prompt", autoConnect: true },
-      // The kiosk has no landing gesture to wait for.
-      { phase: "landing", availability: "prompt", isMuseumMode: true, autoConnect: true },
+      { autoplayAllowed: false, autoConnect: false },
+      { autoplayAllowed: true, autoConnect: true },
+      // A kiosk has no gesture to wait for.
+      { autoplayAllowed: false, isMuseumMode: true, autoConnect: true },
     ];
 
-    for (const { phase, availability, isMuseumMode, autoConnect } of cases) {
+    for (const { autoplayAllowed, isMuseumMode, autoConnect } of cases) {
       vi.clearAllMocks();
-      useMicAvailabilityStore.getState().resetForTests();
-      setMicAvailability(availability);
+      mockAutoplay.allowed = autoplayAllowed;
 
-      renderHook(() => useSetupAgent({ ...defaultParams, phase, isMuseumMode }));
+      renderHook(() => useSetupAgent({ ...defaultParams, isMuseumMode }));
 
       expect(
         mockUseRealtimeVoiceSession,
-        `${phase} / ${availability}${isMuseumMode ? " / museum" : ""}`,
+        `autoplay=${autoplayAllowed}${isMuseumMode ? " / museum" : ""}`,
       ).toHaveBeenCalledWith(expect.objectContaining({ autoConnect }));
     }
+  });
+
+  it("connects on an explicit start even while audio is still blocked", async () => {
+    // The press is itself the gesture that unblocks audio, so waiting for the
+    // probe to catch up would only delay it.
+    mockAutoplay.allowed = false;
+    const { result } = renderHook(() => useSetupAgent(defaultParams));
+
+    expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({ autoConnect: false }),
+    );
+
+    act(() => {
+      result.current.toggleMic();
+    });
+
+    await waitFor(() =>
+      expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
+        expect.objectContaining({ autoConnect: true }),
+      ),
+    );
   });
 
   it("hands the microphone over when the visitor asks for it", async () => {
@@ -228,8 +248,10 @@ describe("useSetupAgent", () => {
       result.current.toggleMic();
     });
 
-    await waitFor(() => expect(attachMic).toHaveBeenCalledWith({ userInitiated: true }));
-    expect(result.current.micOn).toBe(false);
+    // Wait for the outcome, not the call: the mic intent is dropped after the
+    // attach settles, so asserting on the call alone races the state update.
+    await waitFor(() => expect(result.current.micOn).toBe(false));
+    expect(attachMic).toHaveBeenCalledWith({ userInitiated: true });
   });
 
   it("re-attaches the microphone after a reconnect without nagging", async () => {

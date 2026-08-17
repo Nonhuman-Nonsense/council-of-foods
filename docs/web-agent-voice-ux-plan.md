@@ -281,6 +281,73 @@ This is the part that needs prompt work, not just plumbing.
 
 ---
 
+## 3b. The start gate, corrected
+
+Testing turned up a visible bug and, behind it, a wrong assumption.
+
+**The bug:** on a first visit the mic button spins forever until "Let's go" is pressed. The
+button derives its state as `!isReady ? "connecting"`, which cannot tell "still connecting"
+from "deliberately never started". The gate is working; it just looks broken.
+
+**The wrong assumption:** the gate uses `micAvailability === "granted"` as a proxy for "audible
+autoplay will work". Checked against the actual policies:
+
+| | Audible autoplay on a cold visit | Mic permission grants autoplay? | Gesture grants autoplay? |
+|---|---|---|---|
+| Chrome | blocked (unless high Media Engagement Index) | **No** | Yes |
+| Firefox | blocked | **Yes** — Firefox alone | Yes |
+| Safari | blocked | **No** | Yes |
+
+So the delay is genuinely needed — no browser lets a cold visit speak, not just Safari — but the
+proxy we gate on is only correct in Firefox. On Chrome and Safari a returning visitor with a
+granted mic gets connected and speaks into an element the browser has muted, losing the greeting
+and paying for the session. And a visitor deep-linked straight to `/new` skips the gate entirely
+(`phase !== "landing"`), on the assumption they clicked their way there — which a pasted link
+disproves.
+
+### Stop guessing, ask the browser
+
+Replace the proxy with a real check, in a new `client/src/audio/canAutoplay.ts`:
+
+- `navigator.getAutoplayPolicy("mediaelement")` where it exists — **Firefox 112+ only**, per
+  [caniuse](https://caniuse.com/mdn-api_navigator_getautoplaypolicy); Chrome, Edge and Safari
+  have not shipped it.
+- `navigator.userActivation.hasBeenActive` — sticky activation is exactly the condition all
+  three engines require, and reading it beats re-probing at a moment that races the browser's
+  own bookkeeping.
+- Cold, with neither of the above: ask by trying — play a short silent **unmuted** WAV and see
+  whether the promise resolves. Unmuted matters, since muted autoplay is always allowed and
+  would answer the wrong question. **Build the file at runtime**, never paste it in as base64: a
+  pasted blob lost one padding character, decoded to nothing, and turned every probe into a
+  confident "blocked" in every browser.
+
+This also picks up Chrome's Media Engagement Index, which no heuristic of ours could infer: a
+returning visitor who has listened before gets greeted immediately.
+
+### The resulting gate
+
+```
+connect when:  isMuseumMode || autoplayAllowed || visitorStartedItThemselves
+```
+
+`phase` drops out entirely. "Let's go" is no longer special — it is simply *a* gesture, and any
+gesture flips the answer, so a one-shot `pointerdown`/`keydown` listener re-probes and the agent
+connects. That fixes the deep-link hole for free: the first topic click starts the agent.
+
+### What the landing page looks like
+
+Both controls stay visible and clickable, neither spinning:
+
+| Control | Before the agent starts | On click |
+|---|---|---|
+| Mic button (centre) | `off` — never `connecting` unless a connect is genuinely in flight | starts the agent *and* takes the mic; the click is itself the gesture that unblocks audio |
+| Volume button (corner) | `volume_on` — sound is armed, the agent will speak when it starts | mutes: now even "Let's go" will not start it |
+
+An explicit start has to override the gate rather than wait for the probe, so the click path is
+deterministic instead of racing an async check.
+
+---
+
 ## 5b. Crossing between the two modes
 
 The mic button flips the agent between commentator and conversation partner mid-session. Phase 3
@@ -509,6 +576,13 @@ when its mic icon is clicked.
    untouched throughout. `createRealtimeConnection`'s internal `getUserMedia` fallback is gone:
    every caller now supplies a stream or sets `deferMic`, so no path can prompt behind the
    store's back.
+4b. ~~**The start gate, corrected** (§3b)~~ **done** — `client/src/audio/canAutoplay.ts` asks the
+   browser (`getAutoplayPolicy` on Firefox, a silent unmuted probe elsewhere, re-checked on the
+   first gesture); `useSetupAgent` gates on that instead of mic permission, with an explicit
+   start overriding it; the mic button spins only while a connect is genuinely in flight.
+   `phase` is gone from `useSetupAgent` entirely — the gate no longer cares which page it is on,
+   which also closes the deep-link hole. `refreshMicAvailability` moved to `Main.tsx`, where it
+   serves `HumanInput` rather than a gate that no longer reads it.
 5. **Enablement** — flip web `agentMode` to `always-on` once costs are understood.
 
 Known loose ends, none blocking:

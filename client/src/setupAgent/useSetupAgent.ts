@@ -3,8 +3,7 @@ import { getRealtimeRetryPolicy, useRealtimeVoiceSession } from "@realtime/useRe
 import type { AgentMode } from "@/settings/councilSettings";
 import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
-import { refreshMicAvailability, useMicAvailabilityStore } from "@realtime/micAvailabilityStore";
-import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
+import { useAutoplayAllowed } from "@/audio/canAutoplay";
 import { VISITOR_SILENT_SAFE_TOOLS } from "./setupAgentTools";
 import { log } from "@/logger";
 
@@ -56,12 +55,16 @@ export type UseSetupAgentParams = {
   agentMode?: AgentMode;
   micOpen?: boolean;
   isMuseumMode?: boolean;
-  /** Gates the first web connect — see `canAutoConnect` below. */
-  phase?: MeetingSetupPhase;
 };
 
 export type SetupAgentState = {
   isConnecting: boolean;
+  /**
+   * A connection attempt is actually in flight. Distinct from "not ready" —
+   * an agent waiting for a gesture before it connects is idle, not pending, and
+   * showing a spinner for it would promise something that is never coming.
+   */
+  isStarting: boolean;
   /** Session is live and able to take a microphone. */
   isReady: boolean;
   /** True when the agent can actually hear the visitor (museum, or web mic on). */
@@ -102,32 +105,32 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     agentMode = "always-on",
     micOpen = false,
     isMuseumMode = false,
-    phase,
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
   const [micOn, setMicOn] = useState(false);
+  /**
+   * The visitor pressed something to start the agent. That press is itself the
+   * gesture every browser wants before it will play audio, so it opens the gate
+   * without waiting on another check.
+   */
+  const [startedByVisitor, setStartedByVisitor] = useState(false);
   /** Distinguishes a click from an automatic re-attach after a reconnect. */
   const micRequestedByUserRef = useRef(false);
   const pttMic = agentMode === "ptt";
-  const micAvailability = useMicAvailabilityStore((s) => s.availability);
-
-  // Learn the permission state up front: it decides whether the agent may greet
-  // on the landing page (see canAutoConnect) and whether the mic button will
-  // prompt or fail instantly.
-  useEffect(() => {
-    void refreshMicAvailability();
-  }, []);
+  const autoplayAllowed = useAutoplayAllowed();
 
   /**
-   * Autoplay policy, not permission, is what gates the first connect: an agent
-   * that talks unprompted needs a user gesture, and "Let's go" is that gesture.
-   * A visitor who already granted the microphone has interacted with this origin
-   * before, so browsers let us speak straight away and they get greeted on the
-   * landing page.
+   * An agent that talks unprompted is pointless if the browser will not let it
+   * be heard — it would lose its greeting into a blocked element and bill for
+   * the session. So the gate is simply whether audio can play: on a cold visit
+   * that is false everywhere, and the visitor's first click (anywhere — "Let's
+   * go", a topic, the mic button) flips it.
+   *
+   * Deliberately not keyed on the page: a link pasted straight to the topic
+   * step is just as cold as the landing page.
    */
-  const canAutoConnect =
-    isMuseumMode || phase == null || phase !== "landing" || micAvailability === "granted";
+  const canAutoConnect = isMuseumMode || autoplayAllowed || startedByVisitor;
 
   // Museum always has a microphone (hardware button or always-on); on web it
   // arrives only when the visitor asks for it.
@@ -270,16 +273,19 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
       return;
     }
     // Wanting to talk implies wanting to hear the reply, so a mic click also
-    // brings the agent back if it was switched off.
+    // brings the agent back if it was switched off — or starts it for the first
+    // time, on a page where we were still waiting for a gesture.
     micRequestedByUserRef.current = true;
     setMicOn(true);
     setMuted(false);
+    setStartedByVisitor(true);
   }, [micOn, session.detachMic]);
 
   return {
     isConnecting:
       session.connectionState === "connecting" ||
       (session.connectionState === "ready" && !session.hasReceivedAudioPart),
+    isStarting: session.connectionState === "connecting",
     isReady,
     canHearVisitor,
     lastCaption: session.lastCaption,
@@ -291,6 +297,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     setMuted,
     start: async () => {
       setMuted(false);
+      setStartedByVisitor(true);
     },
     stop,
     agentSpeaking: session.agentSpeaking,
