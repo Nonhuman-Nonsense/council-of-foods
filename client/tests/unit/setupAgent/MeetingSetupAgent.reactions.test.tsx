@@ -50,6 +50,21 @@ vi.mock("@setupAgent/useSetupAgent", () => ({
 vi.mock("@setupAgent/SetupAgentOverlay", () => ({ default: () => null }));
 vi.mock("@main/Loading", () => ({ default: () => null }));
 
+// Fake, product-neutral roster: this suite must pass identically whichever
+// real character set (foods, forest beings, ...) is checked out. A real id
+// resolves fine against the real bundle, but the *name* differs per product,
+// which is exactly the coupling this mock removes.
+vi.mock("@newMeeting/CharacterSetup", () => ({
+  CHAIR_ID: "chair",
+  getCharacterSetupBundle: () => ({
+    characters: [
+      { id: "chair", name: "Chair" },
+      { id: "alpha", name: "Alpha" },
+      { id: "beta", name: "Beta" },
+    ],
+  }),
+}));
+
 vi.mock("@newMeeting/meetingSetupStore", () => {
   const state = () => ({
     selectedTopic: null,
@@ -71,9 +86,9 @@ const defaultProps = {
   onStartMeeting: vi.fn(),
 };
 
-/** The chair is always selected; foods are what the visitor picks. */
+/** The chair is always selected; characters are what the visitor picks. */
 function councilEvent(selectedNames: string[], isFull = false): MeetingSetupUserEvent {
-  return { type: "character_selected", selectedNames, chairName: "Water", isFull };
+  return { type: "character_selected", selectedNames, chairName: "Chair", isFull };
 }
 
 function lastMessage(): string {
@@ -93,49 +108,49 @@ describe("MeetingSetupAgent click reactions", () => {
   });
 
   /**
-   * The reaction is debounced, so picking two foods quickly delivers a single
-   * message. It has to name both — reacting only to the last one is what made
-   * the agent say "ah, meat" after the visitor picked bean and meat.
+   * The reaction is debounced, so picking two characters quickly delivers a
+   * single message. It has to name both — reacting only to the last one is
+   * what made the agent say "ah, beta" after the visitor picked alpha and beta.
    */
-  it("names every food picked within one debounce window", () => {
+  it("names every character picked within one debounce window", () => {
     const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"])} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha"])} />);
     // Second pick lands before the first reaction fires, cancelling it.
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean", "Meat"])} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha", "Beta"])} />);
 
     expect(mockInterruptAndRespond).not.toHaveBeenCalled();
 
     act(() => { vi.runAllTimers(); });
 
     expect(mockInterruptAndRespond).toHaveBeenCalledTimes(1);
-    expect(lastMessage()).toContain("Bean");
-    expect(lastMessage()).toContain("Meat");
+    expect(lastMessage()).toContain("Alpha");
+    expect(lastMessage()).toContain("Beta");
   });
 
-  /** Once reported, a food is no longer news — only the new pick is. */
+  /** Once reported, a character is no longer news — only the new pick is. */
   it("reports only what changed since the last delivered reaction", () => {
     const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"])} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha"])} />);
     act(() => { vi.runAllTimers(); });
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean", "Meat"])} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha", "Beta"])} />);
     act(() => { vi.runAllTimers(); });
 
     expect(mockInterruptAndRespond).toHaveBeenCalledTimes(2);
-    expect(lastMessage()).toContain("Meat");
-    expect(lastMessage()).not.toContain("added Bean");
+    expect(lastMessage()).toContain("Beta");
+    expect(lastMessage()).not.toContain("added Alpha");
   });
 
   /** Picking and unpicking inside one window leaves nothing worth saying. */
   it("stays silent when the council ends up unchanged", () => {
     const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"])} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha"])} />);
     rerender(<MeetingSetupAgent
       {...defaultProps}
-      lastUserEvent={{ type: "character_deselected", selectedNames: [], chairName: "Water", isFull: false }}
+      lastUserEvent={{ type: "character_deselected", selectedNames: [], chairName: "Chair", isFull: false }}
     />);
 
     act(() => { vi.runAllTimers(); });
@@ -144,26 +159,29 @@ describe("MeetingSetupAgent click reactions", () => {
   });
 
   /**
-   * Arriving with foods already chosen (e.g. back from the topic step) must not
-   * replay them as if they were just picked.
+   * Arriving with characters already chosen (e.g. back from the topic step)
+   * must not replay them as if they were just picked.
    */
-  it("treats foods already selected on arrival as known", () => {
-    mockSelectedCharacters.value = ["chair", "bean"];
+  it("treats characters already selected on arrival as known", () => {
+    // Ids from the mocked bundle above, not a real product's — a name the
+    // bundle doesn't know resolves to nothing, and the agent would be told
+    // about a pick the visitor actually made a step ago.
+    mockSelectedCharacters.value = ["chair", "alpha"];
 
     const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean", "Meat"])} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha", "Beta"])} />);
     act(() => { vi.runAllTimers(); });
 
-    expect(lastMessage()).toContain("Meat");
-    expect(lastMessage()).not.toContain("added Bean");
+    expect(lastMessage()).toContain("Beta");
+    expect(lastMessage()).not.toContain("added Alpha");
   });
 
   /** The UI blocks a 7th pick, so this is the only moment to tell the agent. */
   it("mentions the council is full when the pick fills the last slot", () => {
     const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"], true)} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha"], true)} />);
     act(() => { vi.runAllTimers(); });
 
     expect(lastMessage().toLowerCase()).toContain("full");
@@ -172,7 +190,7 @@ describe("MeetingSetupAgent click reactions", () => {
   it("says nothing about being full while there is still room", () => {
     const { rerender } = render(<MeetingSetupAgent {...defaultProps} />);
 
-    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Bean"], false)} />);
+    rerender(<MeetingSetupAgent {...defaultProps} lastUserEvent={councilEvent(["Alpha"], false)} />);
     act(() => { vi.runAllTimers(); });
 
     expect(lastMessage().toLowerCase()).not.toContain("full");
