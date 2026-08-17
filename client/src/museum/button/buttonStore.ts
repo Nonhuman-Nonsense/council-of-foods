@@ -130,6 +130,7 @@ type ButtonStore = {
   releaseButton: (owner: ButtonOwner) => void;
   setButtonArmed: (owner: ButtonOwner, armed: boolean) => void;
   toggleButtonLatch: (owner: ButtonOwner) => void;
+  clearButtonLatch: (owner: ButtonOwner) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
   setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: TranslationKey | undefined) => void;
   setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
@@ -358,6 +359,19 @@ function recomputeButtonRouting(
   });
 }
 
+function setLatch(
+  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
+  get: () => ButtonStore,
+  owner: ButtonOwner,
+  latched: boolean,
+  source: "click" | "owner",
+): void {
+  log.event("BUTTON", latched ? "latch on" : "latch off", { owner, source });
+  const ledMode = resolveLedMode(get().armed, get().pressed || latched);
+  set({ latched, ledMode });
+  void pushLedToHardware(set, get, ledMode);
+}
+
 function setBannerContentForOwner(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
@@ -499,10 +513,18 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
    */
   toggleButtonLatch: (owner) => {
     if (get().buttonOwner !== owner) return;
-    const latched = !get().latched;
-    log.event("BUTTON", latched ? "latch on" : "latch off", { owner, source: "click" });
-    set({ latched, ledMode: resolveLedMode(get().armed, get().pressed || latched) });
-    void pushLedToHardware(set, get, get().ledMode);
+    setLatch(set, get, owner, !get().latched, "click");
+  },
+
+  /**
+   * End a latched-open mic from the owner's side — the visitor turned to
+   * something else (typing, say) and the take is over. Disarming clears the
+   * latch too, but an owner whose state settles back to "armed" in the same
+   * React batch never renders as disarmed, so it cannot be relied on alone.
+   */
+  clearButtonLatch: (owner) => {
+    if (get().buttonOwner !== owner || !get().latched) return;
+    setLatch(set, get, owner, false, "owner");
   },
 
   resyncLed: async () => {

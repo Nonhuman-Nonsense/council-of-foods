@@ -35,6 +35,8 @@ export type ButtonHandle = {
    * meaningful where `capabilities.latchOnTap` allows latching at all.
    */
   toggleLatch: () => void;
+  /** End a latched-open mic from the owner's side; a no-op if not latched. */
+  clearLatch: () => void;
   /** Routed press — true only when this owner is buttonOwner and armed. */
   pressed: boolean;
   /**
@@ -131,8 +133,12 @@ export function useButton(owner: ButtonOwner): ButtonHandle {
     useButtonStore.getState().toggleButtonLatch(owner);
   }, [owner]);
 
+  const clearLatch = useCallback(() => {
+    useButtonStore.getState().clearButtonLatch(owner);
+  }, [owner]);
+
   return useMemo(
-    () => ({ claim, release, setArmed, toggleLatch, pressed, wantsMic, isOwner }),
-    [claim, release, setArmed, toggleLatch, pressed, wantsMic, isOwner],
+    () => ({ claim, release, setArmed, toggleLatch, clearLatch, pressed, wantsMic, isOwner }),
+    [claim, release, setArmed, toggleLatch, clearLatch, pressed, wantsMic, isOwner],
   );
 }

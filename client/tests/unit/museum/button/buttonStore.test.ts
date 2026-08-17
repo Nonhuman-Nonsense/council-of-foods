@@ -457,6 +457,19 @@ describe("useButtonStore", () => {
       expect(useButtonStore.getState().pressed).toBe(false);
     });
 
+    it("lets an owner end a latch it did not start", () => {
+      // Human input finishes a take when the visitor turns to the textarea; the
+      // state can settle back to armed in one batch, so the disarm path alone
+      // would never fire and the mic would re-open.
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(true);
+
+      useButtonStore.getState().clearButtonLatch("setup-agent");
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
     it("disarming clears a latch left over mid-gesture", () => {
       localStorage.setItem("councilAppMode", "web");
 

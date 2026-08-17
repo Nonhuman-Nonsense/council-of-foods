@@ -301,9 +301,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
 function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey, isButtonMuseumMode = false }: HumanInputProps): React.ReactElement | null {
-  // Step 1 mapping: space-driven dictation stays museum-only for now; web gains
-  // it (without auto-submit) when the shared tap/hold gesture lands.
-  const { isMuseumMode, capabilities } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
@@ -344,10 +342,10 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const canRecord = connectionState === "ready" || connectionState === "recording";
 
   useEffect(() => {
-    if (phase !== "active" || !isMuseumMode) return;
+    if (phase !== "active") return;
     button.claim();
     return () => button.release();
-  }, [button.claim, button.release, phase, isMuseumMode]);
+  }, [button.claim, button.release, phase]);
 
   useEffect(() => {
     if (phase !== "active") return;
@@ -386,7 +384,9 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   useEffect(() => {
     if (connectionState !== "ready" || !pendingRecordRef.current) return;
     pendingRecordRef.current = false;
-    startRecording();
+    // Arriving from idle/connecting, where the button was disarmed and the
+    // latch therefore cleared — so toggling can only turn it on.
+    button.toggleLatch();
 
   }, [connectionState]);
 
@@ -404,23 +404,25 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   // ── PTT input ───────────────────────────────────────────────────────────────
 
-  // PTT press → start recording when ready (also covers button held during pre-warm).
+  // Gesture opens the mic — a hold, a tap that latched, or the on-screen button,
+  // which routes through the same latch so this stays the only path in.
+  // (Also covers a button held through the pre-warm.)
   useEffect(() => {
-    if (!isMuseumMode || phase !== "active") return;
-    if (!button.pressed) return;
+    if (phase !== "active") return;
+    if (!button.wantsMic) return;
     startRecording();
    
-  }, [button.pressed, isMuseumMode, phase, connectionState, inputValue]);
+  }, [button.wantsMic, phase, connectionState, inputValue]);
 
-  // PTT release → finish session and queue an auto-submit attempt.
+  // Gesture closed → finish the session. Only queue an auto-submit where
+  // releasing is meant to send; web leaves the transcript to edit and send.
   useEffect(() => {
-    if (!isMuseumMode) return;
-    if (!button.pressed && connectionState === "recording") {
-      pendingPttAutoSubmitRef.current = true;
+    if (!button.wantsMic && connectionState === "recording") {
+      pendingPttAutoSubmitRef.current = capabilities.autoSubmitHumanInput;
       finishRealtimeSession();
     }
    
-  }, [button.pressed, isMuseumMode, connectionState]);
+  }, [button.wantsMic, capabilities.autoSubmitHumanInput, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
   // transcript catches up (segments can update after connectionState is "ready").
@@ -453,21 +455,23 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setCanContinue(false);
   }, [connectionState, transcriptSegments, previousTranscript, capabilities.autoSubmitHumanInput, maxInputLength, onSubmitHumanMessage]);
 
-  const pttSessionActive = isMuseumMode && phase === "active";
+  // Dropping an abandoned turn (and the banner that explains the button) exist
+  // because a kiosk visitor can walk away mid-turn with nobody to recover it.
+  const pttSessionActive = capabilities.unattended && phase === "active";
 
   useButtonBanner({
     owner: "human-input",
     sessionActive: pttSessionActive,
-    micOpen: button.pressed,
+    micOpen: button.wantsMic,
     isConnecting: connectionState === "connecting" || connectionState === "finishing",
     activityDeps: [inputValue, transcriptSegments],
     onIdleTerminal: onAbandonHumanTurn,
     canIdleTerminal: () =>
       pttSessionActive &&
-      !button.pressed &&
+      !button.wantsMic &&
       connectionState !== "recording" &&
       connectionState !== "finishing",
-    terminalDeps: [connectionState, button.pressed],
+    terminalDeps: [connectionState, button.wantsMic],
   });
 
   function transcriptionDeltaMergeMode(): TranscriptionDeltaMergeMode {
@@ -732,7 +736,12 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   /**
    * Closes the mic gate and waits for the final transcript to settle before
    * returning to "ready". The connection stays open for a potential re-record.
-   * Exposed as a standalone function so PTT can call it directly.
+   *
+   * Called from one place only — the effect that watches the gesture close —
+   * so the flow stays one-directional: gesture → `wantsMic` → session. Anything
+   * else that should end a take says so by clearing the gesture (`clearLatch`)
+   * and lets that effect do this; calling it directly would leave a latch on,
+   * and the take would restart the moment the state landed back on "ready".
    */
   function finishRealtimeSession() {
     if (!connectionRef.current) {
@@ -812,9 +821,11 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
         setCanContinue(true);
         return;
       }
-      startRecording();
+      // Same gesture as a tap, by another input device — never a second source
+      // of truth. The effects above do the recording.
+      button.toggleLatch();
     } else if (connectionState === "recording") {
-      finishRealtimeSession();
+      button.toggleLatch();
     } else if (connectionState === "idle" && micUnavailable) {
       // The visitor is asking for the mic we skipped pre-warming. Try again —
       // the block may have been lifted since — and let requestMicrophone
@@ -849,16 +860,18 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     if (connectionStateRef.current === "recording" && transcriptText.length >= maxInputLength) {
       setPreviousTranscript(transcriptText);
       setTranscriptSegments([]);
-      finishRealtimeSession();
+      // Out of room for more speech, so the visitor is no longer asking to
+      // talk. Ending the take is left to the release effect, as always.
+      button.clearLatch();
     }
-  // finishRealtimeSession is stable (no deps), safe to omit
+  // button.clearLatch is stable (useCallback), safe to omit
 
   }, [transcriptText, maxInputLength]);
 
   function inputFocused(_e: React.FocusEvent) {
-    if (connectionState === "recording") {
-      finishRealtimeSession();
-    }
+    // Turning to the textarea is the visitor withdrawing the ask, not a request
+    // to close a session — so it clears the gesture and the take follows.
+    button.clearLatch();
     // Don't interrupt connecting/ready — user just wants to type
   }
 

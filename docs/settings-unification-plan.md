@@ -351,3 +351,61 @@ now counts as a release (and fixes alt-tab-while-holding too).
 single latch, tells the agent that a shut mic is normal and not worth remarking on, mentions
 both the space bar and the mic button in the one-time invitation, and tells it to drop the
 silent-visitor rules if it is later told the visitor can talk.
+
+
+## 10. Step 5 — space in the meeting
+
+Web already had voice input here: `handleStartStopRecording` is click-to-start / click-to-stop,
+i.e. already a latch. So step 5 was not "add voice to web" but "make space a second way to drive
+the same thing", and the level-triggered release effect (`!wantsMic && recording → finish`) would
+have killed any take started by a click. Both routes now go through the latch, exactly as the
+setup agent's mic button does — `handleStartStopRecording` calls `toggleLatch()` and the effects
+do the recording, so there is one gesture source and no second copy of the state.
+
+- **Claim in both modes**, `phase === "active"`; arming already keyed off `canRecord`.
+- **Both PTT effects read `wantsMic`** instead of `pressed` and lose their `isMuseumMode` guard.
+  Museum is untouched: `wantsMic === pressed` where latching is off.
+- **Auto-submit** stays behind `capabilities.autoSubmitHumanInput`, and the release effect only
+  *queues* one where that holds — web leaves the transcript in the textarea to edit and send.
+- **`pttSessionActive` moved to `capabilities.unattended`.** It gates the banner and the 20s
+  idle `onAbandonHumanTurn`; that second one exists because a kiosk visitor can walk away
+  mid-turn with nobody to recover it, which is unattendedness, not museum-ness.
+
+**A real bug this surfaced.** Relying on "disarming clears the latch" is not enough here. The
+no-speech path runs `recording → finishing → ready` inside a single React batch, so `canRecord`
+never changes, `setArmed(false)` never fires, and a latch left on re-opens the mic the instant
+the state lands back on `ready` — focusing the textarea would have stopped and immediately
+restarted recording.
+
+The first fix was to clear the latch inside `finishRealtimeSession()`, defended as "then no
+caller can forget it" — which is the tell for a hidden coupling. It made the dependency
+bidirectional: the gesture drives the session, and the session reaches back into the gesture.
+
+The real fix is that neither non-gesture caller wanted to *end a session* at all. Focusing the
+textarea means "I'll type instead"; hitting the length cap means "there is no room for more
+speech". Both are **the visitor withdrawing the ask**, so both now clear the latch and let the
+existing release effect do the finishing. `finishRealtimeSession()` has exactly one caller, no
+button dependency, and the flow is one-directional again: gesture → `wantsMic` → session.
+`clearButtonLatch` / `clearLatch` stays as the one way an owner ends a latch it did not start.
+
+`clearLatch()` is a no-op wherever latching is off, which is the whole of museum: `latchOnTap`
+is false there, so `latched` is never set, and every `toggleLatch()` call site sits behind a
+control that only renders in web. So the length-cap path changes only in whether it *interrupts*
+a take. It used to call `finishRealtimeSession()` outright — muting the mic, disarming on
+`canRecord`, then re-arming and restarting under a still-held button, losing about a second of
+speech in the gap. Now it banks the text and leaves ending the take to the gesture: a latch is
+cleared, a held button simply carries on to its own release. Either way the transcript is frozen
+at the cap (`formatTranscriptInputValue` truncates), so the outcome is identical and the
+connection is no longer churned for nothing. `MAX_INPUT_LENGTH` is 10,000 characters — roughly
+half an hour of unbroken speech — so this path is close to unreachable regardless.
+
+**Space and the textarea.** The store's `isTypingTarget` guard means space types a space while
+the textarea has focus and only acts as push-to-talk when focus is elsewhere. Nothing autofocuses
+it, so a fresh turn starts with space working; after typing, the visitor clicks away to use it
+again. That pairs with the existing "focusing the textarea ends the take" behaviour.
+
+**Test mocks had to grow up.** `HumanInput`'s `useButton` mock was static, and modelling the real
+store exposed two things worth keeping: `claim` must set `buttonOwner` (a latch belongs to an
+owner), and the handle's functions must be identity-stable as the real `useCallback`s are —
+fresh identities each render made the claim effect release and re-claim continuously, wiping the
+latch every time.
