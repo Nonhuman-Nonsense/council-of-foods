@@ -266,7 +266,6 @@ export default function MeetingSetupAgent({
       {showBlockingReconnect && <Loading />}
     <SetupAgentOverlay
       isConnecting={agent.isConnecting}
-      isStarting={agent.isStarting}
       isReady={agent.isReady}
       lastCaption={agent.lastCaption}
       lastUserTranscript={agent.lastUserTranscript}

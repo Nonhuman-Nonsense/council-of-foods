@@ -64,12 +64,6 @@ export type UseSetupAgentParams = {
 
 export type SetupAgentState = {
   isConnecting: boolean;
-  /**
-   * A connection attempt is actually in flight. Distinct from "not ready" —
-   * an agent waiting for a gesture before it connects is idle, not pending, and
-   * showing a spinner for it would promise something that is never coming.
-   */
-  isStarting: boolean;
   /** Session is live and able to take a microphone. */
   isReady: boolean;
   /**
@@ -302,10 +296,16 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   }, []);
 
   return {
+    // Ready-but-silent still counts as connecting, same as the handshake
+    // itself — so a visitor watching for the agent to speak sees one
+    // continuous spinner instead of it settling early on nothing. But that
+    // only holds while the greeting is actually coming: unaudible, it is
+    // held indefinitely (see `audible` above), and waiting for audio that
+    // is not coming would spin forever right when the mic button is what
+    // lets the visitor supply the gesture that unblocks it.
     isConnecting:
       session.connectionState === "connecting" ||
-      (session.connectionState === "ready" && !session.hasReceivedAudioPart),
-    isStarting: session.connectionState === "connecting",
+      (session.connectionState === "ready" && !session.hasReceivedAudioPart && audible),
     isReady,
     hasEverHeardVisitor,
     lastCaption: session.lastCaption,

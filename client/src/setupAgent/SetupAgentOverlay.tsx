@@ -10,8 +10,6 @@ import { z } from "@/zIndexLayers";
 
 type SetupAgentOverlayProps = {
   isConnecting: boolean;
-  /** A connection attempt is in flight — as opposed to simply not started. */
-  isStarting: boolean;
   isReady: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
@@ -38,7 +36,6 @@ type SetupAgentOverlayProps = {
 export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
   const {
     isConnecting,
-    isStarting,
     isReady,
     lastCaption,
     lastUserTranscript,
@@ -56,13 +53,14 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
   const isMobile = useMobile();
   const { t } = useTranslation();
 
-  // Spin only while a connection is genuinely in flight. An agent that is off,
-  // or still waiting for the gesture that lets it be heard, reads as "off" and
-  // is startable by clicking — a spinner there would promise a connection that
-  // nothing is coming for.
+  // The same "still waiting to hear the agent" signal the museum spinner
+  // uses, ready-but-silent included, so the mic button does not read as
+  // clickable while the greeting is still in flight. It stops early once the
+  // page turns out not to be audible yet — there is no more coming until the
+  // visitor gives the gesture this very button exists to collect.
   const micButtonState: MicButtonState = muted
     ? "off"
-    : isStarting
+    : isConnecting
       ? "connecting"
       : isReady && micOn
         ? "on"

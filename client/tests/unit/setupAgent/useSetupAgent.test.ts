@@ -125,6 +125,22 @@ describe("useSetupAgent", () => {
     });
   });
 
+  it("stops spinning once ready when the page is not audible, instead of waiting on a greeting that is held", () => {
+    // The greeting is held until the page is audible (see the realtime hook),
+    // so waiting on `hasReceivedAudioPart` here would spin forever — right when
+    // the mic button is what lets the visitor supply the missing gesture.
+    mockAutoplay.allowed = false;
+    mockUseRealtimeVoiceSession.mockReturnValue({
+      ...baseSession,
+      connectionState: "ready",
+      hasReceivedAudioPart: false,
+    });
+
+    const { result } = renderHook(() => useSetupAgent(defaultParams));
+
+    expect(result.current.isConnecting).toBe(false);
+  });
+
   it("defers the microphone unless it is taken up front", () => {
     renderHook(() => useSetupAgent(defaultParams));
     expect(mockUseRealtimeVoiceSession).toHaveBeenCalledWith(
