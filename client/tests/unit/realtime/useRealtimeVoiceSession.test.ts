@@ -196,7 +196,6 @@ describe("useRealtimeVoiceSession", () => {
     await waitFor(() => {
       expect(mockFetchRealtimeBootstrap).toHaveBeenCalledWith(
         { feature: "meta-agent", language: "en" },
-        expect.any(Function),
         expect.any(AbortSignal),
         { Authorization: "Bearer live-key" },
       );

@@ -3,7 +3,6 @@ import {
   acquireMicrophone,
   createRealtimeConnection,
   fetchRealtimeBootstrap,
-  fetchRealtimeSessionDefaults,
   MicrophoneUnavailableError,
   RealtimeHttpError,
   classifyRealtimeError,
@@ -237,9 +236,11 @@ describe("realtimeConnection", () => {
       )
     );
 
-    const result = await fetchRealtimeSessionDefaults({ feature: "setup-agent", language: "en" });
+    const result = await fetchRealtimeBootstrap({ feature: "setup-agent", language: "en" });
 
-    expect(result).toMatchObject({
+    expect(result.provider).toBe("inworld");
+    expect(result.iceServers).toEqual([]);
+    expect(result.session).toMatchObject({
       type: "realtime",
       model: "m",
       output_modalities: ["text"],
@@ -623,7 +624,6 @@ describe("realtime request timeouts", () => {
     const controller = new AbortController();
     const pending = fetchRealtimeBootstrap(
       { feature: "setup-agent", language: "en" },
-      undefined,
       controller.signal
     ).catch((e) => e);
     controller.abort();

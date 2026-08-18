@@ -43,8 +43,6 @@ export type EventLoopCallbacks = {
     contentIndex: number,
     words: ReadonlyArray<{ w: string; s: number; e: number }>
   ) => void;
-  /** Optional debug hook. */
-  log?: (...args: unknown[]) => void;
 };
 
 /** Synthetic user turn that kicks off the first assistant reply (Inworld WebRTC quickstart pattern). */
@@ -130,7 +128,6 @@ export function createEventLoop(params: {
   callbacks: EventLoopCallbacks;
 }): EventLoop {
   const { send, getCtx, callbacks } = params;
-  const log = callbacks.log ?? (() => undefined);
 
   let activeResponses = 0;
   /** Function-call item_id → metadata (call_id, name). */
@@ -199,14 +196,12 @@ export function createEventLoop(params: {
 
   const requestResponseIfIdle = (reason = "idle-request"): boolean => {
     if (activeResponses > 0) {
-      log("skip response.create: already active", { activeResponses });
       devLog.flat("TURN", "skip response.create: already active", { reason, activeResponses });
       return false;
     }
     if (!sessionReady) {
       // Don't fire before the session is configured: the model would run with
       // default instructions/tools and produce server_error (observed).
-      log("skip response.create: session not yet ready");
       devLog.flat("TURN", "skip response.create: session not ready", { reason });
       pendingDeferredResponse = true;
       return false;
@@ -272,7 +267,9 @@ export function createEventLoop(params: {
     try {
       send(payload);
     } catch (e) {
-      log("send failed", e);
+      devLog.event("ERROR", "realtime send failed", summarizeLogPayload({
+        error: e instanceof Error ? e.message : String(e),
+      }));
     }
   };
 
@@ -297,13 +294,11 @@ export function createEventLoop(params: {
       instructionsPreview: session.instructions,
       triggerGreetingOnReady: options?.triggerGreetingOnReady ?? false,
     }));
-    log("send session.update", session);
     trySendJson({ type: "session.update", session });
   };
   
   const sendUserMessage = (text: string): void => {
     devLog.event("REALTIME", "OUT user message", summarizeLogPayload({ text }));
-    log("send user message", text);
     trySendJson({
       type: "conversation.item.create",
       item: {
@@ -383,7 +378,6 @@ export function createEventLoop(params: {
       const r = obj.response as { status?: string; status_details?: unknown } | undefined;
       if (r?.status === "failed") {
         devLog.event("ERROR", "response.failed", r.status_details);
-        log("response.failed", r.status_details);
       }
       const rFull = obj.response as
         | { status?: string; usage?: unknown; output?: unknown[] }
@@ -513,7 +507,7 @@ export function createEventLoop(params: {
       // here is what caused the cancel-cascade in the old hook.
       if (result.ok && result.suppressContinuation) {
         cancelActiveResponse();
-        log("skip response.create: tool requested suppressContinuation");
+        devLog.flat("TURN", "skip response.create: tool requested suppressContinuation", { name });
       } else {
         requestResponseIfIdle("tool-continuation");
       }
@@ -571,7 +565,6 @@ export function createEventLoop(params: {
 
     if (type === "error") {
       devLog.event("ERROR", "realtime event error", summarizeLogPayload(obj));
-      log("event error raw", obj);
       const errRaw = obj.error;
       let message = "Realtime agent error";
       if (errRaw && typeof errRaw === "object") {

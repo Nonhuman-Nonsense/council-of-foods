@@ -225,7 +225,6 @@ describe("realtimeEventLoop", () => {
                 onCaption: vi.fn(),
                 onUserTranscript: vi.fn(),
                 onError: vi.fn(),
-                log: vi.fn(),
             },
         });
 
@@ -252,7 +251,6 @@ describe("realtimeEventLoop", () => {
 
     it("supports deferred response creation, manual messages, and ignores unknown events", async () => {
         const send = vi.fn();
-        const log = vi.fn();
         const onSessionReady = vi.fn();
         const loop = createEventLoop({
             send,
@@ -262,7 +260,6 @@ describe("realtimeEventLoop", () => {
                 onUserTranscript: vi.fn(),
                 onError: vi.fn(),
                 onSessionReady,
-                log,
             },
         });
 
@@ -291,7 +288,6 @@ describe("realtimeEventLoop", () => {
         await loop.handleEvent({ type: "response.created" });
         expect(loop.isResponseActive()).toBe(true);
         expect(loop.requestResponseIfIdle()).toBe(false);
-        expect(log).toHaveBeenCalledWith("skip response.create: already active", { activeResponses: 1 });
     });
 
     /**
@@ -558,7 +554,6 @@ describe("realtimeEventLoop", () => {
                 onAudioPartReady,
                 onResponseStarted,
                 onResponseDone,
-                log: vi.fn(),
             },
         });
 

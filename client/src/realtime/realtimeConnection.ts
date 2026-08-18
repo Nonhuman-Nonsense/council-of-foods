@@ -341,6 +341,9 @@ export type CreateConnectionParams = {
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const FETCH_TIMEOUT_MS = 15_000;
 
+/** Peer/ICE states worth logging — the happy-path progression is just noise. */
+const PROBLEM_CONNECTION_STATES = new Set(["disconnected", "failed", "closed"]);
+
 async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit,
@@ -438,7 +441,6 @@ function parseRealtimeSessionServerDefaults(
  */
 export async function fetchRealtimeBootstrap(
   requestBody: Record<string, unknown>,
-  log: ConnectionLogger = () => undefined,
   signal?: AbortSignal,
   extraHeaders?: HeadersInit
 ): Promise<RealtimeBootstrapResponse & { session: RealtimeSessionServerDefaults }> {
@@ -462,23 +464,12 @@ export async function fetchRealtimeBootstrap(
   return { provider: data.provider ?? "inworld", iceServers, session };
 }
 
-/** Loads model / audio / VAD defaults from the server. Instructions/tools are merged client-side. */
-export async function fetchRealtimeSessionDefaults(
-  requestBody: Record<string, unknown>,
-  log: ConnectionLogger = () => undefined,
-  signal?: AbortSignal
-): Promise<RealtimeSessionServerDefaults> {
-  const { session } = await fetchRealtimeBootstrap(requestBody, log, signal);
-  return session;
-}
-
 async function exchangeSdp(
   sdpOffer: string,
   session: Record<string, unknown>,
   callPath: string,
   callHeaders: HeadersInit | undefined,
   callBodyExtras: Record<string, unknown> | undefined,
-  log: ConnectionLogger,
   signal?: AbortSignal
 ): Promise<string> {
   const resp = await fetchWithTimeout(
@@ -549,18 +540,17 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
   try {
     throwIfAborted(signal);
 
-    if (deferMic) {
-      // connecting without getUserMedia
-    } else if (micStreamParam) {
+    // Deferred-mic sessions connect without getUserMedia, so they never prompt.
+    if (!deferMic) {
+      if (!micStreamParam) {
+        throw new Error("createRealtimeConnection needs a micStream unless deferMic is set");
+      }
       micStream = micStreamParam;
-    } else {
-      throw new Error("createRealtimeConnection needs a micStream unless deferMic is set");
     }
     throwIfAborted(signal);
 
     pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
 
-    const PROBLEM_CONNECTION_STATES = new Set(["disconnected", "failed", "closed"]);
     pc.onconnectionstatechange = () => {
       if (PROBLEM_CONNECTION_STATES.has(pc!.connectionState)) log("pc connectionState", pc!.connectionState);
       if (pc!.connectionState === "failed") onClose?.("pc_failed");
@@ -615,7 +605,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     const sdpOffer = pc.localDescription?.sdp;
     if (!sdpOffer) throw new Error("Missing SDP offer");
 
-    const sdpAnswer = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, log, signal);
+    const sdpAnswer = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, signal);
     throwIfAborted(signal);
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
 

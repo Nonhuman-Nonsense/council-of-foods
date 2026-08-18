@@ -180,11 +180,14 @@ export type UseRealtimeVoiceSessionResult = {
 function attachRemoteAudio(
   track: MediaStreamTrack,
   audioElement: HTMLAudioElement | null,
+  muted: boolean,
 ): HTMLAudioElement {
   const el = audioElement ?? document.createElement("audio");
   el.autoplay = true;
   el.setAttribute("playsinline", "true");
-  el.muted = false;
+  // Carried across reconnects: a retry builds a fresh element, and defaulting
+  // it to unmuted would make a deliberately muted agent audible again.
+  el.muted = muted;
   el.volume = 1.0;
   el.srcObject = new MediaStream([track]);
   el.style.display = "none";
@@ -265,6 +268,8 @@ export function useRealtimeVoiceSession(
   const pendingResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alignmentRafRef = useRef<number | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  /** Agent-output mute state, kept outside the element so reconnects preserve it. */
+  const agentOutputMutedRef = useRef(false);
   const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
   const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -430,7 +435,6 @@ export function useRealtimeVoiceSession(
       // bootstrap network round-trip (up to 15 s) before surfacing the error.
       const bootstrapPromise = fetchRealtimeBootstrap(
         { feature, language },
-        realtimeDebugLog,
         controller.signal,
         authHeaders,
       );
@@ -444,9 +448,10 @@ export function useRealtimeVoiceSession(
       // prompt: an empty audio sender is negotiated and the visitor can hand
       // over their mic later via attachMic().
       const micStreamValue: MediaStream | null = deferMic ? null : await acquireMicrophone();
+      const releaseMic = () => micStreamValue?.getTracks().forEach((t) => t.stop());
 
       if (isStale()) {
-        micStreamValue?.getTracks().forEach((t) => t.stop());
+        releaseMic();
         return;
       }
 
@@ -454,12 +459,12 @@ export function useRealtimeVoiceSession(
       try {
         bootstrapValue = await bootstrapPromise;
       } catch (bootErr) {
-        micStreamValue?.getTracks().forEach((t) => t.stop());
+        releaseMic();
         throw bootErr;
       }
 
       if (isStale()) {
-        micStreamValue?.getTracks().forEach((t) => t.stop());
+        releaseMic();
         return;
       }
 
@@ -677,7 +682,6 @@ export function useRealtimeVoiceSession(
           onAudioPartReady: () => {
             if (!isStale()) setHasReceivedAudioPart(true);
           },
-          log: realtimeDebugLog,
         },
       });
       eventLoopRef.current = loop;
@@ -696,7 +700,7 @@ export function useRealtimeVoiceSession(
         signal: controller.signal,
         onRemoteTrack: (track) => {
           if (isStale()) { try { track.stop(); } catch { /* ignore */ } return; }
-          const el = attachRemoteAudio(track, audioElementRef.current ?? null);
+          const el = attachRemoteAudio(track, audioElementRef.current ?? null, agentOutputMutedRef.current);
           remoteAudioRef.current = el;
           try {
             remoteAudioAnchorRef.current?.dispose();
@@ -896,6 +900,7 @@ export function useRealtimeVoiceSession(
   }, [feature]);
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
+    agentOutputMutedRef.current = muted;
     const el = remoteAudioRef.current;
     if (el) {
       el.muted = muted;
