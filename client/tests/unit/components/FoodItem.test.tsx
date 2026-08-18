@@ -44,7 +44,8 @@ describe('FoodItem', () => {
 
         const container = screen.getByTestId('food-animation-banana').parentElement;
         expect(screen.getByTestId('food-animation-banana')).toBeInTheDocument();
-        expect(container).toHaveStyle({ left: '50%', top: 'calc(-11.5vw)', opacity: '1' });
+        expect(container).toHaveStyle({ left: '50%', opacity: '1' });
+        expect(container).toHaveProperty('style.top', 'calc(-11.5vw)');
     });
 
     it('renders correctly when zoomed in (active speaker)', () => {
@@ -63,7 +64,7 @@ describe('FoodItem', () => {
         // vertical adjustment (baseHeight -20 instead of the default -19).
         expect(screen.getByText('Video for banana (Breathing)')).toBeInTheDocument();
         const container = screen.getByTestId('food-animation-banana').parentElement;
-        expect(container).toHaveStyle({ top: `calc(-20${dvh})` });
+        expect(container).toHaveProperty('style.top', `calc(-20${dvh})`);
     });
 
     it('renders correctly when zoomed in (inactive speaker)', () => {
@@ -102,7 +103,7 @@ describe('FoodItem', () => {
         const container = screen.getByTestId('food-animation-water').parentElement;
         expect(container).not.toHaveStyle({ opacity: '0' });
         // 'water' gets no manual adjustment, so the default baseHeight (-19) applies.
-        expect(container).toHaveStyle({ top: `calc(-19${dvh})` });
+        expect(container).toHaveProperty('style.top', `calc(-19${dvh})`);
     });
 
     it('calculates position correctly for different indices', () => {
@@ -117,10 +118,9 @@ describe('FoodItem', () => {
                 zoomIn={false}
             />
         );
-        expect(within(result0.container).getByTestId('food-animation-banana').parentElement).toHaveStyle({
-            left: '0%',
-            top: 'calc(-8.5vw)',
-        });
+        const container0 = within(result0.container).getByTestId('food-animation-banana').parentElement;
+        expect(container0).toHaveStyle({ left: '0%' });
+        expect(container0).toHaveProperty('style.top', 'calc(-8.5vw)');
 
         // index 2 of 3: left = 2/2 * 100 = 100%, top = a*(2-1)^2 + 3 - 14.5 = -8.5vw (symmetric).
         const result2 = render(
@@ -133,10 +133,9 @@ describe('FoodItem', () => {
                 zoomIn={false}
             />
         );
-        expect(within(result2.container).getByTestId('food-animation-banana').parentElement).toHaveStyle({
-            left: '100%',
-            top: 'calc(-8.5vw)',
-        });
+        const container2 = within(result2.container).getByTestId('food-animation-banana').parentElement;
+        expect(container2).toHaveStyle({ left: '100%' });
+        expect(container2).toHaveProperty('style.top', 'calc(-8.5vw)');
     });
 
     it('should apply special positioning for lollipop', () => {
@@ -154,7 +153,8 @@ describe('FoodItem', () => {
         // Same base top as any index-1-of-3 food (-11.5vw), scaled by lollipop's 1.05 adjustment.
         expect(screen.getByTestId('food-animation-lollipop')).toBeInTheDocument();
         const container = screen.getByTestId('food-animation-lollipop').parentElement;
-        expect(container).toHaveStyle({ left: '50%', top: 'calc(-12.075vw)' });
+        expect(container).toHaveStyle({ left: '50%' });
+        expect(container).toHaveProperty('style.top', 'calc(-12.075vw)');
     });
 
     it('should handle food with missing id gracefully', () => {

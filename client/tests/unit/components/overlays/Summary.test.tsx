@@ -251,8 +251,8 @@ describe('Summary Overlay', () => {
         expect(wrapper).toHaveStyle({
             position: 'fixed',
             top: '0px',
-            height: '100vh',
         });
+        expect(wrapper).toHaveProperty('style.height', '100vh');
 
         const teleprompter = screen.getByTestId('summary-teleprompter-content');
         expect(teleprompter).toHaveStyle({ paddingBottom: '140px', paddingTop: '80px' });
