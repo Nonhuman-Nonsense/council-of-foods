@@ -335,7 +335,6 @@ export function createEventLoop(params: {
     if (!obj) return false;
     const type = asStr(obj.type);
     if (!type) return false;
-    log("event", type);
 
     if (type === "session.updated") {
       sessionReady = true;
@@ -370,10 +369,10 @@ export function createEventLoop(params: {
       pendingCreateEventId = null;
       currentAssistantAudioItemId = null;
       currentAssistantAudioContentIndex = null;
-      devLog.event("REALTIME", "IN response.created", { activeResponses });
       devLog.flat("TURN", "IN response.created", {
         reason: currentResponseReason,
         forUserTranscript: lastUserTranscript,
+        activeResponses,
       });
       callbacks.onResponseStarted?.();
       return true;
@@ -386,10 +385,6 @@ export function createEventLoop(params: {
         devLog.event("ERROR", "response.failed", r.status_details);
         log("response.failed", r.status_details);
       }
-      if (r?.status === "cancelled") {
-        devLog.event("REALTIME", "IN response.cancelled");
-      }
-      devLog.event("REALTIME", "IN response.done", { status: r?.status, activeResponses });
       const rFull = obj.response as
         | { status?: string; usage?: unknown; output?: unknown[] }
         | undefined;
@@ -400,6 +395,7 @@ export function createEventLoop(params: {
         forUserTranscript: lastUserTranscript,
         usage: rFull?.usage ?? null,
         outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
+        activeResponses,
       });
       callbacks.onResponseDone?.({ status: r?.status });
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
@@ -538,19 +534,10 @@ export function createEventLoop(params: {
         const ends = Array.isArray(wordAlignment.word_end_time_seconds)
           ? (wordAlignment.word_end_time_seconds as number[])
           : [];
-        const phoneticDetails = Array.isArray(wordAlignment.phonetic_details)
-          ? (wordAlignment.phonetic_details as Array<{ is_partial?: boolean }>)
-          : [];
-        callbacks.log?.(`[ALIGN] ${JSON.stringify({
-          ci: contentIndex,
-          words: words.map((w, i) => ({ w, s: starts[i], e: ends[i], p: phoneticDetails[i]?.is_partial })),
-        })}`);
         callbacks.onWordAlignment?.(
           typeof contentIndex === "number" ? contentIndex : 0,
           words.map((w, i) => ({ w, s: starts[i] ?? 0, e: ends[i] ?? 0 }))
         );
-      } else {
-        callbacks.log?.(`[ALIGN] no word_alignment ${JSON.stringify({ ci: contentIndex, keys: Object.keys(obj) })}`);
       }
       return true;
     }

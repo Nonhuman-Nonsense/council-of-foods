@@ -442,7 +442,6 @@ export async function fetchRealtimeBootstrap(
   signal?: AbortSignal,
   extraHeaders?: HeadersInit
 ): Promise<RealtimeBootstrapResponse & { session: RealtimeSessionServerDefaults }> {
-  log("POST /api/realtime/bootstrap");
   const resp = await fetchWithTimeout(
     "/api/realtime/bootstrap",
     {
@@ -460,7 +459,6 @@ export async function fetchRealtimeBootstrap(
   const data = (await resp.json()) as RealtimeBootstrapResponse;
   const session = parseRealtimeSessionServerDefaults(data?.session, "Realtime bootstrap");
   const iceServers = Array.isArray(data?.iceServers) ? (data.iceServers as IceServer[]) : [];
-  log("bootstrap ok", { ice: iceServers.length, model: session.model });
   return { provider: data.provider ?? "inworld", iceServers, session };
 }
 
@@ -483,7 +481,6 @@ async function exchangeSdp(
   log: ConnectionLogger,
   signal?: AbortSignal
 ): Promise<string> {
-  log(`POST ${callPath}`);
   const resp = await fetchWithTimeout(
     callPath,
     {
@@ -553,7 +550,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     throwIfAborted(signal);
 
     if (deferMic) {
-      log("deferred mic — connecting without getUserMedia");
+      // connecting without getUserMedia
     } else if (micStreamParam) {
       micStream = micStreamParam;
     } else {
@@ -562,17 +559,18 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     throwIfAborted(signal);
 
     pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
-    log("peer connection created");
 
+    const PROBLEM_CONNECTION_STATES = new Set(["disconnected", "failed", "closed"]);
     pc.onconnectionstatechange = () => {
-      log("pc connectionState", pc!.connectionState);
+      if (PROBLEM_CONNECTION_STATES.has(pc!.connectionState)) log("pc connectionState", pc!.connectionState);
       if (pc!.connectionState === "failed") onClose?.("pc_failed");
     };
-    pc.oniceconnectionstatechange = () => log("pc iceConnectionState", pc!.iceConnectionState);
+    pc.oniceconnectionstatechange = () => {
+      if (PROBLEM_CONNECTION_STATES.has(pc!.iceConnectionState)) log("pc iceConnectionState", pc!.iceConnectionState);
+    };
 
     dc = pc.createDataChannel("oai-events", { ordered: true });
     dc.onopen = () => {
-      log("data channel open");
       const openDc = dc!;
       onOpen?.({ dc: openDc });
     };
@@ -595,7 +593,6 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     };
 
     pc.ontrack = (e) => {
-      log("remote track", e.track.kind, e.track.readyState);
       if (e.track.kind === "audio") onRemoteTrack(e.track);
     };
 
@@ -610,7 +607,6 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       audioSender = pc.addTransceiver("audio", { direction: "sendrecv" }).sender;
     }
 
-    log("createOffer");
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
     await waitForIceGatheringComplete(pc, ICE_GATHER_TIMEOUT_MS);
@@ -622,7 +618,6 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     const sdpAnswer = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, log, signal);
     throwIfAborted(signal);
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
-    log("setRemoteDescription ok");
 
     let closed = false;
     const finalPc = pc;

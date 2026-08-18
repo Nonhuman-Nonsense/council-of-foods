@@ -29,15 +29,10 @@ import {
 import { log, summarizeLogPayload } from "@/logger";
 
 function realtimeDebugLog(...args: unknown[]): void {
-  const message = args.map((arg) => {
-    if (typeof arg === "string") return arg;
-    try {
-      return JSON.stringify(arg);
-    } catch {
-      return String(arg);
-    }
-  }).join(" ");
-  log.event("REALTIME", message, args.length > 1 ? summarizeLogPayload({ detail: args.slice(1) }) : undefined);
+  const [first, ...rest] = args;
+  const message = typeof first === "string" ? first : String(first);
+  const data = rest.length === 0 ? undefined : rest.length === 1 ? summarizeLogPayload(rest[0]) : summarizeLogPayload(rest);
+  log.event("REALTIME", message, data);
 }
 
 export type RealtimeVoiceFeature = "meta-agent" | "setup-agent";
@@ -546,20 +541,10 @@ export function useRealtimeVoiceSession(
 
       // RAF loop: drive caption from alignment + AudioContext clock.
       let lastDisplayedText: string | null | undefined = undefined;
-      let lastTickLogMs = 0;
       const tickAlignment = () => {
         if (!isStale()) {
           const anchor = remoteAudioAnchorRef.current;
           const anchorCtxSec = responseAudioAnchorCtxSecRef.current;
-          const nowMs = performance.now();
-          if (nowMs - lastTickLogMs >= 1000) {
-            lastTickLogMs = nowMs;
-            const sentences = subtitleTrack.getSentences();
-            const playbackSec = anchor != null && anchorCtxSec != null
-              ? anchor.getCtxTime() - anchorCtxSec
-              : null;
-            realtimeDebugLog(`[SUBS] TICK anchor=${anchor != null ? "ok" : "null"} anchorCtxSec=${anchorCtxSec != null ? anchorCtxSec.toFixed(3) : "null"} sentences=${sentences.length} playbackSec=${playbackSec != null ? playbackSec.toFixed(3) : "null"} ctxTime=${anchor?.getCtxTime().toFixed(3) ?? "n/a"}`);
-          }
           if (anchor != null && anchorCtxSec != null) {
             const sentences = subtitleTrack.getSentences();
             const playbackSec = anchor.getCtxTime() - anchorCtxSec;
