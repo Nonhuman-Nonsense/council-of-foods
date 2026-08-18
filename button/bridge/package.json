@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "description": "Local USB serial to WebSocket bridge for Council installation buttons",
   "main": "dist/button/bridge/src/index.js",
   "scripts": {

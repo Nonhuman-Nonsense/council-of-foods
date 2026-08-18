@@ -717,7 +717,7 @@ describe("acquireMicrophone", () => {
       const err = await acquireMicrophone().catch((e) => e);
       expect(err).toBeInstanceOf(MicrophoneUnavailableError);
       expect((err as MicrophoneUnavailableError).reason).toBe(reason);
-      expect((err as MicrophoneUnavailableError).originalError).toBeInstanceOf(Error);
+      expect((err as MicrophoneUnavailableError).cause).toBeInstanceOf(Error);
     }
   });
 

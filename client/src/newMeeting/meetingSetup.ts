@@ -149,7 +149,7 @@ export function diffCouncil(previousNames: string[], currentNames: string[]): Co
 /** Joins names as a spoken list: "bean", "bean and meat", "bean, rice and meat". */
 function joinNames(names: string[]): string {
   if (names.length <= 1) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
 }
 
 /** Reaction delay per event kind, in ms. */

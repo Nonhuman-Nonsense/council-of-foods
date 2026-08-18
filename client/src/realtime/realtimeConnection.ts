@@ -57,17 +57,13 @@ export type MicrophoneErrorReason =
  * and a human-readable `message` safe to surface in the UI.
  */
 export class MicrophoneUnavailableError extends Error {
-  /** The underlying DOMException/error, when available. */
-  readonly originalError?: unknown;
-
   constructor(
     readonly reason: MicrophoneErrorReason,
     message: string,
     options?: { cause?: unknown },
   ) {
-    super(message);
+    super(message, options);
     this.name = "MicrophoneUnavailableError";
-    this.originalError = options?.cause;
   }
 }
 

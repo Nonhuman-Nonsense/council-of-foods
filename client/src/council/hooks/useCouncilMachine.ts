@@ -909,7 +909,7 @@ export function useCouncilMachine({
             case "raise-hand": {
                 // Precondition: server has not already processed the raise (no
                 // trailing awaiting_* or invitation on the conversation).
-                const lastMsg = textMessages[textMessages.length - 1];
+                const lastMsg = textMessages.at(-1);
                 const serverAlreadyAwaiting =
                     lastMsg?.type === "awaiting_human_question" ||
                     lastMsg?.type === "awaiting_human_panelist" ||
