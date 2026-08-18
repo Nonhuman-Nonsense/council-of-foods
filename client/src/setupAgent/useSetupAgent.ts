@@ -114,12 +114,6 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
   const [muted, setMuted] = useState(initialMuted);
   /**
-   * The visitor pressed something to start the agent. That press is itself the
-   * gesture every browser wants before it will play audio, so it opens the gate
-   * without waiting on another check.
-   */
-  const [startedByVisitor, setStartedByVisitor] = useState(false);
-  /**
    * The mic opened because the visitor just asked, rather than because a
    * reconnect found the latch still on. Only a request they made should explain
    * itself with the blocked-microphone overlay.
@@ -128,16 +122,17 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const autoplayAllowed = useAutoplayAllowed();
 
   /**
-   * An agent that talks unprompted is pointless if the browser will not let it
-   * be heard — it would lose its greeting into a blocked element and bill for
-   * the session. So the gate is simply whether audio can play: on a cold visit
-   * that is false everywhere, and the visitor's first click (anywhere — "Let's
-   * go", a topic, the mic button) flips it.
+   * Whether the browser would let the agent be heard right now. On a cold visit
+   * that is false everywhere, and the visitor's first interaction (anywhere —
+   * "Let's go", a topic, the mic button, the space bar) flips it. A kiosk has
+   * nobody to interact and is configured to allow audio, so it is always true.
    *
-   * Deliberately not keyed on the page: a link pasted straight to the topic
-   * step is just as cold as the landing page.
+   * This no longer gates *connecting* — the session is built straight away, so
+   * the handshake is behind us by the time the visitor first acts, and only the
+   * greeting waits. Deliberately not keyed on the page: a link pasted straight
+   * to the topic step is as cold as the landing page.
    */
-  const canAutoConnect = unattended || autoplayAllowed || startedByVisitor;
+  const audible = unattended || autoplayAllowed;
 
   // A mic taken up front is always there (museum); a deferred one arrives only
   // when the visitor asks for it, and the latch never goes back.
@@ -199,8 +194,11 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     deferMic: !micUpFront,
     trackAgentSpeaking: true,
     audioElement,
+    audible,
     sessionActive: !muted,
-    autoConnect: autoStart && canAutoConnect,
+    // Connect straight away and hold the greeting instead: the handshake is
+    // then already done when the visitor first interacts.
+    autoConnect: autoStart,
     unattended,
     retryPolicy: getRealtimeRetryPolicy(unattended),
     onFatalError: (e) => setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause }),
@@ -236,17 +234,14 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
   /**
    * Every route to an open mic is a gesture the visitor just made — space, a
-   * tap, or the on-screen button — so it both counts as their own request and
-   * opens the autoplay gate, starting a cold agent that was still waiting for a
-   * gesture. Only a reconnect re-opens the mic on its own, and that leaves
-   * `micOpen` unchanged so this does not fire. Declared before the attach
-   * effect on purpose — effects run in order, and the attach reads this ref
-   * synchronously.
+   * tap, or the on-screen button — so it counts as their own request. Only a
+   * reconnect re-opens the mic on its own, and that leaves `micOpen` unchanged
+   * so this does not fire. Declared before the attach effect on purpose —
+   * effects run in order, and the attach reads this ref synchronously.
    */
   useEffect(() => {
     if (!micOpen) return;
     micRequestedByUserRef.current = true;
-    setStartedByVisitor(true);
   }, [micOpen]);
 
   useEffect(() => {
@@ -299,7 +294,6 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
   const start = useCallback(async () => {
     setMuted(false);
-    setStartedByVisitor(true);
   }, []);
 
   const stop = useCallback(() => {

@@ -119,29 +119,39 @@ user gesture — it just moves the problem to the output side. Without a gesture
   already tries `ctx.resume()` on arm ([remoteAudioAnchor.ts:156](../client/src/realtime/remoteAudioAnchor.ts#L156)),
   best-effort.
 
-An agent whose entire web value is *speaking unprompted* cannot start before a gesture — unless
-we have good reason to believe autoplay is already unlocked. Mic permission is that signal: a
-visitor who has granted the mic has interacted with this origin before, which is exactly what
-Chrome's media-engagement heuristic keys on. Hence the gate:
+### Resolved: hold the greeting, not the connection
 
-```
-web, permission "granted"     → connect immediately, landing included
-web, anything else            → connect when phase !== "landing"  (the "Let's go" click is the gesture)
-museum                        → connect on mount                  (unchanged)
-```
+The shipped answer gates neither the connection nor the page, but the **greeting**.
 
-`phase` is already in `MeetingSetupAgent`, `"landing"` on `/` and `"topic"`/`"characters"` on
-`/new` ([MeetingSetupShell.tsx:46](../client/src/newMeeting/MeetingSetupShell.tsx#L46)) — a
-one-line condition, no plumbing, no change to `Landing.tsx`. First-time visitors get a silent,
-purely manual landing page and meet the agent at topic selection, where its commentary has
-something to comment on; returning visitors are greeted straight away.
+Earlier iterations gated *connecting* on a `canAutoplayAudio()` probe plus "has any gesture
+happened yet". That was subtly wrong, and it failed in practice: the probe is answered on the
+gesture, but the real `el.play()` happens whenever the WebRTC handshake finishes — bootstrap,
+ICE, SDP, a second or two later. Chrome's transient activation for that gesture can lapse in
+between, so the gate said yes and playback was still refused. The agent connected, greeted,
+worked perfectly, and was inaudible.
 
-Note what option A removes from this: the connect itself never touches `getUserMedia`, so the
-permission state is only ever a *hint* here, and a `denied` visitor still gets the full
-commentating agent. Permission only really matters at the mic button.
+What ships instead:
 
-Regardless of option A/B/C, **add the `play()` rejection handler** — log it, and if it fires,
-surface the same kind of one-click affordance ("tap for sound") rather than pretending to talk.
+- **The session connects on page load, always.** With `deferMic` there is no microphone prompt
+  and no inbound audio, and a held greeting means no TTS — an untouched session sends and
+  receives nothing.
+- **The greeting is queued and held** (`configureSession({ holdGreeting })`,
+  released by `setGreetingHeld(false)` in
+  [realtimeEventLoop.ts](../client/src/realtime/realtimeEventLoop.ts)). Remote audio is a live
+  stream, not a buffer, so speaking early loses the words rather than delaying them.
+- **`audible` is the one gate** — `unattended || autoplayAllowed`, passed into
+  `useRealtimeVoiceSession`. When it flips true the greeting is released, `el.play()` runs, and
+  the anchor's suspended `AudioContext` is resumed. The gesture and the `play()` are now the
+  same event, so the race that caused the bug cannot exist.
+- **Any gesture retries a refused `play()`** as insurance, since `audible` is a heuristic
+  answered before the audio element exists and Safari is fussier than Chrome.
+
+The visitor-facing win is speed: the handshake is behind us by the time they first click, so the
+wait collapses from *bootstrap + ICE + SDP + session.update + greeting* to just the greeting.
+
+An abandoned session is not left open — the existing absolute idle teardown
+([useAgentPresence.ts:100](../client/src/setupAgent/useAgentPresence.ts#L100)) stops it after
+three minutes with no speech, whether or not the visitor ever interacted.
 
 ---
 

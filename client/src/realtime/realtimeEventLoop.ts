@@ -57,6 +57,13 @@ export type ConfigureSessionOptions = {
    */
   triggerGreetingOnReady?: boolean;
   /**
+   * Queue the greeting but do not send it yet. The session can then connect
+   * long before the browser will let anything be heard — the greeting is a live
+   * stream, not a buffer, so speaking into a blocked audio element loses the
+   * words outright. Release it with `setGreetingHeld(false)`.
+   */
+  holdGreeting?: boolean;
+  /**
    * Text for the synthetic `conversation.item.create` (user message) sent
    * immediately before the opening `response.create`. Some models error with
    * `server_error` if `response.create` runs on an empty transcript; Inworld's
@@ -72,6 +79,11 @@ export type EventLoop = {
   requestResponseIfIdle: () => boolean;
   /** Whether a response is currently in flight (between created and done). */
   isResponseActive: () => boolean;
+  /**
+   * Release (or re-hold) a greeting queued behind `holdGreeting`. Releasing
+   * sends it immediately if the session is ready and idle.
+   */
+  setGreetingHeld: (held: boolean) => void;
   /** Send `session.update` with the given config; optionally queue a greeting. */
   configureSession: (session: RealtimeSessionConfig, options?: ConfigureSessionOptions) => void;
   /** Send a manual user message to the conversation transcript. */
@@ -136,6 +148,8 @@ export function createEventLoop(params: {
   let sessionReady = false;
   /** If set, after `session.updated` send this user item then `response.create`. */
   let pendingOpeningGreeting: string | null = null;
+  /** While true, a queued greeting waits rather than being sent on session.updated. */
+  let greetingHeld = false;
   /** Set when `requestResponseIfIdle` runs before `session.updated` (e.g. tool output); flush with bare `response.create`. */
   let pendingDeferredResponse = false;
   /** True once the in-flight response has emitted any output (audio/text/tool). */
@@ -287,6 +301,7 @@ export function createEventLoop(params: {
     } else {
       pendingOpeningGreeting = null;
     }
+    greetingHeld = options?.holdGreeting ?? false;
     devLog.event("REALTIME", "OUT session.update", summarizeLogPayload({
       model: session.model,
       toolCount: session.tools?.length ?? 0,
@@ -325,6 +340,36 @@ export function createEventLoop(params: {
     sendResponseCreate(createReason);
   };
 
+  /**
+   * Send the queued greeting, unless it is being held back until the page can
+   * actually be heard. Held greetings stay queued; everything else keeps the
+   * original semantics, including dropping the greeting if a response somehow
+   * beat it to the session.
+   */
+  const flushOpeningGreeting = (): void => {
+    if (pendingOpeningGreeting == null || !sessionReady || greetingHeld) return;
+    const userText = pendingOpeningGreeting;
+    pendingOpeningGreeting = null;
+    if (activeResponses !== 0) return;
+    trySendJson({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: userText }],
+      },
+    });
+    sendResponseCreate("greeting");
+  };
+
+  /** Release (or re-hold) a queued greeting; releasing sends it if it is due. */
+  const setGreetingHeld = (held: boolean): void => {
+    if (greetingHeld === held) return;
+    greetingHeld = held;
+    devLog.event("REALTIME", held ? "greeting held" : "greeting released");
+    if (!held) flushOpeningGreeting();
+  };
+
   const handleEvent = async (event: unknown): Promise<boolean> => {
     const obj = asObj(event);
     if (!obj) return false;
@@ -336,19 +381,7 @@ export function createEventLoop(params: {
       devLog.event("REALTIME", "IN session.updated");
       callbacks.onSessionReady?.();
       if (pendingOpeningGreeting != null) {
-        const userText = pendingOpeningGreeting;
-        pendingOpeningGreeting = null;
-        if (activeResponses === 0) {
-          trySendJson({
-            type: "conversation.item.create",
-            item: {
-              type: "message",
-              role: "user",
-              content: [{ type: "input_text", text: userText }],
-            },
-          });
-          sendResponseCreate("greeting");
-        }
+        flushOpeningGreeting();
       } else if (pendingDeferredResponse && activeResponses === 0) {
         pendingDeferredResponse = false;
         sendResponseCreate("deferred-on-session-updated");
@@ -640,6 +673,7 @@ export function createEventLoop(params: {
     requestResponseIfIdle,
     isResponseActive,
     configureSession,
+    setGreetingHeld,
     sendUserMessage,
     cancelActiveResponse,
     interruptAndRespond,

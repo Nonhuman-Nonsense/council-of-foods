@@ -24,6 +24,7 @@ let rafCallback: FrameRequestCallback | null = null;
 
 const eventLoopMocks = vi.hoisted(() => ({
   configureSession: vi.fn(),
+  setGreetingHeld: vi.fn(),
   handleEvent: vi.fn(),
   sendUserMessage: vi.fn(),
   cancelActiveResponse: vi.fn(),
@@ -727,6 +728,62 @@ describe("useRealtimeVoiceSession", () => {
     await waitFor(() => {
       expect(result.current.lastCaption).toBeNull();
       expect(result.current.lastUserTranscript).toBeNull();
+    });
+  });
+
+  it("does not hold the greeting when the page became audible before connecting", async () => {
+    // Regression: `audible` is read when the data channel opens, which is long
+    // after any render — the autoplay probe usually answers in between. Syncing
+    // the ref on a dependency froze it at its first-render value, so a page
+    // that became audible during the handshake held its greeting forever: the
+    // release effect had already run against a session that did not exist yet,
+    // and `audible` never changed again to re-fire it.
+    let openChannel: (() => void) | undefined;
+    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
+      openChannel = onOpen;
+      return {
+        close: vi.fn(),
+        micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+        dc: { readyState: "open", send: vi.fn() },
+      };
+    });
+
+    const { rerender } = renderHook(
+      ({ audible }) =>
+        useRealtimeVoiceSession({ ...defaultParams, triggerGreetingOnReady: true, audible }),
+      { initialProps: { audible: false } },
+    );
+
+    await waitFor(() => expect(openChannel).toBeDefined());
+
+    // The probe answers mid-handshake, before there is an event loop to tell.
+    rerender({ audible: true });
+    act(() => openChannel?.());
+
+    expect(eventLoopMocks.configureSession).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ holdGreeting: false }),
+    );
+  });
+
+  it("holds the greeting until the page becomes audible", async () => {
+    const { rerender } = renderHook(
+      ({ audible }) =>
+        useRealtimeVoiceSession({ ...defaultParams, triggerGreetingOnReady: true, audible }),
+      { initialProps: { audible: false } },
+    );
+
+    await waitFor(() => {
+      expect(eventLoopMocks.configureSession).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ holdGreeting: true }),
+      );
+    });
+
+    rerender({ audible: true });
+
+    await waitFor(() => {
+      expect(eventLoopMocks.setGreetingHeld).toHaveBeenCalledWith(false);
     });
   });
 

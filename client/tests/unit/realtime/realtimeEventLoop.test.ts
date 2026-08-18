@@ -92,6 +92,72 @@ describe("realtimeEventLoop", () => {
     });
 
     /**
+     * The session connects long before the browser will let anything be heard,
+     * so the greeting waits. Remote audio is a live stream, not a buffer —
+     * speaking early loses the words rather than delaying them.
+     */
+    it("holds the greeting until it is released, then sends it", () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: {
+                onCaption: vi.fn(),
+                onUserTranscript: vi.fn(),
+                onError: vi.fn(),
+            },
+        });
+
+        loop.configureSession(makeSession(), {
+            triggerGreetingOnReady: true,
+            holdGreeting: true,
+        });
+
+        const sentTypes = () => send.mock.calls.map((c) => (c[0] as { type: string }).type);
+
+        void loop.handleEvent({ type: "session.updated" });
+        expect(sentTypes()).toEqual(["session.update"]);
+
+        loop.setGreetingHeld(false);
+        expect(sentTypes()).toEqual([
+            "session.update",
+            "conversation.item.create",
+            "response.create",
+        ]);
+    });
+
+    it("does not send a held greeting before the session is ready", () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: {
+                onCaption: vi.fn(),
+                onUserTranscript: vi.fn(),
+                onError: vi.fn(),
+            },
+        });
+
+        loop.configureSession(makeSession(), {
+            triggerGreetingOnReady: true,
+            holdGreeting: true,
+        });
+
+        // Released while still handshaking: nothing to send yet.
+        loop.setGreetingHeld(false);
+        expect(send.mock.calls.map((c) => (c[0] as { type: string }).type)).toEqual([
+            "session.update",
+        ]);
+
+        void loop.handleEvent({ type: "session.updated" });
+        expect(send.mock.calls.map((c) => (c[0] as { type: string }).type)).toEqual([
+            "session.update",
+            "conversation.item.create",
+            "response.create",
+        ]);
+    });
+
+    /**
      * If a response is mid-flight when session.updated arrives, we must not
      * pile a second response.create on top — that's the cancel-cascade bug.
      */

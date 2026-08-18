@@ -113,6 +113,14 @@ export type UseRealtimeVoiceSessionParams = {
   trackAgentSpeaking?: boolean;
   /** Setup-agent: optional remote audio sink (created on body if absent). */
   audioElement?: HTMLAudioElement | null;
+  /**
+   * Whether the browser would let this page be heard right now. False holds the
+   * opening greeting back — the session still connects, so the handshake is
+   * already done when the visitor first interacts, but the agent stays silent
+   * until it can actually be heard. Speaking early would lose the words: remote
+   * audio is a live stream, not a buffer.
+   */
+  audible?: boolean;
   /** When false, tear down WebRTC (setup-agent muted). Default true. */
   sessionActive?: boolean;
   /** Connect when `sessionActive` (setup-agent `autoStart`). Default true. */
@@ -194,15 +202,8 @@ function attachRemoteAudio(
   if (!audioElement) {
     document.body.appendChild(el);
   }
-  // A rejected play() means the browser's autoplay policy blocked us — the
-  // session is live and billing, but the visitor hears nothing, which is
-  // indistinguishable from a working agent that has gone quiet. Never swallow it.
-  void el.play().catch((err: unknown) => {
-    log.event("ERROR", "realtime remote audio blocked by autoplay policy", {
-      name: err instanceof Error ? err.name : undefined,
-      message: err instanceof Error ? err.message : String(err),
-    });
-  });
+  // Playback is started by the hook, not here: a rejected play() has to be
+  // remembered so a later gesture can retry it. See `playRemoteAudio`.
   return el;
 }
 
@@ -228,6 +229,7 @@ export function useRealtimeVoiceSession(
     deferMic = false,
     trackAgentSpeaking = false,
     audioElement,
+    audible = true,
     sessionActive = true,
     autoConnect = true,
     onSessionReady,
@@ -271,6 +273,9 @@ export function useRealtimeVoiceSession(
   /** Agent-output mute state, kept outside the element so reconnects preserve it. */
   const agentOutputMutedRef = useRef(false);
   const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
+  /** A play() the browser refused; a later gesture retries it. */
+  const audioBlockedRef = useRef(false);
+  const audibleRef = useRef(audible);
   const userTranscriptTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Retry state
@@ -302,6 +307,9 @@ export function useRealtimeVoiceSession(
     onConnectionRestoredRef.current = onConnectionRestored;
     onExhaustedRef.current = onExhausted;
     unattendedRef.current = unattended;
+    // Read by `configureSession` when the data channel opens, which is long
+    // after any render — so it must track every render, not a dependency.
+    audibleRef.current = audible;
   });
 
   useEffect(() => {
@@ -702,6 +710,7 @@ export function useRealtimeVoiceSession(
           if (isStale()) { try { track.stop(); } catch { /* ignore */ } return; }
           const el = attachRemoteAudio(track, audioElementRef.current ?? null, agentOutputMutedRef.current);
           remoteAudioRef.current = el;
+          playRemoteAudio();
           try {
             remoteAudioAnchorRef.current?.dispose();
             remoteAudioAnchorRef.current = createRemoteAudioAnchor({
@@ -739,7 +748,10 @@ export function useRealtimeVoiceSession(
         },
         onOpen: () => {
           if (isStale()) return;
-          loop.configureSession(buildSessionConfig(), { triggerGreetingOnReady });
+          loop.configureSession(buildSessionConfig(), {
+            triggerGreetingOnReady,
+            holdGreeting: !audibleRef.current,
+          });
         },
         onClose: (reason) => {
           if (isStale()) return;
@@ -898,6 +910,64 @@ export function useRealtimeVoiceSession(
     setMicStream(null);
     log.event("REALTIME", "mic detached", { feature });
   }, [feature]);
+
+  /**
+   * Start (or restart) remote playback and un-suspend the subtitle clock.
+   *
+   * Called on every route to audible: the track arriving, the page becoming
+   * audible, and any gesture after a refusal. A rejected play() is remembered
+   * rather than only logged — the session is live and billing, and a silenced
+   * agent is indistinguishable from one that has simply gone quiet.
+   */
+  const playRemoteAudio = useCallback(() => {
+    const el = remoteAudioRef.current;
+    if (!el) return;
+    remoteAudioAnchorRef.current?.resume();
+    void el
+      .play()
+      .then(() => {
+        if (audioBlockedRef.current) {
+          audioBlockedRef.current = false;
+          log.event("REALTIME", "remote audio recovered", { feature });
+        }
+      })
+      .catch((err: unknown) => {
+        audioBlockedRef.current = true;
+        log.event("ERROR", "realtime remote audio blocked by autoplay policy", {
+          feature,
+          name: err instanceof Error ? err.name : undefined,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      });
+  }, [feature]);
+
+  /**
+   * The page became audible: let the queued greeting go, and start the audio
+   * that was blocked until now. Both are no-ops once already done.
+   */
+  useEffect(() => {
+    eventLoopRef.current?.setGreetingHeld(!audible);
+    if (audible) playRemoteAudio();
+  }, [audible, playRemoteAudio]);
+
+  /**
+   * Insurance: any gesture retries a refused play(). `audible` is a heuristic
+   * answered before the track exists, so it can be true while the browser still
+   * refuses this particular element — a gesture is the one moment that never is.
+   */
+  useEffect(() => {
+    const retry = (): void => {
+      if (audioBlockedRef.current) playRemoteAudio();
+    };
+    window.addEventListener("pointerdown", retry);
+    window.addEventListener("keydown", retry);
+    window.addEventListener("touchend", retry);
+    return () => {
+      window.removeEventListener("pointerdown", retry);
+      window.removeEventListener("keydown", retry);
+      window.removeEventListener("touchend", retry);
+    };
+  }, [playRemoteAudio]);
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
     agentOutputMutedRef.current = muted;

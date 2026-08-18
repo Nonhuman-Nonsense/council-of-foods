@@ -12,6 +12,12 @@ export type RemoteAudioAnchor = {
    * subtitle playback clock instead of HTMLAudioElement.currentTime.
    */
   getCtxTime: () => number;
+  /**
+   * Resume the AudioContext, which starts suspended without a user gesture.
+   * Its `currentTime` is the subtitle clock, so a suspended context leaves
+   * captions frozen even when the audio element itself is playing.
+   */
+  resume: () => void;
   /** Stop the analyser loop and release Web Audio resources. */
   dispose: () => void;
 };
@@ -141,6 +147,11 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
 
   return {
     getCtxTime: () => ctx.currentTime,
+
+    resume: () => {
+      if (disposed || ctx.state !== "suspended") return;
+      void ctx.resume().catch((err) => log?.("remote audio anchor resume failed", err));
+    },
 
     arm: (waitForSilenceFirst?: boolean) => {
       if (disposed) return;

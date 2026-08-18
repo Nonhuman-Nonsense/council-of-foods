@@ -137,22 +137,23 @@ describe("useSetupAgent", () => {
     );
   });
 
-  it("waits to connect until the agent could actually be heard", () => {
-    // Connecting while audio is blocked loses the greeting into a muted element
-    // and pays for the session anyway. The page it happens on is irrelevant —
-    // a link pasted straight to the topic step is as cold as the landing page.
+  it("connects without waiting to be audible, and reports the gate downwards", () => {
+    // The handshake is the slow part, so it runs on load whatever the autoplay
+    // policy says; only the greeting waits. The page it happens on is
+    // irrelevant — a link pasted straight to the topic step is as cold as the
+    // landing page.
     const cases: Array<{
       autoplayAllowed: boolean;
       unattended?: boolean;
-      autoConnect: boolean;
+      audible: boolean;
     }> = [
-      { autoplayAllowed: false, autoConnect: false },
-      { autoplayAllowed: true, autoConnect: true },
-      // A kiosk has no gesture to wait for.
-      { autoplayAllowed: false, unattended: true, autoConnect: true },
+      { autoplayAllowed: false, audible: false },
+      { autoplayAllowed: true, audible: true },
+      // A kiosk has nobody to interact, and is set up to allow audio.
+      { autoplayAllowed: false, unattended: true, audible: true },
     ];
 
-    for (const { autoplayAllowed, unattended, autoConnect } of cases) {
+    for (const { autoplayAllowed, unattended, audible } of cases) {
       vi.clearAllMocks();
       mockAutoplay.allowed = autoplayAllowed;
 
@@ -161,49 +162,26 @@ describe("useSetupAgent", () => {
       expect(
         mockUseRealtimeVoiceSession,
         `autoplay=${autoplayAllowed}${unattended ? " / unattended" : ""}`,
-      ).toHaveBeenCalledWith(expect.objectContaining({ autoConnect }));
+      ).toHaveBeenCalledWith(expect.objectContaining({ autoConnect: true, audible }));
     }
   });
 
-  it("connects on an explicit start even while audio is still blocked", async () => {
-    // The press is itself the gesture that unblocks audio, so waiting for the
-    // probe to catch up would only delay it.
+  it("opens the gate once the browser allows audio", async () => {
+    // The first interaction anywhere on the page flips it; the session is
+    // already connected by then, so only the greeting is waiting on this.
     mockAutoplay.allowed = false;
-    const { result } = renderHook(() => useSetupAgent(defaultParams));
+    const { rerender } = renderHook(() => useSetupAgent(defaultParams));
 
     expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
-      expect.objectContaining({ autoConnect: false }),
+      expect.objectContaining({ audible: false }),
     );
 
-    act(() => {
-      void result.current.start();
-    });
+    mockAutoplay.allowed = true;
+    rerender();
 
     await waitFor(() =>
       expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
-        expect.objectContaining({ autoConnect: true }),
-      ),
-    );
-  });
-
-  it("starts a cold agent from the mic gesture alone", async () => {
-    // Space and the mic button both reach the hook as `micOpen`; either is the
-    // gesture that unblocks audio, so neither should wait for the autoplay probe.
-    mockAutoplay.allowed = false;
-
-    const { rerender } = renderHook(
-      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen }),
-      { initialProps: { micOpen: false } },
-    );
-    expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
-      expect.objectContaining({ autoConnect: false }),
-    );
-
-    rerender({ micOpen: true });
-
-    await waitFor(() =>
-      expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
-        expect.objectContaining({ autoConnect: true }),
+        expect.objectContaining({ audible: true }),
       ),
     );
   });
