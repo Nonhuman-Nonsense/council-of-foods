@@ -229,6 +229,10 @@ function getTransport(
         });
 
         if (status === "disconnected" || status === "error") {
+          // A connection drop is not a gesture — see the same guard in
+          // recomputeButtonRouting. Without it, a hold interrupted mid-tap-window
+          // reads as a tap release and spuriously latches the mic open.
+          pressStartedAt = null;
           set({ hardwareDown: false });
           recomputePressed(set, get);
         }
@@ -240,6 +244,7 @@ function getTransport(
       onSerialDeviceChange: (connected) => {
         set({ serialDeviceConnected: connected });
         if (!connected) {
+          pressStartedAt = null;
           set({ hardwareDown: false });
           recomputePressed(set, get);
           return;

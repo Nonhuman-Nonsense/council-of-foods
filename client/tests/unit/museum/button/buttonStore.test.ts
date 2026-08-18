@@ -542,5 +542,28 @@ describe("useButtonStore", () => {
       expect(useButtonStore.getState().buttonOwner).toBe("staff");
       expect(useButtonStore.getState().latched).toBe(false);
     });
+
+    it.each([
+      ["bridge connection drops", () => transport.callbacks?.onStatus?.("disconnected")],
+      ["usb serial disconnects", () => transport.callbacks?.onSerialDeviceChange?.(false)],
+    ])(
+      "does not read a %s mid-press as a tap release",
+      (_label, dropConnection) => {
+        // A connection loss ends the physical hold, but it is not a gesture —
+        // measuring it as one would spuriously latch the mic open on the
+        // visitor's behalf and leave the LED reading "on" for no one.
+        localStorage.setItem("councilAppMode", "web");
+        useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: true });
+
+        transport.callbacks?.onLine?.({ type: "button_down" });
+        expect(useButtonStore.getState().pressed).toBe(true);
+
+        dropConnection();
+
+        expect(useButtonStore.getState().pressed).toBe(false);
+        expect(useButtonStore.getState().latched).toBe(false);
+        expect(useButtonStore.getState().ledMode).toBe("pulse");
+      },
+    );
   });
 });

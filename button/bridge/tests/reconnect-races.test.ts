@@ -42,7 +42,7 @@ describe.sequential("button reconnect race conditions", () => {
     useButtonStore.getState().init();
     await useButtonStore.getState().connect();
     await useButtonStore.getState().claimButton("human-input");
-    await useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
 
     expect(useButtonStore.getState().bridgeStatus).toBe("connected");
     expect(useButtonStore.getState().serialDeviceConnected).toBe(false);
@@ -123,7 +123,7 @@ describe.sequential("button reconnect race conditions", () => {
     useButtonStore.getState().init();
     await useButtonStore.getState().connect();
     await useButtonStore.getState().claimButton("human-input");
-    await useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
 
     bridge.simulateUsbDisconnect();
     await waitForCondition(() => !useButtonStore.getState().serialDeviceConnected);

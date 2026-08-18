@@ -92,7 +92,7 @@ describe.sequential("button e2e (mock → bridge → client)", () => {
 
     await useButtonStore.getState().connect();
     await useButtonStore.getState().claimButton("human-input");
-    await useButtonStore.getState().setButtonLed("human-input", "pulse");
+    useButtonStore.getState().setButtonArmed("human-input", true);
     await waitForWrittenLine(bridge, "LED_PULSE");
 
     bridge.simulateButtonDown();
