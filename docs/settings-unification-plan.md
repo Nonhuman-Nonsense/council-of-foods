@@ -460,3 +460,28 @@ overlay / none / retry-and-reconnect). What they genuinely share — the gesture
 permission state — is already shared, in `buttonStore` and `micAvailabilityStore`. Putting the
 rule in the store means human input and the meta agent inherit it for free if either grows a
 latch, without an abstraction that would have been a config object in disguise.
+
+## 12. The spinner needs its own truth, not the ask's
+
+Fixing the blur-clears-latch privacy bug (§11) broke something that had been working by
+coincidence: the mic button's spinner. It was never driven by "an attach is genuinely in
+flight" — it read `micRequested && !micLive`, i.e. *the ask is still active but the mic isn't
+live yet*. That held true for the whole permission-prompt window only because nothing used to
+clear the latch mid-flight. Once blur legitimately clears it the moment the prompt appears, the
+proxy breaks: the attach is still running, but the signal that used to imply that is gone.
+
+Added a third, independent signal — `micAttaching` in `useSetupAgent`, `true` from just before
+`session.attachMic(...)` to just after it resolves (success or failure), regardless of whether
+`micOpen` changes in between. `SetupAgentOverlay`'s spinner condition became
+`isConnecting || micAttaching || (micRequested && !micLive)` — added, not swapped in: a full
+replace turns out not to be behaviour-preserving. On a repeat press (already-attached track),
+there is one real painted frame where `micRequested` is true but `micLive` hasn't caught up —
+the enable happens in a `useEffect`, which runs after paint — and only the old
+`micRequested && !micLive` term covers that frame. `micAttaching` is deliberately never true on
+that fast path (the sync `setMicEnabled` path never sets it), so dropping the old term would
+have turned that frame from "connecting" into "off" instead of preserving it.
+
+Net: three independent axes tracked separately, combined only for display — intent (the latch,
+§11), an operation in flight (`micAttaching`, this section), and the result (`micLive`, from
+`micStream`). Each stays correct on its own; the button just ORs the ones that mean "show a
+spinner".

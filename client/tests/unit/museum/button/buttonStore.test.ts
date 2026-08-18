@@ -457,6 +457,34 @@ describe("useButtonStore", () => {
       expect(useButtonStore.getState().pressed).toBe(false);
     });
 
+    it("web: losing window focus clears a latched-open mic — a real withdrawal, not a wait", () => {
+      // Unlike a disarm, this must not come back by itself: leaving the mic
+      // open while the visitor is on another tab or app is a privacy
+      // surprise, not a capability they'll regain.
+      localStorage.setItem("councilAppMode", "web");
+
+      pressFor(50);
+      expect(useButtonStore.getState().latched).toBe(true);
+
+      window.dispatchEvent(new Event("blur"));
+
+      expect(useButtonStore.getState().latched).toBe(false);
+
+      // And it stays withdrawn through a disarm/re-arm — it is not merely
+      // suspended the way a capability loss would be.
+      useButtonStore.getState().setButtonArmed("setup-agent", false);
+      useButtonStore.getState().setButtonArmed("setup-agent", true);
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
+    it("does not clear an unlatched session on blur", () => {
+      localStorage.setItem("councilAppMode", "web");
+
+      window.dispatchEvent(new Event("blur"));
+
+      expect(useButtonStore.getState().latched).toBe(false);
+    });
+
     it("lets an owner end a latch it did not start", () => {
       // Human input finishes a take when the visitor turns to the textarea; the
       // state can settle back to armed in one batch, so the disarm path alone

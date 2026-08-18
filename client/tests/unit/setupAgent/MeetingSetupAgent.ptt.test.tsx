@@ -66,10 +66,11 @@ vi.mock("@setupAgent/useSetupAgent", () => ({
 }));
 
 vi.mock("@setupAgent/SetupAgentOverlay", () => ({
-  default: (props: { onToggleMic?: () => void; onStop?: () => void }) => (
+  default: (props: { onToggleMic?: () => void; onStop?: () => void; micAttaching?: boolean }) => (
     <>
       <button type="button" data-testid="mic-toggle" onClick={props.onToggleMic} />
       <button type="button" data-testid="agent-stop" onClick={props.onStop} />
+      <span data-testid="mic-attaching">{String(props.micAttaching)}</span>
     </>
   ),
 }));
@@ -232,5 +233,14 @@ describe("MeetingSetupAgent button ownership", () => {
     const calls = mockUseSetupAgent.mock.calls;
     const params = calls[calls.length - 1][0] as { onMicUnavailable?: () => void };
     expect(params.onMicUnavailable).toBe(mockClearLatch);
+  });
+
+  it("passes micAttaching through so the spinner reflects real work, not the ask", () => {
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
+    mockUseSetupAgent.mockReturnValue(agentState({ micAttaching: true }));
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+
+    expect(screen.getByTestId("mic-attaching")).toHaveTextContent("true");
   });
 });

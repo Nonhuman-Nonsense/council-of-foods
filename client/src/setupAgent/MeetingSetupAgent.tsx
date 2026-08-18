@@ -291,6 +291,7 @@ export default function MeetingSetupAgent({
       showMicRow={isMuseumMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}
+      micAttaching={agent.micAttaching}
       micRequested={micRequested}
       onToggleMic={handleToggleMic}
       onStart={agent.start}

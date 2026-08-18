@@ -83,6 +83,8 @@ export type SetupAgentState = {
   lastUserTranscript: string | null;
   agentSpeaking: boolean;
   micStream: MediaStream | null;
+  /** A `getUserMedia`/attach call is outstanding (deferred mic only). */
+  micAttaching: boolean;
   muted: boolean;
   setMuted: (muted: boolean) => void;
   start: () => Promise<void>;
@@ -233,6 +235,15 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   // attach effect and re-request the microphone on every render.
   const onMicUnavailableRef = useRef(onMicUnavailable);
   onMicUnavailableRef.current = onMicUnavailable;
+  // getUserMedia can take seconds (the permission prompt included) and
+  // nothing can cancel it once asked — so the ask can change while it is in
+  // flight (a blur clearing the latch, say). Read at resolution time rather
+  // than closed over, so the track ends up matching what is wanted *then*,
+  // not what was wanted when the attach started.
+  const micOpenRef = useRef(micOpen);
+  useEffect(() => {
+    micOpenRef.current = micOpen;
+  });
 
   useEffect(() => {
     if (!isReady) micAttachedRef.current = false;
@@ -250,6 +261,17 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     micRequestedByUserRef.current = true;
   }, [micOpen]);
 
+  /**
+   * A real `getUserMedia`/`attachMic` call is outstanding — as opposed to
+   * "the visitor is asking", which the latch already covers and which a blur
+   * can legitimately clear while this is still running (the permission prompt
+   * itself blurs the window). The two used to be the same signal by
+   * coincidence, back when nothing cleared the latch mid-flight; now that one
+   * can end before the other, the spinner needs its own truth rather than
+   * inferring "still working" from an ask that may already be gone.
+   */
+  const [micAttaching, setMicAttaching] = useState(false);
+
   useEffect(() => {
     if (micUpFront || !isReady) return;
 
@@ -259,7 +281,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     }
     if (!micOpen) return;
 
-    let cancelled = false;
+    setMicAttaching(true);
     void (async () => {
       // A fresh ask explains a refusal with the blocked overlay; an automatic
       // re-attach after a reconnect stays quiet.
@@ -267,16 +289,24 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
         userInitiated: micRequestedByUserRef.current,
       });
       micRequestedByUserRef.current = false;
-      if (cancelled) return;
-      micAttachedRef.current = attached;
-      // Nothing is coming: withdraw the ask so the button stops waiting on a
-      // mic it cannot have, and reads as clickable for another try.
-      if (!attached) onMicUnavailableRef.current?.();
-    })();
+      setMicAttaching(false);
 
-    return () => {
-      cancelled = true;
-    };
+      if (!attached) {
+        // Nothing is coming: withdraw the ask so the button stops waiting on
+        // a mic it cannot have, and reads as clickable for another try.
+        onMicUnavailableRef.current?.();
+        return;
+      }
+
+      // The attach genuinely happened — the session already has a live track
+      // on the sender, `attachMic` itself checked the connection is still the
+      // one this was asked for — so record it regardless of how the ask has
+      // since changed, or a later ask would pay for a needless re-attach. A
+      // fresh track defaults to enabled, so correct it to match the current
+      // ask explicitly: silent otherwise if the ask was withdrawn mid-flight.
+      micAttachedRef.current = true;
+      session.setMicEnabled(micOpenRef.current);
+    })();
   }, [micUpFront, micOpen, isReady, session.attachMic, session.setMicEnabled]);
 
   /**
@@ -326,6 +356,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,
     micStream: session.micStream,
+    micAttaching,
     muted,
     setMuted,
     start,

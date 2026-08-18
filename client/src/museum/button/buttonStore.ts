@@ -293,9 +293,18 @@ function bindKeyboard(
   // mid-hold and the mic would otherwise stay open with nothing holding it.
   // Treat losing focus as a release; the duration still decides tap vs hold.
   const onBlur = () => {
-    if (!get().keyboardDown) return;
-    set({ keyboardDown: false });
-    recomputePressed(set, get, "keyboard");
+    if (get().keyboardDown) {
+      set({ keyboardDown: false });
+      recomputePressed(set, get, "keyboard");
+    }
+    // A latched mic left open while the visitor is elsewhere is a privacy
+    // surprise, not a convenience — unlike a disarm, this is a real
+    // withdrawal, not a capability the owner will get back on its own.
+    // Covers switching tabs, minimising, and switching to another program
+    // (visibilitychange alone would miss that last one).
+    if (get().latched) {
+      setLatch(set, get, get().buttonOwner, false, "blur");
+    }
   };
 
   window.addEventListener("keydown", onKeyDown);
@@ -370,9 +379,9 @@ function recomputeButtonRouting(
 function setLatch(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
-  owner: ButtonOwner,
+  owner: ButtonOwner | null,
   latched: boolean,
-  source: "click" | "owner",
+  source: "click" | "owner" | "blur",
 ): void {
   log.event("BUTTON", latched ? "latch on" : "latch off", { owner, source });
   const ledMode = resolveLedMode(get().armed, get().pressed || latched);

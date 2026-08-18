@@ -28,6 +28,13 @@ type SetupAgentOverlayProps = {
    * press the track can lag the gesture by however long getUserMedia takes.
    */
   micRequested?: boolean;
+  /**
+   * A real getUserMedia/attach call is outstanding — independent of
+   * `micRequested`: the permission prompt itself can blur the window and
+   * clear the ask while this is still true, and the spinner should keep
+   * showing real work happening either way.
+   */
+  micAttaching?: boolean;
   onToggleMic?: () => void;
   onStart: () => void;
   onStop: () => void;
@@ -49,6 +56,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     subtitleLayout = "compact",
     micStream = null,
     micRequested = false,
+    micAttaching = false,
     onToggleMic,
     onStart,
     onStop,
@@ -62,15 +70,17 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
   // for the visualiser.
   const micLive = micStream != null;
 
-  // Two separate waits, both shown as "connecting": the whole session still
+  // Three separate waits, all shown as "connecting": the whole session still
   // settling (same signal the museum spinner uses, ready-but-silent included —
   // stops early once the page turns out not to be audible, since nothing more
   // is coming until the visitor gives the gesture this button exists to
-  // collect), and — once the session itself is fine — the mic-specific gap on
-  // a first press, between asking for it and the track actually sending.
+  // collect); a real attach call outstanding (`micAttaching` — true through
+  // the permission prompt regardless of whether the ask survives it); and the
+  // brief gap on an already-attached track between the ask and `micStream`
+  // catching up, one render behind since the enable itself runs in an effect.
   const micButtonState: MicButtonState = muted
     ? "off"
-    : isConnecting || (micRequested && !micLive)
+    : isConnecting || micAttaching || (micRequested && !micLive)
       ? "connecting"
       : micLive
         ? "on"

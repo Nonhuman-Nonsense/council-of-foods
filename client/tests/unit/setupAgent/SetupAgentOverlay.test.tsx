@@ -71,27 +71,32 @@ describe('SetupAgentOverlay', () => {
       muted: boolean;
       isConnecting: boolean;
       micRequested: boolean;
+      micAttaching: boolean;
       micStream: MediaStream | null;
       expected: string;
     }> = [
       // Off is a real state, not a pending one: the click restarts everything,
       // so it stays clickable even though the session is not ready.
-      { muted: true, isConnecting: false, micRequested: false, micStream: null, expected: 'off' },
+      { muted: true, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },
       // Not connecting because the page turned out not to be audible yet —
       // spinning here would promise a greeting that nothing is coming for,
       // and hide the button that supplies the gesture to unblock it.
-      { muted: false, isConnecting: false, micRequested: false, micStream: null, expected: 'off' },
+      { muted: false, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },
       // Ready-but-silent still spins, same signal the museum spinner uses —
       // the greeting itself is what a visitor here is waiting to hear.
-      { muted: false, isConnecting: true, micRequested: false, micStream: null, expected: 'connecting' },
+      { muted: false, isConnecting: true, micRequested: false, micAttaching: false, micStream: null, expected: 'connecting' },
       // Requested but not yet live: the first press, mid getUserMedia/attach —
       // spins rather than showing "on" for a track that isn't sending yet.
-      { muted: false, isConnecting: false, micRequested: true, micStream: null, expected: 'connecting' },
-      { muted: false, isConnecting: false, micRequested: true, micStream: liveStream, expected: 'on' },
-      { muted: false, isConnecting: false, micRequested: false, micStream: null, expected: 'off' },
+      { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: null, expected: 'connecting' },
+      // A real attach call is outstanding even though the ask was withdrawn
+      // mid-flight (a blur from the permission prompt itself clears the latch)
+      // — the spinner reflects the actual outstanding work, not the ask.
+      { muted: false, isConnecting: false, micRequested: false, micAttaching: true, micStream: null, expected: 'connecting' },
+      { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: liveStream, expected: 'on' },
+      { muted: false, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },
     ];
 
-    for (const { muted, isConnecting, micRequested, micStream, expected } of cases) {
+    for (const { muted, isConnecting, micRequested, micAttaching, micStream, expected } of cases) {
       const { unmount } = render(
         <SetupAgentOverlay
           {...baseProps}
@@ -99,13 +104,14 @@ describe('SetupAgentOverlay', () => {
           muted={muted}
           isConnecting={isConnecting}
           micRequested={micRequested}
+          micAttaching={micAttaching}
           micStream={micStream}
         />,
       );
 
       expect(
         screen.getByTestId('realtime-mic-button'),
-        `muted=${muted} connecting=${isConnecting} requested=${micRequested} live=${micStream != null}`,
+        `muted=${muted} connecting=${isConnecting} requested=${micRequested} attaching=${micAttaching} live=${micStream != null}`,
       ).toHaveAttribute('data-mic-state', expected);
       unmount();
     }
