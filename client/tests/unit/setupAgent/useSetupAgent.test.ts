@@ -256,6 +256,38 @@ describe("useSetupAgent", () => {
     expect(attachMic).toHaveBeenCalledWith({ userInitiated: true });
   });
 
+  it("withdraws the ask when the microphone cannot be attached", async () => {
+    // Otherwise the request stays pending against a mic that is never coming,
+    // and the button spins forever instead of offering another try.
+    attachMic.mockResolvedValue(false);
+    mockUseRealtimeVoiceSession.mockReturnValue(readySession);
+    const onMicUnavailable = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen, onMicUnavailable }),
+      { initialProps: { micOpen: false } },
+    );
+
+    rerender({ micOpen: true });
+
+    await waitFor(() => expect(onMicUnavailable).toHaveBeenCalledOnce());
+  });
+
+  it("leaves the ask alone when the microphone attaches", async () => {
+    mockUseRealtimeVoiceSession.mockReturnValue(readySession);
+    const onMicUnavailable = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ micOpen }) => useSetupAgent({ ...defaultParams, micOpen, onMicUnavailable }),
+      { initialProps: { micOpen: false } },
+    );
+
+    rerender({ micOpen: true });
+
+    await waitFor(() => expect(attachMic).toHaveBeenCalledOnce());
+    expect(onMicUnavailable).not.toHaveBeenCalled();
+  });
+
   it("re-attaches the microphone after a reconnect without nagging", async () => {
     // The visitor never let go of the mic — a dropped session shouldn't
     // silently take it away, nor throw an overlay if it can't be recovered.

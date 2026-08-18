@@ -8,6 +8,7 @@ const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetArmed = vi.hoisted(() => vi.fn());
 const mockToggleLatch = vi.hoisted(() => vi.fn());
+const mockClearLatch = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseSetupAgent = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   isConnecting: false,
@@ -53,6 +54,7 @@ vi.mock("@/museum/button/useButton", () => ({
     release: mockRelease,
     setArmed: mockSetArmed,
     toggleLatch: mockToggleLatch,
+    clearLatch: mockClearLatch,
     pressed: mockPressed.value,
     wantsMic: mockPressed.value,
     isOwner: true,
@@ -64,8 +66,11 @@ vi.mock("@setupAgent/useSetupAgent", () => ({
 }));
 
 vi.mock("@setupAgent/SetupAgentOverlay", () => ({
-  default: (props: { onToggleMic?: () => void }) => (
-    <button type="button" data-testid="mic-toggle" onClick={props.onToggleMic} />
+  default: (props: { onToggleMic?: () => void; onStop?: () => void }) => (
+    <>
+      <button type="button" data-testid="mic-toggle" onClick={props.onToggleMic} />
+      <button type="button" data-testid="agent-stop" onClick={props.onStop} />
+    </>
   ),
 }));
 
@@ -203,5 +208,29 @@ describe("MeetingSetupAgent button ownership", () => {
     expect(mockUseSetupAgent).toHaveBeenCalledWith(
       expect.objectContaining({ micUpFront: false }),
     );
+  });
+
+  it("withdraws the mic ask when the agent is switched off", () => {
+    // Turning the agent back on from the corner must not silently reopen the
+    // microphone — only the mic button asks for that.
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
+    const stop = vi.fn();
+    mockUseSetupAgent.mockReturnValue(agentState({ stop }));
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+    fireEvent.click(screen.getByTestId("agent-stop"));
+
+    expect(mockClearLatch).toHaveBeenCalledOnce();
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
+  it("withdraws the mic ask when the microphone cannot be attached", () => {
+    mockUseCouncilSettings.mockReturnValue(settings("web"));
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+
+    const calls = mockUseSetupAgent.mock.calls;
+    const params = calls[calls.length - 1][0] as { onMicUnavailable?: () => void };
+    expect(params.onMicUnavailable).toBe(mockClearLatch);
   });
 });

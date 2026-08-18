@@ -409,3 +409,54 @@ store exposed two things worth keeping: `claim` must set `buttonOwner` (a latch 
 owner), and the handle's functions must be identity-stable as the real `useCallback`s are —
 fresh identities each render made the claim effect release and re-claim continuously, wiping the
 latch every time.
+
+## 11. Intent vs capability — the rule the latch needed
+
+Two bugs turned out to share one cause, and it was a line added in step 5:
+
+```ts
+if (prevOwner !== buttonOwner || !armed) {   // ← disarming destroyed the latch
+  pressStartedAt = null;
+  set({ latched: false });
+}
+```
+
+That conflated *"you may not have the mic"* (the visitor muted the agent, or the owner changed)
+with *"you can't have it **yet**"* (the session is still connecting; the greeting has not
+started). Only the first is a withdrawal. The second is a capability the button briefly lacks,
+and destroying the ask because of it produced both reported symptoms:
+
+- **Mic button starts the agent but not the mic.** Clicking while muted set the latch, then
+  `agent.start()` cleared `muted` — but `isConnecting` was still true, so the very next
+  `setArmed(false)` wiped the latch. When the greeting finally arrived and the button armed,
+  the intent was already gone. (The arming delay itself is deliberate: pressing before the
+  agent has begun speaking makes no sense.)
+- **Endless spinner on a denied microphone.** Nothing ever withdrew the ask, so `micRequested`
+  stayed true against a `micStream` that was never coming.
+
+**The rule now:** *capability gates, it does not revoke.* `wantsMic` already requires `armed`,
+so the mic still closes the moment the button disarms; the difference is that the ask survives
+and is honoured again by itself once the button can serve it. Withdrawal is explicit, at the
+two places that actually mean it — switching the agent off from the corner (`handleStop`), and
+a microphone that cannot be attached (`onMicUnavailable` → `clearLatch`). This is the same
+desired-state shape as the pending-intent reconciler in [RESILIENCE.md](../RESILIENCE.md):
+intent is durable, observed state decides when it can be applied.
+
+`pressStartedAt` is still nulled on both disarm and handoff — neither is a gesture, and leaving
+it set would let a disarm inside the tap window be measured as a tap and toggle the latch on
+the visitor's behalf.
+
+**Reconnect now keeps the mic.** A dropped session disarms and re-arms without changing owner,
+so the ask survives and the mic reopens on recovery — the visitor never withdrew it. Museum
+already behaved this way for a held button (`ignoreDownUntilRelease` is only set on *owner*
+change, so a held press re-activates the moment it re-arms; see "activates a held space the
+moment the owner arms"), and has no latch at all, so nothing there changes.
+
+**Why no shared `useMicGesture` hook.** The three consumers look similar and are not: arming
+predicates differ (`!muted && !isConnecting` / `connectionState === "ready"` / `canRecord`),
+mic mechanisms differ (deferred `attachMic` / `setMicEnabled` on a pre-attached track /
+`HumanInput`'s own connection and recording state machine), and failure stories differ (blocked
+overlay / none / retry-and-reconnect). What they genuinely share — the gesture and the
+permission state — is already shared, in `buttonStore` and `micAvailabilityStore`. Putting the
+rule in the store means human input and the meta agent inherit it for free if either grows a
+latch, without an abstraction that would have been a config object in disguise.

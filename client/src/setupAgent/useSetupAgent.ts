@@ -58,6 +58,13 @@ export type UseSetupAgentParams = {
    * hook never keeps a competing copy.
    */
   micOpen?: boolean;
+  /**
+   * The microphone could not be attached — blocked, missing, or in use. The
+   * visitor's ask has become impossible, so whoever owns the gesture should
+   * withdraw it rather than leave it pending against a mic that will not come.
+   * The blocked-microphone overlay is raised separately by `requestMicrophone`.
+   */
+  onMicUnavailable?: () => void;
   /** Nobody is present to fix a failure (capabilities.unattended). */
   unattended?: boolean;
 };
@@ -103,6 +110,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     initialMuted = false,
     micUpFront = false,
     micOpen = false,
+    onMicUnavailable,
     unattended = false,
   } = params;
 
@@ -221,6 +229,10 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
    * whenever the session drops, since a reconnect brings a fresh peer connection.
    */
   const micAttachedRef = useRef(false);
+  // Held in a ref so a caller passing an inline callback cannot re-run the
+  // attach effect and re-request the microphone on every render.
+  const onMicUnavailableRef = useRef(onMicUnavailable);
+  onMicUnavailableRef.current = onMicUnavailable;
 
   useEffect(() => {
     if (!isReady) micAttachedRef.current = false;
@@ -257,6 +269,9 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
       micRequestedByUserRef.current = false;
       if (cancelled) return;
       micAttachedRef.current = attached;
+      // Nothing is coming: withdraw the ask so the button stops waiting on a
+      // mic it cannot have, and reads as clickable for another try.
+      if (!attached) onMicUnavailableRef.current?.();
     })();
 
     return () => {
