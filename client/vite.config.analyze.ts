@@ -1,6 +1,6 @@
 import { defineConfig, mergeConfig } from 'vite'
 import { visualizer } from 'rollup-plugin-visualizer'
-import base from './vite.config'
+import base from './vite.config.mts'
 
 export default defineConfig(async (env) => {
   const baseConfig =
