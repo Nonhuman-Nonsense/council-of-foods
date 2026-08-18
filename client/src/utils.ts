@@ -91,6 +91,38 @@ export function useDocumentVisibility(): boolean {
   return isDocumentVisible;
 }
 
+/**
+ * Whether the visitor could plausibly be looking at this page right now:
+ * the tab is visible *and* the window has focus.
+ *
+ * Wider than {@link useDocumentVisibility} on purpose, and the two do not
+ * overlap: switching to another program leaves the tab "visible" (the Page
+ * Visibility spec only tracks whether the tab is being rendered, not whether
+ * the window has input focus) but blurs the window — visibilitychange alone
+ * misses it. Switching tabs within the same window is the reverse: the
+ * window stays OS-focused throughout, only visibilitychange fires. Neither
+ * event alone is enough; this listens for both.
+ */
+export function usePagePresence(): boolean {
+  const computePresent = () => !document.hidden && document.hasFocus();
+  const [present, setPresent] = useState<boolean>(computePresent);
+
+  useEffect(() => {
+    const update = () => setPresent(computePresent());
+    document.addEventListener('visibilitychange', update);
+    window.addEventListener('blur', update);
+    window.addEventListener('focus', update);
+
+    return () => {
+      document.removeEventListener('visibilitychange', update);
+      window.removeEventListener('blur', update);
+      window.removeEventListener('focus', update);
+    };
+  }, []);
+
+  return present;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                               Math Helpers                                 */
 /* -------------------------------------------------------------------------- */
