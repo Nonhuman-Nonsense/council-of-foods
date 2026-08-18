@@ -261,12 +261,17 @@ export default function MeetingSetupAgent({
     return () => clearTimeout(timer);
   }, [lastUserEvent, interruptAndRespond]);
 
+  // The gesture — SetupAgentOverlay decides for itself, from this plus the
+  // `micStream` it already gets, whether that means "connecting" or "on": on
+  // the very first web press `micStream` lags this by however long
+  // getUserMedia + attachMic take, and museum has no such gap to hide.
+  const micRequested = !muted && button.wantsMic;
+
   return (
     <>
       {showBlockingReconnect && <Loading />}
     <SetupAgentOverlay
       isConnecting={agent.isConnecting}
-      isReady={agent.isReady}
       lastCaption={agent.lastCaption}
       lastUserTranscript={agent.lastUserTranscript}
       muted={agent.muted}
@@ -274,8 +279,7 @@ export default function MeetingSetupAgent({
       showMicRow={isMuseumMode}
       subtitleLayout={isMuseumMode ? "council" : "compact"}
       micStream={agent.micStream}
-      micActive={!muted && button.wantsMic}
-      micOn={!muted && button.wantsMic}
+      micRequested={micRequested}
       onToggleMic={handleToggleMic}
       onStart={agent.start}
       onStop={agent.stop}
