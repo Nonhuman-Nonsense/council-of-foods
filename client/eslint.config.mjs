@@ -7,6 +7,12 @@
  * hooks-adjacent rules are turned off below to avoid double-reporting the same issue.
  *
  * Note: ESLint only applies this config under `client/`; `shared/` is covered by `tsc`.
+ *
+ * `typescript` in package.json is aliased to `@typescript/typescript6` (the TS 6.0 API
+ * compat shim) because typescript-eslint doesn't support the TS 7 API yet — see
+ * https://github.com/typescript-eslint/typescript-eslint/issues/10940. `tsc` itself still
+ * resolves to real TS 7 via the `@typescript/native` alias; drop both aliases once that
+ * issue lands.
  */
 import eslint from '@eslint/js';
 import eslintReact from '@eslint-react/eslint-plugin';
