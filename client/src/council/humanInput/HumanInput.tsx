@@ -406,13 +406,16 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   // Gesture opens the mic — a hold, a tap that latched, or the on-screen button,
   // which routes through the same latch so this stays the only path in.
-  // (Also covers a button held through the pre-warm.)
+  // (Also covers a button held through the pre-warm.) Deliberately excludes
+  // inputValue: it updates on every transcription delta while already
+  // recording, which doesn't change whether a start attempt should fire —
+  // startRecording() reads the current inputValue from the closure whenever
+  // this effect does run for one of the deps below.
   useEffect(() => {
     if (phase !== "active") return;
     if (!button.wantsMic) return;
     startRecording();
-   
-  }, [button.wantsMic, phase, connectionState, inputValue]);
+  }, [button.wantsMic, phase, connectionState]);
 
   // Gesture closed → finish the session. Only queue an auto-submit where
   // releasing is meant to send; web leaves the transcript to edit and send.
@@ -495,13 +498,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       setTranscriptSegments(prev => {
         const existing = prev.find(segment => segment.itemId === segmentKey)?.text ?? "";
         const next = mergeTranscriptionDelta(mergeMode, existing, event.delta);
-        hiLog("delta-applied", {
-          segmentKey,
-          mergeMode,
-          existing,
-          delta: event.delta,
-          next,
-        });
         return upsertTranscriptSegment(prev, segmentKey, next);
       });
       scheduleFinishingQuietClose();
