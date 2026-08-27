@@ -78,7 +78,7 @@ function flushBuffer(
   if (!text) return segmentOffset;
 
   const start = segmentOffset + (buffer[0]?.s ?? 0);
-  const end = segmentOffset + (buffer[buffer.length - 1]?.e ?? 0);
+  const end = segmentOffset + (buffer.at(-1)?.e ?? 0);
 
   const sentence = { text, start, end };
   into.push(sentence);
@@ -90,7 +90,7 @@ function flushBuffer(
 
 function pendingEndSec(buffer: InworldWordToken[], offset: number): number | null {
   if (buffer.length === 0) return null;
-  return offset + (buffer[buffer.length - 1]?.e ?? 0);
+  return offset + (buffer.at(-1)?.e ?? 0);
 }
 
 export function createInworldSubtitleTrack(
@@ -112,7 +112,7 @@ export function createInworldSubtitleTrack(
     // Backup: time reset while buffer has content means a new sentence started
     // without an explicit empty chunk (defensive, not observed in practice).
     const firstStart = words[0]?.s ?? 0;
-    const bufferEndsLate = (currentBuffer[currentBuffer.length - 1]?.e ?? 0) > 0.05;
+    const bufferEndsLate = (currentBuffer.at(-1)?.e ?? 0) > 0.05;
     if (bufferEndsLate && firstStart < 0.05) {
       segmentOffset = flushBuffer(currentBuffer, segmentOffset, sentences, onSentenceFlushed);
       currentBuffer = [];
@@ -138,7 +138,7 @@ export function createInworldSubtitleTrack(
       return false;
     },
     getPlaybackEndSec: () => {
-      const flushedEnd = sentences.length > 0 ? sentences[sentences.length - 1]!.end : null;
+      const flushedEnd = sentences.length > 0 ? sentences.at(-1)!.end : null;
       const pendingEnd = pendingEndSec(currentBuffer, segmentOffset);
       if (flushedEnd != null && pendingEnd != null) return Math.max(flushedEnd, pendingEnd);
       return pendingEnd ?? flushedEnd;

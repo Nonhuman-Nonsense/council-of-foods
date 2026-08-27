@@ -9,7 +9,7 @@ import { useErrorStore } from "@main/overlay/errorStore";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
-const mockSetLed = vi.hoisted(() => vi.fn());
+const mockSetArmed = vi.hoisted(() => vi.fn());
 
 const mockButtonState = vi.hoisted(() => ({
   pressed: false,
@@ -48,8 +48,9 @@ vi.mock("@museum/button/useButton", async () => {
       return {
         claim: mockClaim,
         release: mockRelease,
-        setLed: mockSetLed,
+        setArmed: mockSetArmed,
         pressed,
+        wantsMic: pressed,
         isOwner,
       };
     },
@@ -99,14 +100,16 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
     lastCaption: string | null;
     lastUserTranscript: string | null;
     subtitleLayout?: string;
-    showPttVisualizer?: boolean;
+    showMicRow?: boolean;
     micActive?: boolean;
+    micButton?: unknown;
   }) => (
     <div
       data-testid="meta-agent-caption-overlay"
       data-subtitle-layout={props.subtitleLayout}
-      data-show-ptt-viz={String(props.showPttVisualizer)}
+      data-show-ptt-viz={String(props.showMicRow)}
       data-mic-active={String(props.micActive)}
+      data-has-mic-button={String(props.micButton != null)}
     >
       {props.lastUserTranscript ? (
         <span data-testid="agent-user">{props.lastUserTranscript}</span>
@@ -157,7 +160,7 @@ beforeEach(() => {
   sessionCallbacks.onSessionReady = undefined;
   mockClaim.mockClear();
   mockRelease.mockClear();
-  mockSetLed.mockClear();
+  mockSetArmed.mockClear();
 });
 
 describe("MeetingMetaAgent", () => {
@@ -179,6 +182,8 @@ describe("MeetingMetaAgent", () => {
     expect(overlay).toHaveAttribute("data-subtitle-layout", "council");
     expect(overlay).toHaveAttribute("data-show-ptt-viz", "true");
     expect(overlay).toHaveAttribute("data-mic-active", "false");
+    // The hardware button owns the mic here — no clickable mic control.
+    expect(overlay).toHaveAttribute("data-has-mic-button", "false");
   });
 
   it("claims the button on mount and releases on unmount", () => {
@@ -188,10 +193,9 @@ describe("MeetingMetaAgent", () => {
     expect(mockRelease).toHaveBeenCalled();
   });
 
-  it("sets LED pulse in standby and on while active and pressed", () => {
+  it("arms the button once the realtime session is ready", () => {
     render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
-    act(() => setMockPressed(true));
-    expect(mockSetLed).toHaveBeenCalledWith("on");
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
   it("sets active, opens mic, sends snapshot on button press (standby)", () => {

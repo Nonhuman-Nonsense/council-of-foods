@@ -15,13 +15,13 @@ export const dbBackedTests = [
 
 export const resolve = {
     alias: {
-        '@shared': path.resolve(__dirname, '../shared'),
-        '@logic': path.resolve(__dirname, 'src/logic'),
-        '@services': path.resolve(__dirname, 'src/services'),
-        '@utils': path.resolve(__dirname, 'src/utils'),
-        '@models': path.resolve(__dirname, 'src/models'),
-        '@interfaces': path.resolve(__dirname, 'src/interfaces'),
-        '@api': path.resolve(__dirname, 'src/api'),
-        '@root': path.resolve(__dirname, './'),
+        '@shared': path.resolve(import.meta.dirname, '../shared'),
+        '@logic': path.resolve(import.meta.dirname, 'src/logic'),
+        '@services': path.resolve(import.meta.dirname, 'src/services'),
+        '@utils': path.resolve(import.meta.dirname, 'src/utils'),
+        '@models': path.resolve(import.meta.dirname, 'src/models'),
+        '@interfaces': path.resolve(import.meta.dirname, 'src/interfaces'),
+        '@api': path.resolve(import.meta.dirname, 'src/api'),
+        '@root': path.resolve(import.meta.dirname, './'),
     },
 };

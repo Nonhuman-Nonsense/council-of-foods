@@ -16,7 +16,6 @@ const baseToolParams = {
   otherLanguages: [] as string[],
   topics: [] as typeof TOPICS,
   characters: [] as typeof CHARACTERS,
-  agentMode: 'always-on' as const,
 };
 
 describe('createSetupAgentTools', () => {
@@ -60,6 +59,21 @@ describe('createSetupAgentTools', () => {
   it('includes a begin_setup tool', () => {
     const tools = createSetupAgentTools(baseToolParams);
     expect(tools.find((t) => t.name === 'begin_setup')).toBeDefined();
+  });
+
+  it('always offers the full tool set, whatever the microphone is doing', () => {
+    // Gating the list would mean re-sending the session config on every mic
+    // change; useSetupAgent refuses the calls instead.
+    const tools = createSetupAgentTools({
+      ...baseToolParams,
+      topics: TOPICS,
+      characters: CHARACTERS,
+      isWebMode: true,
+    });
+
+    expect(tools.find((t) => t.name === 'select_topic')).toBeDefined();
+    expect(tools.find((t) => t.name === 'start_meeting')).toBeDefined();
+    expect(tools.find((t) => t.name === 'current_topic')).toBeDefined();
   });
 });
 
@@ -316,6 +330,94 @@ describe('setupAgentTools', () => {
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.current_characters({});
       expect(res).toEqual({ ok: true, data: { characters: ['Food One', 'Food Two'], humans: [] } });
+    });
+  });
+
+  describe('human_panelist', () => {
+    it('adds a new panelist and selects them', async () => {
+      ctx.meetingStep = 'characters';
+      const handlers = createSetupAgentToolHandlers(ctx);
+      const res = await handlers.human_panelist({ name: 'Leo', description: 'A curious visitor' });
+
+      expect(res).toEqual({ ok: true, data: { index: 0, name: 'Leo' } });
+      const store = useMeetingSetupStore.getState();
+      expect(store.humans[0]).toEqual(expect.objectContaining({
+        name: 'Leo',
+        description: 'A curious visitor',
+      }));
+      expect(store.numberOfHumans).toBe(1);
+      expect(store.selectedCharacters).toContain('panelist0');
+    });
+
+    it('returns error if name is missing', async () => {
+      ctx.meetingStep = 'characters';
+      const handlers = createSetupAgentToolHandlers(ctx);
+      const res = await handlers.human_panelist({ description: 'A curious visitor' });
+      expect(res).toEqual({ ok: false, error: 'Missing name' });
+    });
+
+    it('returns error if description is missing', async () => {
+      ctx.meetingStep = 'characters';
+      const handlers = createSetupAgentToolHandlers(ctx);
+      const res = await handlers.human_panelist({ name: 'Leo' });
+      expect(res).toEqual({ ok: false, error: 'Missing description' });
+    });
+
+    it('returns error once the maximum of 3 panelists is reached', async () => {
+      ctx.meetingStep = 'characters';
+      const handlers = createSetupAgentToolHandlers(ctx);
+      await handlers.human_panelist({ name: 'One', description: 'First' });
+      await handlers.human_panelist({ name: 'Two', description: 'Second' });
+      await handlers.human_panelist({ name: 'Three', description: 'Third' });
+
+      const res = await handlers.human_panelist({ name: 'Four', description: 'Fourth' });
+      expect(res).toEqual({ ok: false, error: 'Maximum of 3 human panelists already added.' });
+      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(3);
+    });
+
+    /**
+     * The bug this guards against: a panelist typed directly into the screen
+     * is already saved, but if the agent (mistakenly, or from an ambiguous
+     * reaction message) calls this tool for the same name anyway, it must not
+     * silently create a second, duplicate panelist.
+     */
+    it('rejects a name that already matches an existing panelist, without creating a duplicate', async () => {
+      ctx.meetingStep = 'characters';
+      const handlers = createSetupAgentToolHandlers(ctx);
+      await handlers.human_panelist({ name: 'Leo', description: 'A curious visitor' });
+
+      const res = await handlers.human_panelist({ name: 'Leo', description: 'A curious visitor' });
+
+      expect(res).toEqual({
+        ok: false,
+        error: 'Leo is already part of the council — no need to add them again.',
+      });
+      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(1);
+    });
+
+    it('rejects a name that already matches a selected food, same as the screen would', async () => {
+      ctx.meetingStep = 'characters';
+      useMeetingSetupStore.getState().setSelectedCharacters(['food1', 'food2']);
+      const handlers = createSetupAgentToolHandlers(ctx);
+
+      const res = await handlers.human_panelist({ name: 'Food One', description: 'A curious visitor' });
+
+      expect(res).toEqual({
+        ok: false,
+        error: 'Food One is already part of the council — no need to add them again.',
+      });
+      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(0);
+    });
+
+    it('does not reject a genuinely new, non-colliding name', async () => {
+      ctx.meetingStep = 'characters';
+      useMeetingSetupStore.getState().setSelectedCharacters(['food1']);
+      const handlers = createSetupAgentToolHandlers(ctx);
+
+      const res = await handlers.human_panelist({ name: 'Leo', description: 'A curious visitor' });
+
+      expect(res.ok).toBe(true);
+      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(1);
     });
   });
 

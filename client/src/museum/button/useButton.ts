@@ -23,9 +23,30 @@ export type ButtonConnectionState = {
 export type ButtonHandle = {
   claim: () => void;
   release: () => void;
-  setLed: (mode: ButtonLedMode) => void;
-  /** Routed press — true only when this owner is buttonOwner and PTT is active. */
+  /**
+   * Whether this owner can take a press right now. The gate every press
+   * passes, in both modes — the hardware LED is then derived from it (dark
+   * when disarmed, pulsing when armed, solid while `wantsMic`), so owners
+   * never speak of lights and a web owner needs no light to exist.
+   */
+  setArmed: (armed: boolean) => void;
+  /**
+   * Toggle the latch from an on-screen control, exactly as a tap would. Only
+   * meaningful where `capabilities.latchOnTap` allows latching at all.
+   */
+  toggleLatch: () => void;
+  /** End a latched-open mic from the owner's side; a no-op if not latched. */
+  clearLatch: () => void;
+  /** Routed press — true only when this owner is buttonOwner and armed. */
   pressed: boolean;
+  /**
+   * The visitor wants the mic open right now: either physically holding, or —
+   * where `capabilities.latchOnTap` allows it — latched on by an earlier tap.
+   * Mic consumers (setup agent, human input, meta agent) read this instead of
+   * `pressed`; everything else should keep reading `pressed`, since latching
+   * must not affect edge-triggered actions like a restart-on-press.
+   */
+  wantsMic: boolean;
   /** Whether this owner won the priority merge right now. */
   isOwner: boolean;
 };
@@ -85,6 +106,12 @@ export function useButtonBridgeHealth(enabled: boolean): ButtonBridgeHealthState
 
 export function useButton(owner: ButtonOwner): ButtonHandle {
   const pressed = useButtonStore((state) => state.buttonOwner === owner && state.pressed);
+  // `armed` is required explicitly: `pressed` already implies it, but a latch
+  // set while disarmed (a mic-button click that also wakes the agent) lives
+  // until the arming that follows, and a disarmed button must want nothing.
+  const wantsMic = useButtonStore(
+    (state) => state.buttonOwner === owner && state.armed && (state.pressed || state.latched),
+  );
   const isOwner = useButtonStore((state) => state.buttonOwner === owner);
 
   const claim = useCallback(() => {
@@ -95,15 +122,23 @@ export function useButton(owner: ButtonOwner): ButtonHandle {
     useButtonStore.getState().releaseButton(owner);
   }, [owner]);
 
-  const setLed = useCallback(
-    (mode: ButtonLedMode) => {
-      useButtonStore.getState().setButtonLed(owner, mode);
+  const setArmed = useCallback(
+    (armed: boolean) => {
+      useButtonStore.getState().setButtonArmed(owner, armed);
     },
     [owner],
   );
 
+  const toggleLatch = useCallback(() => {
+    useButtonStore.getState().toggleButtonLatch(owner);
+  }, [owner]);
+
+  const clearLatch = useCallback(() => {
+    useButtonStore.getState().clearButtonLatch(owner);
+  }, [owner]);
+
   return useMemo(
-    () => ({ claim, release, setLed, pressed, isOwner }),
-    [claim, release, setLed, pressed, isOwner],
+    () => ({ claim, release, setArmed, toggleLatch, clearLatch, pressed, wantsMic, isOwner }),
+    [claim, release, setArmed, toggleLatch, clearLatch, pressed, wantsMic, isOwner],
   );
 }

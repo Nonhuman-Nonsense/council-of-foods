@@ -31,22 +31,22 @@ function CouncilButtonClaims({ phase }: { phase: Phase }) {
   const {
     claim: claimHuman,
     release: releaseHuman,
-    setLed: setHumanLed,
+    setArmed: armHuman,
   } = humanInput;
-  const { claim: claimMeta, release: releaseMeta, setLed: setMetaLed } = metaAgent;
+  const { claim: claimMeta, release: releaseMeta, setArmed: armMeta } = metaAgent;
 
   useEffect(() => {
     if (!humanInputActive) return;
     claimHuman();
-    setHumanLed("pulse");
+    armHuman(true);
     return () => releaseHuman();
-  }, [claimHuman, releaseHuman, setHumanLed, humanInputActive]);
+  }, [claimHuman, releaseHuman, armHuman, humanInputActive]);
 
   useEffect(() => {
     claimMeta();
-    setMetaLed("pulse");
+    armMeta(true);
     return () => releaseMeta();
-  }, [claimMeta, releaseMeta, setMetaLed]);
+  }, [claimMeta, releaseMeta, armMeta]);
 
   return null;
 }
@@ -54,6 +54,8 @@ function CouncilButtonClaims({ phase }: { phase: Phase }) {
 describe("button claim integration (Council order)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem("councilAppMode", "museum");
     _resetButtonStoreForTests();
     useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: true });
   });

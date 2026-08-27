@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   mergeButtonOwner,
-  resolveAppliedLedMode,
+  resolveAppliedArmed,
+  resolveLedMode,
+  type ButtonArmed,
   type ButtonClaims,
-  type ButtonLedModes,
 } from "@/museum/button/buttonStore";
 
 describe("mergeButtonOwner", () => {
@@ -61,30 +62,37 @@ describe("mergeButtonOwner", () => {
   });
 });
 
-describe("resolveAppliedLedMode", () => {
-  it("returns off when there is no buttonOwner", () => {
-    expect(resolveAppliedLedMode({}, null)).toBe("off");
+describe("resolveAppliedArmed", () => {
+  it("is disarmed when there is no buttonOwner", () => {
+    expect(resolveAppliedArmed({}, null)).toBe(false);
   });
 
-  it("returns the buttonOwner LED preference", () => {
-    const ledModes: ButtonLedModes = { "human-input": "pulse" };
-    expect(resolveAppliedLedMode(ledModes, "human-input")).toBe("pulse");
+  it("follows the routed owner's arming", () => {
+    const armed: ButtonArmed = { "human-input": true };
+    expect(resolveAppliedArmed(armed, "human-input")).toBe(true);
   });
 
-  it("returns off when buttonOwner has no LED preference yet", () => {
-    expect(resolveAppliedLedMode({}, "meta-agent")).toBe("off");
+  it("is disarmed when the owner has not armed yet", () => {
+    expect(resolveAppliedArmed({}, "meta-agent")).toBe(false);
   });
 
-  it("uses winner LED when staff displaces human-input", () => {
-    const ledModes: ButtonLedModes = {
-      "human-input": "on",
-      staff: "pulse",
-    };
-    expect(resolveAppliedLedMode(ledModes, "staff")).toBe("pulse");
+  it("ignores a displaced owner's arming — only the winner counts", () => {
+    const armed: ButtonArmed = { "human-input": true };
+    expect(resolveAppliedArmed(armed, "staff")).toBe(false);
+  });
+});
+
+describe("resolveLedMode", () => {
+  it("is dark while disarmed, whatever the mic wants", () => {
+    expect(resolveLedMode(false, false)).toBe("off");
+    expect(resolveLedMode(false, true)).toBe("off");
   });
 
-  it("allows buttonOwner with off LED preference", () => {
-    const ledModes: ButtonLedModes = { "meta-agent": "off" };
-    expect(resolveAppliedLedMode(ledModes, "meta-agent")).toBe("off");
+  it("pulses to invite a press when armed and idle", () => {
+    expect(resolveLedMode(true, false)).toBe("pulse");
+  });
+
+  it("goes solid while the mic is open", () => {
+    expect(resolveLedMode(true, true)).toBe("on");
   });
 });

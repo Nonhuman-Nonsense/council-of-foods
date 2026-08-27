@@ -6,7 +6,7 @@ import {
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { getAppMode, type AgentMode } from "@/settings/councilSettings";
+import { getAppMode } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
 import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
@@ -72,17 +72,52 @@ function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext): b
   return new Set(names).size !== names.length;
 }
 
+/**
+ * Everyone currently in the council: selected foods (chair included) and
+ * already-added human panelists, split the way `current_characters` reports
+ * them. Matches exactly what `buildMeetingCharactersPayload` treats as the
+ * uniqueness set (selected participants only) — deliberately narrower than
+ * `participantNames` above, which also includes every food in the bundle
+ * whether selected or not.
+ */
+function currentCouncilParticipants(ctx: SetupAgentToolContext): { characters: string[]; humans: string[] } {
+  const store = useMeetingSetupStore.getState();
+  const councilCharIds = new Set(
+    ctx.characters
+      .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
+      .map((c) => c.id),
+  );
+  const characters = store.selectedCharacters
+    .filter((id) => councilCharIds.has(id))
+    .map((id) => ctx.characters.find((c) => c.id === id)!.name);
+  const humans = store.humans
+    .slice(0, store.numberOfHumans)
+    .map((h) => h.name)
+    .filter(Boolean);
+  return { characters, humans };
+}
+
+/**
+ * The only tools that stay usable before the visitor has ever spoken. Every
+ * other tool changes the UI, and with no spoken instruction to act on, a call
+ * would move the page under a visitor driving it themselves. These two only
+ * read state back, which keeps the agent's commentary honest.
+ *
+ * The agent is always *given* the full set — gating the list would mean
+ * re-sending the session config every time the microphone changed hands.
+ * {@link useSetupAgent} enforces this at the handler instead.
+ */
+export const VISITOR_SILENT_SAFE_TOOLS: readonly string[] = ["current_topic", "current_characters"];
+
 export function createSetupAgentTools({
   otherLanguages,
   topics,
   characters,
-  agentMode: _agentMode,
   isWebMode = false,
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
-  agentMode: AgentMode;
   isWebMode?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
@@ -336,20 +371,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
     },
 
     current_characters: () => {
-      const store = useMeetingSetupStore.getState();
-      const councilCharIds = new Set(
-        ctx.characters
-          .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
-          .map((c) => c.id),
-      );
-      const characters = store.selectedCharacters
-        .filter((id) => councilCharIds.has(id))
-        .map((id) => ctx.characters.find((c) => c.id === id)!.name);
-      const humans = store.humans
-        .slice(0, store.numberOfHumans)
-        .map((h) => h.name)
-        .filter(Boolean);
-      return { ok: true, data: { characters, humans } };
+      return { ok: true, data: currentCouncilParticipants(ctx) };
     },
 
     human_panelist: (raw) => {
@@ -363,6 +385,16 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       const maxPanelists = 3;
       if (store.numberOfHumans >= maxPanelists) {
         return { ok: false, error: `Maximum of ${maxPanelists} human panelists already added.` };
+      }
+      // Same uniqueness constraint the screen enforces — if this name is
+      // already in the council (e.g. the visitor just typed it in on screen
+      // themselves), there's nothing to add.
+      const { characters: existingCharacterNames, humans: existingHumanNames } = currentCouncilParticipants(ctx);
+      if ([...existingCharacterNames, ...existingHumanNames].includes(name)) {
+        return {
+          ok: false,
+          error: `${name} is already part of the council — no need to add them again.`,
+        };
       }
       const index = store.numberOfHumans;
       store.setHumans((prev) => {

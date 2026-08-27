@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '@council/overlays/Summary';
-import type { AppMode, AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor, type Capabilities } from '@/settings/capabilities';
 
 vi.mock('qrcode.react', () => ({
     QRCodeCanvas: () => <div data-testid="qrcode">QRCode</div>
@@ -56,14 +57,12 @@ const mockUseCouncilSettings = vi.fn((): {
     isMuseumMode: boolean;
     mode: AppMode;
     setAppMode: () => void;
-    agentMode: AgentMode;
-    setAgentMode: () => void;
+    capabilities: Capabilities;
 } => ({
     isMuseumMode: false,
     mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off',
-    setAgentMode: vi.fn(),
+    capabilities: capabilitiesFor('web'),
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -72,15 +71,18 @@ vi.mock('@/settings/councilSettings', () => ({
 
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
-const mockSetLed = vi.fn();
+const mockSetArmed = vi.fn();
 let mockPressed = false;
 
 vi.mock('@museum/button/useButton', () => ({
     useButton: () => ({
         claim: mockClaim,
         release: mockRelease,
-        setLed: mockSetLed,
+        setArmed: mockSetArmed,
         get pressed() {
+            return mockPressed;
+        },
+        get wantsMic() {
             return mockPressed;
         },
         isOwner: true,
@@ -149,8 +151,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: false,
             mode: 'web',
             setAppMode: vi.fn(),
-            agentMode: 'off',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('web'),
         });
     });
 
@@ -229,8 +230,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
@@ -251,8 +251,8 @@ describe('Summary Overlay', () => {
         expect(wrapper).toHaveStyle({
             position: 'fixed',
             top: '0px',
-            height: '100vh',
         });
+        expect(wrapper).toHaveProperty('style.height', '100vh');
 
         const teleprompter = screen.getByTestId('summary-teleprompter-content');
         expect(teleprompter).toHaveStyle({ paddingBottom: '140px', paddingTop: '80px' });
@@ -263,14 +263,13 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
         expect(mockClaim).toHaveBeenCalled();
-        expect(mockSetLed).toHaveBeenCalledWith('pulse');
+        expect(mockSetArmed).toHaveBeenCalledWith(true);
         expect(mockUseButtonBanner).toHaveBeenCalledWith(
             expect.objectContaining({
                 owner: 'summary',
@@ -286,8 +285,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         const { rerender } = render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
@@ -304,8 +302,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
         mockAutoplayState.phase = 'off';
         mockAutoplayState.summaryProtocolFinished = true;
@@ -324,8 +321,7 @@ describe('Summary Overlay', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
         mockAutoplayState.phase = 'active';
         mockAutoplayState.summaryProtocolFinished = true;

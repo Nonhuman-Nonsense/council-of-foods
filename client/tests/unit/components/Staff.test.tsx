@@ -41,14 +41,14 @@ vi.mock('react-i18next', () => ({
 
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
-const mockSetLed = vi.fn();
-const mockSetLedDebugOverlay = vi.fn();
+const mockSetArmed = vi.fn();
+const mockSetArmedDebugOverlay = vi.fn();
 const ledDebugState = { enabled: false };
 
 vi.mock('@/museum/button/buttonDebug', () => ({
   useButtonLedDebugOverlay: () => ({
     ledDebugOverlay: ledDebugState.enabled,
-    setLedDebugOverlay: mockSetLedDebugOverlay,
+    setLedDebugOverlay: mockSetArmedDebugOverlay,
   }),
 }));
 
@@ -57,8 +57,9 @@ vi.mock('@/museum/button/useButton', () => ({
   useButton: () => ({
     claim: mockClaim,
     release: mockRelease,
-    setLed: mockSetLed,
+    setArmed: mockSetArmed,
     pressed: false,
+    wantsMic: false,
     isOwner: false,
   }),
   useButtonConnection: () => ({
@@ -73,7 +74,7 @@ describe('Staff overlay', () => {
   beforeEach(() => {
     localStorage.clear();
     ledDebugState.enabled = false;
-    mockSetLedDebugOverlay.mockClear();
+    mockSetArmedDebugOverlay.mockClear();
     museumButtonState.bridgeStatus = 'disconnected';
     museumButtonState.bridgeError = null;
     museumButtonState.bridgeAvailable = true;
@@ -92,16 +93,15 @@ describe('Staff overlay', () => {
     museumButtonState.bridgeError = null;
   });
 
-  it('renders title, installation, and agent mode panels', () => {
+  it('renders the installation panel: mode row plus the independent staff aids', () => {
     render(<Staff />);
     expect(screen.getByText('staff.title')).toBeInTheDocument();
     expect(screen.getByText('staff.panels.installation')).toBeInTheDocument();
-    expect(screen.getByText('staff.panels.agentMode')).toBeInTheDocument();
     expect(screen.getByText('staff.web')).toBeInTheDocument();
     expect(screen.getByText('staff.museum')).toBeInTheDocument();
-    expect(screen.getByTestId('agent-mode-off')).toBeInTheDocument();
-    expect(screen.getByText('agentMode.alwaysOn')).toBeInTheDocument();
-    expect(screen.getByText('agentMode.pushToTalk')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-museum-switch-button-toggle')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-ptt-hardware-toggle')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-led-debug-toggle')).toBeInTheDocument();
   });
 
   it('selects web by default and persists app mode choice', () => {
@@ -158,44 +158,8 @@ describe('Staff overlay', () => {
     expect(toggle).not.toHaveStyle({ backgroundColor: 'rgb(239, 68, 68)' });
   });
 
-  it('selects off by default without persisting agent mode', () => {
-    render(<Staff />);
-
-    const off = screen.getByTestId('agent-mode-off');
-    const alwaysOn = screen.getByTestId('agent-mode-always-on');
-    const pushToTalk = screen.getByTestId('agent-mode-ptt');
-
-    expect(off).toHaveClass('selected');
-    expect(alwaysOn).not.toHaveClass('selected');
-    expect(pushToTalk).not.toHaveClass('selected');
-    expect(localStorage.getItem('councilAgentMode')).toBeNull();
-
-    fireEvent.click(pushToTalk);
-    expect(localStorage.getItem('councilAgentMode')).toBe('ptt');
-    expect(pushToTalk).toHaveClass('selected');
-
-    fireEvent.click(alwaysOn);
-    expect(localStorage.getItem('councilAgentMode')).toBe('always-on');
-    expect(alwaysOn).toHaveClass('selected');
-
-    fireEvent.click(off);
-    expect(localStorage.getItem('councilAgentMode')).toBe('off');
-    expect(off).toHaveClass('selected');
-  });
-
-  it('hides off in museum mode and coerces to always-on when entering museum', () => {
-    render(<Staff />);
-
-    fireEvent.click(screen.getByTestId('app-mode-museum'));
-
-    expect(screen.queryByTestId('agent-mode-off')).not.toBeInTheDocument();
-    expect(screen.getByTestId('agent-mode-always-on')).toHaveClass('selected');
-    expect(localStorage.getItem('councilAgentMode')).toBe('always-on');
-  });
-
   it('shows split status when push to talk is enabled in museum mode', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connected';
 
@@ -214,7 +178,6 @@ describe('Staff overlay', () => {
 
   it('maps bridge daemon health to status chips', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
     bridgeHealthState.status = 'checking';
     museumButtonState.bridgeStatus = 'connecting';
@@ -227,7 +190,6 @@ describe('Staff overlay', () => {
 
   it('maps app websocket status independently of usb', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
     bridgeHealthState.serial = 'disconnected';
     bridgeHealthState.path = null;
@@ -241,7 +203,6 @@ describe('Staff overlay', () => {
 
   it('shows staff bridge detail lines when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connecting';
     bridgeHealthState.serial = 'disconnected';
@@ -268,14 +229,13 @@ describe('Staff overlay', () => {
     expect(mockRelease).toHaveBeenCalled();
   });
 
-  it('sets pulse LED by default and on while pressed', () => {
-    mockSetLed.mockClear();
+  it('arms the button so staff can test a press', () => {
+    mockSetArmed.mockClear();
     render(<Staff />);
-    expect(mockSetLed).toHaveBeenCalledWith('pulse');
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
   it('toggles LED debug overlay when push to talk is enabled', () => {
-    localStorage.setItem('councilAgentMode', 'ptt');
 
     render(<Staff />);
 
@@ -283,11 +243,10 @@ describe('Staff overlay', () => {
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
 
     fireEvent.click(toggle);
-    expect(mockSetLedDebugOverlay).toHaveBeenCalledWith(true);
+    expect(mockSetArmedDebugOverlay).toHaveBeenCalledWith(true);
   });
 
   it('shows hardware toggle when push to talk is enabled', () => {
-    localStorage.setItem('councilAgentMode', 'ptt');
 
     render(<Staff />);
 
@@ -297,7 +256,6 @@ describe('Staff overlay', () => {
   });
 
   it('persists hardware enablement and shows button status panel', () => {
-    localStorage.setItem('councilAgentMode', 'ptt');
 
     render(<Staff />);
 
@@ -308,7 +266,6 @@ describe('Staff overlay', () => {
 
   it('shows button status panel in web mode when hardware is enabled', () => {
     localStorage.setItem('councilAppMode', 'web');
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connected';
 
@@ -321,7 +278,6 @@ describe('Staff overlay', () => {
   });
 
   it('shows hardware toggle as active when enabled', () => {
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
 
     render(<Staff />);
@@ -331,16 +287,16 @@ describe('Staff overlay', () => {
     expect(toggle).toHaveStyle({ backgroundColor: 'rgb(239, 68, 68)' });
   });
 
-  it('hides hardware toggle unless push to talk is enabled', () => {
+  it('offers the hardware and LED toggles in web mode too, for testing', () => {
     render(<Staff />);
-    expect(screen.queryByTestId('staff-ptt-hardware-toggle')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('staff-led-debug-toggle')).not.toBeInTheDocument();
+    expect(screen.getByTestId('app-mode-web')).toHaveClass('selected');
+    expect(screen.getByTestId('staff-ptt-hardware-toggle')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-led-debug-toggle')).toBeInTheDocument();
   });
 
   it('shows LED preview toggle when push to talk is enabled in production', async () => {
     vi.stubEnv('DEV', false);
     vi.resetModules();
-    localStorage.setItem('councilAgentMode', 'ptt');
 
     const { default: StaffProd } = await import('@main/overlay/Staff');
     render(<StaffProd />);
@@ -350,7 +306,6 @@ describe('Staff overlay', () => {
   });
 
   it('shows LED preview toggle as active when flag is enabled', () => {
-    localStorage.setItem('councilAgentMode', 'ptt');
     ledDebugState.enabled = true;
     render(<Staff />);
     const toggle = screen.getByTestId('staff-led-debug-toggle');
@@ -375,7 +330,6 @@ describe('Staff overlay', () => {
 
   it('shows usb not detected hint inside details when hardware is missing', () => {
     localStorage.setItem('councilAppMode', 'museum');
-    localStorage.setItem('councilAgentMode', 'ptt');
     localStorage.setItem('councilPttHardwareEnabled', 'true');
     museumButtonState.bridgeStatus = 'connecting';
     bridgeHealthState.serial = 'disconnected';

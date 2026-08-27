@@ -29,6 +29,29 @@ describe('buildSetupAgentPrompt', () => {
     expect(prompt).toContain('Apple');
   });
 
+  /**
+   * What the prompt *says* about the microphone is copy, and rewording it must
+   * not break tests. That the mic context reaches the prompt at all is the
+   * contract worth holding: without it the agent would talk to a visitor who
+   * cannot answer.
+   */
+  it('varies with the microphone context it is given', () => {
+    const base = { language: 'en', topics, characters, phase: 'topic' as const };
+    const hasSpoken = buildSetupAgentPrompt({ ...base, hasEverHeardVisitor: true });
+    const neverSpoken = buildSetupAgentPrompt({ ...base, hasEverHeardVisitor: false });
+
+    expect(neverSpoken).not.toBe(hasSpoken);
+  });
+
+  it('defaults to a hearing agent so museum is unaffected', () => {
+    const explicit = buildSetupAgentPrompt({
+      language: 'en', topics, characters, phase: 'topic', hasEverHeardVisitor: true,
+    });
+    const implicit = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'topic' });
+
+    expect(implicit).toBe(explicit);
+  });
+
   it('produces different output per phase', () => {
     const landing = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'landing' });
     const chars = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'characters' });

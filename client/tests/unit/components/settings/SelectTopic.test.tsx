@@ -7,14 +7,14 @@ import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { useCouncilSettings } from '@/settings/councilSettings';
 import { DEV_LOG_CATEGORIES } from '@/logger';
 import type { Topic } from '@shared/ModelTypes';
+import { capabilitiesFor } from '@/settings/capabilities';
 
 function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
     return {
         isMuseumMode: false,
         mode: 'web',
         setAppMode: vi.fn(),
-        agentMode: 'off',
-        setAgentMode: vi.fn(),
+        capabilities: capabilitiesFor('web'),
         pttHardwareEnabled: false,
         setPttHardwareEnabled: vi.fn(),
         museumSwitchButtonEnabled: false,
@@ -58,8 +58,7 @@ vi.mock('@/settings/councilSettings', () => ({
         isMuseumMode: false,
         mode: 'web',
         setAppMode: vi.fn(),
-        agentMode: "off",
-        setAgentMode: vi.fn(),
+        capabilities: capabilitiesFor('web'),
     })),
 }));
 
@@ -391,7 +390,7 @@ describe('SelectTopic Component', () => {
     });
 
     it('hides next button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true }));
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true, capabilities: capabilitiesFor('museum') }));
 
         render(
             <ControlledSelectTopic

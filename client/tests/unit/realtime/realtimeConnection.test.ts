@@ -3,11 +3,12 @@ import {
   acquireMicrophone,
   createRealtimeConnection,
   fetchRealtimeBootstrap,
-  fetchRealtimeSessionDefaults,
   MicrophoneUnavailableError,
   RealtimeHttpError,
   classifyRealtimeError,
   computeRealtimeRetryDelay,
+  queryMicPermission,
+  RealtimeTimeoutError,
   REALTIME_RETRY_BASE_MS,
   REALTIME_RETRY_MAX_MS,
 } from "@realtime/realtimeConnection";
@@ -52,12 +53,28 @@ class MockDataChannel {
 
 type Listener = (event?: unknown) => void;
 
+type MockSender = {
+  track: MockTrack | null;
+  replaceTrack: (track: MockTrack | null) => Promise<void>;
+};
+
+function makeSender(track: MockTrack | null): MockSender {
+  const sender: MockSender = {
+    track,
+    replaceTrack: vi.fn(async (next: MockTrack | null) => {
+      sender.track = next;
+    }),
+  };
+  return sender;
+}
+
 class MockPeerConnection {
   static instances: MockPeerConnection[] = [];
   static nextIceGatheringState: "new" | "gathering" | "complete" = "complete";
 
   readonly createdDataChannel = new MockDataChannel();
-  readonly senders: Array<{ track: MockTrack }> = [];
+  readonly senders: MockSender[] = [];
+  readonly transceivers: Array<{ kind: string; init?: RTCRtpTransceiverInit }> = [];
   readonly listeners = new Map<string, Set<Listener>>();
   connectionState = "new";
   iceConnectionState = "new";
@@ -89,7 +106,16 @@ class MockPeerConnection {
   }
 
   addTrack(track: MockTrack) {
-    this.senders.push({ track });
+    const sender = makeSender(track);
+    this.senders.push(sender);
+    return sender;
+  }
+
+  addTransceiver(kind: string, init?: RTCRtpTransceiverInit) {
+    this.transceivers.push({ kind, init });
+    const sender = makeSender(null);
+    this.senders.push(sender);
+    return { sender };
   }
 
   getSenders() {
@@ -115,6 +141,19 @@ class MockPeerConnection {
 
 function stubRtcGlobals() {
   vi.stubGlobal("RTCPeerConnection", MockPeerConnection as unknown as typeof RTCPeerConnection);
+}
+
+/** Standard successful SDP answer from the call proxy. */
+function stubCallAnswer() {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ sdp: "answer-sdp" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })
+    )
+  );
 }
 
 function stubGetUserMedia(getUserMedia = vi.fn()) {
@@ -197,9 +236,11 @@ describe("realtimeConnection", () => {
       )
     );
 
-    const result = await fetchRealtimeSessionDefaults({ feature: "setup-agent", language: "en" });
+    const result = await fetchRealtimeBootstrap({ feature: "setup-agent", language: "en" });
 
-    expect(result).toMatchObject({
+    expect(result.provider).toBe("inworld");
+    expect(result.iceServers).toEqual([]);
+    expect(result.session).toMatchObject({
       type: "realtime",
       model: "m",
       output_modalities: ["text"],
@@ -317,44 +358,41 @@ describe("realtimeConnection", () => {
     expect(audioTrack.stop).toHaveBeenCalledTimes(2);
   });
 
-  it("waits for ICE gathering, can use getUserMedia, and sets the remote description", async () => {
+  it("waits for ICE gathering before exchanging SDP", async () => {
     stubRtcGlobals();
     MockPeerConnection.nextIceGatheringState = "gathering";
-    const micTrack = new MockTrack("audio");
-    const getUserMedia = stubGetUserMedia(
-      vi.fn().mockResolvedValue(new MockMediaStream([micTrack]) as unknown as MediaStream)
-    );
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ sdp: "answer-sdp" }), {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        })
-      )
-    );
+    stubCallAnswer();
 
-    const connectionPromise = createRealtimeConnection({
+    const connection = await createRealtimeConnection({
       session: { type: "realtime" },
       iceServers: [],
       callPath: "/api/realtime/call",
+      micStream: new MockMediaStream() as unknown as MediaStream,
       onEvent: vi.fn(),
       onRemoteTrack: vi.fn(),
     });
 
-    const connection = await connectionPromise;
     const pc = MockPeerConnection.instances[0];
-
-    expect(getUserMedia).toHaveBeenCalledWith({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false,
-      },
-    });
     expect(pc.setRemoteDescription).toHaveBeenCalledWith({ type: "answer", sdp: "answer-sdp" });
 
     connection.close();
+  });
+
+  it("refuses to connect with neither a microphone nor deferMic", async () => {
+    // Acquiring one here would prompt behind the caller's back and leave the
+    // availability store none the wiser.
+    stubRtcGlobals();
+    stubCallAnswer();
+
+    await expect(
+      createRealtimeConnection({
+        session: { type: "realtime" },
+        iceServers: [],
+        callPath: "/api/realtime/call",
+        onEvent: vi.fn(),
+        onRemoteTrack: vi.fn(),
+      })
+    ).rejects.toThrow(/micStream/);
   });
 
   it("tears down partial state when call creation fails", async () => {
@@ -378,6 +416,87 @@ describe("realtimeConnection", () => {
     expect(pc.createdDataChannel.close).toHaveBeenCalledTimes(1);
     expect(pc.close).toHaveBeenCalledTimes(1);
     expect(audioTrack.stop).toHaveBeenCalledTimes(2);
+  });
+
+  it("connects without touching the microphone when deferMic is set", async () => {
+    stubRtcGlobals();
+    const getUserMedia = stubGetUserMedia(vi.fn());
+    stubCallAnswer();
+
+    const connection = await createRealtimeConnection({
+      session: { type: "realtime" },
+      iceServers: [],
+      callPath: "/api/realtime/call",
+      deferMic: true,
+      onEvent: vi.fn(),
+      onRemoteTrack: vi.fn(),
+    });
+
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(connection.micStream).toBeNull();
+    // An empty sendrecv m-line, so a mic can join later without renegotiating.
+    expect(MockPeerConnection.instances[0].transceivers).toEqual([
+      { kind: "audio", init: { direction: "sendrecv" } },
+    ]);
+
+    connection.close();
+  });
+
+  it("attaches a microphone to a deferred session without renegotiating", async () => {
+    stubRtcGlobals();
+    stubGetUserMedia(vi.fn());
+    stubCallAnswer();
+
+    const connection = await createRealtimeConnection({
+      session: { type: "realtime" },
+      iceServers: [],
+      callPath: "/api/realtime/call",
+      deferMic: true,
+      onEvent: vi.fn(),
+      onRemoteTrack: vi.fn(),
+    });
+
+    const pc = MockPeerConnection.instances[0];
+    const micTrack = new MockTrack("audio");
+    const micStream = new MockMediaStream([micTrack]);
+
+    await connection.attachMic(micStream as unknown as MediaStream);
+
+    expect(pc.senders[0].replaceTrack).toHaveBeenCalledWith(micTrack);
+    expect(connection.micStream).toBe(micStream);
+    // The whole point: no second offer/answer round-trip.
+    expect(pc.createOffer).toHaveBeenCalledTimes(1);
+    expect(pc.setRemoteDescription).toHaveBeenCalledTimes(1);
+
+    connection.close();
+  });
+
+  it("releases the microphone on detachMic but keeps the session open", async () => {
+    stubRtcGlobals();
+    stubGetUserMedia(vi.fn());
+    stubCallAnswer();
+
+    const connection = await createRealtimeConnection({
+      session: { type: "realtime" },
+      iceServers: [],
+      callPath: "/api/realtime/call",
+      deferMic: true,
+      onEvent: vi.fn(),
+      onRemoteTrack: vi.fn(),
+    });
+
+    const pc = MockPeerConnection.instances[0];
+    const micTrack = new MockTrack("audio");
+    await connection.attachMic(new MockMediaStream([micTrack]) as unknown as MediaStream);
+
+    connection.detachMic();
+
+    expect(pc.senders[0].replaceTrack).toHaveBeenLastCalledWith(null);
+    expect(micTrack.stop).toHaveBeenCalled();
+    expect(connection.micStream).toBeNull();
+    expect(pc.close).not.toHaveBeenCalled();
+
+    connection.close();
   });
 
   it("throws AbortError before any work when the signal is already aborted", async () => {
@@ -419,21 +538,27 @@ describe("classifyRealtimeError", () => {
     expect(classifyRealtimeError(new Error("Realtime bootstrap: response invalid"))).toBe("fatal");
   });
 
-  it("marks mic NotAllowedError as fatal on web, retryable in museum", () => {
+  it("marks a legacy mic NotAllowedError as unavailable on web, fatal in museum", () => {
     const err = Object.assign(new Error("Permission denied"), { name: "NotAllowedError" });
-    expect(classifyRealtimeError(err)).toBe("fatal");
-    expect(classifyRealtimeError(err, { isMuseumMode: false })).toBe("fatal");
-    expect(classifyRealtimeError(err, { isMuseumMode: true })).toBe("retryable");
+    expect(classifyRealtimeError(err)).toBe("unavailable");
+    expect(classifyRealtimeError(err, { unattended: false })).toBe("unavailable");
+    expect(classifyRealtimeError(err, { unattended: true })).toBe("fatal");
   });
 
-  it("marks all MicrophoneUnavailableError reasons as fatal in all modes", () => {
+  it("marks every mic failure as unavailable on web and fatal in museum", () => {
+    // Web keeps a fully clickable setup flow without a mic; a kiosk with no
+    // working mic is genuinely broken and must surface as a terminal error.
     const reasons = ["insecure_context", "unsupported", "not_found", "permission_denied", "in_use", "unknown"] as const;
     for (const reason of reasons) {
       const err = new MicrophoneUnavailableError(reason, "nope");
-      expect(classifyRealtimeError(err)).toBe("fatal");
-      expect(classifyRealtimeError(err, { isMuseumMode: false })).toBe("fatal");
-      expect(classifyRealtimeError(err, { isMuseumMode: true })).toBe("fatal");
+      expect(classifyRealtimeError(err), reason).toBe("unavailable");
+      expect(classifyRealtimeError(err, { unattended: false }), reason).toBe("unavailable");
+      expect(classifyRealtimeError(err, { unattended: true }), reason).toBe("fatal");
     }
+  });
+
+  it("marks a request timeout as retryable", () => {
+    expect(classifyRealtimeError(new RealtimeTimeoutError("timed out"))).toBe("retryable");
   });
 
   it("marks network and ICE errors as retryable", () => {
@@ -446,6 +571,94 @@ describe("classifyRealtimeError", () => {
     expect(classifyRealtimeError("something weird")).toBe("retryable");
     expect(classifyRealtimeError(null)).toBe("retryable");
     expect(classifyRealtimeError(undefined)).toBe("retryable");
+  });
+});
+
+describe("realtime request timeouts", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("reports its own timeout as RealtimeTimeoutError, not an AbortError", async () => {
+    // Regression: a slow bootstrap (e.g. the visitor left the mic permission
+    // prompt open) aborts internally, and callers treat AbortError as "we
+    // cancelled this" — which used to strand the session in "connecting".
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: unknown, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => {
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+            });
+          })
+      )
+    );
+
+    const pending = fetchRealtimeBootstrap({ feature: "setup-agent", language: "en" }).catch((e) => e);
+    await vi.advanceTimersByTimeAsync(15_000);
+    const err = await pending;
+
+    expect(err).toBeInstanceOf(RealtimeTimeoutError);
+    expect((err as Error).name).not.toBe("AbortError");
+  });
+
+  it("still reports a caller-driven abort as AbortError", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        (_input: unknown, init: { signal: AbortSignal }) =>
+          new Promise((_resolve, reject) => {
+            init.signal.addEventListener("abort", () => {
+              reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+            });
+          })
+      )
+    );
+
+    const controller = new AbortController();
+    const pending = fetchRealtimeBootstrap(
+      { feature: "setup-agent", language: "en" },
+      controller.signal
+    ).catch((e) => e);
+    controller.abort();
+    const err = await pending;
+
+    expect(err).toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("queryMicPermission", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reports the browser's permission state", async () => {
+    const states = ["granted", "prompt", "denied"] as const;
+    for (const state of states) {
+      Object.defineProperty(globalThis, "navigator", {
+        configurable: true,
+        value: { permissions: { query: vi.fn().mockResolvedValue({ state }) } },
+      });
+      await expect(queryMicPermission()).resolves.toBe(state);
+    }
+  });
+
+  it("reports unsupported when the Permissions API can't answer", async () => {
+    // Firefox rejects the `microphone` name; older browsers have no API at all.
+    Object.defineProperty(globalThis, "navigator", {
+      configurable: true,
+      value: { permissions: { query: vi.fn().mockRejectedValue(new TypeError("bad name")) } },
+    });
+    await expect(queryMicPermission()).resolves.toBe("unsupported");
+
+    Object.defineProperty(globalThis, "navigator", { configurable: true, value: {} });
+    await expect(queryMicPermission()).resolves.toBe("unsupported");
   });
 });
 
@@ -504,7 +717,7 @@ describe("acquireMicrophone", () => {
       const err = await acquireMicrophone().catch((e) => e);
       expect(err).toBeInstanceOf(MicrophoneUnavailableError);
       expect((err as MicrophoneUnavailableError).reason).toBe(reason);
-      expect((err as MicrophoneUnavailableError).originalError).toBeInstanceOf(Error);
+      expect((err as MicrophoneUnavailableError).cause).toBeInstanceOf(Error);
     }
   });
 

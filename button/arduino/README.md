@@ -76,7 +76,7 @@ All messages are newline-terminated ASCII. Incoming host lines longer than 32 ch
 ### First install (once per Mac)
 
 1. Upload this sketch
-2. Install the bridge daemon on the museum Mac (Apple Silicon, Node 20+ required):
+2. Install the bridge daemon on the museum Mac (Apple Silicon, Node 24+ required):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/main/button/bridge/install/macos/install-release.sh | sudo bash

@@ -22,6 +22,8 @@ vi.mock("@/museum/button/buttonBridge", () => ({
 describe("useButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem("councilAppMode", "museum");
     _resetButtonStoreForTests();
     useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: true });
   });
@@ -36,7 +38,7 @@ describe("useButton", () => {
     const { result, unmount } = renderHook(() => useButton("human-input"));
 
     result.current.claim();
-    result.current.setLed("pulse");
+    result.current.setArmed(true);
     await Promise.resolve();
 
     expect(useButtonStore.getState().claims["human-input"]).toBe(true);
@@ -59,7 +61,7 @@ describe("useButton", () => {
     act(() => {
       meta.current.claim();
       human.current.claim();
-      useButtonStore.setState({ pressed: true, ledMode: "pulse" });
+      useButtonStore.setState({ pressed: true, armed: true });
     });
 
     expect(human.current.pressed).toBe(true);
@@ -67,12 +69,45 @@ describe("useButton", () => {
     expect(human.current.isOwner).toBe(true);
   });
 
-  it("keeps owner when claimed with off LED", async () => {
+  it("exposes wantsMic to the owner when a tap has latched the mic open", async () => {
+    const { useButton } = await import("@/museum/button/useButton");
+
+    const { result } = renderHook(() => useButton("setup-agent"));
+    act(() => {
+      result.current.claim();
+      useButtonStore.setState({ armed: true, latched: true });
+    });
+
+    // Latched, not physically held: the mic is open but `pressed` stays false
+    // so edge-triggered consumers see nothing.
+    expect(result.current.wantsMic).toBe(true);
+    expect(result.current.pressed).toBe(false);
+  });
+
+  it("wants no microphone while disarmed, even with a latch set", async () => {
+    // A click can set the latch before the agent has armed the button; until it
+    // does, the button must not report the mic as open.
+    const { useButton } = await import("@/museum/button/useButton");
+
+    const { result } = renderHook(() => useButton("setup-agent"));
+    act(() => {
+      result.current.claim();
+      useButtonStore.setState({ armed: false, latched: true });
+    });
+    expect(result.current.wantsMic).toBe(false);
+
+    act(() => {
+      useButtonStore.setState({ armed: true });
+    });
+    expect(result.current.wantsMic).toBe(true);
+  });
+
+  it("keeps ownership while disarmed", async () => {
     const { useButton } = await import("@/museum/button/useButton");
 
     const { result } = renderHook(() => useButton("meta-agent"));
     result.current.claim();
-    result.current.setLed("off");
+    result.current.setArmed(false);
     await Promise.resolve();
 
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");

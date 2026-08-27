@@ -50,7 +50,7 @@ function Council({
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode, agentMode } = useCouncilSettings();
+  const { isMuseumMode, capabilities } = useCouncilSettings();
   const connectionError = useErrorStore((s) => s.connectionError);
 
   const navigate = useNavigate();
@@ -124,8 +124,8 @@ function Council({
     audioContext,
     isPaused,
     setPaused,
-    isMuseumMode,
-    agentMode,
+    unattended: capabilities.unattended,
+    hasMetaAgent: capabilities.metaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
   });
@@ -221,10 +221,6 @@ function Council({
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
-  const isButtonMuseumMode = useMemo(
-    () => isMuseumMode && agentMode === "ptt",
-    [isMuseumMode, agentMode]
-  );
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
     councilState === 'playing' ||
@@ -256,7 +252,7 @@ function Council({
         agentSpeaking={agentSpeaking}
       />
       {councilState === 'loading' && !connectionError && <Loading />}
-      {isMuseumMode && liveKey && agentMode === "ptt" && (
+      {capabilities.metaAgent && liveKey && (
         <MeetingMetaAgent
           liveKey={liveKey}
           language={i18n.language}
@@ -282,7 +278,7 @@ function Council({
           currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
           onSubmitHumanMessage={handleOnSubmitHumanMessage}
           onAbandonHumanTurn={handleOnAbandonHumanTurn}
-          isButtonMuseumMode={isButtonMuseumMode}
+          isButtonMuseumMode={isMuseumMode}
         />
       )}
       {/* council-shell: flex column owning the overlay content region + footer.
@@ -339,7 +335,7 @@ function Council({
           )}
           {controlsVisible && metaAgentPhase === "inactive" && (
             <ConversationControls
-              hidden={isMuseumMode}
+              hidden={!capabilities.browserUi}
               onSkipBackward={handleOnSkipBackward}
               onSkipForward={handleOnSkipForward}
               onRaiseHand={handleOnRaiseHand}

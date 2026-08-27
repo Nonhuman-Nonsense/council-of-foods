@@ -1,12 +1,11 @@
 import { type CSSProperties, type ReactElement } from "react";
-import Lottie from "react-lottie-player";
-import loadingAnimation from "@assets/animations/loading.json";
+import { useTranslation } from "react-i18next";
 import ConversationControlIcon from "@council/ConversationControlIcon";
 import RealtimeCaptionOverlay, {
+  type MicButtonState,
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
-import type { AgentMode } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 
 type SetupAgentOverlayProps = {
@@ -14,18 +13,37 @@ type SetupAgentOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
   muted: boolean;
-  isMuseumMode?: boolean;
-  agentMode?: AgentMode;
+  /** The visitor has a pointer: show the mic button and the volume control. */
+  browserUi?: boolean;
+  /** Museum: show the visualiser row with no on-screen button. */
+  showMicRow?: boolean;
   subtitleLayout?: RealtimeSubtitleLayout;
   micStream?: MediaStream | null;
-  micActive?: boolean;
+  /**
+   * The visitor has asked for the mic (gesture), whether or not audio is
+   * flowing yet. Drives the toggle label (a click cancels the request either
+   * way), museum's visualiser row (raw press — the mic is already attached
+   * there, so there is no gap to hide), and web's "connecting" state; web
+   * additionally waits for `micStream` before showing "on", since on a first
+   * press the track can lag the gesture by however long getUserMedia takes.
+   */
+  micRequested?: boolean;
+  /**
+   * A real getUserMedia/attach call is outstanding — independent of
+   * `micRequested`: the permission prompt itself can blur the window and
+   * clear the ask while this is still true, and the spinner should keep
+   * showing real work happening either way.
+   */
+  micAttaching?: boolean;
+  onToggleMic?: () => void;
   onStart: () => void;
   onStop: () => void;
 };
 
 /**
- * Setup wizard agent shell: shared realtime captions + optional web AI toggle.
- * Stopping the agent tears down WebRTC.
+ * Setup wizard agent shell: shared realtime captions, plus the two web
+ * controls — a mic toggle at the bottom centre (talk to the agent) and a volume
+ * toggle in the corner (turn the agent off entirely, tearing down the session).
  */
 export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
   const {
@@ -33,22 +51,40 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     lastCaption,
     lastUserTranscript,
     muted,
-    isMuseumMode = false,
-    agentMode = "always-on",
+    browserUi = false,
+    showMicRow = false,
     subtitleLayout = "compact",
     micStream = null,
-    micActive = false,
+    micRequested = false,
+    micAttaching = false,
+    onToggleMic,
     onStart,
     onStop,
   } = props;
   const isMobile = useMobile();
+  const { t } = useTranslation();
 
-  const sessionActive = !muted;
-  const recordingState: "idle" | "loading" | "recording" = !sessionActive
-    ? "idle"
-    : isConnecting
-      ? "loading"
-      : "recording";
+  // The one thing SetupAgentOverlay adds on top of what it's told: whether
+  // the track handed back with `micStream` is the one being asked for right
+  // now. Not a second signal from the caller — `micStream` was already here
+  // for the visualiser.
+  const micLive = micStream != null;
+
+  // Three separate waits, all shown as "connecting": the whole session still
+  // settling (same signal the museum spinner uses, ready-but-silent included —
+  // stops early once the page turns out not to be audible, since nothing more
+  // is coming until the visitor gives the gesture this button exists to
+  // collect); a real attach call outstanding (`micAttaching` — true through
+  // the permission prompt regardless of whether the ask survives it); and the
+  // brief gap on an already-attached track between the ask and `micStream`
+  // catching up, one render behind since the enable itself runs in an effect.
+  const micButtonState: MicButtonState = muted
+    ? "off"
+    : isConnecting || micAttaching || (micRequested && !micLive)
+      ? "connecting"
+      : micLive
+        ? "on"
+        : "off";
 
   const controlContainerStyle: CSSProperties = {
     position: "fixed",
@@ -71,32 +107,38 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
       <RealtimeCaptionOverlay
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
-        hideCaptions={isConnecting}
+        hideCaptions={isConnecting || muted}
         subtitleLayout={subtitleLayout}
-        showPttVisualizer={agentMode === "ptt"}
+        showMicRow={showMicRow}
         micStream={micStream}
-        micActive={micActive}
+        // Web: wait for audio to actually be flowing, not just requested —
+        // showing this on the gesture alone is what swallowed the first
+        // second of speech into an untethered track.
+        micActive={browserUi ? micLive : micRequested}
+        micButton={
+          browserUi && onToggleMic
+            ? {
+                state: micButtonState,
+                onClick: onToggleMic,
+                // Tracks the request, not the live state: a click cancels the
+                // ask whether or not the track has started sending yet.
+                label: micRequested ? t("agent.micStop") : t("agent.micStart"),
+              }
+            : undefined
+        }
       />
 
-      {!isMuseumMode ? (
+      {browserUi ? (
         <div style={controlContainerStyle}>
           <div style={controlSlotStyle}>
-            {recordingState === "loading" ? (
-              <Lottie
-                play
-                loop
-                animationData={loadingAnimation}
-                style={{ height: isMobile ? 35 : 40 }}
-              />
-            ) : (
-              <ConversationControlIcon
-                icon={recordingState === "recording" ? "ai_filled" : "ai"}
-                hoverIcon={recordingState === "recording" ? "ai" : "ai_filled"}
-                tooltip={recordingState === "recording" ? "Stop setup agent" : "Start setup agent"}
-                onClick={recordingState === "recording" ? onStop : onStart}
-                size={isMobile ? 30 : 40}
-              />
-            )}
+            {/* No spinner here: this is a standing intention, clickable from
+                first paint whatever the session is doing. */}
+            <ConversationControlIcon
+              icon={muted ? "volume_off" : "volume_on"}
+              tooltip={muted ? t("agent.turnOn") : t("agent.turnOff")}
+              onClick={muted ? onStart : onStop}
+              size={isMobile ? 30 : 40}
+            />
           </div>
         </div>
       ) : null}

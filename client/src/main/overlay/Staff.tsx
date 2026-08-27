@@ -322,8 +322,6 @@ function Staff(): ReactElement {
   const {
     mode: appMode,
     setAppMode,
-    agentMode,
-    setAgentMode,
     pttHardwareEnabled,
     setPttHardwareEnabled,
     museumSwitchButtonEnabled,
@@ -334,7 +332,7 @@ function Staff(): ReactElement {
     setDevLogCategoryEnabled,
     setAllDevLogCategories,
   } = useCouncilSettings();
-  const bridgeButtonActive = agentMode === "ptt" && pttHardwareEnabled;
+  const bridgeButtonActive = pttHardwareEnabled;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
@@ -348,8 +346,8 @@ function Staff(): ReactElement {
   }, [button.claim, button.release]);
 
   useEffect(() => {
-    button.setLed(button.pressed ? "on" : "pulse");
-  }, [button.setLed, button.pressed]);
+    button.setArmed(true);
+  }, [button.setArmed]);
 
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
@@ -357,9 +355,7 @@ function Staff(): ReactElement {
   const bridgeDetailLines =
     bridgeHealth.status === "running" ? getStaffBridgeDetailLines(bridgeHealth) : [];
 
-  const showButtonPanel = agentMode === "ptt" && pttHardwareEnabled;
-  const showPttOptionsRow = agentMode === "ptt";
-  const showLedPreviewPill = agentMode === "ptt";
+  const showButtonPanel = pttHardwareEnabled;
   const showButtonDetails =
     showButtonPanel &&
     (bridgeDetailLines.length > 0 ||
@@ -386,7 +382,7 @@ function Staff(): ReactElement {
           width: "100%",
         }}
       >
-        <StaffPanel title={t("staff.panels.installation")}>
+        <StaffPanel title={t("staff.panels.installation")} fullWidth>
           <StaffSegmented>
             <button
               type="button"
@@ -407,86 +403,50 @@ function Staff(): ReactElement {
               {t("staff.museum")}
             </button>
           </StaffSegmented>
-          <button
-            type="button"
-            data-testid="staff-museum-switch-button-toggle"
-            className={museumSwitchButtonEnabled ? "control" : ""}
-            aria-pressed={museumSwitchButtonEnabled}
-            onClick={() => setMuseumSwitchButtonEnabled(!museumSwitchButtonEnabled)}
-            style={museumSwitchButtonToggleStyle(museumSwitchButtonEnabled, {
-              ...staffCompactButton,
-              width: "100%",
-            })}
+          {/* Second row: independent of the mode — each is a staff aid that can
+              be wanted in either install (a laptop can drive a real button). */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
           >
-            {t("staff.museumSwitchButton")}
-          </button>
-        </StaffPanel>
-
-        <StaffPanel title={t("staff.panels.agentMode")}>
-          <StaffSegmented columns={appMode === "web" ? 3 : 2}>
-            {appMode === "web" ? (
-              <button
-                type="button"
-                data-testid="agent-mode-off"
-                className={agentMode === "off" ? "selected" : ""}
-                onClick={() => setAgentMode("off")}
-                style={staffSegmentButton}
-              >
-                {t("staff.logging.off")}
-              </button>
-            ) : null}
             <button
               type="button"
-              data-testid="agent-mode-always-on"
-              className={agentMode === "always-on" ? "selected" : ""}
-              onClick={() => setAgentMode("always-on")}
-              style={staffSegmentButton}
+              data-testid="staff-museum-switch-button-toggle"
+              className={museumSwitchButtonEnabled ? "control" : ""}
+              aria-pressed={museumSwitchButtonEnabled}
+              onClick={() => setMuseumSwitchButtonEnabled(!museumSwitchButtonEnabled)}
+              style={museumSwitchButtonToggleStyle(museumSwitchButtonEnabled, {
+                ...staffCompactButton,
+                flex: 1,
+              })}
             >
-              {t("agentMode.alwaysOn")}
+              {t("staff.museumSwitchButton")}
             </button>
             <button
               type="button"
-              data-testid="agent-mode-ptt"
-              className={agentMode === "ptt" ? "selected" : ""}
-              onClick={() => setAgentMode("ptt")}
-              style={staffSegmentButton}
+              data-testid="staff-ptt-hardware-toggle"
+              className={pttHardwareEnabled ? "control" : ""}
+              aria-pressed={pttHardwareEnabled}
+              onClick={() => setPttHardwareEnabled(!pttHardwareEnabled)}
+              style={{ ...ledPreviewToggleStyle(pttHardwareEnabled), flex: 1 }}
             >
-              {t("agentMode.pushToTalk")}
+              {t("staff.button.hardwareButton")}
             </button>
-          </StaffSegmented>
-          {showPttOptionsRow ? (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 8,
-              }}
+            <button
+              type="button"
+              data-testid="staff-led-debug-toggle"
+              className={ledDebugOverlay ? "control" : ""}
+              aria-pressed={ledDebugOverlay}
+              onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
+              style={{ ...ledPreviewToggleStyle(ledDebugOverlay), flex: 1 }}
             >
-              <button
-                type="button"
-                data-testid="staff-ptt-hardware-toggle"
-                className={pttHardwareEnabled ? "control" : ""}
-                aria-pressed={pttHardwareEnabled}
-                onClick={() => setPttHardwareEnabled(!pttHardwareEnabled)}
-                style={{...ledPreviewToggleStyle(pttHardwareEnabled), flex: 1}}
-              >
-                {t("staff.button.hardwareButton")}
-              </button>
-              {showLedPreviewPill ? (
-                <button
-                  type="button"
-                  data-testid="staff-led-debug-toggle"
-                  className={ledDebugOverlay ? "control" : ""}
-                  aria-pressed={ledDebugOverlay}
-                  onClick={() => setLedDebugOverlay(!ledDebugOverlay)}
-                  style={{...ledPreviewToggleStyle(ledDebugOverlay), flex: 1}}
-                >
-                  {t("staff.button.ledDebugOverlay")}
-                </button>
-              ) : null}
-            </div>
-          ) : null}
+              {t("staff.button.ledDebugOverlay")}
+            </button>
+          </div>
         </StaffPanel>
 
         {showButtonPanel ? (

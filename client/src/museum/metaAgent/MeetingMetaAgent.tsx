@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useButton, type ButtonLedMode } from "@museum/button/useButton";
+import { useButton } from "@museum/button/useButton";
 import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
@@ -91,7 +91,7 @@ const PHASE_AGENT_CONFIG: Record<
   }
 > = {
   interruption: {
-    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle }),
     buildTools: (bundle) => createMetaAgentTools({ promptBundle: bundle }),
     buildToolHandlers: (shared, { onRestartMeeting }) =>
       createMetaAgentToolHandlers({ ...shared, onRestartMeeting }),
@@ -102,7 +102,7 @@ const PHASE_AGENT_CONFIG: Record<
     idleTerminalEventName: "idle auto-resume resume_meeting",
   },
   extension: {
-    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle }),
     buildTools: (bundle) => createExtensionAgentTools({ promptBundle: bundle }),
     buildToolHandlers: (shared, { onExtendMeeting, onConcludeMeeting }) =>
       createExtensionAgentToolHandlers({ ...shared, onExtendMeeting, onConcludeMeeting }),
@@ -269,12 +269,9 @@ export default function MeetingMetaAgent({
     return () => button.release();
   }, [button.claim, button.release]);
 
-  const ledMode: ButtonLedMode =
-    connectionState !== "ready" ? "off" : metaAgentPhase !== "inactive" && button.pressed ? "on" : "pulse";
-
   useEffect(() => {
-    button.setLed(ledMode);
-  }, [button.setLed, ledMode]);
+    button.setArmed(connectionState === "ready");
+  }, [button.setArmed, connectionState]);
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "meta-agent",
@@ -384,7 +381,7 @@ export default function MeetingMetaAgent({
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
         subtitleLayout="council"
-        showPttVisualizer
+        showMicRow
         micStream={micStream}
         micActive={button.pressed}
       />

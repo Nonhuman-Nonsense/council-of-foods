@@ -56,8 +56,8 @@ vi.mock('@main/overlay/RotateDevice', () => ({
 vi.mock('@setupAgent/MeetingSetupAgent', () => ({
     default: () => null,
 }));
-vi.mock('@/museum/button/MuseumButton', () => ({
-    default: () => <div data-testid="museum-button">MuseumButton</div>,
+vi.mock('@/museum/button/HardwareButton', () => ({
+    default: () => <div data-testid="hardware-button">HardwareButton</div>,
 }));
 vi.mock('@main/FullscreenButton', () => ({
     default: () => <div data-testid="fullscreen-btn">Fullscreen</div>
@@ -105,18 +105,8 @@ describe('Main Component', () => {
         localStorage.clear();
     });
 
-    it('does not mount MuseumButton when push-to-talk is off', () => {
-        render(
-            <MemoryRouter initialEntries={['/']}>
-                <Main lang="en" />
-            </MemoryRouter>
-        );
-
-        expect(screen.queryByTestId('museum-button')).not.toBeInTheDocument();
-    });
-
-    it('mounts MuseumButton when push-to-talk is on', async () => {
-        localStorage.setItem('councilAgentMode', 'ptt');
+    it('mounts the hardware bridge only when staff enable it', async () => {
+        localStorage.setItem('councilPttHardwareEnabled', 'true');
 
         render(
             <MemoryRouter initialEntries={['/']}>
@@ -124,7 +114,7 @@ describe('Main Component', () => {
             </MemoryRouter>
         );
 
-        expect(await screen.findByTestId('museum-button')).toBeInTheDocument();
+        expect(await screen.findByTestId('hardware-button')).toBeInTheDocument();
     });
 
     it('renders Council on meeting route', () => {

@@ -4,6 +4,12 @@
  *
  * Scripts and tests: `no-explicit-any` off (tooling / loose mocks).
  * Application `src/`: keep `no-explicit-any` as warn and fix or narrow types.
+ *
+ * `typescript` in package.json is aliased to `@typescript/typescript6` (the TS 6.0 API
+ * compat shim) because typescript-eslint doesn't support the TS 7 API yet — see
+ * https://github.com/typescript-eslint/typescript-eslint/issues/10940. `tsc` itself still
+ * resolves to real TS 7 via the `@typescript/native` alias; drop both aliases once that
+ * issue lands.
  */
 import eslint from '@eslint/js';
 import globals from 'globals';

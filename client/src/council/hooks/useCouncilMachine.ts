@@ -21,7 +21,6 @@ import {
     type PendingIntent,
 } from "./pendingIntentStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
-import type { AgentMode } from "@/settings/councilSettings";
 import { useDocumentVisibility } from "@/utils";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
@@ -39,8 +38,10 @@ export interface UseCouncilMachineProps {
     audioContext: React.RefObject<AudioContext | null>;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
-    isMuseumMode: boolean;
-    agentMode: AgentMode;
+    /** Nobody is present to resume a paused meeting (capabilities.unattended). */
+    unattended: boolean;
+    /** Meeting-time meta agent is available (capabilities.metaAgent). */
+    hasMetaAgent: boolean;
     setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
     metaAgentPhase: MetaAgentPhase;
 }
@@ -79,17 +80,12 @@ function isOverlayCouncilState(
 function resolveVisibleCouncilOverlay(params: {
     councilState: CouncilState;
     nameOverlayOpen: boolean;
-    isMuseumMode: boolean;
-    agentMode: AgentMode;
+    hasMetaAgent: boolean;
 }): CouncilOverlayType {
     if (params.nameOverlayOpen) {
         return "name";
     }
-    if (
-        params.councilState === "query_extension" &&
-        params.isMuseumMode &&
-        params.agentMode === "ptt"
-    ) {
+    if (params.councilState === "query_extension" && params.hasMetaAgent) {
         return null;
     }
     if (isOverlayCouncilState(params.councilState)) {
@@ -122,8 +118,8 @@ export function useCouncilMachine({
     audioContext,
     isPaused,
     setPaused,
-    isMuseumMode,
-    agentMode,
+    unattended,
+    hasMetaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
 }: UseCouncilMachineProps) {
@@ -197,10 +193,9 @@ export function useCouncilMachine({
         () => resolveVisibleCouncilOverlay({
             councilState,
             nameOverlayOpen,
-            isMuseumMode,
-            agentMode,
+            hasMetaAgent,
         }),
-        [councilState, nameOverlayOpen, isMuseumMode, agentMode],
+        [councilState, nameOverlayOpen, hasMetaAgent],
     );
 
     // The one thing that distinguishes the "another live session holds this meeting" case
@@ -508,7 +503,7 @@ export function useCouncilMachine({
                 }
                 break;
             case 'query_extension':
-                if (isMuseumMode && agentMode === "ptt") {
+                if (hasMetaAgent) {
                     setMetaAgentPhase("extension");
                 }
                 if (textMessages[playNextIndex]?.type !== 'query_extension') {
@@ -519,7 +514,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, isMuseumMode, agentMode, setMetaAgentPhase, pendingIntent, currentMeetingId]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -914,7 +909,7 @@ export function useCouncilMachine({
             case "raise-hand": {
                 // Precondition: server has not already processed the raise (no
                 // trailing awaiting_* or invitation on the conversation).
-                const lastMsg = textMessages[textMessages.length - 1];
+                const lastMsg = textMessages.at(-1);
                 const serverAlreadyAwaiting =
                     lastMsg?.type === "awaiting_human_question" ||
                     lastMsg?.type === "awaiting_human_panelist" ||
@@ -1066,11 +1061,11 @@ export function useCouncilMachine({
         setPaused,
     ]);
 
-    // Museum resume: environmental interrupts only. Overlay dismiss (X) must not
+    // Unattended resume: environmental interrupts only. Overlay dismiss (X) must not
     // auto-resume, but pausing overlays (incomplete, name, query_extension in web) must
     // block resume — otherwise isPaused oscillates with the overlay-pause effect above.
     useEffect(() => {
-        if (!isMuseumMode || !isPaused) {
+        if (!unattended || !isPaused) {
             return;
         }
 
@@ -1093,7 +1088,7 @@ export function useCouncilMachine({
         connectionError,
         isDocumentVisible,
         metaAgentPhase,
-        isMuseumMode,
+        unattended,
         isPaused,
         visibleOverlay,
         setPaused,

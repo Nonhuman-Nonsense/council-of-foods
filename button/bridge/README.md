@@ -102,7 +102,7 @@ curl http://127.0.0.1:8765/health
 
 ## Museum Mac install (persistent)
 
-Apple Silicon (arm64) only. Node 20+ must be installed once on the Mac.
+Apple Silicon (arm64) only. Node 24+ must be installed once on the Mac.
 
 ### From GitHub Release (recommended — no git clone)
 

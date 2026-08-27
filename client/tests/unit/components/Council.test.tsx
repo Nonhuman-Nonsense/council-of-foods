@@ -6,7 +6,8 @@ import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
 import { notifyAutoplay, useAutoplayStore } from '@/autoplay/autoplayStore';
 import type { Message } from '@shared/ModelTypes';
-import type { AppMode, AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor, type Capabilities } from '@/settings/capabilities';
 
 // --- Mocks ---
 
@@ -132,14 +133,12 @@ const mockUseCouncilSettings = vi.fn((): {
   isMuseumMode: boolean;
   mode: AppMode;
   setAppMode: () => void;
-  agentMode: AgentMode;
-  setAgentMode: () => void;
+  capabilities: Capabilities;
 } => ({
   isMuseumMode: false,
   mode: 'web',
   setAppMode: vi.fn(),
-  agentMode: "off",
-  setAgentMode: vi.fn(),
+  capabilities: capabilitiesFor('web'),
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -173,8 +172,7 @@ describe('Council Component', () => {
           isMuseumMode: false,
           mode: 'web' as const,
           setAppMode: vi.fn(),
-          agentMode: "off",
-          setAgentMode: vi.fn(),
+          capabilities: capabilitiesFor('web'),
         });
         // Reset mock state defaults if needed
         mockCouncilStateMachine.state.councilState = 'playing';
@@ -226,8 +224,7 @@ describe('Council Component', () => {
           isMuseumMode: true,
           mode: 'museum',
           setAppMode: vi.fn(),
-          agentMode: "off",
-          setAgentMode: vi.fn(),
+          capabilities: capabilitiesFor('museum'),
         });
 
         render(<Council {...defaultProps} />);
@@ -289,8 +286,7 @@ describe('Council Component', () => {
           isMuseumMode: true,
           mode: 'museum',
           setAppMode: vi.fn(),
-          agentMode: "ptt",
-          setAgentMode: vi.fn(),
+          capabilities: capabilitiesFor('museum'),
         });
 
         render(<Council {...defaultProps} />);

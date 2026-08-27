@@ -1,4 +1,5 @@
 import type { Topic } from "@shared/ModelTypes";
+import type { CouncilRoster, HumanDetails } from "./meetingSetup";
 import { useEffect } from "react";
 import { useOutletContext } from "react-router";
 import SelectTopic from "./SelectTopic";
@@ -45,6 +46,39 @@ export default function NewMeeting() {
     });
   }
 
+  function handleCharacterSelected(selectedNames: string[], chairName: string, isFull: boolean) {
+    setLastUserEvent({ type: "character_selected", selectedNames, chairName, isFull });
+  }
+
+  function handleCharacterDeselected(selectedNames: string[], chairName: string, isFull: boolean) {
+    setLastUserEvent({ type: "character_deselected", selectedNames, chairName, isFull });
+  }
+
+  function handleCharactersRandomized(selectedNames: string[], chairName: string, isFull: boolean) {
+    setLastUserEvent({
+      type: "characters_randomized",
+      selectedNames,
+      chairName,
+      isFull,
+    });
+  }
+
+  function handleHumanSelected(details: HumanDetails & CouncilRoster) {
+    setLastUserEvent({ type: "human_selected", ...details });
+  }
+
+  function handleHumanDetailsTyped(details: HumanDetails & CouncilRoster) {
+    setLastUserEvent({ type: "human_details_typed", ...details });
+  }
+
+  function handleHumanDetailsConfirmed(details: HumanDetails & CouncilRoster) {
+    setLastUserEvent({ type: "human_details_confirmed", ...details });
+  }
+
+  function handleHumanDeselected(deselectedName: string, roster: CouncilRoster) {
+    setLastUserEvent({ type: "human_deselected", deselectedName, ...roster });
+  }
+
   function handleTopicContinue(selectedTopic: Topic) {
     setTopicSelection(selectedTopic);
     setStep("characters");
@@ -66,6 +100,13 @@ export default function NewMeeting() {
           agendaPoints={topicSelection?.agendaPoints}
           onContinueForward={({ characters }) => onStartMeeting(characters)}
           loading={creating}
+          onCharacterSelected={handleCharacterSelected}
+          onCharacterDeselected={handleCharacterDeselected}
+          onCharactersRandomized={handleCharactersRandomized}
+          onHumanSelected={handleHumanSelected}
+          onHumanDetailsTyped={handleHumanDetailsTyped}
+          onHumanDetailsConfirmed={handleHumanDetailsConfirmed}
+          onHumanDeselected={handleHumanDeselected}
         />
       )}
     </>

@@ -90,7 +90,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     pttMic: true,
     trackAgentSpeaking: true,
     onSessionReady,
-    isMuseumMode: true,
+    unattended: true,
     retryPolicy: getRealtimeRetryPolicy(true),
     onFatalError,
     onConnectionLost,

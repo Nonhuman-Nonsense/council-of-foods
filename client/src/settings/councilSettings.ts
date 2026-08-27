@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEV_LOG_CATEGORIES, type LogCategory } from "@/logger";
+import { capabilitiesFor, type Capabilities } from "./capabilities";
 
 export { DEV_LOG_CATEGORIES, type LogCategory };
+export { capabilitiesFor, type Capabilities };
 
 export const APP_MODE_STORAGE_KEY = "councilAppMode";
 
@@ -9,13 +11,12 @@ export const APP_MODE_CHANGE_EVENT = "council-app-mode-change";
 
 export type AppMode = "web" | "museum";
 
-export const AGENT_MODE_STORAGE_KEY = "councilAgentMode";
-
-export const AGENT_MODE_CHANGE_EVENT = "council-agent-mode-change";
-
-export type AgentMode = "off" | "always-on" | "ptt";
-
-const AGENT_MODES: readonly AgentMode[] = ["off", "always-on", "ptt"];
+/**
+ * Retired: the agent's listening behaviour is derived from the mode now. Read
+ * once on load only to clear it, so an install that stored "off" or "always-on"
+ * cannot keep influencing anything.
+ */
+const LEGACY_AGENT_MODE_STORAGE_KEY = "councilAgentMode";
 
 export const DEV_LOG_ENABLED_KEY = "councilDevLogEnabled";
 
@@ -33,12 +34,26 @@ export const MUSEUM_SWITCH_BUTTON_CHANGE_EVENT = "council-museum-switch-button-c
 
 const LEGACY_ESCAPE_HATCH_ENABLED_KEY = "councilEscapeHatchEnabled";
 
+/** Drop retired keys so they cannot be mistaken for live settings later. */
+export function clearRetiredSettings(): void {
+  try {
+    localStorage.removeItem(LEGACY_AGENT_MODE_STORAGE_KEY);
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+}
+
 export function getAppMode(): AppMode {
   try {
     return localStorage.getItem(APP_MODE_STORAGE_KEY) === "museum" ? "museum" : "web";
   } catch {
     return "web";
   }
+}
+
+/** Capabilities outside React — same source of truth as the hook. */
+export function getCapabilities(): Capabilities {
+  return capabilitiesFor(getAppMode());
 }
 
 export function setAppMode(mode: AppMode): void {
@@ -48,40 +63,13 @@ export function setAppMode(mode: AppMode): void {
     // ignore storage errors (private mode, quota, etc.)
   }
 
-  if (mode === "museum" && getAgentMode() === "off") {
-    setAgentMode("always-on");
-  }
-
   window.dispatchEvent(new CustomEvent<AppMode>(APP_MODE_CHANGE_EVENT, { detail: mode }));
 }
 
-export function getAgentMode(): AgentMode {
-  try {
-    const stored = localStorage.getItem(AGENT_MODE_STORAGE_KEY);
-    if (stored && AGENT_MODES.includes(stored as AgentMode)) {
-      return stored as AgentMode;
-    }
-  } catch {
-    // ignore storage errors
-  }
-  return "off";
-}
-
-export function setAgentMode(mode: AgentMode): void {
-  try {
-    localStorage.setItem(AGENT_MODE_STORAGE_KEY, mode);
-  } catch {
-    // ignore storage errors (private mode, quota, etc.)
-  }
-
-  if (mode !== "ptt") {
-    setPttHardwareEnabled(false);
-  }
-
-  window.dispatchEvent(new CustomEvent<AgentMode>(AGENT_MODE_CHANGE_EVENT, { detail: mode }));
-}
-
-/** USB hardware button via local bridge. Only applies when agent mode is push-to-talk. */
+/**
+ * USB hardware button via local bridge. Independent of the mode: a laptop in web
+ * mode can drive a real button to test one.
+ */
 export function getPttHardwareEnabled(): boolean {
   try {
     return localStorage.getItem(PTT_HARDWARE_ENABLED_KEY) === "true";
@@ -216,8 +204,7 @@ export function useCouncilSettings(): {
   mode: AppMode;
   isMuseumMode: boolean;
   setAppMode: (mode: AppMode) => void;
-  agentMode: AgentMode;
-  setAgentMode: (mode: AgentMode) => void;
+  capabilities: Capabilities;
   pttHardwareEnabled: boolean;
   setPttHardwareEnabled: (enabled: boolean) => void;
   museumSwitchButtonEnabled: boolean;
@@ -229,7 +216,6 @@ export function useCouncilSettings(): {
   setAllDevLogCategories: (enabled: boolean) => void;
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
-  const [agentMode, setAgentModeState] = useState(getAgentMode);
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
   const [museumSwitchButtonEnabled, setMuseumSwitchButtonEnabledState] =
     useState(getMuseumSwitchButtonEnabled);
@@ -247,14 +233,6 @@ export function useCouncilSettings(): {
       setMode(next);
     }
 
-    function onAgentModeChange(event: Event): void {
-      const next = (event as CustomEvent<AgentMode>).detail;
-      setAgentModeState(next);
-      if (next !== "ptt") {
-        setPttHardwareEnabledState(false);
-      }
-    }
-
     function onPttHardwareChange(event: Event): void {
       const next = (event as CustomEvent<boolean>).detail;
       setPttHardwareEnabledState(next);
@@ -268,12 +246,6 @@ export function useCouncilSettings(): {
     function onStorage(event: StorageEvent): void {
       if (event.key === APP_MODE_STORAGE_KEY) {
         setMode(getAppMode());
-      }
-      if (event.key === AGENT_MODE_STORAGE_KEY) {
-        setAgentModeState(getAgentMode());
-        if (getAgentMode() !== "ptt") {
-          setPttHardwareEnabledState(false);
-        }
       }
       if (event.key === PTT_HARDWARE_ENABLED_KEY) {
         setPttHardwareEnabledState(getPttHardwareEnabled());
@@ -294,14 +266,12 @@ export function useCouncilSettings(): {
     }
 
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
-    window.addEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
     window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
     window.addEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
-      window.removeEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
       window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
       window.removeEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
@@ -312,18 +282,6 @@ export function useCouncilSettings(): {
   const setAppModeFromHook = useCallback((next: AppMode) => {
     setAppMode(next);
     setMode(next);
-    if (next === "museum" && getAgentMode() === "off") {
-      setAgentMode("always-on");
-      setAgentModeState("always-on");
-    }
-  }, []);
-
-  const setAgentModeFromHook = useCallback((next: AgentMode) => {
-    setAgentMode(next);
-    setAgentModeState(next);
-    if (next !== "ptt") {
-      setPttHardwareEnabledState(false);
-    }
   }, []);
 
   const setPttHardwareEnabledFromHook = useCallback((enabled: boolean) => {
@@ -352,12 +310,13 @@ export function useCouncilSettings(): {
     refreshDevLogSettings();
   }, [refreshDevLogSettings]);
 
+  const capabilities = useMemo(() => capabilitiesFor(mode), [mode]);
+
   return {
     mode,
     isMuseumMode: mode === "museum",
     setAppMode: setAppModeFromHook,
-    agentMode,
-    setAgentMode: setAgentModeFromHook,
+    capabilities,
     pttHardwareEnabled,
     setPttHardwareEnabled: setPttHardwareEnabledFromHook,
     museumSwitchButtonEnabled,
