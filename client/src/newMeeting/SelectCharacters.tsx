@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import VideoPreloader from "@main/VideoPreloader";
+import MediaPreloader from "@main/MediaPreloader";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
@@ -550,7 +550,7 @@ function SelectCharacters({
           </div>
         ) : null}
       </div>
-      <VideoPreloader
+      <MediaPreloader
         foodIds={selectedCharacters.filter(
           (id) => !id.startsWith("panelist") && id !== "addhuman" && id !== ""
         )}
