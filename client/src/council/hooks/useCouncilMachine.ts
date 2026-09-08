@@ -38,8 +38,8 @@ export interface UseCouncilMachineProps {
     audioContext: React.RefObject<AudioContext | null>;
     isPaused: boolean;
     setPaused: (paused: boolean) => void;
-    /** Nobody is present to resume a paused meeting (capabilities.unattended). */
-    unattended: boolean;
+    /** Nobody can resume a paused meeting by hand (capabilities.selfHealing). */
+    selfHealing: boolean;
     /** Meeting-time meta agent is available (capabilities.metaAgent). */
     hasMetaAgent: boolean;
     setMetaAgentPhase: React.Dispatch<React.SetStateAction<MetaAgentPhase>>;
@@ -118,7 +118,7 @@ export function useCouncilMachine({
     audioContext,
     isPaused,
     setPaused,
-    unattended,
+    selfHealing,
     hasMetaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
@@ -1061,11 +1061,11 @@ export function useCouncilMachine({
         setPaused,
     ]);
 
-    // Unattended resume: environmental interrupts only. Overlay dismiss (X) must not
+    // Self-healing resume: environmental interrupts only. Overlay dismiss (X) must not
     // auto-resume, but pausing overlays (incomplete, name, query_extension in web) must
     // block resume — otherwise isPaused oscillates with the overlay-pause effect above.
     useEffect(() => {
-        if (!unattended || !isPaused) {
+        if (!selfHealing || !isPaused) {
             return;
         }
 
@@ -1088,7 +1088,7 @@ export function useCouncilMachine({
         connectionError,
         isDocumentVisible,
         metaAgentPhase,
-        unattended,
+        selfHealing,
         isPaused,
         visibleOverlay,
         setPaused,

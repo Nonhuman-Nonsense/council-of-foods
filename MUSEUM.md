@@ -1,7 +1,7 @@
 # Museum installs
 
-How to run Council of Foods (or Forest) as a physical kiosk: app mode, voice
-agent, hardware button, and field setup.
+How to run Council of Foods (or Forest) as a physical kiosk or a live screening:
+app mode, voice agent, hardware button, and field setup.
 
 **Branches:** Museum work ships on `foods-leo` (Council of Foods) and merges to
 `forest-leo` (Council of Forest). Install URLs differ by product; bridge and
@@ -53,9 +53,32 @@ field staff). Settings persist in `localStorage` on that browser profile.
 | Mode | Use |
 |------|-----|
 | **Web** | Normal online UI — navbar, manual setup agent controls, fullscreen button |
-| **Museum** | Visitor-facing chrome hidden; setup agent auto-starts; optimized for kiosk |
+| **Museum** | Visitor-facing chrome hidden; setup agent auto-starts; optimized for unattended kiosk |
+| **Presenter** | Museum look and flow for performative screenings, with nothing on a timer |
 
-Switching museum → web does **not** reload the page or end an in-progress meeting.
+Switching between modes does **not** reload the page or end an in-progress meeting.
+
+### Presenter mode
+
+For screenings where someone stands next to the app and talks about it. Same
+chrome, teleprompter summary, meta agent and push-to-talk as museum — but the
+four behaviours that drive the app forward on their own are off:
+
+| Off in presenter | What museum would have done |
+|---|---|
+| Idle autoplay | After 90s idle, leave interactive mode and loop replays |
+| Summary auto-return | Leave the summary for the landing page 20s after the reading |
+| Idle turn abandonment | Skip a human turn the visitor walked away from |
+| Setup agent idle nudge | Ask "are you still there?", then drop the session after 3 min |
+| Auto-restart | Reload after a prolonged disconnect; count down to restart on the error screen |
+
+Self-healing stays on: infinite retry, resume after a tab switch, and a blocking
+reconnect overlay, so a hiccup mid-screening recovers without anyone touching a
+keyboard. The error screen offers a plain **Restart** button instead of a
+countdown.
+
+The capability table in `client/src/settings/capabilities.ts` is the full,
+authoritative answer for what each mode does.
 
 ### Agent mode
 
@@ -64,9 +87,9 @@ Switching museum → web does **not** reload the page or end an in-progress meet
 | **Always-on** | Mic open during the setup agent (no button required) |
 | **Push to talk (PTT)** | Visitor holds button (or Space in dev) to speak — used with hardware button |
 
-In museum mode, choosing **Museum** automatically enables an agent mode if it was
-off (defaults toward always-on). For physical buttons, choose **PTT** and enable
-**Hardware button** below.
+Museum and presenter both run the setup agent; for physical buttons, choose
+**PTT** and enable **Hardware button** below. The hardware button works in every
+mode — a laptop in web mode can drive a real button for testing.
 
 ### Hardware button (PTT only)
 
@@ -84,7 +107,8 @@ Install and service the bridge daemon per
 
 Enable **Museum switch button** on the staff page to show a red-bordered preview
 of the top-left hit target. In production the control is invisible; staff click
-top-left to toggle **museum ↔ web** without reload.
+top-left to toggle **web ↔ the last kiosk mode selected** (museum or presenter)
+without reload.
 
 ### Dev logging
 
@@ -97,14 +121,14 @@ Optional category toggles on `#staff` for field debugging (`localStorage`-backed
 ### Voice-only kiosk (no USB button)
 
 1. Chrome kiosk → deployed URL  
-2. `#staff` → **Museum** + **Always-on**  
+2. `#staff` → **Museum**  
 3. Hide staff URL from visitors; use museum switch button for recovery  
 
 ### Physical talk button (recommended for council meetings)
 
 1. Flash firmware → install bridge (`launchd`) → verify `curl http://127.0.0.1:8765/health`  
 2. Chrome kiosk → deployed URL  
-3. `#staff` → **Museum** + **PTT** + **Hardware button**  
+3. `#staff` → **Museum** + **Hardware button**  
 4. Confirm bridge **Connected** and LED **pulse** on the button  
 5. Enable **Museum switch button** for staff  
 
@@ -118,7 +142,8 @@ meta-agent (chair) when those phases are active.
 If nobody interacts for long enough, the install can leave interactive mode and
 loop **completed meeting replays** (no live AI cost). A short warning appears
 first; the hardware button can extend or exit. Configured server-side
-(`GET /api/autoplay`); only runs when **Museum** mode is on.
+(`GET /api/autoplay`); only runs when **Museum** mode is on — never in
+**Presenter**, where an idle app is someone talking about it.
 
 ---
 
@@ -151,8 +176,8 @@ cd server && npm i && npm run dev
 cd button/bridge && npm i && npm run dev:mock   # or npm run dev
 ```
 
-Open `http://localhost:5173/#staff`, set **Museum** + **PTT** + **Hardware
-button**. Playwright e2e: `cd client && npm run e2e` (starts mock bridge).
+Open `http://localhost:5173/#staff`, set **Museum** (or **Presenter**) +
+**Hardware button**. Playwright e2e: `cd client && npm run e2e` (starts mock bridge).
 
 ---
 
@@ -165,3 +190,4 @@ These are implementation plans, not install runbooks:
 | [docs/museum-kiosk-resilience-plan.md](docs/museum-kiosk-resilience-plan.md) | Deploy recovery, health probe before reload, host watchdog |
 | [docs/agent-error-handling-plan.md](docs/agent-error-handling-plan.md) | Setup agent / meta-agent errors → main error UI |
 | [docs/setup-agent-tools-plan.md](docs/setup-agent-tools-plan.md) | Setup agent tools and UI state sync |
+| [docs/presenter-mode-plan.md](docs/presenter-mode-plan.md) | Presenter mode: capability split and the table |

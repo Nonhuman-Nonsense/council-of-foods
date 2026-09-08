@@ -99,6 +99,7 @@ describe('Staff overlay', () => {
     expect(screen.getByText('staff.panels.installation')).toBeInTheDocument();
     expect(screen.getByText('staff.web')).toBeInTheDocument();
     expect(screen.getByText('staff.museum')).toBeInTheDocument();
+    expect(screen.getByText('staff.presenter')).toBeInTheDocument();
     expect(screen.getByTestId('staff-museum-switch-button-toggle')).toBeInTheDocument();
     expect(screen.getByTestId('staff-ptt-hardware-toggle')).toBeInTheDocument();
     expect(screen.getByTestId('staff-led-debug-toggle')).toBeInTheDocument();
@@ -109,14 +110,21 @@ describe('Staff overlay', () => {
 
     const web = screen.getByTestId('app-mode-web');
     const museum = screen.getByTestId('app-mode-museum');
+    const presenter = screen.getByTestId('app-mode-presenter');
 
     expect(web).toHaveClass('selected');
     expect(museum).not.toHaveClass('selected');
+    expect(presenter).not.toHaveClass('selected');
 
     fireEvent.click(museum);
     expect(localStorage.getItem('councilAppMode')).toBe('museum');
     expect(museum).toHaveClass('selected');
     expect(web).not.toHaveClass('selected');
+
+    fireEvent.click(presenter);
+    expect(localStorage.getItem('councilAppMode')).toBe('presenter');
+    expect(presenter).toHaveClass('selected');
+    expect(museum).not.toHaveClass('selected');
 
     fireEvent.click(web);
     expect(localStorage.getItem('councilAppMode')).toBe('web');

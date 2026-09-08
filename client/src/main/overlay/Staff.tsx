@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  APP_MODES,
   DEV_LOG_CATEGORIES,
   useCouncilSettings,
 } from "@/settings/councilSettings";
@@ -383,25 +384,19 @@ function Staff(): ReactElement {
         }}
       >
         <StaffPanel title={t("staff.panels.installation")} fullWidth>
-          <StaffSegmented>
-            <button
-              type="button"
-              data-testid="app-mode-web"
-              className={appMode === "web" ? "selected" : ""}
-              onClick={() => setAppMode("web")}
-              style={staffSegmentButton}
-            >
-              {t("staff.web")}
-            </button>
-            <button
-              type="button"
-              data-testid="app-mode-museum"
-              className={appMode === "museum" ? "selected" : ""}
-              onClick={() => setAppMode("museum")}
-              style={staffSegmentButton}
-            >
-              {t("staff.museum")}
-            </button>
+          <StaffSegmented columns={APP_MODES.length}>
+            {APP_MODES.map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                data-testid={`app-mode-${mode}`}
+                className={appMode === mode ? "selected" : ""}
+                onClick={() => setAppMode(mode)}
+                style={staffSegmentButton}
+              >
+                {t(`staff.${mode}`)}
+              </button>
+            ))}
           </StaffSegmented>
           {/* Second row: independent of the mode — each is a staff aid that can
               be wanted in either install (a laptop can drive a real button). */}

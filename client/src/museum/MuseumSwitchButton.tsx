@@ -38,20 +38,26 @@ function museumSwitchButtonPreviewStyle(): CSSProperties {
 }
 
 /**
- * Invisible top-left control for staff to toggle web/museum without reloading.
+ * Invisible top-left control for staff to leave kiosk chrome without reloading.
+ *
+ * Toggles web ↔ the last non-web mode rather than cycling all three: the
+ * control exists to drop out to web and come back, and a staff member who has
+ * to press it twice to find their way home is worse off than before.
+ *
  * On #staff, shows a red border preview of the hit area.
  */
 export default function MuseumSwitchButton(): ReactElement {
-  const { isMuseumMode, setAppMode } = useCouncilSettings();
+  const { mode, lastKioskMode, setAppMode } = useCouncilSettings();
   const { hash } = useLocation();
   const showPreview = hash === "#staff";
+  const target = mode === "web" ? lastKioskMode : "web";
 
   return (
     <button
       type="button"
       data-testid="museum-switch-button"
-      aria-label={isMuseumMode ? "Switch to web mode" : "Switch to museum mode"}
-      onClick={() => setAppMode(isMuseumMode ? "web" : "museum")}
+      aria-label={`Switch to ${target} mode`}
+      onClick={() => setAppMode(target)}
       style={{
         position: "fixed",
         top: 0,

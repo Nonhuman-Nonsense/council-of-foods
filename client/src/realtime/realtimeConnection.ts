@@ -147,14 +147,14 @@ export type RealtimeErrorKind = "fatal" | "retryable" | "unavailable";
 /**
  * Classify a realtime connection error.
  *
- * `unattended` decides how microphone failures land. A kiosk with no working
+ * `selfHealing` decides how microphone failures land. A kiosk with no working
  * mic is genuinely broken and should surface as a terminal error, since nobody
  * is there to grant a permission; a web visitor who declines the prompt has
  * simply chosen not to talk, and the setup flow still works by clicking.
  */
 export function classifyRealtimeError(
   err: unknown,
-  opts?: { unattended?: boolean },
+  opts?: { selfHealing?: boolean },
 ): RealtimeErrorKind {
   if (err instanceof RealtimeHttpError) {
     // 4xx = configuration/auth error — retrying won't help
@@ -167,11 +167,11 @@ export function classifyRealtimeError(
   // Microphone failures never resolve by retrying — a blocked permission,
   // missing hardware or busy device all need the user (or a technician) to act.
   if (err instanceof MicrophoneUnavailableError) {
-    return opts?.unattended ? "fatal" : "unavailable";
+    return opts?.selfHealing ? "fatal" : "unavailable";
   }
   // Legacy path (should now be wrapped by MicrophoneUnavailableError).
   if (err instanceof Error && err.name === "NotAllowedError") {
-    return opts?.unattended ? "fatal" : "unavailable";
+    return opts?.selfHealing ? "fatal" : "unavailable";
   }
   // Everything else (network, timeout, ICE, pc_failed, dc_error, etc.) = retryable
   return "retryable";

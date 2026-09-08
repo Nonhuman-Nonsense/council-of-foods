@@ -160,24 +160,24 @@ describe("useSetupAgent", () => {
     // landing page.
     const cases: Array<{
       autoplayAllowed: boolean;
-      unattended?: boolean;
+      selfHealing?: boolean;
       audible: boolean;
     }> = [
       { autoplayAllowed: false, audible: false },
       { autoplayAllowed: true, audible: true },
       // A kiosk has nobody to interact, and is set up to allow audio.
-      { autoplayAllowed: false, unattended: true, audible: true },
+      { autoplayAllowed: false, selfHealing: true, audible: true },
     ];
 
-    for (const { autoplayAllowed, unattended, audible } of cases) {
+    for (const { autoplayAllowed, selfHealing, audible } of cases) {
       vi.clearAllMocks();
       mockAutoplay.allowed = autoplayAllowed;
 
-      renderHook(() => useSetupAgent({ ...defaultParams, unattended }));
+      renderHook(() => useSetupAgent({ ...defaultParams, selfHealing }));
 
       expect(
         mockUseRealtimeVoiceSession,
-        `autoplay=${autoplayAllowed}${unattended ? " / unattended" : ""}`,
+        `autoplay=${autoplayAllowed}${selfHealing ? " / self-healing" : ""}`,
       ).toHaveBeenCalledWith(expect.objectContaining({ autoConnect: true, audible }));
     }
   });
@@ -527,7 +527,7 @@ describe("useSetupAgent", () => {
     mockUseRealtimeVoiceSession.mockReturnValue(readySession);
 
     const { result } = renderHook(() =>
-      useSetupAgent({ ...defaultParams, unattended: true, micUpFront: true }),
+      useSetupAgent({ ...defaultParams, selfHealing: true, micUpFront: true }),
     );
 
     expect(result.current.hasEverHeardVisitor).toBe(true);

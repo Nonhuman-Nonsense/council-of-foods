@@ -48,7 +48,7 @@ export type UseMetaAgentResult = {
 /**
  * Meeting meta-agent: thin wrapper around {@link useRealtimeVoiceSession}.
  *
- * - Bootstrap requires a liveKey bearer (museum mode + live meeting only).
+ * - Bootstrap requires a liveKey bearer (capabilities.metaAgent + live meeting only).
  * - Mic gating via `track.enabled` (PTT holds the button).
  * - No opening greeting on connect — agent greets when the visitor activates.
  * - Connects on mount; tears down on unmount.
@@ -90,7 +90,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     pttMic: true,
     trackAgentSpeaking: true,
     onSessionReady,
-    unattended: true,
+    selfHealing: true,
     retryPolicy: getRealtimeRetryPolicy(true),
     onFatalError,
     onConnectionLost,

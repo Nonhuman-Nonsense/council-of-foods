@@ -8,7 +8,7 @@ import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import {
   buildMeetingCharactersPayload,
-  orderSelectedCharactersForMuseum,
+  orderSelectedCharactersForKiosk,
   selectedFoodNames,
   type CouncilRoster,
   type HumanDetails,
@@ -118,7 +118,8 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { isMuseumMode, capabilities } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
+  const { typedSetup } = capabilities;
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {
@@ -159,9 +160,9 @@ function SelectCharacters({
   }
 
   /** Mirrors the per-panelist readiness check in the effect above (name
-   *  always required, description required outside museum mode). */
+   *  always required, description required only where one can be typed). */
   function isHumanComplete(name: string, description: string): boolean {
-    const needsDescription = !isMuseumMode && description.length === 0;
+    const needsDescription = typedSetup && description.length === 0;
     return name.length > 0 && !needsDescription;
   }
 
@@ -217,7 +218,7 @@ function SelectCharacters({
         formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
       agendaPoints,
-      isMuseumMode,
+      typedSetup,
     });
     if (built.ok) {
       onContinueForward({ characters: built.characters });
@@ -291,24 +292,24 @@ function SelectCharacters({
     for (const humanId of selectedHumans) {
       const index = panelistIndexFromId(humanId);
       if (index !== null && humans[index]) {
-        const needsDescription = !isMuseumMode && humans[index].description.length === 0;
+        const needsDescription = typedSetup && humans[index].description.length === 0;
         if (humans[index].name.length === 0 || needsDescription) {
           ready = false;
         }
       }
     }
     setHumansReady(ready);
-  }, [recheckHumansReady, selectedCharacters, humans, isMuseumMode]);
+  }, [recheckHumansReady, selectedCharacters, humans, typedSetup]);
 
   useEffect(() => {
-    if (!isMuseumMode) return;
+    if (typedSetup) return;
     if (!selectedCharacters.some(isPanelistId)) return;
 
-    const sorted = orderSelectedCharactersForMuseum(selectedCharacters);
+    const sorted = orderSelectedCharactersForKiosk(selectedCharacters);
     if (sorted.join(",") !== selectedCharacters.join(",")) {
       setSelectedCharacters(sorted);
     }
-  }, [isMuseumMode, selectedCharacters, setSelectedCharacters]);
+  }, [typedSetup, selectedCharacters, setSelectedCharacters]);
 
   // Read fresh inside the cleanup below rather than closing over `humans`
   // directly — otherwise it could report whatever the panelist's details
@@ -534,7 +535,7 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           ))}
-          {capabilities.browserUi && numberOfHumans < MAXHUMANS && (
+          {typedSetup && numberOfHumans < MAXHUMANS && (
             <AddHumanButton
               onMouseEnter={() => setHoveredCharacter("addhuman")}
               onMouseLeave={() => setHoveredCharacter(null)}

@@ -270,15 +270,9 @@ interface HumanInputProps {
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string) => void;
-  /** Museum idle timeout: visitor released the button without submitting. */
+  /** Kiosk idle timeout: visitor released the button without submitting. */
   onAbandonHumanTurn: () => void;
   liveKey: string;
-  /**
-   * True when running in museum mode with push-to-talk enabled.
-   * Activates hardware button control, LED management, auto-submit on release,
-   * and hides mic/send UI (hardware button is the only interaction surface).
-   */
-  isButtonMuseumMode?: boolean;
 }
 
 // Workaround for TextareaAutosize strict height type
@@ -300,8 +294,14 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Lifecycle**: The component auto-connects on mount and auto-reconnects if the
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
-function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey, isButtonMuseumMode = false }: HumanInputProps): React.ReactElement | null {
+function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey }: HumanInputProps): React.ReactElement | null {
   const { capabilities } = useCouncilSettings();
+  /**
+   * Push-to-talk drives the turn: the hardware button owns the mic and the LED,
+   * releasing it submits, and the on-screen mic/send controls are hidden
+   * because nothing can reach them.
+   */
+  const pttTurn = capabilities.autoSubmitHumanInput;
   const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
   const [canContinue, setCanContinue] = useState<boolean>(false);
   const [inputValue, setInputValue] = useState<string>("");
@@ -458,9 +458,11 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     setCanContinue(false);
   }, [connectionState, transcriptSegments, previousTranscript, capabilities.autoSubmitHumanInput, maxInputLength, onSubmitHumanMessage]);
 
-  // Dropping an abandoned turn (and the banner that explains the button) exist
-  // because a kiosk visitor can walk away mid-turn with nobody to recover it.
-  const pttSessionActive = capabilities.unattended && phase === "active";
+  // The banner explaining the button belongs to every push-to-talk install.
+  // Dropping the turn behind it does not: a kiosk visitor can walk away
+  // mid-turn with nobody to recover it, while a presenter holds a turn open on
+  // purpose while they talk about it.
+  const pttSessionActive = capabilities.autoSubmitHumanInput && phase === "active";
 
   useButtonBanner({
     owner: "human-input",
@@ -470,6 +472,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     activityDeps: [inputValue, transcriptSegments],
     onIdleTerminal: onAbandonHumanTurn,
     canIdleTerminal: () =>
+      capabilities.idleAnswersForVisitor &&
       pttSessionActive &&
       !button.wantsMic &&
       connectionState !== "recording" &&
@@ -951,15 +954,15 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   // idle is transient — the auto-connect effect fires immediately, so show a spinner.
   // Unless the mic is unavailable: then idle is where we stay, and the button
   // must stay clickable so the visitor can ask for the mic again.
-  // In PTT museum mode only show a spinner while the pre-warm is in flight (connecting);
+  // Under push-to-talk only show a spinner while the pre-warm is in flight (connecting);
   // once ready, the LED pulsing is the affordance — no on-screen spinner needed.
-  const isWaitingForRealtime = isButtonMuseumMode
+  const isWaitingForRealtime = pttTurn
     ? connectionState === "connecting" || connectionState === "finishing"
     : (connectionState === "idle" && !micUnavailable) ||
       connectionState === "connecting" ||
       connectionState === "finishing";
 
-  const placeholder = isButtonMuseumMode
+  const placeholder = pttTurn
     ? t("ptt.humanPlaceholder")
     : isPanelist
       ? t("human.panelist", { name: currentSpeakerName })
@@ -993,18 +996,18 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
           {isWaitingForRealtime &&
             <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
           }
-          {!isWaitingForRealtime && !isButtonMuseumMode &&
+          {!isWaitingForRealtime && !pttTurn &&
             <ConversationControlIcon
               icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
               onClick={handleStartStopRecording}
             />
           }
-          {isButtonMuseumMode && connectionState === 'recording' &&
+          {pttTurn && connectionState === 'recording' &&
             <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
           }
         </div>
         <div style={divStyle} ref={vizRightHostRef}>
-          {canSubmitNow && !isButtonMuseumMode &&
+          {canSubmitNow && !pttTurn &&
             <ConversationControlIcon
               icon={"send_message"}
               tooltip={"Mute"}

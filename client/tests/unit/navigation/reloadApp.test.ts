@@ -10,7 +10,7 @@ vi.mock("@/settings/councilSettings", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/settings/councilSettings")>();
   return {
     ...actual,
-    getAppMode: () => mockGetAppMode(),
+    getCapabilities: () => ({ kioskReload: mockGetAppMode() !== "web" }),
   };
 });
 

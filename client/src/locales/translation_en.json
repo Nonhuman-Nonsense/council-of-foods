@@ -90,6 +90,7 @@
     },
     "web": "Web",
     "museum": "Museum",
+    "presenter": "Presenter",
     "museumSwitchButton": "Museum switch button",
     "button": {
       "title": "Button",

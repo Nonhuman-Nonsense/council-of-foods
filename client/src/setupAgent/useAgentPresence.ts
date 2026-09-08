@@ -19,6 +19,14 @@ export type UseAgentPresenceParams = {
    * — or tear the session down — while the visitor is mid-sentence.
    */
   lastActivity?: unknown;
+  /**
+   * Check in on a quiet visitor, and tear the session down once they have been
+   * silent long enough (capabilities.idleNudge). Off during a screening, where
+   * the silence is the presenter talking to the room and the agent piping up —
+   * or dropping the session mid-explanation — is exactly wrong. Leaving on a
+   * hidden tab still tears down either way: that is absence, not quiet.
+   */
+  idleNudge?: boolean;
 };
 
 export type AgentPresenceState = {
@@ -33,7 +41,12 @@ export type AgentPresenceState = {
  * actually present: nudges on silence, tears down on tab-hidden/idle, and
  * resumes on return.
  */
-export function useAgentPresence({ agent, phase, lastActivity }: UseAgentPresenceParams): AgentPresenceState {
+export function useAgentPresence({
+  agent,
+  phase,
+  lastActivity,
+  idleNudge = true,
+}: UseAgentPresenceParams): AgentPresenceState {
   const { sendUserMessage, muted } = agent;
   // Visible *and* focused — switching tabs and switching to another program
   // are both "not present", and neither alone would catch both (see
@@ -48,7 +61,7 @@ export function useAgentPresence({ agent, phase, lastActivity }: UseAgentPresenc
     sendMessage: sendUserMessage,
     requestResponse: agent.requestAgentResponse,
     delayMs: NUDGE_DELAY_MS,
-    enabled: !agent.isConnecting && !muted && isPresent,
+    enabled: idleNudge && !agent.isConnecting && !muted && isPresent,
     onNudgeFired: () => setNudgeFired(true),
     lastActivity,
     // A visitor who has never had a microphone isn't "quiet" — they're reading.
@@ -113,14 +126,14 @@ export function useAgentPresence({ agent, phase, lastActivity }: UseAgentPresenc
   // toggling at all (a blur/refocus, a tab switch) picks it up, and a direct
   // interaction (e.g. the mic button) resumes through its own path regardless.
   useEffect(() => {
-    if (muted) return;
+    if (!idleNudge || muted) return;
     const id = setTimeout(() => {
       stoppedByBackgroundRef.current = true;
       agent.stop();
     }, IDLE_TIMEOUT_MS);
     return () => clearTimeout(id);
 
-  }, [agent.lastUserTranscript, muted, lastActivity]);
+  }, [agent.lastUserTranscript, idleNudge, muted, lastActivity]);
 
   // Real user input clears the nudge override.
   useEffect(() => {

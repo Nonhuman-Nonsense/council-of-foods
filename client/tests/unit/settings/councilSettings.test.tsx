@@ -16,6 +16,9 @@ import {
   PTT_HARDWARE_ENABLED_KEY,
   getPttHardwareEnabled,
   setPttHardwareEnabled,
+  LAST_KIOSK_MODE_STORAGE_KEY,
+  getAppMode,
+  getLastKioskMode,
   MUSEUM_SWITCH_BUTTON_ENABLED_KEY,
   getMuseumSwitchButtonEnabled,
   setMuseumSwitchButtonEnabled,
@@ -24,7 +27,7 @@ import {
 function SettingsProbe() {
   const {
     mode,
-    isMuseumMode,
+    lastKioskMode,
     setAppMode: updateAppMode,
     capabilities,
     pttHardwareEnabled,
@@ -33,7 +36,7 @@ function SettingsProbe() {
   return (
     <div>
       <span data-testid="mode">{mode}</span>
-      <span data-testid="museum">{String(isMuseumMode)}</span>
+      <span data-testid="last-kiosk-mode">{lastKioskMode}</span>
       <span data-testid="meta-agent">{String(capabilities.metaAgent)}</span>
       <span data-testid="ptt-hardware">{String(pttHardwareEnabled)}</span>
       <button type="button" onClick={() => updateAppMode("web")}>
@@ -56,6 +59,24 @@ describe("councilSettings", () => {
       localStorage.setItem("councilAgentMode", "ptt");
       clearRetiredSettings();
       expect(localStorage.getItem("councilAgentMode")).toBeNull();
+    });
+  });
+
+  describe("app mode storage", () => {
+    it("falls back to web for a mode this build does not know", () => {
+      localStorage.setItem(APP_MODE_STORAGE_KEY, "kiosk-2019");
+      expect(getAppMode()).toBe("web");
+    });
+
+    it("remembers the kiosk mode the escape hatch should return to", () => {
+      setAppMode("presenter");
+      setAppMode("web");
+      expect(getLastKioskMode()).toBe("presenter");
+      expect(localStorage.getItem(LAST_KIOSK_MODE_STORAGE_KEY)).toBe("presenter");
+    });
+
+    it("returns to museum until staff have chosen a kiosk mode", () => {
+      expect(getLastKioskMode()).toBe("museum");
     });
   });
 
@@ -160,7 +181,7 @@ describe("councilSettings", () => {
         expect(modes[0]).toHaveTextContent("museum");
         expect(modes[1]).toHaveTextContent("museum");
       });
-      expect(screen.getAllByTestId("museum")[0]).toHaveTextContent("true");
+      expect(screen.getAllByTestId("last-kiosk-mode")[0]).toHaveTextContent("museum");
     });
 
     it("derives capabilities from the mode, across hook instances", async () => {

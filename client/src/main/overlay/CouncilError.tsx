@@ -42,7 +42,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
           {detail}
         </p>
       )}
-      {capabilities.unattended ? (
+      {capabilities.autoRestart ? (
         <AutoButton
           timeout={MUSEUM_HEALTH_RETRY_SECONDS}
           guardAction={probeOriginHealth}

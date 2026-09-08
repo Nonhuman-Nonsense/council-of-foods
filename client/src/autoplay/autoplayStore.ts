@@ -34,7 +34,7 @@ export type AutoplayActivitySource =
   | "loop-next-meeting"
   | "loop-retry";
 
-/** Museum summary: return to landing after protocol reading (non-autoplay visits). */
+/** Kiosk summary: return to landing after protocol reading (non-autoplay visits). */
 export const SUMMARY_RETURN_TO_ROOT_MS = 20_000;
 
 /** Autoplay exhibition loop: next meeting after protocol reading. */

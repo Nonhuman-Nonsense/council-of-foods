@@ -8,7 +8,7 @@ import Loading from "../Loading";
 export type { ConnectionErrorSource, SetConnectionError } from "./errorStore";
 
 /** Museum kiosks: hard-restart if reconnect never succeeds. */
-const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
+const RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
 /**
  * Reconnecting Overlay
@@ -16,7 +16,7 @@ const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
  * Displayed when the socket connection is lost.
  * Shows a loading spinner and a standardized error message.
  * Automatically disappears when connection is restored (handled by errorStore).
- * In museum mode, reloads to root after prolonged failure.
+ * Where the app restarts itself, reloads to root after prolonged failure.
  */
 function Reconnecting(): React.ReactElement {
   const isMobile = useMobile();
@@ -24,14 +24,14 @@ function Reconnecting(): React.ReactElement {
   const { capabilities } = useCouncilSettings();
 
   useEffect(() => {
-    if (!capabilities.unattended) return;
+    if (!capabilities.autoRestart) return;
 
     const timer = window.setTimeout(() => {
       void reloadApp();
-    }, MUSEUM_RECONNECTING_RESTART_MS);
+    }, RECONNECTING_RESTART_MS);
 
     return () => clearTimeout(timer);
-  }, [capabilities.unattended]);
+  }, [capabilities.autoRestart]);
 
   return (
     <div>

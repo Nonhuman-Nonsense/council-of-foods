@@ -9,7 +9,17 @@ export const APP_MODE_STORAGE_KEY = "councilAppMode";
 
 export const APP_MODE_CHANGE_EVENT = "council-app-mode-change";
 
-export type AppMode = "web" | "museum";
+export const APP_MODES = ["web", "museum", "presenter"] as const;
+
+export type AppMode = (typeof APP_MODES)[number];
+
+/**
+ * The non-web mode the escape hatch returns to. Museum and presenter are both
+ * kiosk chrome, so the top-left staff target toggles web ↔ whichever of them was
+ * last chosen rather than cycling through all three: the control exists to drop
+ * out to web and come back, not to browse modes.
+ */
+export const LAST_KIOSK_MODE_STORAGE_KEY = "councilLastKioskMode";
 
 /**
  * Retired: the agent's listening behaviour is derived from the mode now. Read
@@ -43,11 +53,25 @@ export function clearRetiredSettings(): void {
   }
 }
 
+function parseAppMode(value: string | null): AppMode {
+  return (APP_MODES as readonly string[]).includes(value ?? "") ? (value as AppMode) : "web";
+}
+
 export function getAppMode(): AppMode {
   try {
-    return localStorage.getItem(APP_MODE_STORAGE_KEY) === "museum" ? "museum" : "web";
+    return parseAppMode(localStorage.getItem(APP_MODE_STORAGE_KEY));
   } catch {
     return "web";
+  }
+}
+
+/** Non-web mode the escape hatch switches into. Museum until staff pick otherwise. */
+export function getLastKioskMode(): Exclude<AppMode, "web"> {
+  try {
+    const stored = parseAppMode(localStorage.getItem(LAST_KIOSK_MODE_STORAGE_KEY));
+    return stored === "web" ? "museum" : stored;
+  } catch {
+    return "museum";
   }
 }
 
@@ -59,6 +83,9 @@ export function getCapabilities(): Capabilities {
 export function setAppMode(mode: AppMode): void {
   try {
     localStorage.setItem(APP_MODE_STORAGE_KEY, mode);
+    if (mode !== "web") {
+      localStorage.setItem(LAST_KIOSK_MODE_STORAGE_KEY, mode);
+    }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
@@ -202,7 +229,8 @@ export function setAllDevLogCategories(enabled: boolean): void {
 
 export function useCouncilSettings(): {
   mode: AppMode;
-  isMuseumMode: boolean;
+  /** Non-web mode the escape hatch switches into — see {@link getLastKioskMode}. */
+  lastKioskMode: Exclude<AppMode, "web">;
   setAppMode: (mode: AppMode) => void;
   capabilities: Capabilities;
   pttHardwareEnabled: boolean;
@@ -216,6 +244,7 @@ export function useCouncilSettings(): {
   setAllDevLogCategories: (enabled: boolean) => void;
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
+  const [lastKioskMode, setLastKioskMode] = useState<Exclude<AppMode, "web">>(getLastKioskMode);
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
   const [museumSwitchButtonEnabled, setMuseumSwitchButtonEnabledState] =
     useState(getMuseumSwitchButtonEnabled);
@@ -231,6 +260,7 @@ export function useCouncilSettings(): {
     function onAppModeChange(event: Event): void {
       const next = (event as CustomEvent<AppMode>).detail;
       setMode(next);
+      setLastKioskMode(getLastKioskMode());
     }
 
     function onPttHardwareChange(event: Event): void {
@@ -246,6 +276,9 @@ export function useCouncilSettings(): {
     function onStorage(event: StorageEvent): void {
       if (event.key === APP_MODE_STORAGE_KEY) {
         setMode(getAppMode());
+      }
+      if (event.key === LAST_KIOSK_MODE_STORAGE_KEY) {
+        setLastKioskMode(getLastKioskMode());
       }
       if (event.key === PTT_HARDWARE_ENABLED_KEY) {
         setPttHardwareEnabledState(getPttHardwareEnabled());
@@ -282,6 +315,7 @@ export function useCouncilSettings(): {
   const setAppModeFromHook = useCallback((next: AppMode) => {
     setAppMode(next);
     setMode(next);
+    setLastKioskMode(getLastKioskMode());
   }, []);
 
   const setPttHardwareEnabledFromHook = useCallback((enabled: boolean) => {
@@ -314,7 +348,7 @@ export function useCouncilSettings(): {
 
   return {
     mode,
-    isMuseumMode: mode === "museum",
+    lastKioskMode,
     setAppMode: setAppModeFromHook,
     capabilities,
     pttHardwareEnabled,

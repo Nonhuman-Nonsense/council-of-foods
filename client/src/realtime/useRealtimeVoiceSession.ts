@@ -128,11 +128,11 @@ export type UseRealtimeVoiceSessionParams = {
   /** Fired after the provider acks `session.updated` (safe point for activation). */
   onSessionReady?: () => void;
   /**
-   * Nobody is present to fix a failure (capabilities.unattended). Makes a
+   * The app must recover by itself (capabilities.selfHealing). Makes a
    * missing microphone fatal rather than something the visitor could go and
    * permit; pair it with an unlimited `retryPolicy`.
    */
-  unattended?: boolean;
+  selfHealing?: boolean;
   /** Retry behaviour. Omit to disable automatic retries (error state only). */
   retryPolicy?: RealtimeRetryPolicy;
   /** Called when a fatal, non-recoverable error occurs. Goes through the main error pipeline. */
@@ -233,7 +233,7 @@ export function useRealtimeVoiceSession(
     sessionActive = true,
     autoConnect = true,
     onSessionReady,
-    unattended = false,
+    selfHealing = false,
     retryPolicy,
     onFatalError,
     onUnavailable,
@@ -294,7 +294,7 @@ export function useRealtimeVoiceSession(
   const onConnectionLostRef = useRef(onConnectionLost);
   const onConnectionRestoredRef = useRef(onConnectionRestored);
   const onExhaustedRef = useRef(onExhausted);
-  const unattendedRef = useRef(unattended);
+  const selfHealingRef = useRef(selfHealing);
   useEffect(() => {
     handlersRef.current = toolHandlers;
     instructionsRef.current = instructions;
@@ -306,7 +306,7 @@ export function useRealtimeVoiceSession(
     onConnectionLostRef.current = onConnectionLost;
     onConnectionRestoredRef.current = onConnectionRestored;
     onExhaustedRef.current = onExhausted;
-    unattendedRef.current = unattended;
+    selfHealingRef.current = selfHealing;
     // Read by `configureSession` when the data channel opens, which is long
     // after any render — so it must track every render, not a dependency.
     audibleRef.current = audible;
@@ -797,7 +797,7 @@ export function useRealtimeVoiceSession(
 
       conn?.close();
 
-      const kind = classifyRealtimeError(e, { unattended: unattendedRef.current });
+      const kind = classifyRealtimeError(e, { selfHealing: selfHealingRef.current });
       const msg = e instanceof Error ? e.message : FEATURE_MESSAGES[feature].startFailed;
       log.event("ERROR", "realtime session start failed", { feature, kind, message: msg });
 
@@ -889,7 +889,7 @@ export function useRealtimeVoiceSession(
       log.event("REALTIME", "mic attached", { feature });
       return true;
     } catch (e) {
-      const kind = classifyRealtimeError(e, { unattended: unattendedRef.current });
+      const kind = classifyRealtimeError(e, { selfHealing: selfHealingRef.current });
       const message = e instanceof Error ? e.message : "The microphone could not be accessed.";
       log.event("ERROR", "mic attach failed", { feature, kind, message });
 

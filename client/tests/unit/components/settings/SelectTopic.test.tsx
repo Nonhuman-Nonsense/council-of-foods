@@ -11,8 +11,8 @@ import { capabilitiesFor } from '@/settings/capabilities';
 
 function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
     return {
-        isMuseumMode: false,
         mode: 'web',
+        lastKioskMode: 'museum',
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor('web'),
         pttHardwareEnabled: false,
@@ -55,8 +55,8 @@ vi.mock('@main/topicsBundle', () => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: vi.fn(() => ({
-        isMuseumMode: false,
         mode: 'web',
+        lastKioskMode: 'museum',
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor('web'),
     })),
@@ -390,7 +390,7 @@ describe('SelectTopic Component', () => {
     });
 
     it('hides next button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true, capabilities: capabilitiesFor('museum') }));
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', capabilities: capabilitiesFor('museum') }));
 
         render(
             <ControlledSelectTopic

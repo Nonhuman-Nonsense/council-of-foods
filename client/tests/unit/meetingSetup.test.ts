@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
-import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForMuseum, selectedFoodNames } from "@newMeeting/meetingSetup";
+import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForKiosk, selectedFoodNames } from "@newMeeting/meetingSetup";
 
 vi.mock("@newMeeting/CharacterSetup", () => ({
   CHAIR_ID: "chair",
@@ -510,7 +510,7 @@ describe("buildMeetingCharactersPayload", () => {
       ],
       numberOfHumans: 1,
       labels: { formatHumanCount: (count) => (count === 1 ? "1 human: " : `${count} humans: `) },
-      isMuseumMode: true,
+      typedSetup: false,
     });
 
     expect(result.ok).toBe(true);
@@ -546,18 +546,18 @@ describe("buildMeetingCharactersPayload", () => {
   });
 });
 
-describe("orderSelectedCharactersForMuseum", () => {
+describe("orderSelectedCharactersForKiosk", () => {
   it("places panelist near the middle, leaning later when food count is odd", () => {
     expect(
-      orderSelectedCharactersForMuseum(["chair", "food-a", "panelist0", "food-b"])
+      orderSelectedCharactersForKiosk(["chair", "food-a", "panelist0", "food-b"])
     ).toEqual(["chair", "food-a", "panelist0", "food-b"]);
 
     expect(
-      orderSelectedCharactersForMuseum(["chair", "food-a", "food-b", "panelist0", "food-c"])
+      orderSelectedCharactersForKiosk(["chair", "food-a", "food-b", "panelist0", "food-c"])
     ).toEqual(["chair", "food-a", "food-b", "panelist0", "food-c"]);
 
     expect(
-      orderSelectedCharactersForMuseum([
+      orderSelectedCharactersForKiosk([
         "chair",
         "food-a",
         "food-b",
@@ -570,6 +570,6 @@ describe("orderSelectedCharactersForMuseum", () => {
 
   it("returns unchanged when no panelists are selected", () => {
     const input = ["chair", "food-a", "food-b"];
-    expect(orderSelectedCharactersForMuseum(input)).toEqual(input);
+    expect(orderSelectedCharactersForKiosk(input)).toEqual(input);
   });
 });

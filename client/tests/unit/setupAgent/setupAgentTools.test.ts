@@ -47,12 +47,12 @@ describe('createSetupAgentTools', () => {
   });
 
   it('omits human_panelist when isWebMode is false', () => {
-    const tools = createSetupAgentTools({ ...baseToolParams, isWebMode: false });
+    const tools = createSetupAgentTools({ ...baseToolParams, typedSetup: false });
     expect(tools.find((t) => t.name === 'human_panelist')).toBeUndefined();
   });
 
   it('includes human_panelist when isWebMode is true', () => {
-    const tools = createSetupAgentTools({ ...baseToolParams, isWebMode: true });
+    const tools = createSetupAgentTools({ ...baseToolParams, typedSetup: true });
     expect(tools.find((t) => t.name === 'human_panelist')).toBeDefined();
   });
 
@@ -68,7 +68,7 @@ describe('createSetupAgentTools', () => {
       ...baseToolParams,
       topics: TOPICS,
       characters: CHARACTERS,
-      isWebMode: true,
+      typedSetup: true,
     });
 
     expect(tools.find((t) => t.name === 'select_topic')).toBeDefined();

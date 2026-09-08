@@ -16,10 +16,10 @@ function isPanelistId(id: string): boolean {
 }
 
 /**
- * In museum mode, place human panelist(s) near the middle of the lineup.
+ * On a kiosk install, place human panelist(s) near the middle of the lineup.
  * When the food count is odd, lean toward the later side (more foods before than after).
  */
-export function orderSelectedCharactersForMuseum(selectedCharacters: string[]): string[] {
+export function orderSelectedCharactersForKiosk(selectedCharacters: string[]): string[] {
   const panelists = selectedCharacters.filter(isPanelistId);
   const nonPanelists = selectedCharacters.filter((id) => !isPanelistId(id));
 
@@ -336,13 +336,14 @@ export function buildMeetingCharactersPayload(params: {
   numberOfHumans: number;
   labels: MeetingCharactersI18n;
   agendaPoints?: string[];
-  isMuseumMode?: boolean;
+  /** The visitor can type, so each human panelist needs a written description. */
+  typedSetup?: boolean;
 }): { ok: true; characters: Character[] } | { ok: false; error: string } {
-  const { language, humans, numberOfHumans, labels, agendaPoints, isMuseumMode = false } = params;
+  const { language, humans, numberOfHumans, labels, agendaPoints, typedSetup = false } = params;
   let { selectedCharacters } = params;
 
-  if (isMuseumMode) {
-    selectedCharacters = orderSelectedCharactersForMuseum(selectedCharacters);
+  if (!typedSetup) {
+    selectedCharacters = orderSelectedCharactersForKiosk(selectedCharacters);
   }
   const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;
@@ -372,7 +373,7 @@ export function buildMeetingCharactersPayload(params: {
         error: "Each human panelist needs a name before starting.",
       };
     }
-    if (!isMuseumMode && (human.description?.length ?? 0) === 0) {
+    if (typedSetup && (human.description?.length ?? 0) === 0) {
       return {
         ok: false,
         error: "Each human panelist needs a name and description before starting.",

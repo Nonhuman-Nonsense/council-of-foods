@@ -27,6 +27,7 @@ import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
+import { useCouncilSettings } from "@/settings/councilSettings";
 
 export type { MetaAgentPhase } from "./useMetaAgent";
 
@@ -139,6 +140,7 @@ export default function MeetingMetaAgent({
 }: MeetingMetaAgentProps) {
   const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
+  const { capabilities } = useCouncilSettings();
 
   // Track whether the agent is currently unreachable so we can defer showing
   // the connection error until the visitor actually tries to use the agent.
@@ -293,12 +295,23 @@ export default function MeetingMetaAgent({
       log.event("META", cfg.idleTerminalEventName);
       toolHandlers[cfg.idleTerminalTool]?.({});
     },
+    // Answering for a silent visitor — resuming after an interruption, or
+    // concluding at the soft cap — is a kiosk behaviour: nobody is coming back
+    // to say which they wanted. A presenter's silence is them talking to the
+    // room, so the chair waits for the button instead of deciding for them.
     canIdleTerminal: () =>
+      capabilities.idleAnswersForVisitor &&
       (metaAgentPhase === "interruption" || metaAgentPhase === "extension") &&
       connectionState === "ready" &&
       !agentSpeaking &&
       !button.pressed,
-    terminalDeps: [metaAgentPhase, connectionState, agentSpeaking, button.pressed],
+    terminalDeps: [
+      capabilities.idleAnswersForVisitor,
+      metaAgentPhase,
+      connectionState,
+      agentSpeaking,
+      button.pressed,
+    ],
   });
 
   useEffect(() => {

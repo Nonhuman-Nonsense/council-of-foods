@@ -15,7 +15,7 @@ export type SetupAgentPromptParams = {
    * Whether the visitor has had a working microphone at all this session. While
    * false the conversational job is suspended: the agent comments on what is
    * being clicked instead, and its tools refuse to act. Defaults to true so
-   * museum (mic always present) is unaffected.
+   * a kiosk install (mic always present) is unaffected.
    */
   hasEverHeardVisitor?: boolean;
 };
