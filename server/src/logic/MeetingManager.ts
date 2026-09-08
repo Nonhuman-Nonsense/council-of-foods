@@ -509,7 +509,13 @@ export class MeetingManager implements IMeetingManager {
                             (msg.type === "panelist" || msg.type === "skipped")
                     );
 
-                    if (isFirstPanelistTurn) {
+                    // Edge case: if the previous speaker already asked this panelist a direct
+                    // question (directed handoff), the human has effectively been welcomed in —
+                    // skip the chair's welcome invitation and go straight to their turn.
+                    const previousMessage = meeting.conversation[meeting.conversation.length - 1];
+                    const alreadyInvitedByQuestion = previousMessage?.askParticular === panelistId;
+
+                    if (isFirstPanelistTurn && !alreadyInvitedByQuestion) {
                         const panelistName = action.speaker.name || "Human";
                         const invitationIndex = meeting.conversation.length;
                         const chairInterjection = await this.dialogGenerator.chairInterjection(
