@@ -8,7 +8,7 @@ import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import {
   buildMeetingCharactersPayload,
-  orderSelectedCharactersForKiosk,
+  orderSelectedCharactersForInstallation,
   selectedFoodNames,
   type CouncilRoster,
   type HumanDetails,
@@ -305,7 +305,7 @@ function SelectCharacters({
     if (typedSetup) return;
     if (!selectedCharacters.some(isPanelistId)) return;
 
-    const sorted = orderSelectedCharactersForKiosk(selectedCharacters);
+    const sorted = orderSelectedCharactersForInstallation(selectedCharacters);
     if (sorted.join(",") !== selectedCharacters.join(",")) {
       setSelectedCharacters(sorted);
     }

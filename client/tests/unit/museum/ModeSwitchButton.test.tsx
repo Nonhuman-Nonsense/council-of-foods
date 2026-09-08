@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import MuseumSwitchButton from '@/museum/MuseumSwitchButton';
-import { APP_MODE_STORAGE_KEY, LAST_KIOSK_MODE_STORAGE_KEY } from '@/settings/councilSettings';
+import ModeSwitchButton from '@/museum/ModeSwitchButton';
+import { APP_MODE_STORAGE_KEY, LAST_INSTALLATION_MODE_STORAGE_KEY } from '@/settings/councilSettings';
 import '@testing-library/jest-dom';
 
-describe('MuseumSwitchButton', () => {
+describe('ModeSwitchButton', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -14,10 +14,10 @@ describe('MuseumSwitchButton', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'museum');
     render(
       <MemoryRouter>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByTestId('museum-switch-button'));
+    fireEvent.click(screen.getByTestId('mode-switch-button'));
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('web');
   });
 
@@ -25,45 +25,45 @@ describe('MuseumSwitchButton', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'presenter');
     render(
       <MemoryRouter>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByTestId('museum-switch-button'));
+    fireEvent.click(screen.getByTestId('mode-switch-button'));
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('web');
   });
 
-  it('returns from web to museum when no kiosk mode has been chosen yet', () => {
+  it('returns from web to museum when no installation mode has been chosen yet', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
     render(
       <MemoryRouter>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByTestId('museum-switch-button'));
+    fireEvent.click(screen.getByTestId('mode-switch-button'));
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('museum');
   });
 
-  it('returns from web to the last kiosk mode staff selected', () => {
+  it('returns from web to the last installation mode staff selected', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'web');
-    localStorage.setItem(LAST_KIOSK_MODE_STORAGE_KEY, 'presenter');
+    localStorage.setItem(LAST_INSTALLATION_MODE_STORAGE_KEY, 'presenter');
     render(
       <MemoryRouter>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByTestId('museum-switch-button'));
+    fireEvent.click(screen.getByTestId('mode-switch-button'));
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('presenter');
   });
 
   it('round-trips presenter through web without losing it', () => {
     localStorage.setItem(APP_MODE_STORAGE_KEY, 'presenter');
-    localStorage.setItem(LAST_KIOSK_MODE_STORAGE_KEY, 'presenter');
+    localStorage.setItem(LAST_INSTALLATION_MODE_STORAGE_KEY, 'presenter');
     render(
       <MemoryRouter>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    const button = screen.getByTestId('museum-switch-button');
+    const button = screen.getByTestId('mode-switch-button');
     fireEvent.click(button);
     expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe('web');
     fireEvent.click(button);
@@ -73,10 +73,10 @@ describe('MuseumSwitchButton', () => {
   it('shows red border preview on #staff', () => {
     render(
       <MemoryRouter initialEntries={['/#staff']}>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    const button = screen.getByTestId('museum-switch-button');
+    const button = screen.getByTestId('mode-switch-button');
     expect(button).toHaveStyle({ border: '2px solid rgb(252, 165, 165)' });
     expect(button).toHaveStyle({ opacity: '1' });
   });
@@ -84,10 +84,10 @@ describe('MuseumSwitchButton', () => {
   it('stays invisible outside #staff', () => {
     render(
       <MemoryRouter initialEntries={['/']}>
-        <MuseumSwitchButton />
+        <ModeSwitchButton />
       </MemoryRouter>,
     );
-    const button = screen.getByTestId('museum-switch-button');
+    const button = screen.getByTestId('mode-switch-button');
     expect(button).toHaveStyle({ opacity: '0' });
     expect(button.style.boxShadow).toBe('');
   });

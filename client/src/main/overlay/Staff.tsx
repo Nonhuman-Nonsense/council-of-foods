@@ -17,7 +17,7 @@ import type {
   UsbPortInfo,
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
-import { museumSwitchButtonToggleStyle } from "@/museum/MuseumSwitchButton";
+import { modeSwitchButtonToggleStyle } from "@/museum/ModeSwitchButton";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
@@ -325,8 +325,8 @@ function Staff(): ReactElement {
     setAppMode,
     pttHardwareEnabled,
     setPttHardwareEnabled,
-    museumSwitchButtonEnabled,
-    setMuseumSwitchButtonEnabled,
+    modeSwitchButtonEnabled,
+    setModeSwitchButtonEnabled,
     devLogEnabled,
     setDevLogEnabled,
     devLogCategories,
@@ -410,16 +410,16 @@ function Staff(): ReactElement {
           >
             <button
               type="button"
-              data-testid="staff-museum-switch-button-toggle"
-              className={museumSwitchButtonEnabled ? "control" : ""}
-              aria-pressed={museumSwitchButtonEnabled}
-              onClick={() => setMuseumSwitchButtonEnabled(!museumSwitchButtonEnabled)}
-              style={museumSwitchButtonToggleStyle(museumSwitchButtonEnabled, {
+              data-testid="staff-mode-switch-button-toggle"
+              className={modeSwitchButtonEnabled ? "control" : ""}
+              aria-pressed={modeSwitchButtonEnabled}
+              onClick={() => setModeSwitchButtonEnabled(!modeSwitchButtonEnabled)}
+              style={modeSwitchButtonToggleStyle(modeSwitchButtonEnabled, {
                 ...staffCompactButton,
                 flex: 1,
               })}
             >
-              {t("staff.museumSwitchButton")}
+              {t("staff.modeSwitchButton")}
             </button>
             <button
               type="button"

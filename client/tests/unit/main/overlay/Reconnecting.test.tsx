@@ -24,7 +24,7 @@ vi.mock("@main/Loading", () => ({
   default: () => <div data-testid="loading-spinner" />,
 }));
 
-/** Museum kiosks: probe /health before hard-restart — keep in sync with Reconnecting.tsx */
+/** Unattended installations: probe /health before hard-restart — keep in sync with Reconnecting.tsx */
 const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
 describe("Reconnecting overlay", () => {

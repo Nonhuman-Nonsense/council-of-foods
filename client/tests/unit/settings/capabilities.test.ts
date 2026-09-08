@@ -27,7 +27,7 @@ describe("capabilitiesFor", () => {
         latchOnTap: true,
         voiceSetupAgent: false,
         typedSetup: true,
-        kioskReload: false,
+        installationReload: false,
       },
     },
     {
@@ -49,7 +49,7 @@ describe("capabilitiesFor", () => {
         latchOnTap: false,
         voiceSetupAgent: true,
         typedSetup: false,
-        kioskReload: true,
+        installationReload: true,
       },
     },
     {
@@ -71,7 +71,7 @@ describe("capabilitiesFor", () => {
         latchOnTap: false,
         voiceSetupAgent: true,
         typedSetup: true,
-        kioskReload: true,
+        installationReload: true,
       },
     },
   ];
@@ -98,7 +98,7 @@ describe("capabilitiesFor", () => {
   });
 
   /**
-   * Presenter departs from the kiosk in exactly two ways: nothing advances on a
+   * Presenter departs from museum in exactly two ways: nothing advances on a
    * timer, and setup can be driven by hand. Everything else is museum, and this
    * pins that so the two cannot drift apart one flag at a time.
    */
@@ -123,7 +123,7 @@ describe("capabilitiesFor", () => {
     expect(presenter.typedSetup).toBe(true);
     expect(presenter.voiceSetupAgent).toBe(true);
     // No Next/Start buttons: stepping through setup is browser chrome, and a
-    // screening keeps the kiosk's.
+    // screening keeps the installation's.
     expect(presenter.browserUi).toBe(false);
   });
 });

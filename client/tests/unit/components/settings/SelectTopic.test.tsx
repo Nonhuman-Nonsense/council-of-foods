@@ -12,13 +12,13 @@ import { capabilitiesFor } from '@/settings/capabilities';
 function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
     return {
         mode: 'web',
-        lastKioskMode: 'museum',
+        lastInstallationMode: 'museum',
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor('web'),
         pttHardwareEnabled: false,
         setPttHardwareEnabled: vi.fn(),
-        museumSwitchButtonEnabled: false,
-        setMuseumSwitchButtonEnabled: vi.fn(),
+        modeSwitchButtonEnabled: false,
+        setModeSwitchButtonEnabled: vi.fn(),
         devLogEnabled: false,
         setDevLogEnabled: vi.fn(),
         devLogCategories: Object.fromEntries(DEV_LOG_CATEGORIES.map((c) => [c, false])) as Record<typeof DEV_LOG_CATEGORIES[number], boolean>,
@@ -56,7 +56,7 @@ vi.mock('@main/topicsBundle', () => ({
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: vi.fn(() => ({
         mode: 'web',
-        lastKioskMode: 'museum',
+        lastInstallationMode: 'museum',
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor('web'),
     })),

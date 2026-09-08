@@ -91,7 +91,7 @@
     "web": "Web",
     "museum": "Museum",
     "presenter": "Presenter",
-    "museumSwitchButton": "Museum switch button",
+    "modeSwitchButton": "Mode switch button",
     "button": {
       "title": "Button",
       "bridgeLabel": "Bridge",

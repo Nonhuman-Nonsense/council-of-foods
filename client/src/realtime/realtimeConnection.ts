@@ -147,7 +147,7 @@ export type RealtimeErrorKind = "fatal" | "retryable" | "unavailable";
 /**
  * Classify a realtime connection error.
  *
- * `selfHealing` decides how microphone failures land. A kiosk with no working
+ * `selfHealing` decides how microphone failures land. An installation with no working
  * mic is genuinely broken and should surface as a terminal error, since nobody
  * is there to grant a permission; a web visitor who declines the prompt has
  * simply chosen not to talk, and the setup flow still works by clicking.

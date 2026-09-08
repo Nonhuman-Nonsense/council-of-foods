@@ -7,7 +7,7 @@ import Loading from "../Loading";
 
 export type { ConnectionErrorSource, SetConnectionError } from "./errorStore";
 
-/** Museum kiosks: hard-restart if reconnect never succeeds. */
+/** Unattended installations: hard-restart if reconnect never succeeds. */
 const RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
 /**

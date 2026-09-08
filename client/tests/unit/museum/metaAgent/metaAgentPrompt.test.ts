@@ -130,7 +130,7 @@ describe("buildMetaAgentPrompt", () => {
 
   it("frames the role as interruption handler, not a guide", () => {
     const prompt = buildMetaAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("not a kiosk helper");
+    expect(prompt).toContain("not a help desk");
     expect(prompt).toContain("address the interruption");
   });
 

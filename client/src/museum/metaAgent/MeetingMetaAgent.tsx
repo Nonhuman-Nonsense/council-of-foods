@@ -296,7 +296,7 @@ export default function MeetingMetaAgent({
       toolHandlers[cfg.idleTerminalTool]?.({});
     },
     // Answering for a silent visitor — resuming after an interruption, or
-    // concluding at the soft cap — is a kiosk behaviour: nobody is coming back
+    // concluding at the soft cap — is a museum behaviour: nobody is coming back
     // to say which they wanted. A presenter's silence is them talking to the
     // room, so the chair waits for the button instead of deciding for them.
     canIdleTerminal: () =>

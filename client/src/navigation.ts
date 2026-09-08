@@ -105,16 +105,16 @@ export function useRouting() {
 }
 
 // ---------------------------------------------------------------------------
-// Kiosk health + guarded reload
+// Installation health + guarded reload
 // ---------------------------------------------------------------------------
 
 export const HEALTH_PROBE_TIMEOUT_MS = 2_000;
 
-/** Kiosk install: wait between failed health probes / restart countdowns. */
-export const MUSEUM_HEALTH_RETRY_MS = 10_000;
-export const MUSEUM_HEALTH_RETRY_SECONDS = MUSEUM_HEALTH_RETRY_MS / 1_000;
+/** Wait between failed health probes / restart countdowns. */
+export const HEALTH_RETRY_MS = 10_000;
+export const HEALTH_RETRY_SECONDS = HEALTH_RETRY_MS / 1_000;
 
-/** Kiosk install: true when same-origin GET /health returns 200. */
+/** True when same-origin GET /health returns 200. */
 export async function probeOriginHealth(): Promise<boolean> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), HEALTH_PROBE_TIMEOUT_MS);
@@ -133,11 +133,11 @@ export async function probeOriginHealth(): Promise<boolean> {
 }
 
 /**
- * Hard-reload at `targetPath`. On a kiosk install, probes `/health` first.
+ * Hard-reload at `targetPath`. On an installation, probes `/health` first.
  * On failure, escalates to `CouncilError` when not already shown.
  */
 async function guardedReload(targetPath: string): Promise<boolean> {
-  if (!getCapabilities().kioskReload) {
+  if (!getCapabilities().installationReload) {
     window.location.href = targetPath;
     return true;
   }
@@ -154,11 +154,11 @@ async function guardedReload(targetPath: string): Promise<boolean> {
 }
 
 /**
- * Hard-reload the app. Kiosk installs reset to `/` (default language) after a
+ * Hard-reload the app. Installations reset to `/` (default language) after a
  * health probe; web mode reloads the current language root.
  */
 export async function reloadApp(): Promise<boolean> {
-  const targetPath = getCapabilities().kioskReload ? APP_ROOT : `${basePath(i18n.language)}/`;
+  const targetPath = getCapabilities().installationReload ? APP_ROOT : `${basePath(i18n.language)}/`;
   return guardedReload(targetPath);
 }
 
@@ -168,6 +168,6 @@ export async function reloadApp(): Promise<boolean> {
  * behaviour regardless of server state.
  */
 export function restartNow(): void {
-  const targetPath = getCapabilities().kioskReload ? APP_ROOT : `${basePath(i18n.language)}/`;
+  const targetPath = getCapabilities().installationReload ? APP_ROOT : `${basePath(i18n.language)}/`;
   window.location.href = targetPath;
 }

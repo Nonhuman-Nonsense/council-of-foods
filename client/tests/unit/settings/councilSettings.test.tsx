@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import {
   APP_MODE_STORAGE_KEY,
-  clearRetiredSettings,
   setAppMode,
   useCouncilSettings,
   DEV_LOG_DISABLED_CATEGORIES_KEY,
@@ -16,18 +15,18 @@ import {
   PTT_HARDWARE_ENABLED_KEY,
   getPttHardwareEnabled,
   setPttHardwareEnabled,
-  LAST_KIOSK_MODE_STORAGE_KEY,
+  LAST_INSTALLATION_MODE_STORAGE_KEY,
   getAppMode,
-  getLastKioskMode,
-  MUSEUM_SWITCH_BUTTON_ENABLED_KEY,
-  getMuseumSwitchButtonEnabled,
-  setMuseumSwitchButtonEnabled,
+  getLastInstallationMode,
+  MODE_SWITCH_BUTTON_ENABLED_KEY,
+  getModeSwitchButtonEnabled,
+  setModeSwitchButtonEnabled,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
   const {
     mode,
-    lastKioskMode,
+    lastInstallationMode,
     setAppMode: updateAppMode,
     capabilities,
     pttHardwareEnabled,
@@ -36,7 +35,7 @@ function SettingsProbe() {
   return (
     <div>
       <span data-testid="mode">{mode}</span>
-      <span data-testid="last-kiosk-mode">{lastKioskMode}</span>
+      <span data-testid="last-installation-mode">{lastInstallationMode}</span>
       <span data-testid="meta-agent">{String(capabilities.metaAgent)}</span>
       <span data-testid="ptt-hardware">{String(pttHardwareEnabled)}</span>
       <button type="button" onClick={() => updateAppMode("web")}>
@@ -54,29 +53,21 @@ describe("councilSettings", () => {
     localStorage.clear();
   });
 
-  describe("retired settings", () => {
-    it("drops the stored agent mode so it cannot influence anything", () => {
-      localStorage.setItem("councilAgentMode", "ptt");
-      clearRetiredSettings();
-      expect(localStorage.getItem("councilAgentMode")).toBeNull();
-    });
-  });
-
   describe("app mode storage", () => {
     it("falls back to web for a mode this build does not know", () => {
       localStorage.setItem(APP_MODE_STORAGE_KEY, "kiosk-2019");
       expect(getAppMode()).toBe("web");
     });
 
-    it("remembers the kiosk mode the escape hatch should return to", () => {
+    it("remembers the installation mode the escape hatch should return to", () => {
       setAppMode("presenter");
       setAppMode("web");
-      expect(getLastKioskMode()).toBe("presenter");
-      expect(localStorage.getItem(LAST_KIOSK_MODE_STORAGE_KEY)).toBe("presenter");
+      expect(getLastInstallationMode()).toBe("presenter");
+      expect(localStorage.getItem(LAST_INSTALLATION_MODE_STORAGE_KEY)).toBe("presenter");
     });
 
-    it("returns to museum until staff have chosen a kiosk mode", () => {
-      expect(getLastKioskMode()).toBe("museum");
+    it("returns to museum until staff have chosen an installation mode", () => {
+      expect(getLastInstallationMode()).toBe("museum");
     });
   });
 
@@ -100,30 +91,23 @@ describe("councilSettings", () => {
     });
   });
 
-  describe("museum switch button storage", () => {
+  describe("mode switch button storage", () => {
     it("defaults to disabled when unset", () => {
-      expect(getMuseumSwitchButtonEnabled()).toBe(false);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
+      expect(getModeSwitchButtonEnabled()).toBe(false);
+      expect(localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
     });
 
     it("persists explicit enablement", () => {
-      setMuseumSwitchButtonEnabled(true);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
-      expect(getMuseumSwitchButtonEnabled()).toBe(true);
+      setModeSwitchButtonEnabled(true);
+      expect(localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
+      expect(getModeSwitchButtonEnabled()).toBe(true);
     });
 
     it("removes storage key when disabled", () => {
-      setMuseumSwitchButtonEnabled(true);
-      setMuseumSwitchButtonEnabled(false);
-      expect(getMuseumSwitchButtonEnabled()).toBe(false);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
-    });
-
-    it("migrates legacy escape hatch storage key", () => {
-      localStorage.setItem("councilEscapeHatchEnabled", "true");
-      expect(getMuseumSwitchButtonEnabled()).toBe(true);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
-      expect(localStorage.getItem("councilEscapeHatchEnabled")).toBeNull();
+      setModeSwitchButtonEnabled(true);
+      setModeSwitchButtonEnabled(false);
+      expect(getModeSwitchButtonEnabled()).toBe(false);
+      expect(localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
     });
   });
 
@@ -181,7 +165,7 @@ describe("councilSettings", () => {
         expect(modes[0]).toHaveTextContent("museum");
         expect(modes[1]).toHaveTextContent("museum");
       });
-      expect(screen.getAllByTestId("last-kiosk-mode")[0]).toHaveTextContent("museum");
+      expect(screen.getAllByTestId("last-installation-mode")[0]).toHaveTextContent("museum");
     });
 
     it("derives capabilities from the mode, across hook instances", async () => {

@@ -165,7 +165,7 @@ describe("useSetupAgent", () => {
     }> = [
       { autoplayAllowed: false, audible: false },
       { autoplayAllowed: true, audible: true },
-      // A kiosk has nobody to interact, and is set up to allow audio.
+      // An installation has nobody to interact, and is set up to allow audio.
       { autoplayAllowed: false, selfHealing: true, audible: true },
     ];
 
@@ -534,7 +534,7 @@ describe("useSetupAgent", () => {
     expect(mockUseRealtimeVoiceSession).toHaveBeenLastCalledWith(
       expect.objectContaining({ instructions: "Guide the visitor." }),
     );
-    // A kiosk visitor can always talk, so its tools are never held back.
+    // An installation visitor can always talk, so its tools are never held back.
     handlersFromLastCall().select_topic({ title: "Food Waste" });
     expect(selectTopicHandler).toHaveBeenCalledOnce();
   });

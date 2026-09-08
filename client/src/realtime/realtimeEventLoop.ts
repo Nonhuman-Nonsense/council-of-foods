@@ -516,7 +516,7 @@ export function createEventLoop(params: {
           // A throwing handler must still produce a function_call_output.
           // Without one the model waits forever for a result that will never
           // arrive and the agent goes silent mid-conversation — on a museum
-          // kiosk that reads as a hang. Hand the model the failure instead so
+          // installation that reads as a hang. Hand the model the failure instead so
           // it can acknowledge it and carry on.
           const detail = err instanceof Error && err.message ? err.message : String(err);
           devLog.event("ERROR", `tool ${name} threw`, summarizeLogPayload({ error: detail }));

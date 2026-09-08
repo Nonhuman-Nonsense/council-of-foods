@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
-import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForKiosk, selectedFoodNames } from "@newMeeting/meetingSetup";
+import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
 
 vi.mock("@newMeeting/CharacterSetup", () => ({
   CHAIR_ID: "chair",
@@ -546,18 +546,18 @@ describe("buildMeetingCharactersPayload", () => {
   });
 });
 
-describe("orderSelectedCharactersForKiosk", () => {
+describe("orderSelectedCharactersForInstallation", () => {
   it("places panelist near the middle, leaning later when food count is odd", () => {
     expect(
-      orderSelectedCharactersForKiosk(["chair", "food-a", "panelist0", "food-b"])
+      orderSelectedCharactersForInstallation(["chair", "food-a", "panelist0", "food-b"])
     ).toEqual(["chair", "food-a", "panelist0", "food-b"]);
 
     expect(
-      orderSelectedCharactersForKiosk(["chair", "food-a", "food-b", "panelist0", "food-c"])
+      orderSelectedCharactersForInstallation(["chair", "food-a", "food-b", "panelist0", "food-c"])
     ).toEqual(["chair", "food-a", "food-b", "panelist0", "food-c"]);
 
     expect(
-      orderSelectedCharactersForKiosk([
+      orderSelectedCharactersForInstallation([
         "chair",
         "food-a",
         "food-b",
@@ -570,6 +570,6 @@ describe("orderSelectedCharactersForKiosk", () => {
 
   it("returns unchanged when no panelists are selected", () => {
     const input = ["chair", "food-a", "food-b"];
-    expect(orderSelectedCharactersForKiosk(input)).toEqual(input);
+    expect(orderSelectedCharactersForInstallation(input)).toEqual(input);
   });
 });

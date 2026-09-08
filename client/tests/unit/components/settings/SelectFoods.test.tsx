@@ -539,7 +539,7 @@ describe('SelectCharacters Component', () => {
     });
 
     /**
-     * A kiosk visitor has no keyboard, so panelists are added for them by name
+     * A museum visitor has no keyboard, so panelists are added for them by name
      * alone; web and presenter both have one, and building the council by hand
      * is part of showing the piece off at a screening.
      */

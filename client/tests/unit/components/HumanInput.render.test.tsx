@@ -66,7 +66,7 @@ vi.mock('@/utils', () => ({
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => ({
         mode: mockAppMode.value,
-        lastKioskMode: "museum",
+        lastInstallationMode: "museum",
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor(mockAppMode.value),
     }),

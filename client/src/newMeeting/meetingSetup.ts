@@ -16,10 +16,10 @@ function isPanelistId(id: string): boolean {
 }
 
 /**
- * On a kiosk install, place human panelist(s) near the middle of the lineup.
+ * On an installation, place human panelist(s) near the middle of the lineup.
  * When the food count is odd, lean toward the later side (more foods before than after).
  */
-export function orderSelectedCharactersForKiosk(selectedCharacters: string[]): string[] {
+export function orderSelectedCharactersForInstallation(selectedCharacters: string[]): string[] {
   const panelists = selectedCharacters.filter(isPanelistId);
   const nonPanelists = selectedCharacters.filter((id) => !isPanelistId(id));
 
@@ -343,7 +343,7 @@ export function buildMeetingCharactersPayload(params: {
   let { selectedCharacters } = params;
 
   if (!typedSetup) {
-    selectedCharacters = orderSelectedCharactersForKiosk(selectedCharacters);
+    selectedCharacters = orderSelectedCharactersForInstallation(selectedCharacters);
   }
   const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;

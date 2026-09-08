@@ -270,7 +270,7 @@ interface HumanInputProps {
   isPanelist: boolean;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string) => void;
-  /** Kiosk idle timeout: visitor released the button without submitting. */
+  /** Museum idle timeout: visitor released the button without submitting. */
   onAbandonHumanTurn: () => void;
   liveKey: string;
 }
@@ -459,7 +459,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   }, [connectionState, transcriptSegments, previousTranscript, capabilities.autoSubmitHumanInput, maxInputLength, onSubmitHumanMessage]);
 
   // The banner explaining the button belongs to every push-to-talk install.
-  // Dropping the turn behind it does not: a kiosk visitor can walk away
+  // Dropping the turn behind it does not: a museum visitor can walk away
   // mid-turn with nobody to recover it, while a presenter holds a turn open on
   // purpose while they talk about it.
   const pttSessionActive = capabilities.autoSubmitHumanInput && phase === "active";

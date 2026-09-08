@@ -235,7 +235,7 @@ describe("realtimeEventLoop", () => {
     /**
      * A handler that throws must still yield a function_call_output: without one
      * the model waits forever for a result that never arrives and the agent goes
-     * silent mid-conversation, which on a kiosk is indistinguishable from a hang.
+     * silent mid-conversation, which on an installation is indistinguishable from a hang.
      */
     it.each([
         {

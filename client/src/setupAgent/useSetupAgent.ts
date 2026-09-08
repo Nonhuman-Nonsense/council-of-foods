@@ -128,7 +128,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   /**
    * Whether the browser would let the agent be heard right now. On a cold visit
    * that is false everywhere, and the visitor's first interaction (anywhere —
-   * "Let's go", a topic, the mic button, the space bar) flips it. A kiosk has
+   * "Let's go", a topic, the mic button, the space bar) flips it. An installation has
    * nobody to interact and is configured to allow audio, so it is always true.
    *
    * This no longer gates *connecting* — the session is built straight away, so

@@ -2,7 +2,7 @@ import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import {
   buildMeetingCharactersPayload,
-  orderSelectedCharactersForKiosk,
+  orderSelectedCharactersForInstallation,
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
@@ -264,11 +264,11 @@ export function createSetupAgentTools({
   return tools;
 }
 
-function syncKioskPanelistOrder(): void {
+function syncInstallationPanelistOrder(): void {
   if (getCapabilities().typedSetup) return;
   const store = useMeetingSetupStore.getState();
   if (!store.selectedCharacters.some((id) => id.startsWith("panelist"))) return;
-  const sorted = orderSelectedCharactersForKiosk(store.selectedCharacters);
+  const sorted = orderSelectedCharactersForInstallation(store.selectedCharacters);
   if (sorted.join(",") !== store.selectedCharacters.join(",")) {
     store.setSelectedCharacters(sorted);
   }
@@ -354,7 +354,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
       }
       useMeetingSetupStore.getState().setHoveredCharacter(found.id);
-      syncKioskPanelistOrder();
+      syncInstallationPanelistOrder();
       return { ok: true, data: { name: found.name, description: found.description } };
     },
 
@@ -367,7 +367,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
       useMeetingSetupStore.getState().handleDeselectCharacterId(found.id);
       useMeetingSetupStore.getState().setHoveredCharacter(null);
-      syncKioskPanelistOrder();
+      syncInstallationPanelistOrder();
       return { ok: true, data: { name: found.name } };
     },
 
@@ -407,7 +407,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!store.selectedCharacters.includes(`panelist${index}`)) {
         store.handleSelectCharacterId(`panelist${index}`);
       }
-      syncKioskPanelistOrder();
+      syncInstallationPanelistOrder();
       return { ok: true, data: { index, name } };
     },
 
@@ -481,10 +481,10 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
           }
           const updated = useMeetingSetupStore.getState();
           updated.setSelectedCharacters(
-            orderSelectedCharactersForKiosk(updated.selectedCharacters)
+            orderSelectedCharactersForInstallation(updated.selectedCharacters)
           );
         } else {
-          syncKioskPanelistOrder();
+          syncInstallationPanelistOrder();
         }
       }
 

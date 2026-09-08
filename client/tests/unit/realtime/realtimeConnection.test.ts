@@ -546,7 +546,7 @@ describe("classifyRealtimeError", () => {
   });
 
   it("marks every mic failure as unavailable on web and fatal in museum", () => {
-    // Web keeps a fully clickable setup flow without a mic; a kiosk with no
+    // Web keeps a fully clickable setup flow without a mic; an installation with no
     // working mic is genuinely broken and must surface as a terminal error.
     const reasons = ["insecure_context", "unsupported", "not_found", "permission_denied", "in_use", "unknown"] as const;
     for (const reason of reasons) {

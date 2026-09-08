@@ -24,9 +24,9 @@ export type Capabilities = {
    * than as something the visitor could go and permit, and resume a meeting
    * paused by an environmental interrupt (tab switch, restored connection).
    *
-   * Presenter keeps this despite having a person present: kiosk chrome has no
-   * play/pause control, so a meeting paused by a tab switch would have no way
-   * back.
+   * Presenter keeps this despite having a person present: installation chrome
+   * has no play/pause control, so a meeting paused by a tab switch would have
+   * no way back.
    */
   selfHealing: boolean;
   /**
@@ -39,7 +39,7 @@ export type Capabilities = {
   /**
    * When the app is waiting on the visitor and the visitor says nothing, answer
    * on their behalf: skip their turn, resume after an interruption, conclude at
-   * the soft cap. A kiosk visitor walks away mid-prompt and the meeting has to
+   * the soft cap. A museum visitor walks away mid-prompt and the meeting has to
    * go on regardless; a presenter's silence is them talking to the room, and
    * every one of those answers would cut them off.
    */
@@ -54,8 +54,9 @@ export type Capabilities = {
   autoReturnToLanding: boolean;
   /**
    * The visitor drives their own browser with a pointer and a keyboard, so the
-   * page can offer navigation chrome, close buttons, and downloads. A kiosk has
-   * none of that, and an affordance nobody can reach is worse than absent.
+   * page can offer navigation chrome, close buttons, and downloads. An
+   * installation has none of that, and an affordance nobody can reach is worse
+   * than absent.
    */
   browserUi: boolean;
   /** Meeting-time agent that fields interruptions and the soft-cap question. */
@@ -74,14 +75,14 @@ export type Capabilities = {
   micToggleButton: boolean;
   /**
    * A tap latches the microphone on; a hold stays momentary. Hold works in
-   * every mode; only latching is gated. On an unattended kiosk a latched-open
+   * every mode; only latching is gated. On an unattended installation a latched-open
    * mic has no keyboard to clear it and no on-screen button to reveal it, so
    * the visitor's only exit is a gesture nobody taught them — and at a
    * screening it would keep hearing the presenter narrate.
    */
   latchOnTap: boolean;
   /**
-   * Setup runs as a voice conversation with the agent presented kiosk-style:
+   * Setup runs as a voice conversation with the agent presented installation-style:
    * mic row, council-width subtitles, button banner, and a prompt that explains
    * the talk button.
    */
@@ -99,11 +100,11 @@ export type Capabilities = {
    */
   typedSetup: boolean;
   /**
-   * A fixed install reloads to the app root in the default language, after a
-   * health probe — the next visitor should not inherit the last one's language
-   * or a reload into a server that is still coming back up.
+   * A fixed installation reloads to the app root in the default language, after
+   * a health probe — the next visitor should not inherit the last one's
+   * language, or a reload into a server that is still coming back up.
    */
-  kioskReload: boolean;
+  installationReload: boolean;
 };
 
 const WEB: Capabilities = {
@@ -123,7 +124,7 @@ const WEB: Capabilities = {
   latchOnTap: true,
   voiceSetupAgent: false,
   typedSetup: true,
-  kioskReload: false,
+  installationReload: false,
 };
 
 const MUSEUM: Capabilities = {
@@ -143,14 +144,14 @@ const MUSEUM: Capabilities = {
   latchOnTap: false,
   voiceSetupAgent: true,
   typedSetup: false,
-  kioskReload: true,
+  installationReload: true,
 };
 
 /**
  * Performative screening: museum without anything that drives the app forward
  * on its own, because the person standing next to it is talking and the screen
  * must wait for them. Chrome, teleprompter, meta agent, push-to-talk and
- * self-healing are the kiosk's.
+ * self-healing are the museum's.
  *
  * Adding human panelists is the exception: a presenter has a keyboard, and
  * putting people on the council by hand is part of showing the piece off. The

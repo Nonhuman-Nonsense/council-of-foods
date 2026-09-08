@@ -6,8 +6,7 @@ blips) **and** from failure modes where the React app is not running at all
 
 **Status:** Planned.
 
-**Related docs:** [agent-error-handling-plan.md](./agent-error-handling-plan.md),
-[button/bridge/README.md](../button/bridge/README.md).
+**Related docs:** [button/bridge/README.md](../button/bridge/README.md).
 
 ---
 
@@ -69,7 +68,7 @@ Server health endpoint already exists: `GET /health` → `200` (`server/server.t
 
 **Note:** Error state is centralized in `client/src/main/overlay/errorStore.ts`
 (Zustand). `Main.tsx` reads the store directly — no error props on `Council` /
-`MeetingSetupShell`. See [agent-error-handling-plan.md](./agent-error-handling-plan.md).
+`MeetingSetupShell`.
 
 ---
 
