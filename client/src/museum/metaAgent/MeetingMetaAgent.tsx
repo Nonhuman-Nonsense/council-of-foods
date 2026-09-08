@@ -34,6 +34,12 @@ export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
+  /**
+   * The chair's invitation to a human turn is playing. While it is, the button
+   * is disarmed so an eager press a beat early opens the human turn (once it
+   * lands) rather than pulling the meeting into meta-agent mode.
+   */
+  invitationPlaying: boolean;
   metaAgentPhase: MetaAgentPhase;
   setMetaAgentPhase: (phase: MetaAgentPhase) => void;
   setAgentSpeaking: (speaking: boolean) => void;
@@ -118,6 +124,7 @@ export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
+  invitationPlaying,
   metaAgentPhase,
   setMetaAgentPhase,
   setAgentSpeaking,
@@ -270,8 +277,10 @@ export default function MeetingMetaAgent({
   }, [button.claim, button.release]);
 
   useEffect(() => {
-    button.setArmed(connectionState === "ready");
-  }, [button.setArmed, connectionState]);
+    // Disarm (LED dark) while the chair's invitation plays — the press belongs
+    // to the imminent human turn, and human-input claims the button once it lands.
+    button.setArmed(connectionState === "ready" && !invitationPlaying);
+  }, [button.setArmed, connectionState, invitationPlaying]);
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "meta-agent",

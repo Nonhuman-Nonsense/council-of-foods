@@ -221,6 +221,9 @@ function Council({
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
+  // The chair's invitation to a human turn is playing. The button belongs to the
+  // imminent human turn during this window, not the meta-agent — see MeetingMetaAgent.
+  const invitationPlaying = textMessages[playingNowIndex]?.type === "invitation";
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
     councilState === 'playing' ||
@@ -257,6 +260,7 @@ function Council({
           liveKey={liveKey}
           language={i18n.language}
           participationPhase={participationPhase}
+          invitationPlaying={invitationPlaying}
           metaAgentPhase={metaAgentPhase}
           setMetaAgentPhase={setMetaAgentPhase}
           setAgentSpeaking={setAgentSpeaking}

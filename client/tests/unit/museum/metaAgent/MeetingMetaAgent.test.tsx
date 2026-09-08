@@ -126,6 +126,7 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     liveKey: "live-key-123",
     language: "en",
     participationPhase: "off",
+    invitationPlaying: false,
     metaAgentPhase: "inactive",
     setMetaAgentPhase: vi.fn(),
     setAgentSpeaking: vi.fn(),
@@ -196,6 +197,12 @@ describe("MeetingMetaAgent", () => {
   it("arms the button once the realtime session is ready", () => {
     render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
     expect(mockSetArmed).toHaveBeenCalledWith(true);
+  });
+
+  it("keeps the button disarmed while the chair's invitation plays", () => {
+    render(<MeetingMetaAgent {...makeProps({ invitationPlaying: true })} />);
+    expect(mockSetArmed).toHaveBeenCalledWith(false);
+    expect(mockSetArmed).not.toHaveBeenCalledWith(true);
   });
 
   it("sets active, opens mic, sends snapshot on button press (standby)", () => {
