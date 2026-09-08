@@ -10,6 +10,25 @@ import { GlobalOptions } from "./GlobalOptions.js";
 import type { ConversationCompletionResult, ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 
+/**
+ * How many times a single generation may be sampled before giving up. A model
+ * that returns nothing is nearly always fine on the next sample; one that
+ * returns nothing four times running is not going to start.
+ */
+const GENERATION_ATTEMPTS = 4;
+
+/**
+ * The conversation model returned no usable content for a generation, and
+ * retrying did not help. Distinct from a transport failure, which never reaches
+ * this far — {@link withNetworkRetry} owns those.
+ */
+export class EmptyCompletionError extends Error {
+    constructor(operation: string, attempts: number) {
+        super(`No content received from the conversation model for ${operation} after ${attempts} attempts`);
+        this.name = "EmptyCompletionError";
+    }
+}
+
 /** Overflow trimming for summary documents — independent of global turn settings. */
 const DOCUMENT_TRIM_SENTENCE = false;
 const DOCUMENT_TRIM_PARAGRAPH = true;
@@ -19,7 +38,7 @@ export interface Services {
     meetingsCollection: Collection<StoredMeeting>;
 }
 
-export interface GPTResponse {
+export interface DialogResponse {
     id: string | null;
     response: string;
     sentences?: string[];
@@ -33,7 +52,7 @@ export interface DocumentResponse {
     trimmed?: string;
 }
 
-type PostProcessedResponse = Omit<GPTResponse, "id">;
+type PostProcessedResponse = Omit<DialogResponse, "id">;
 
 /**
  * Handles all interactions with the configured conversation completion provider.
@@ -53,6 +72,88 @@ export class DialogGenerator {
     }
 
     /**
+     * Calls the conversation model and insists on usable text.
+     *
+     * Two failures look different but mean the same thing — the turn produced
+     * nothing to say — and both are worth another sample:
+     *
+     * - the model returned no content at all;
+     * - it returned content that post-processing trimmed away entirely.
+     *
+     * Only the second used to be retried, and only for council turns, so an
+     * empty completion anywhere ended the meeting on the first try. Transport
+     * failures are a different problem and stay with `withNetworkRetry` inside
+     * {@link requestChatCompletion}.
+     *
+     * Exhausting the attempts preserves what each failure meant before: no
+     * content at all throws, so the caller can decide the meeting is over;
+     * trimmed-to-nothing returns the empty result, which callers already
+     * tolerate.
+     *
+     * Both are rare enough to be worth hearing about even when a retry saves
+     * the turn, so every failed attempt is reported, not just a fatal one.
+     */
+    private async completeWithRetry<T extends PostProcessedResponse | Pick<DocumentResponse, "response" | "trimmed">>(
+        request: {
+            messages: ChatCompletionMessageParam[];
+            maxCompletionTokens: number;
+            stop?: string[];
+        },
+        postProcess: (completion: ConversationCompletionResult) => T,
+        ctx: {
+            /** Names the generation in logs and in the error a caller sees. */
+            operation: string;
+            meeting: StoredMeeting;
+            /**
+             * Interrupts (hand raise, pause, teardown), checked between attempts.
+             * Aborting returns an empty response, so only pass one from a caller
+             * that re-checks the same condition and discards the result — the
+             * council turn does; nothing else needs to, since the run loop stops
+             * at its next boundary anyway.
+             */
+            shouldAbort?: () => boolean;
+        },
+    ): Promise<{ id: string | null } & T> {
+        const { operation, meeting, shouldAbort } = ctx;
+        let lastEmpty: { id: string | null } & T | null = null;
+
+        for (let attempt = 1; attempt <= GENERATION_ATTEMPTS; attempt++) {
+            const completion = await this.requestChatCompletion(
+                request.messages,
+                request.maxCompletionTokens,
+                request.stop,
+            );
+
+            if (completion.content) {
+                const processed = postProcess(completion);
+                if (processed.response !== "") {
+                    return { id: completion.id, ...processed };
+                }
+                lastEmpty = { id: completion.id, ...processed };
+            }
+
+            const reason = completion.content ? "entire message trimmed" : "no content received";
+            void Logger.warn(
+                "DialogGenerator",
+                `${operation}: ${reason} (attempt ${attempt}/${GENERATION_ATTEMPTS})`,
+                { from: { meetingId: meeting._id }, clientImpact: "none" },
+            );
+
+            // After the warning, so an interrupted turn still reports the empty
+            // sample it already paid for.
+            if (shouldAbort?.()) {
+                return lastEmpty ?? { id: completion.id, ...postProcess({ ...completion, content: "" }) };
+            }
+        }
+
+        if (lastEmpty) {
+            return lastEmpty;
+        }
+
+        throw new EmptyCompletionError(operation, GENERATION_ATTEMPTS);
+    }
+
+    /**
      * Generates a conversational response with built-in retry logic for empty responses.
      * Checks the `shouldAbort` callback between attempts to respect interrupts (e.g. Hand Raising).
      */
@@ -61,37 +162,8 @@ export class DialogGenerator {
         meeting: StoredMeeting,
         currentSpeakerIndex: number,
         shouldAbort: () => boolean,
-    ): Promise<GPTResponse> {
-        let attempt = 1;
-        let output: GPTResponse = {
-            response: "",
-            id: null,
-            sentences: [],
-            trimmed: undefined,
-            pretrimmed: undefined
-        };
-
-        const maxAttempts = 5;
-
-        while (attempt < maxAttempts && output.response === "") {
-            output = await this.generateTextFromGPT(
-                speaker,
-                meeting,
-                currentSpeakerIndex
-            );
-
-            if (shouldAbort()) {
-                // Return whatever we have (likely empty or partial) or a specific "aborted" response?
-                // The caller will check state anyway.
-                return output;
-            }
-
-            attempt++;
-            if (output.response === "") {
-                Logger.warn("DialogGenerator", `entire message trimmed, trying again. attempt ${attempt}`, { from: { meetingId: meeting._id } });
-            }
-        }
-        return output;
+    ): Promise<DialogResponse> {
+        return this.generateResponse(speaker, meeting, currentSpeakerIndex, shouldAbort);
     }
 
     /**
@@ -264,34 +336,32 @@ export class DialogGenerator {
     /**
      * Generates a conversational response for a specific character (food or chair).
      */
-    async generateTextFromGPT(speaker: Character, meeting: StoredMeeting, currentSpeakerIndex: number): Promise<GPTResponse> {
+    async generateResponse(
+        speaker: Character,
+        meeting: StoredMeeting,
+        currentSpeakerIndex: number,
+        shouldAbort?: () => boolean,
+    ): Promise<DialogResponse> {
         try {
-            const messages = this.buildMessageStack(speaker, meeting.conversation, meeting);
-
-            const completion = await this.requestChatCompletion(
-                messages,
-                speaker.id === this.serverOptions.chairId
-                    ? this.serverOptions.chairMaxTokens
-                    : this.serverOptions.maxTokens,
-                ["\n---"],
+            return await this.completeWithRetry(
+                {
+                    messages: this.buildMessageStack(speaker, meeting.conversation, meeting),
+                    maxCompletionTokens:
+                        speaker.id === this.serverOptions.chairId
+                            ? this.serverOptions.chairMaxTokens
+                            : this.serverOptions.maxTokens,
+                    stop: ["\n---"],
+                },
+                (completion) =>
+                    this.postProcessResponse(
+                        completion.content ?? "",
+                        speaker,
+                        meeting,
+                        currentSpeakerIndex,
+                        completion.finishReason,
+                    ),
+                { operation: `${speaker.name}'s turn`, meeting, shouldAbort },
             );
-
-            if (!completion.content) {
-                throw new Error("No content received from GPT");
-            }
-
-            const processed = this.postProcessResponse(
-                completion.content,
-                speaker,
-                meeting,
-                currentSpeakerIndex,
-                completion.finishReason
-            );
-
-            return {
-                id: completion.id,
-                ...processed,
-            };
         } catch (error) {
             //Just log and rethrow
             Logger.error("DialogGenerator", "Error during response generation", { error, from: { meetingId: meeting._id } });
@@ -303,7 +373,13 @@ export class DialogGenerator {
      * Generates a specific interjection or system message (e.g., Chair inviting human).
      * Uses a temporary system prompt injected at the end of the history.
      */
-    async chairInterjection(interjectionPrompt: string, index: number, length: number, meeting: StoredMeeting, _broadcaster: IMeetingBroadcaster): Promise<GPTResponse> {
+    async chairInterjection(
+        interjectionPrompt: string,
+        index: number,
+        length: number,
+        meeting: StoredMeeting,
+        _broadcaster: IMeetingBroadcaster,
+    ): Promise<DialogResponse> {
         try {
             const chair = meeting.characters[0];
             const messages = this.buildMessageStack(chair, meeting.conversation, meeting, index);
@@ -318,24 +394,18 @@ export class DialogGenerator {
                 content: chair.name + ": ",
             });
 
-            const completion = await this.requestChatCompletion(messages, length, ["\n---"]);
-
-            if (!completion.content) {
-                throw new Error("No content received from GPT");
-            }
-
-            const processed = this.postProcessResponse(
-                completion.content,
-                chair,
-                meeting,
-                0,
-                completion.finishReason
+            return await this.completeWithRetry(
+                { messages, maxCompletionTokens: length, stop: ["\n---"] },
+                (completion) =>
+                    this.postProcessResponse(
+                        completion.content ?? "",
+                        chair,
+                        meeting,
+                        0,
+                        completion.finishReason,
+                    ),
+                { operation: "chair interjection", meeting },
             );
-
-            return {
-                id: completion.id,
-                ...processed,
-            };
         } catch (error) {
             //Just log and rethrow
             Logger.error("DialogGenerator", "Error during chair interjection", { error, from: { meetingId: meeting._id } });
@@ -361,30 +431,31 @@ export class DialogGenerator {
                 content: documentPrompt,
             });
 
-            const completion = await this.requestChatCompletion(messages, maxTokens);
+            // Set by the last attempt's post-processing, for the log line below.
+            let finishReason: string | null = null;
 
-            if (!completion.content) {
-                throw new Error("No content received from GPT");
-            }
-
-            const processed = this.postProcessDocumentResponse(
-                completion.content,
-                completion.finishReason,
+            const result = await this.completeWithRetry(
+                { messages, maxCompletionTokens: maxTokens },
+                (completion) => {
+                    finishReason = completion.finishReason;
+                    return this.postProcessDocumentResponse(
+                        completion.content ?? "",
+                        completion.finishReason,
+                    );
+                },
+                { operation: "summary document", meeting },
             );
 
-            const trimmedNote = processed.trimmed
-                ? `, trimmed: ${processed.trimmed.length} chars`
+            const trimmedNote = result.trimmed
+                ? `, trimmed: ${result.trimmed.length} chars`
                 : "";
             Logger.info(
                 "DialogGenerator",
-                `document generated (${processed.response.length} chars, finish_reason: ${completion.finishReason ?? "unknown"}${trimmedNote})`,
+                `document generated (${result.response.length} chars, finish_reason: ${finishReason ?? "unknown"}${trimmedNote})`,
                 { from: { meetingId: meeting._id } },
             );
 
-            return {
-                id: completion.id,
-                ...processed,
-            };
+            return result;
         } catch (error) {
             Logger.error("DialogGenerator", "Error during document generation", { error, from: { meetingId: meeting._id } });
             throw error;
@@ -392,7 +463,7 @@ export class DialogGenerator {
     }
 
     /**
-     * Constructs the array of message objects (system, user, assistant) for the GPT API.
+     * Constructs the array of message objects (system, user, assistant) for the conversation model.
      */
     buildMessageStack(
         speaker: Character,

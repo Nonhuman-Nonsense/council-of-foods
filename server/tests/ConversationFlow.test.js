@@ -172,7 +172,7 @@ describe('MeetingManager - Conversation Flow', () => {
         // Water=0, Tomato=1.
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(1);
 
-        // We DO NOT mock generateTextFromGPT. We test it!
+        // We DO NOT mock generateResponse. We test it!
 
         const action = diManager.decideNextAction();
         expect(action.type).toBe('GENERATE_AI_RESPONSE');
@@ -217,10 +217,10 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
         expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
-        // Verify it returns early (does not call generateGPT/Audio/recurse)
-        // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.
-        const gptSpy = vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT');
-        expect(gptSpy).not.toHaveBeenCalled();
+        // Verify it returns early (does not call generateResponse/Audio/recurse)
+        // calculateCurrentSpeaker WAS called, but generateResponse should NOT be.
+        const responseSpy = vi.spyOn(manager.dialogGenerator, 'generateResponse');
+        expect(responseSpy).not.toHaveBeenCalled();
     });
 
     it('should pass trimmed content through on panelist invitation', async () => {
