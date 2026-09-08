@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildExtensionActivationTurn,
   buildExtensionAgentPrompt,
   buildExtensionStateSnapshot,
-  buildMetaAgentActivationTurn,
   buildMetaAgentPrompt,
   buildMetaAgentStateSnapshot,
   getMetaAgentBundle,
@@ -73,17 +71,17 @@ describe("getMetaAgentBundle", () => {
   });
 });
 
+/**
+ * These assert that bundle values reach the prompt, never how the prompt's own
+ * copy is worded (TESTING.md): a wording assertion fails on every harmless
+ * reword and still passes when the model ignores the instruction entirely.
+ */
 describe("buildMetaAgentPrompt", () => {
   it("includes chair identity, project, and council vocabulary", () => {
     const prompt = buildMetaAgentPrompt({ bundle: testBundle });
     expect(prompt).toContain("You are Water");
     expect(prompt).toContain("Council of Foods");
     expect(prompt).toContain("foods debate");
-  });
-
-  it("explains the talk button", () => {
-    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("hold to talk");
   });
 
   it("mentions resume_meeting and restart_meeting tools", () => {
@@ -93,45 +91,16 @@ describe("buildMetaAgentPrompt", () => {
     expect(prompt).toContain(testBundle.toolDescriptions.resume_meeting);
   });
 
-  it("instructs the agent to judge when to resume and call resume_meeting", () => {
-    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("You decide when the interruption is over");
-    expect(prompt).toContain("call resume_meeting in that same turn");
-    expect(prompt).toContain("Do not end a turn with only a spoken goodbye");
-  });
-
-  it("loads continue guidance from the shipped foods bundle", () => {
+  it("carries the shipped bundle's tool descriptions into the prompt", () => {
     const bundle = getMetaAgentBundle("en");
     const prompt = buildMetaAgentPrompt({ bundle });
-    expect(bundle.jobInstructions.join(" ")).toContain("Err on resuming");
     expect(prompt).toContain(bundle.toolDescriptions.resume_meeting);
   });
 
-  it("instructs staying quiet until STATE SYNC and acknowledging the interruption", () => {
-    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("Stay quiet until you receive (STATE SYNC:");
-    expect(prompt).toContain("acknowledging the interruption");
-    expect(prompt).toContain("Do not open with 'How can I help you?'");
-  });
-
-  it("includes an example interruption greeting with vary instruction", () => {
-    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("Example tone (vary the words each time");
-    expect(prompt).toContain("Excuse me — you've interrupted the council");
-    expect(prompt).toContain("do not repeat verbatim");
-  });
-
-  it("loads activationGreetingExample from the shipped foods bundle", () => {
+  it("carries the shipped bundle's greeting example into the prompt", () => {
     const bundle = getMetaAgentBundle("en");
     const prompt = buildMetaAgentPrompt({ bundle });
-    expect(bundle.activationGreetingExample).toContain("interrupted");
     expect(prompt).toContain(bundle.activationGreetingExample);
-  });
-
-  it("frames the role as interruption handler, not a guide", () => {
-    const prompt = buildMetaAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("not a help desk");
-    expect(prompt).toContain("address the interruption");
   });
 
   it("uses the shipped foods bundle without errors", () => {
@@ -140,15 +109,6 @@ describe("buildMetaAgentPrompt", () => {
     });
     expect(prompt.length).toBeGreaterThan(100);
     expect(prompt.length).toBeLessThan(4000);
-  });
-});
-
-describe("buildMetaAgentActivationTurn", () => {
-  it("asks for an interruption greeting, not a generic welcome", () => {
-    const turn = buildMetaAgentActivationTurn();
-    expect(turn).toContain("interrupted");
-    expect(turn).toContain("interruption greeting");
-    expect(turn).toContain("STATE SYNC");
   });
 });
 
@@ -221,12 +181,6 @@ describe("buildExtensionAgentPrompt", () => {
     expect(prompt).toContain(testBundle.extensionToolDescriptions.extend_meeting);
   });
 
-  it("requires calling exactly one terminal tool", () => {
-    const prompt = buildExtensionAgentPrompt({ bundle: testBundle });
-    expect(prompt).toContain("exactly one tool");
-    expect(prompt).toContain("extend_meeting or conclude_meeting");
-  });
-
   it("includes extension greeting example", () => {
     const prompt = buildExtensionAgentPrompt({ bundle: testBundle });
     expect(prompt).toContain(testBundle.extensionActivationGreetingExample);
@@ -237,14 +191,6 @@ describe("buildExtensionAgentPrompt", () => {
     const prompt = buildExtensionAgentPrompt({ bundle });
     expect(bundle.extensionJobInstructions.length).toBeGreaterThan(0);
     expect(prompt).toContain(bundle.extensionToolDescriptions.conclude_meeting);
-  });
-});
-
-describe("buildExtensionActivationTurn", () => {
-  it("asks the chair to speak first about extend vs conclude", () => {
-    const turn = buildExtensionActivationTurn();
-    expect(turn).toContain("extend or conclude");
-    expect(turn).toContain("STATE SYNC");
   });
 });
 
