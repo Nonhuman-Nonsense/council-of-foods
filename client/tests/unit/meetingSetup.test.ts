@@ -43,6 +43,7 @@ const topicsBundle = {
     id: "customtopic",
     title: "Custom Topic",
     description: "",
+    agentBrief: "Visitor's own question.",
     prompt: "",
   },
   topics: [
@@ -50,6 +51,7 @@ const topicsBundle = {
       id: "forestry",
       title: "Forestry",
       description: "Forest topic",
+      agentBrief: "What is at stake in forests.",
       prompt: "Topic context.",
       agendaPoints: ["Point one", "Point two"],
     },
@@ -481,6 +483,7 @@ describe("buildTopicFromSelection", () => {
             id: "simple",
             title: "Simple",
             description: "Simple topic",
+            agentBrief: "Simple brief",
             prompt: "Only context.",
           },
         ],

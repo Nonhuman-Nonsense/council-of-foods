@@ -61,15 +61,19 @@ export default function MeetingSetupAgent({
 
   const setupTopics = useMemo(() => {
     return [
-      ...topicsBundle.topics.map((topic: Topic) => ({
+      ...topicsBundle.topics.map((topic) => ({
         id: topic.id,
         title: topic.title,
         description: topic.description,
+        agentBrief: topic.agentBrief,
       })),
       {
         id: topicsBundle.custom_topic.id,
         title: topicsBundle.custom_topic.title,
+        // No description: the visitor's own words go here, and until they type
+        // them the screen shows a text box rather than a line to read.
         description: "",
+        agentBrief: topicsBundle.custom_topic.agentBrief,
       },
     ];
   }, [topicsBundle]);

@@ -9,6 +9,7 @@ interface Topic {
     id: string;
     title: string;
     description?: string;
+    agentBrief?: string;
     prompt?: string;
     agendaPoints?: string[];
 }
@@ -54,9 +55,12 @@ describe('Validate Topics Data JSONs', () => {
             expect(data.system.length).toBeGreaterThan(0);
             expect(data.system).toContain('[TOPIC]');
 
-            // 5. Validate Custom Topic
+            // 5. Validate Custom Topic. No description — the visitor's own
+            // words stand in for one — but a brief like any other topic: it is
+            // what the setup agent speaks from, and the code requires it.
             expect(data.custom_topic).toHaveProperty('id');
             expect(data.custom_topic).toHaveProperty('title');
+            expect(data.custom_topic.agentBrief?.trim(), `custom_topic in "${lang}" has no agentBrief`).toBeTruthy();
 
             // 6. Validate Individual Topics
             data.topics.forEach((topic) => {
@@ -64,6 +68,12 @@ describe('Validate Topics Data JSONs', () => {
                 expect(topic).toHaveProperty('title');
                 expect(topic).toHaveProperty('description');
                 expect(topic).toHaveProperty('prompt');
+                // Both, and different from each other: the description is the
+                // line on screen, the brief is what the agent says instead of
+                // reading that line out.
+                expect(topic.description?.trim(), `topic "${topic.id}" in "${lang}" has no description`).toBeTruthy();
+                expect(topic.agentBrief?.trim(), `topic "${topic.id}" in "${lang}" has no agentBrief`).toBeTruthy();
+                expect(topic.agentBrief?.trim(), `topic "${topic.id}" in "${lang}" repeats its description as the agentBrief`).not.toBe(topic.description?.trim());
                 if (topic.agendaPoints != null) {
                     expect(Array.isArray(topic.agendaPoints)).toBe(true);
                     expect(topic.agendaPoints.length).toBeGreaterThan(0);

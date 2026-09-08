@@ -138,7 +138,7 @@ export function createSetupAgentTools({
       type: "function",
       name: "select_topic",
       description:
-        "Highlight a topic in the UI by title and return its description so you can explain it to the visitor. Does NOT advance to food selection — call confirm_topic when the visitor is ready to proceed.",
+        "Highlight a topic in the UI by title and return notes on what is at stake in it, to speak from (not to recite — the visitor can already read what the topic is). Does NOT advance to food selection — call confirm_topic when the visitor is ready to proceed.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -292,7 +292,9 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!found) return { ok: false, error: `Unknown topic: ${title}` };
       if (ctx.meetingStep === "landing") ctx.beginSetup();
       useMeetingSetupStore.getState().setSelectedTopic(found.id);
-      return { ok: true, data: { title: found.title, description: found.description } };
+      // The brief, not the description: the description is on screen in front
+      // of the visitor, so reading it back is the one thing not worth saying.
+      return { ok: true, data: { title: found.title, brief: found.agentBrief } };
     },
 
     confirm_topic: () => {

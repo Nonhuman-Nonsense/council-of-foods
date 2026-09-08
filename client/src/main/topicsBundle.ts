@@ -1,6 +1,14 @@
 import type { Topic } from "@shared/ModelTypes";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 
+/**
+ * A topic the setup UI can offer. Unlike a meeting's topic — which may be one
+ * the visitor wrote on the spot — a bundled topic always carries the brief the
+ * agent speaks from. The JSON is cast, not parsed, so ValidateTopicsData is
+ * what actually holds this true.
+ */
+export type BundleTopic = Topic & { agentBrief: string };
+
 export interface TopicsData {
   /** Set from the `topics_<lang>.json` filename when the bundle is loaded. */
   language: string;
@@ -9,8 +17,8 @@ export interface TopicsData {
     last_updated: string;
   };
   system: string;
-  custom_topic: Topic;
-  topics: Topic[];
+  custom_topic: BundleTopic;
+  topics: BundleTopic[];
 }
 
 // Topics bundles live in `shared/prompts/`.

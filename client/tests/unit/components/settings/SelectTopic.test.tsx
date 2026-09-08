@@ -63,11 +63,11 @@ vi.mock('@/settings/councilSettings', () => ({
 }));
 
 const mockTopics = [
-    { id: 'topic1', title: 'Topic One', description: 'Desc One', prompt: 'Prompt One' },
-    { id: 'topic2', title: 'Topic Two', description: 'Desc Two', prompt: 'Prompt Two' }
+    { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One', prompt: 'Prompt One' },
+    { id: 'topic2', title: 'Topic Two', description: 'Desc Two', agentBrief: 'Brief Two', prompt: 'Prompt Two' }
 ];
 
-const mockCustomTopicConfig = { id: 'customtopic', title: 'Write your own', description: 'Custom', prompt: '' };
+const mockCustomTopicConfig = { id: 'customtopic', title: 'Write your own', description: 'Custom', agentBrief: 'Custom brief', prompt: '' };
 const mockMetadata = { version: '1.0.0', last_updated: '2026-01-01' };
 
 const defaultBundle = {
@@ -217,10 +217,10 @@ describe('SelectTopic Component', () => {
 
     it('should use single-column layout for few topics (<=6)', () => {
         const fewTopics = [
-            { id: '1', title: 'T1', description: 'A', prompt: '' },
-            { id: '2', title: 'T2', description: 'B', prompt: '' },
-            { id: '3', title: 'T3', description: 'C', prompt: '' },
-            { id: '4', title: 'T4', description: 'D', prompt: '' }
+            { id: '1', title: 'T1', description: 'A', agentBrief: 'A brief', prompt: '' },
+            { id: '2', title: 'T2', description: 'B', agentBrief: 'B brief', prompt: '' },
+            { id: '3', title: 'T3', description: 'C', agentBrief: 'C brief', prompt: '' },
+            { id: '4', title: 'T4', description: 'D', agentBrief: 'D brief', prompt: '' }
         ];
         vi.mocked(getTopicsBundle).mockReturnValue({
             language: 'en',
@@ -254,7 +254,7 @@ describe('SelectTopic Component', () => {
 
     it('should use two-column layout for many topics (>6)', () => {
         const manyTopics = Array.from({ length: 7 }, (_, i) => ({
-            id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`, prompt: ''
+            id: `topic${i}`, title: `Topic ${i}`, description: `Desc ${i}`, agentBrief: `Brief ${i}`, prompt: ''
         }));
         vi.mocked(getTopicsBundle).mockReturnValue({
             language: 'en',

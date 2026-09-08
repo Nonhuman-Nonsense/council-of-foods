@@ -196,6 +196,10 @@ export function buildMetaAgentStateSnapshot(snapshot: MetaAgentStateSnapshot): s
           id: snapshot.topic.id,
           title: snapshot.topic.title,
           description: truncateDescription(snapshot.topic.description),
+          // What is at stake in the topic, where the description only names
+          // it. Absent for a topic the visitor wrote themselves — there the
+          // description is their own question, which says it better.
+          brief: snapshot.topic.agentBrief ? truncateDescription(snapshot.topic.agentBrief) : null,
         }
       : null,
     councilMembers: councilMembers.map((p) => p.name),
@@ -279,6 +283,10 @@ export function buildExtensionStateSnapshot(snapshot: MetaAgentStateSnapshot): s
           id: snapshot.topic.id,
           title: snapshot.topic.title,
           description: truncateDescription(snapshot.topic.description),
+          // What is at stake in the topic, where the description only names
+          // it. Absent for a topic the visitor wrote themselves — there the
+          // description is their own question, which says it better.
+          brief: snapshot.topic.agentBrief ? truncateDescription(snapshot.topic.agentBrief) : null,
         }
       : null,
     councilMembers: councilMembers.map((p) => p.name),

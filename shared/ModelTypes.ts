@@ -13,7 +13,15 @@ export type VoiceOption = typeof AVAILABLE_VOICES[number] | typeof AVAILABLE_VOI
 export interface Topic {
     id: string;
     title: string;
+    /** One glanceable line, shown on the topic screen. */
     description: string;
+    /**
+     * Notes for the setup agent to speak from — the stakes and what is
+     * contested, deliberately not what {@link description} already says on
+     * screen, so hearing and reading it give the visitor two different things.
+     * Optional: the agent falls back to the description without it.
+     */
+    agentBrief?: string;
     prompt: string;
     /** Optional agenda items; rendered via [AGENDA_POINTS] in the system prompt at meeting setup. */
     agendaPoints?: string[];
