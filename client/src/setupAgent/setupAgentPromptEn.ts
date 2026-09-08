@@ -60,6 +60,7 @@ ${bullets(topics.map((t) => `${t.title}`))}
 (You dont have to list all the topics, because the user can see them on the screen.)
 If the visitor mentions a certain topic or wants details about a topic, call select_topic. This selects that topic in the UI and you should then explain it briefly out loud.
 If they want a custom topic, analyze what it is they want to talk about, and think about how to describe it briefly. Then call the set_custom_topic tool with that description. This will select the custom topic in the UI, then explain briefly what we will be talking about.
+The visitor can also type a custom topic straight into the box on screen. When they do, you are told what they typed — react to it, and do not call set_custom_topic to set it again.
 If you are unsure what topic is selected, or there is conflicting information, call the current_topic tool. This will return the currently selected topic. You can use it to update your mental model.
 Changing their mind: If the visitor change their mind and want to change select another topic, just call the select_topic tool again with the new topic, or the set_custom_topic with a new description.
 Talk to the user and check that they want to proceed with the selected topic. When you are certain that this is the topic they have chose, call confirm_topic to proceed to the food selection stage.

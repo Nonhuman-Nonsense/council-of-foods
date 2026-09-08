@@ -311,6 +311,58 @@ describe("buildMeetingSetupReactionMessage", () => {
   });
 });
 
+/**
+ * The custom topic box is the visitor writing the meeting's subject in their
+ * own words — the agent should hear it, and must not write it back.
+ */
+describe("custom topic typing", () => {
+  it("carries what the visitor typed", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "custom_topic_typed",
+      text: "Who owns the seeds",
+    });
+
+    expect(message).toContain("Who owns the seeds");
+  });
+
+  it("tells the agent not to write the text back into the box", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "custom_topic_typed",
+      text: "Who owns the seeds",
+    });
+
+    expect(message).toContain("set_custom_topic");
+  });
+
+  /**
+   * Clearing the box still fires an event, so it supersedes the reaction
+   * pending for the text the visitor just deleted — but there is nothing left
+   * to react to, so no message goes out.
+   */
+  it.each([["", "empty"], ["   ", "whitespace"]])(
+    "says nothing when the box is left %s (%s)",
+    (text) => {
+      expect(buildMeetingSetupReactionMessage({ type: "custom_topic_typed", text })).toBe("");
+    },
+  );
+
+  /**
+   * A custom topic's title is the bundle's generic "Custom Topic", so
+   * confirming one has to carry the text or the agent enters the food step
+   * not knowing what the meeting is about.
+   */
+  it("names the visitor's own words when a custom topic is confirmed", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "topic_committed",
+      topicId: "customtopic",
+      topicTitle: "Custom Topic",
+      topicDescription: "Who owns the seeds",
+    });
+
+    expect(message).toContain("Who owns the seeds");
+  });
+});
+
 describe("getMeetingSetupReactionDelayMs", () => {
   const roster = { selectedNames: ["Beef"], chairName: "Water", isFull: false };
 
@@ -381,6 +433,16 @@ describe("getMeetingSetupReactionDelayMs", () => {
     const characterDelay = getMeetingSetupReactionDelayMs({ type: "character_selected", ...roster });
 
     expect(typingDelay).toBeGreaterThan(characterDelay);
+  });
+
+  it("gives custom topic typing the same window as typing a panelist's details", () => {
+    const customTopicDelay = getMeetingSetupReactionDelayMs({
+      type: "custom_topic_typed",
+      text: "Who owns the seeds",
+    });
+    const typingDelay = getMeetingSetupReactionDelayMs({ type: "human_details_typed", ...humanDetails });
+
+    expect(customTopicDelay).toBe(typingDelay);
   });
 
   /**

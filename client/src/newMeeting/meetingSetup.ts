@@ -97,7 +97,18 @@ export type MeetingSetupUserEvent =
       type: "topic_committed";
       topicId: string;
       topicTitle: string;
+      /**
+       * The topic's own text, when the title alone doesn't carry it. A custom
+       * topic's title is the bundle's generic "Custom Topic" — without this,
+       * confirming one tells the agent nothing about what the meeting is
+       * actually about, and it enters the food step blind.
+       */
+      topicDescription?: string;
     }
+  // Fired on every keystroke in the custom topic box (including deletions
+  // back to empty, which supersede a pending reaction to text no longer on
+  // screen). Debounced by the reaction delay, like a panelist's details.
+  | { type: "custom_topic_typed"; text: string }
   | ({ type: "character_selected" } & CouncilRoster)
   | ({ type: "character_deselected" } & CouncilRoster)
   | ({ type: "characters_randomized" } & CouncilRoster)
@@ -156,7 +167,7 @@ function joinNames(names: string[]): string {
 const STEP_CHANGE_REACTION_DELAY_MS = 0;
 const TOPIC_PREVIEW_REACTION_DELAY_MS = 300;
 const CHARACTER_REACTION_DELAY_MS = 1000;
-const HUMAN_TYPING_REACTION_DELAY_MS = 5000;
+const TYPING_REACTION_DELAY_MS = 5000;
 
 /**
  * How long to wait after an action before reacting.
@@ -166,8 +177,9 @@ const HUMAN_TYPING_REACTION_DELAY_MS = 5000;
  *   short window to settle.
  * - Character picks come in bursts — up to six foods — so they get a window
  *   to coalesce into one reaction.
- * - Typing a panelist's details is the weakest signal: a long pause could
- *   just be the visitor thinking, so it gets the longest window.
+ * - Typing — a panelist's details, or a custom topic — is the weakest signal:
+ *   a long pause could just be the visitor thinking, so it gets the longest
+ *   window.
  * - Leaving the field (blur) is a deliberate "I'm done" signal and reacts
  *   promptly rather than waiting out whatever's left of the typing window.
  */
@@ -178,8 +190,8 @@ export function getMeetingSetupReactionDelayMs(event: MeetingSetupUserEvent): nu
   if (event.type === "topic_previewed") {
     return TOPIC_PREVIEW_REACTION_DELAY_MS;
   }
-  if (event.type === "human_details_typed") {
-    return HUMAN_TYPING_REACTION_DELAY_MS;
+  if (event.type === "human_details_typed" || event.type === "custom_topic_typed") {
+    return TYPING_REACTION_DELAY_MS;
   }
   return CHARACTER_REACTION_DELAY_MS;
 }
@@ -202,6 +214,14 @@ const CUT_OFF_NOTE =
  */
 const ALREADY_SAVED_NOTE =
   "This was typed directly into the screen and is already saved — do not call human_panelist for it, just react.";
+
+/**
+ * The custom topic box is a controlled input bound to the store, so a
+ * set_custom_topic call in reply would rewrite the text under the visitor's
+ * cursor mid-sentence. The text is already where it needs to be.
+ */
+const TOPIC_ALREADY_TYPED_NOTE =
+  "This is already in the text box on screen — do not call set_custom_topic for it, just react.";
 
 /**
  * Synthetic user turn describing a click the visitor just made, used to prompt
@@ -247,8 +267,19 @@ function describeSituation(
       return `left the welcome screen and moved on to the topic selection step. React briefly and help them choose a topic.`;
     case "topic_previewed":
       return `selected the topic "${event.topicTitle}" on screen, but has not confirmed it yet. React briefly to their choice.`;
-    case "topic_committed":
-      return `confirmed the topic "${event.topicTitle}" and moved on to the food selection step. React briefly and help them choose their foods.`;
+    case "topic_committed": {
+      const topic = event.topicDescription?.trim()
+        ? `"${event.topicDescription.trim()}"`
+        : `"${event.topicTitle}"`;
+      return `confirmed the topic ${topic} and moved on to the food selection step. React briefly and help them choose their foods.`;
+    }
+    // Blank means the visitor cleared the box: nothing to react to, and the
+    // null cancels any reaction still pending for the text they deleted.
+    case "custom_topic_typed": {
+      const text = event.text.trim();
+      if (text.length === 0) return null;
+      return `typed a custom topic: "${text}". ${TOPIC_ALREADY_TYPED_NOTE} React briefly to what they want to discuss.`;
+    }
     case "characters_randomized":
       return `picked a random group. ${describeCouncil(event)} React briefly to the mix.`;
     case "character_selected":

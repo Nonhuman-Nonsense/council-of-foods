@@ -43,7 +43,16 @@ export default function NewMeeting() {
       type: "topic_committed",
       topicId: topic.id,
       topicTitle: topic.title,
+      // Custom topics only: a standard topic's title already names it, and its
+      // description is a whole paragraph of framing.
+      ...(topic.id === "customtopic" && topic.description
+        ? { topicDescription: topic.description }
+        : {}),
     });
+  }
+
+  function handleCustomTopicTyped(text: string) {
+    setLastUserEvent({ type: "custom_topic_typed", text });
   }
 
   function handleCharacterSelected(selectedNames: string[], chairName: string, isFull: boolean) {
@@ -91,6 +100,7 @@ export default function NewMeeting() {
           currentTopic={topicSelection ?? undefined}
           onPreviewTopic={handleTopicPreview}
           onCommitTopic={handleTopicCommitted}
+          onCustomTopicTyped={handleCustomTopicTyped}
           onContinueForward={handleTopicContinue}
         />
       )}

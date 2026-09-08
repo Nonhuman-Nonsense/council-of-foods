@@ -27,6 +27,11 @@ interface SelectTopicProps {
   onContinueForward: (selectedTopic: Topic) => void;
   onPreviewTopic?: (topicId: string, topicTitle: string) => void;
   onCommitTopic?: (selectedTopic: Topic) => void;
+  /**
+   * Every keystroke in the custom topic box, carrying the text as it now
+   * stands — the reaction is debounced downstream, so this stays raw.
+   */
+  onCustomTopicTyped?: (text: string) => void;
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
@@ -36,6 +41,7 @@ function SelectTopic({
   onContinueForward,
   onPreviewTopic,
   onCommitTopic,
+  onCustomTopicTyped,
   currentTopic,
   onReset,
   onCancel,
@@ -84,6 +90,9 @@ function SelectTopic({
     const newTopic = e.target.value;
     const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 150);
     setCustomTopic(capitalizedTopic);
+    // The processed value, not the raw keystroke: what's on screen is what
+    // the agent should be told about.
+    onCustomTopicTyped?.(capitalizedTopic);
   }
 
   function proceedForward(): void {

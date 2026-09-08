@@ -82,6 +82,7 @@ function ControlledSelectTopic(props: {
     onContinueForward: (topic: Topic) => void;
     onReset?: (topic: Topic) => void;
     onCancel?: () => void;
+    onCustomTopicTyped?: (text: string) => void;
     currentTopic: Topic | null;
 }) {
     return (
@@ -164,6 +165,54 @@ describe('SelectTopic Component', () => {
         expect(mockOnContinue).toHaveBeenCalledWith(
             expect.objectContaining({ id: 'customtopic', description: 'My Custom Topic' })
         );
+    });
+
+    /**
+     * The agent only reacts to what reaches it as a setup event — without this
+     * the visitor types their topic into silence, while every other gesture on
+     * the page draws a spoken reaction.
+     */
+    it('reports every keystroke in the custom topic box', () => {
+        const onCustomTopicTyped = vi.fn();
+        render(
+            <ControlledSelectTopic
+                onContinueForward={mockOnContinue}
+                onCustomTopicTyped={onCustomTopicTyped}
+                currentTopic={null}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Write your own'));
+        const textarea = screen.getByPlaceholderText('meeting.customTopicPlaceholder');
+
+        fireEvent.change(textarea, { target: { value: 'Who owns' } });
+        fireEvent.change(textarea, { target: { value: 'Who owns the seeds' } });
+
+        expect(onCustomTopicTyped).toHaveBeenNthCalledWith(1, 'Who owns');
+        expect(onCustomTopicTyped).toHaveBeenNthCalledWith(2, 'Who owns the seeds');
+    });
+
+    /**
+     * Clearing the box has to report too: the empty value is what supersedes
+     * the reaction still pending for the text they deleted.
+     */
+    it('reports the box being cleared', () => {
+        const onCustomTopicTyped = vi.fn();
+        render(
+            <ControlledSelectTopic
+                onContinueForward={mockOnContinue}
+                onCustomTopicTyped={onCustomTopicTyped}
+                currentTopic={null}
+            />
+        );
+
+        fireEvent.click(screen.getByText('Write your own'));
+        const textarea = screen.getByPlaceholderText('meeting.customTopicPlaceholder');
+
+        fireEvent.change(textarea, { target: { value: 'Who owns the seeds' } });
+        fireEvent.change(textarea, { target: { value: '' } });
+
+        expect(onCustomTopicTyped).toHaveBeenLastCalledWith('');
     });
 
     it('should use single-column layout for few topics (<=6)', () => {
