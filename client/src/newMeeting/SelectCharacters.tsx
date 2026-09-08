@@ -502,6 +502,7 @@ function SelectCharacters({
         height: "75%",
         justifyContent: "space-between",
         alignItems: "center",
+        marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "30px",
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>

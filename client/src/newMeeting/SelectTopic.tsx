@@ -149,6 +149,9 @@ function SelectTopic({
   const standardTopics = topicsBundle.topics;
   const isSingleColumn = standardTopics.length <= 6;
 
+
+  const detailSlotHeight = isMobile ? (isMobileXs ? "36px" : "40px") : "55px";
+
   const containerStyle: React.CSSProperties = {
     width: "96vw",
     maxWidth: "850px",
@@ -156,6 +159,7 @@ function SelectTopic({
     flexDirection: "column",
     justifyContent: "flex-start",
     alignItems: "center",
+    marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "40px",
   };
 
   const gridContainerStyle: React.CSSProperties = {
@@ -182,7 +186,7 @@ function SelectTopic({
     marginTop: isMobile ? "9px" : "15px",
     marginBottom: 0,
     width: isMobile ? "80%" : "70%",
-    height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
+    height: showTextBox() ? "0" : detailSlotHeight,
     overflow: "hidden"
   };
 
@@ -197,7 +201,8 @@ function SelectTopic({
     resize: "none",
     padding: "0",
     margin: "0",
-    height: isMobile ? (isMobileXs ? "45px" : "60px") : "80px",
+    height: detailSlotHeight,
+    overflowY: "auto",
     display: showTextBox() ? "" : "none",
   };
 
@@ -285,7 +290,7 @@ function SelectTopic({
           <textarea
             ref={topicTextareaRef}
             className="unfocused topic-textarea"
-            rows={3}
+            rows={2}
             value={customTopic}
             placeholder={t('meeting.customTopicPlaceholder')}
             onChange={handleInputTopic}
