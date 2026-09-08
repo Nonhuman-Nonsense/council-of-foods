@@ -498,10 +498,11 @@ describe("realtimeEventLoop", () => {
     ])("recovers a rejected response.create when the error $correlation", async ({ buildError }) => {
         const send = vi.fn();
         const onError = vi.fn();
+        const onNonFatalError = vi.fn();
         const loop = createEventLoop({
             send,
             getCtx: () => ({ toolHandlers: {} }),
-            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError },
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError, onNonFatalError },
         });
 
         loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
@@ -513,8 +514,12 @@ describe("realtimeEventLoop", () => {
 
         const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
         expect(sentTypes).toEqual(["conversation.item.create", "response.create"]);
-        // The UI still learns about the error; recovery is additive.
-        expect(onError).toHaveBeenCalledOnce();
+        // Reporting the error as fatal would tear the session down and take
+        // the in-flight recovery turn with it — it is surfaced as absorbed.
+        expect(onError).not.toHaveBeenCalled();
+        expect(onNonFatalError).toHaveBeenCalledWith(
+            expect.objectContaining({ handling: "recovered" }),
+        );
     });
 
     it("leaves a pending response.create alone when an unrelated error arrives", async () => {
@@ -706,6 +711,167 @@ describe("realtimeEventLoop", () => {
             "conversation.item.create",
             "response.create",
         ]);
+    });
+
+    /**
+     * The visitor can click again while the first interrupt's cancel is still
+     * in flight. `activeResponses` only predicts the server's state, so a
+     * second cancel would be aimed at a response the server has already closed
+     * — which it rejects with response_cancel_not_active.
+     */
+    it("sends only one response.cancel while an earlier cancel is unresolved", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+        send.mockClear();
+
+        loop.interruptAndRespond("(first click)", { reason: "click-reaction" });
+        loop.interruptAndRespond("(second click)", { reason: "click-reaction" });
+
+        const cancels = send.mock.calls.filter((c) => (c[0] as { type: string }).type === "response.cancel");
+        expect(cancels).toHaveLength(1);
+    });
+
+    it("cancels again once the next response has started", async () => {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+        loop.interruptAndRespond("(first click)", { reason: "click-reaction" });
+        await loop.handleEvent({ type: "response.done", response: { status: "cancelled" } });
+        await loop.handleEvent({ type: "response.created" });
+        send.mockClear();
+
+        loop.interruptAndRespond("(second click)", { reason: "click-reaction" });
+
+        const cancels = send.mock.calls.filter((c) => (c[0] as { type: string }).type === "response.cancel");
+        expect(cancels).toHaveLength(1);
+    });
+
+    /**
+     * A cancel that lands after the server already closed the response is a
+     * no-op, not a session failure: reporting it tears the whole session down
+     * and reconnects mid-conversation.
+     */
+    it("ignores a stale response.cancel rejection and frees the response slot", async () => {
+        const send = vi.fn();
+        const onError = vi.fn();
+        const onNonFatalError = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError, onNonFatalError },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+        loop.interruptAndRespond("(click reaction text)", { reason: "click-reaction" });
+        send.mockClear();
+
+        await loop.handleEvent({
+            type: "error",
+            error: {
+                type: "invalid_request_error",
+                code: "response_cancel_not_active",
+                message: "Cancellation failed: no active response found.",
+            },
+        });
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(onNonFatalError).toHaveBeenCalledWith(
+            expect.objectContaining({ code: "response_cancel_not_active", handling: "ignored" }),
+        );
+        // The server said nothing is running, so the loop must believe it:
+        // a stuck count would refuse every later response.create.
+        expect(loop.isResponseActive()).toBe(false);
+        expect(loop.requestResponseIfIdle()).toBe(true);
+    });
+
+    /**
+     * Only provable no-ops are absorbed. Most request-level rejections strand
+     * the session instead — a refused session.update never yields
+     * `session.updated`, so the agent would wait for a readiness signal that
+     * is never coming. Reconnecting is blunt, but it is a real recovery.
+     */
+    it.each([
+        {
+            name: "a stale cancel",
+            error: {
+                type: "invalid_request_error",
+                code: "response_cancel_not_active",
+                message: "no active response",
+            },
+            fatal: false,
+        },
+        {
+            name: "an empty audio commit",
+            error: {
+                type: "invalid_request_error",
+                code: "input_audio_buffer_commit_empty",
+                message: "buffer empty",
+            },
+            fatal: false,
+        },
+        {
+            name: "a rejected session.update",
+            error: {
+                type: "invalid_request_error",
+                code: "invalid_value",
+                param: "session.audio.output.voice",
+                message: "unknown voice",
+            },
+            fatal: true,
+        },
+        {
+            name: "a truncate past the end of the audio",
+            error: {
+                type: "invalid_request_error",
+                code: "audio_end_ms_out_of_range",
+                message: "audio_end_ms 762 exceeds actual audio duration 599 ms.",
+            },
+            fatal: false,
+        },
+        {
+            name: "a server error",
+            error: { type: "server_error", message: "internal" },
+            fatal: true,
+        },
+        {
+            name: "an error with no structure at all",
+            error: "just a string",
+            fatal: true,
+        },
+    ])("treats $name as fatal=$fatal", async ({ error, fatal }) => {
+        const send = vi.fn();
+        const onError = vi.fn();
+        const onNonFatalError = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError, onNonFatalError },
+        });
+
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+
+        await loop.handleEvent({ type: "error", error });
+
+        expect(onError).toHaveBeenCalledTimes(fatal ? 1 : 0);
+        expect(onNonFatalError).toHaveBeenCalledTimes(fatal ? 0 : 1);
     });
 
     /**

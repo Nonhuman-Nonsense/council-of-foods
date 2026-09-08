@@ -19,13 +19,19 @@ export function buildClientErrorReport(input: ClientReportInput): ErrorReport {
     const { message, source, meetingId, url, cause, severity, clientImpact } = input;
     const context = `client ${source}`;
     const detail = url ? `${message} (${url})` : message;
+    const impact = clientImpact ?? 'terminal';
+    // Recoverable reports (a realtime agent reconnecting, say) also come
+    // through here; labelling those TERMINAL would misread at a glance.
+    const prefix = impact === 'terminal' || impact === 'process_exit'
+        ? '[CLIENT TERMINAL]'
+        : '[CLIENT]';
 
     return {
         context,
         severity: severity ?? 'critical',
-        message: `[CLIENT TERMINAL] ${detail}`,
+        message: `${prefix} ${detail}`,
         error: cause,
-        clientImpact: clientImpact ?? 'terminal',
+        clientImpact: impact,
         source: 'client',
         meetingId,
     };

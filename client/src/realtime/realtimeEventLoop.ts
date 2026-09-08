@@ -25,8 +25,17 @@ export type EventLoopCallbacks = {
   onCaption: (text: string | null) => void;
   /** Latest user transcription line. */
   onUserTranscript: (text: string) => void;
-  /** Reported error (e.g. session-level error). */
+  /** Reported error (e.g. session-level error). Tears the session down and reconnects. */
   onError: (message: string) => void;
+  /**
+   * A provider error the loop absorbed: the session keeps running. Reported
+   * for monitoring only — nothing downstream needs to act on it.
+   */
+  onNonFatalError?: (info: {
+    message: string;
+    code: string | null;
+    handling: "ignored" | "recovered";
+  }) => void;
   /** Fired when the server confirms the session config was applied. */
   onSessionReady?: () => void;
   /** Fired when an assistant response begins, before audio is audible. */
@@ -133,6 +142,47 @@ function isResponseCreateRejection(errRaw: unknown, pendingEventId: string): boo
   return code.includes("response_create") || message.includes("response.create");
 }
 
+/**
+ * Provider errors that reject a client event which no longer applies, leaving
+ * the session itself intact and nothing to recover.
+ *
+ * Default is the opposite: an unrecognised error still tears the session down
+ * and reconnects. That matters because most `invalid_request_error`s are *not*
+ * harmless — a rejected `session.update` means `session.updated` never arrives,
+ * so `sessionReady` stays false and the agent goes silent forever; a rejected
+ * `conversation.item.create` for a `function_call_output` leaves the model
+ * waiting on a result that will never come. Reconnecting is a blunt but real
+ * recovery for those. Only codes that are provably no-ops belong here.
+ */
+const BENIGN_ERROR_CODES = new Set([
+  // Barge-in raced the end of a response: the server had already closed it by
+  // the time our `response.cancel` landed. The cancel was a no-op and the
+  // `output_audio_buffer.clear` that follows still stops the audio.
+  "response_cancel_not_active",
+  // A commit with nothing buffered — the visitor's turn produced no audio.
+  "input_audio_buffer_commit_empty",
+  // A barge-in truncate that named a point past the audio the server actually
+  // synthesised. The offset is an estimate and the cancel we send alongside is
+  // itself what decides the real duration, so it cannot be made exact — see
+  // `interruptAndRespond` in useRealtimeVoiceSession. The cost of the failure
+  // is that the model's transcript keeps a few words the visitor never heard.
+  "audio_end_ms_out_of_range",
+]);
+
+function errorCode(errRaw: unknown): string | null {
+  return asStr(asObj(errRaw)?.code);
+}
+
+function isBenignRealtimeError(errRaw: unknown): boolean {
+  const code = errorCode(errRaw);
+  return code != null && BENIGN_ERROR_CODES.has(code);
+}
+
+/** Did this error come back from a `response.cancel` that had nothing to cancel? */
+function isStaleCancelError(errRaw: unknown): boolean {
+  return errorCode(errRaw) === "response_cancel_not_active";
+}
+
 /** Build an event loop bound to a data channel + a context lookup. */
 export function createEventLoop(params: {
   send: (payload: unknown) => void;
@@ -196,6 +246,28 @@ export function createEventLoop(params: {
   let currentAssistantAudioContentIndex: number | null = null;
   /** Most recent user transcript text (for correlating in logs). */
   let lastUserTranscript = "";
+  /**
+   * True between sending a `response.cancel` and the next response event.
+   *
+   * `activeResponses` only predicts the server's state: the server closes a
+   * response as soon as generation and TTS finish, while the client is still
+   * playing that audio out for many seconds. Rapid interrupts in that window
+   * would each send another `response.cancel` at a response that is already
+   * gone. One cancel per response is all the server can act on.
+   */
+  let cancelInFlight = false;
+
+  /** Send `response.cancel` unless one is already outstanding. */
+  const sendCancelIfPossible = (logLabel: string, fields: object = {}): void => {
+    if (activeResponses === 0) return;
+    if (cancelInFlight) {
+      devLog.flat("TURN", "skip response.cancel: already cancelling", fields);
+      return;
+    }
+    cancelInFlight = true;
+    devLog.flat("TURN", logLabel, fields);
+    send({ type: "response.cancel" });
+  };
 
   const sendResponseCreate = (reason: string): void => {
     responseCreateEventCounter += 1;
@@ -225,9 +297,7 @@ export function createEventLoop(params: {
   };
 
   const cancelActiveResponse = (): void => {
-    if (activeResponses > 0) {
-      send({ type: "response.cancel" });
-    }
+    sendCancelIfPossible("OUT response.cancel");
     callbacks.onCaption(null);
   };
 
@@ -236,10 +306,7 @@ export function createEventLoop(params: {
     options?: { reason?: string; audioElapsedMs?: number }
   ): void => {
     const reason = options?.reason ?? "interrupt-request";
-    if (activeResponses > 0) {
-      devLog.flat("TURN", "OUT response.cancel (interrupt)", { reason });
-      send({ type: "response.cancel" });
-    }
+    sendCancelIfPossible("OUT response.cancel (interrupt)", { reason });
     // Trim the assistant's last-spoken item down to what was actually heard,
     // so the model's own transcript doesn't include audio that got cut off —
     // otherwise it may reference things it never actually said out loud.
@@ -250,8 +317,9 @@ export function createEventLoop(params: {
     ) {
       // Floor, never round: rounding up can put audio_end_ms a fraction of a
       // ms past the provider's own reported duration at the boundary
-      // (observed: "audio_end_ms 20660 exceeds actual audio duration 20659"),
-      // which the provider rejects outright and crashes the session.
+      // (observed: "audio_end_ms 20660 exceeds actual audio duration 20659").
+      // The caller is responsible for the larger question of whether the
+      // offset is trustworthy at all; a rejection here is absorbed, not fatal.
       const audioEndMs = Math.max(0, Math.floor(options.audioElapsedMs));
       devLog.flat("TURN", "OUT conversation.item.truncate (interrupt)", {
         reason,
@@ -293,6 +361,7 @@ export function createEventLoop(params: {
   ): void => {
     sessionReady = false;
     pendingDeferredResponse = false;
+    cancelInFlight = false;
     pendingCreateEventId = null;
     pendingCreateReason = null;
     createRejectedRetries = 0;
@@ -391,6 +460,7 @@ export function createEventLoop(params: {
 
     if (type === "response.created") {
       activeResponses += 1;
+      cancelInFlight = false;
       sawOutputThisResponse = false;
       currentResponseReason = pendingCreateReason ?? "server-auto";
       pendingCreateReason = null;
@@ -408,6 +478,7 @@ export function createEventLoop(params: {
 
     if (type === "response.done") {
       activeResponses = Math.max(0, activeResponses - 1);
+      cancelInFlight = false;
       const r = obj.response as { status?: string; status_details?: unknown } | undefined;
       if (r?.status === "failed") {
         devLog.event("ERROR", "response.failed", r.status_details);
@@ -616,10 +687,21 @@ export function createEventLoop(params: {
         message = errRaw;
       }
 
+      // A stale `response.cancel` (the response already finished server-side)
+      // is a no-op, not a session failure. Take the server's word for it: no
+      // response is active, so correct our own count rather than leaving it
+      // stuck high, which would make `requestResponseIfIdle` refuse forever.
+      if (isStaleCancelError(errRaw)) {
+        cancelInFlight = false;
+        activeResponses = 0;
+      }
+
       // A rejected `response.create` produces neither `response.created` nor
       // `response.done`, so the empty-response recovery above never runs and
       // the visitor's turn ends in silence with no retry. Correlate the error
       // back to the create we're waiting on and re-request once per turn.
+      let escalate = !isBenignRealtimeError(errRaw);
+      let handling: "ignored" | "recovered" = "ignored";
       if (pendingCreateEventId != null && isResponseCreateRejection(errRaw, pendingCreateEventId)) {
         const rejectedReason = pendingCreateReason;
         pendingCreateEventId = null;
@@ -636,6 +718,10 @@ export function createEventLoop(params: {
             createRejectedRetries,
           });
           recoverTurn("create-rejected-retry");
+          // The recovery turn is now in flight; reporting the error as fatal
+          // here would tear the session down and take that recovery with it.
+          escalate = false;
+          handling = "recovered";
         } else {
           devLog.flat("TURN", "response.create REJECTED — no retry (cap/guards)", {
             rejectedReason,
@@ -644,7 +730,15 @@ export function createEventLoop(params: {
             sessionReady,
             activeResponses,
           });
+          // Nothing left to try locally: let the session reconnect.
+          escalate = true;
         }
+      }
+
+      if (!escalate) {
+        devLog.flat("TURN", "non-fatal realtime error — session kept", { message, handling });
+        callbacks.onNonFatalError?.({ message, code: errorCode(errRaw), handling });
+        return true;
       }
 
       callbacks.onError(message);
