@@ -1,11 +1,18 @@
 import type OpenAI from "openai";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { upstreamHttpError, withNetworkRetry } from "@utils/NetworkUtils.js";
 import { Word } from "@shared/textUtils.js";
 import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
 import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 import { characterAlignmentToWords, type CharacterAlignment } from "@utils/ElevenLabsAlignmentUtils.js";
 
 const INWORLD_TTS_2_MODEL = "inworld-tts-2";
+/**
+ * TTS draws on the same account-wide concurrency pool as every other provider
+ * call, so a 429 here is a race we lost rather than a fault. Five attempts of
+ * exponential backoff spans roughly half a minute — long enough for the
+ * generations ahead of us to finish and hand their slot over.
+ */
+const TTS_CAPACITY_RETRIES = 5;
 /** Opus at 48 kHz sample rate, 128 kbps — matches our other OGG/Opus providers. */
 export const ELEVENLABS_OPUS_OUTPUT_FORMAT = "opus_48000_128";
 const ELEVENLABS_DEFAULT_STABILITY = 0.5;
@@ -75,19 +82,18 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
         body.language_code = locale.split("-")[0];
     }
 
-    const response = await withNetworkRetry(() => fetch(url.toString(), {
-        method: "POST",
-        headers: {
-            "xi-api-key": apiKey,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-    }), "AudioSystemElevenLabs");
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs TTS API Error: ${response.status} ${errText}`);
-    }
+    const response = await withNetworkRetry(async () => {
+        const res = await fetch(url.toString(), {
+            method: "POST",
+            headers: {
+                "xi-api-key": apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw await upstreamHttpError(res, "ElevenLabs TTS");
+        return res;
+    }, "AudioSystemElevenLabs", TTS_CAPACITY_RETRIES);
 
     interface ElevenLabsTimestampResponse {
         audio_base64?: string;
@@ -142,19 +148,18 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
         payload.temperature = speaker.voiceTemperature || 1.0;
     }
 
-    const response = await withNetworkRetry(() => fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-    }), "AudioSystemInworld");
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Inworld TTS API Error: ${response.status} ${errText}`);
-    }
+    const response = await withNetworkRetry(async () => {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw await upstreamHttpError(res, "Inworld TTS");
+        return res;
+    }, "AudioSystemInworld", TTS_CAPACITY_RETRIES);
 
     interface InworldTtsJson {
         audioContent?: string;

@@ -143,6 +143,29 @@ export class ConflictError extends CouncilError {
     }
 }
 
+/**
+ * Thrown when the account's provider capacity is exhausted — every retry lost
+ * the same race (maps to HTTP 503).
+ *
+ * Not a fault, so it says so: the visitor is told the council is busy and that
+ * coming back shortly will work, rather than being shown a server error they
+ * can do nothing about.
+ */
+export class CapacityError extends CouncilError {
+    static readonly clientErrorMessage =
+        "Too many people are talking to the council right now. Please try again in a few minutes.";
+
+    override readonly name = "Over capacity";
+    /** Expected under load — worth watching, not the harder 500-level alert. */
+    override readonly severity: CouncilErrorSeverity = 'warning';
+    constructor(clientMessage?: string) {
+        super(503, "Over capacity", {
+            clientMessage,
+            defaultClientMessage: CapacityError.clientErrorMessage,
+        });
+    }
+}
+
 /** Thrown when an internal server error occurs (maps to HTTP 500). */
 export class InternalServerError extends CouncilError {
     override readonly name = "Internal server error";
