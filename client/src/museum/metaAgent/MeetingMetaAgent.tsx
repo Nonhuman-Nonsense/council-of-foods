@@ -3,6 +3,9 @@ import { useButton } from "@museum/button/useButton";
 import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import Loading from "@main/Loading";
+import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
+import { useDelayedTrue } from "@/utils";
+import { useTranslation } from "react-i18next";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
 import { useErrorStore, setConnectionError } from "@main/overlay/errorStore";
 import {
@@ -141,23 +144,19 @@ export default function MeetingMetaAgent({
   const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
   const { capabilities } = useCouncilSettings();
+  const { t } = useTranslation();
 
   // Track whether the agent is currently unreachable so we can defer showing
   // the connection error until the visitor actually tries to use the agent.
   const agentDownRef = useRef(false);
 
-  /** Why the agent is down, for the overlay copy if the visitor asks for it. */
-  const agentBusyRef = useRef(false);
-
-  const onConnectionLost = useCallback(({ capacity }: { capacity: boolean }) => {
+  const onConnectionLost = useCallback(() => {
     agentDownRef.current = true;
-    agentBusyRef.current = capacity;
     // Don't surface the error yet — meeting may be playing fine without the agent.
   }, []);
 
   const onConnectionRestored = useCallback(() => {
     agentDownRef.current = false;
-    agentBusyRef.current = false;
     setConnectionError("meta-agent", false);
   }, []);
 
@@ -205,6 +204,7 @@ export default function MeetingMetaAgent({
 
   const {
     connectionState,
+    providerBusy,
     lastCaption,
     lastUserTranscript,
     agentSpeaking,
@@ -369,13 +369,23 @@ export default function MeetingMetaAgent({
     }
   }, [metaAgentPhase, connectionState, reconfigureSession]);
 
+  // Mirrored for the press handler below, which must not re-run when this
+  // changes — a re-run while the button is held would activate the agent twice.
+  const providerBusyRef = useRef(providerBusy);
+  providerBusyRef.current = providerBusy;
+
+  // The extension loader spins in front of a room with nothing to explain it,
+  // and a capacity wait now runs to minutes — so once the wait is long enough
+  // to look broken, it says what it is waiting for.
+  const showBusyNotice = useDelayedTrue(providerBusy, BUSY_NOTICE_DELAY_MS);
+
   useEffect(() => {
     if (!button.pressed || metaAgentPhase !== "inactive") return;
 
     // If the agent is down when the visitor presses the button, surface the
     // connection error now — this is when the drop actually affects the UX.
     if (agentDownRef.current || connectionState !== "ready") {
-      setConnectionError("meta-agent", true, agentBusyRef.current ? "busy" : "lost");
+      setConnectionError("meta-agent", true, providerBusyRef.current ? "busy" : "lost");
       return;
     }
 
@@ -405,6 +415,7 @@ export default function MeetingMetaAgent({
     <>
       {showExtensionLoader && <Loading />}
       <RealtimeCaptionOverlay
+        notice={showBusyNotice ? t("error.busyRetrying") : null}
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
         subtitleLayout="council"

@@ -6,6 +6,8 @@ import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
 import type { ButtonOwner } from "@museum/button/useButton";
 import { BUTTON_BANNER_IDLE_MS } from "@museum/button/useButtonBanner";
 import { useErrorStore } from "@main/overlay/errorStore";
+import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
+import translation from "@/locales/translation_en.json";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -69,6 +71,7 @@ const sessionCallbacks = vi.hoisted(() => ({
 
 const mockMetaAgentState = vi.hoisted(() => ({
   connectionState: "ready" as "idle" | "connecting" | "ready" | "error",
+  providerBusy: false,
   agentSpeaking: false,
   lastCaption: "Agent reply" as string | null,
   lastUserTranscript: "Visitor question" as string | null,
@@ -79,6 +82,7 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     sessionCallbacks.onSessionReady = params.onSessionReady;
     return {
       connectionState: mockMetaAgentState.connectionState,
+      providerBusy: mockMetaAgentState.providerBusy,
       lastCaption: mockMetaAgentState.lastCaption,
       lastUserTranscript: mockMetaAgentState.lastUserTranscript,
     agentSpeaking: mockMetaAgentState.agentSpeaking,
@@ -100,6 +104,7 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
     lastCaption: string | null;
     lastUserTranscript: string | null;
     subtitleLayout?: string;
+    notice?: string | null;
     showMicRow?: boolean;
     micActive?: boolean;
     micButton?: unknown;
@@ -111,6 +116,7 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
       data-mic-active={String(props.micActive)}
       data-has-mic-button={String(props.micButton != null)}
     >
+      {props.notice ? <span data-testid="agent-notice">{props.notice}</span> : null}
       {props.lastUserTranscript ? (
         <span data-testid="agent-user">{props.lastUserTranscript}</span>
       ) : null}
@@ -190,6 +196,34 @@ describe("MeetingMetaAgent", () => {
     expect(overlay).toHaveAttribute("data-mic-active", "false");
     // The hardware button owns the mic here — no clickable mic control.
     expect(overlay).toHaveAttribute("data-has-mic-button", "false");
+  });
+
+  // The extension loader spins in front of a room, and a capacity wait now runs
+  // to minutes — long enough that silence reads as a broken installation.
+  it("explains a busy provider once the wait has gone on", () => {
+    vi.useFakeTimers();
+    mockMetaAgentState.providerBusy = true;
+    mockMetaAgentState.connectionState = "connecting";
+
+    render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "extension" })} />);
+    expect(screen.queryByTestId("agent-notice")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(BUSY_NOTICE_DELAY_MS);
+    });
+    expect(screen.getByTestId("agent-notice")).toHaveTextContent(translation.error.busyRetrying);
+    vi.useRealTimers();
+  });
+
+  it("tells the overlay the agent is busy, not disconnected, when the visitor presses", () => {
+    mockMetaAgentState.providerBusy = true;
+    mockMetaAgentState.connectionState = "connecting";
+    render(<MeetingMetaAgent {...makeProps()} />);
+
+    act(() => setMockPressed(true));
+
+    expect(useErrorStore.getState().connectionError).toBe(true);
+    expect(useErrorStore.getState().connectionBusy).toBe(true);
   });
 
   it("claims the button on mount and releases on unmount", () => {
