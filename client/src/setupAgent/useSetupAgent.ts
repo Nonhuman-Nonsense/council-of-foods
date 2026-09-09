@@ -71,6 +71,8 @@ export type UseSetupAgentParams = {
 
 export type SetupAgentState = {
   isConnecting: boolean;
+  /** Waiting out a provider at capacity rather than a failure — see the hook. */
+  providerBusy: boolean;
   /** Session is live and able to take a microphone. */
   isReady: boolean;
   /**
@@ -178,8 +180,8 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     );
   }, [toolHandlers]);
 
-  const onConnectionLost = useCallback(() => {
-    if (selfHealing) setConnectionError("setup-agent", true);
+  const onConnectionLost = useCallback(({ capacity }: { capacity: boolean }) => {
+    if (selfHealing) setConnectionError("setup-agent", true, capacity ? "busy" : "lost");
   }, [selfHealing]);
 
   const onConnectionRestored = useCallback(() => {
@@ -352,6 +354,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
       session.connectionState === "connecting" ||
       (session.connectionState === "ready" && !session.hasReceivedAudioPart && audible),
     isReady,
+    providerBusy: session.providerBusy,
     hasEverHeardVisitor,
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,

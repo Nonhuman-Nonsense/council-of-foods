@@ -146,13 +146,18 @@ export default function MeetingMetaAgent({
   // the connection error until the visitor actually tries to use the agent.
   const agentDownRef = useRef(false);
 
-  const onConnectionLost = useCallback(() => {
+  /** Why the agent is down, for the overlay copy if the visitor asks for it. */
+  const agentBusyRef = useRef(false);
+
+  const onConnectionLost = useCallback(({ capacity }: { capacity: boolean }) => {
     agentDownRef.current = true;
+    agentBusyRef.current = capacity;
     // Don't surface the error yet — meeting may be playing fine without the agent.
   }, []);
 
   const onConnectionRestored = useCallback(() => {
     agentDownRef.current = false;
+    agentBusyRef.current = false;
     setConnectionError("meta-agent", false);
   }, []);
 
@@ -370,7 +375,7 @@ export default function MeetingMetaAgent({
     // If the agent is down when the visitor presses the button, surface the
     // connection error now — this is when the drop actually affects the UX.
     if (agentDownRef.current || connectionState !== "ready") {
-      setConnectionError("meta-agent", true);
+      setConnectionError("meta-agent", true, agentBusyRef.current ? "busy" : "lost");
       return;
     }
 

@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
+import {
+  CAPACITY_MIN_RETRIES,
+  getRealtimeRetryPolicy,
+  retryBudgetFor,
+  useRealtimeVoiceSession,
+} from "@realtime/useRealtimeVoiceSession";
 
 const mockCreateEventLoop = vi.hoisted(() => vi.fn());
 const mockFetchRealtimeBootstrap = vi.hoisted(() => vi.fn());
@@ -49,6 +54,7 @@ vi.mock("@realtime/realtimeEventLoop", () => ({
 }));
 
 const mockClassifyRealtimeError = vi.hoisted(() => vi.fn((..._args: unknown[]) => "retryable"));
+const mockCapacityRetryDelay = vi.hoisted(() => vi.fn(() => 0));
 
 const MockMicrophoneUnavailableError = vi.hoisted(
   () =>
@@ -67,6 +73,7 @@ vi.mock("@realtime/realtimeConnection", () => ({
     navigator.mediaDevices.getUserMedia({ audio: true }),
   classifyRealtimeError: (...args: unknown[]) => mockClassifyRealtimeError(...args),
   computeRealtimeRetryDelay: () => 0,
+  computeRealtimeCapacityRetryDelay: () => mockCapacityRetryDelay(),
   MicrophoneUnavailableError: MockMicrophoneUnavailableError,
   REALTIME_RETRY_BASE_MS: 1000,
   REALTIME_RETRY_MAX_MS: 15000,
@@ -797,6 +804,32 @@ describe("useRealtimeVoiceSession", () => {
     expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
   });
 
+  it("stays connecting while waiting out a capacity refusal", async () => {
+    // The mic button's spinner reads `connectionState`, and a capacity wait is
+    // now minutes rather than seconds — so the session must read as connecting
+    // for the whole wait rather than settling into idle between attempts.
+    mockClassifyRealtimeError.mockReturnValue("capacity");
+    mockCapacityRetryDelay.mockReturnValue(10_000);
+    mockFetchRealtimeBootstrap.mockRejectedValue(
+      Object.assign(new Error("Realtime bootstrap failed (503)"), { name: "RealtimeHttpError" })
+    );
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: true },
+      })
+    );
+
+    await waitFor(() => {
+      expect(mockFetchRealtimeBootstrap).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("connecting");
+    });
+    expect(result.current.error).toBeNull();
+  });
+
   it("forwards onSessionReady from the event loop", async () => {
     const onSessionReady = vi.fn();
     renderHook(() => useRealtimeVoiceSession({ ...defaultParams, onSessionReady }));
@@ -910,5 +943,23 @@ describe("useRealtimeVoiceSession", () => {
       expect.any(Object),
       { triggerGreetingOnReady: false },
     );
+  });
+});
+
+describe("retryBudgetFor", () => {
+  const web = getRealtimeRetryPolicy(false);
+  const installation = getRealtimeRetryPolicy(true);
+
+  // Web's three tries are sized for a network blip: on the capacity clock they
+  // would give up inside half a minute, before a busy account has plausibly
+  // freed a slot. An installation retries forever either way.
+  it.each([
+    { label: "web, blip", policy: web, capacity: false, expected: 3 },
+    { label: "web, capacity", policy: web, capacity: true, expected: CAPACITY_MIN_RETRIES },
+    { label: "installation, blip", policy: installation, capacity: false, expected: Infinity },
+    { label: "installation, capacity", policy: installation, capacity: true, expected: Infinity },
+    { label: "no policy", policy: undefined, capacity: true, expected: 0 },
+  ])("$label allows $expected attempts", ({ policy, capacity, expected }) => {
+    expect(retryBudgetFor(policy, capacity)).toBe(expected);
   });
 });

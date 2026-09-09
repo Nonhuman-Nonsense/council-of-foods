@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   acquireMicrophone,
   classifyRealtimeError,
+  computeRealtimeCapacityRetryDelay,
   computeRealtimeRetryDelay,
   createRealtimeConnection,
   fetchRealtimeBootstrap,
@@ -75,10 +76,28 @@ export type RealtimeRetryPolicy = {
  * - Critical (museum): infinite retries, never give up silently.
  * - Non-critical (web): 3 retries, then silently return to idle.
  */
+/**
+ * Attempts a capacity failure gets, at minimum, whatever the policy says.
+ *
+ * Web's three tries are sized for a network blip and, on the capacity clock,
+ * would give up inside half a minute — before a busy account has plausibly
+ * freed a slot. Installations already retry forever and are unaffected.
+ */
+export const CAPACITY_MIN_RETRIES = 6;
+
 export function getRealtimeRetryPolicy(critical: boolean): RealtimeRetryPolicy {
   return critical
     ? { maxRetries: Infinity, giveUpSilently: false }
     : { maxRetries: 3, giveUpSilently: true };
+}
+
+/**
+ * Attempts this failure gets: the policy's own budget, raised to
+ * {@link CAPACITY_MIN_RETRIES} when the provider is merely busy.
+ */
+export function retryBudgetFor(policy: RealtimeRetryPolicy | undefined, capacity: boolean): number {
+  if (!policy) return 0;
+  return capacity ? Math.max(policy.maxRetries, CAPACITY_MIN_RETRIES) : policy.maxRetries;
 }
 
 // Per-feature fatal message strings (internal — not part of the public API).
@@ -151,7 +170,7 @@ export type UseRealtimeVoiceSessionParams = {
    */
   onUnavailable?: (e: { reason: MicrophoneErrorReason; message: string }) => void;
   /** Called on the first retryable failure (connection is now down). */
-  onConnectionLost?: () => void;
+  onConnectionLost?: (info: { capacity: boolean }) => void;
   /** Called when connection is re-established after having been lost. */
   onConnectionRestored?: () => void;
   /**
@@ -163,6 +182,11 @@ export type UseRealtimeVoiceSessionParams = {
 
 export type UseRealtimeVoiceSessionResult = {
   connectionState: RealtimeVoiceSessionConnectionState;
+  /**
+   * Waiting out a provider that is at capacity, rather than reconnecting from
+   * a failure. Same spinner either way; only the explanation differs.
+   */
+  providerBusy: boolean;
   /** @deprecated Use `onFatalError` callback instead. Will be removed. */
   error: string | null;
   lastCaption: string | null;
@@ -259,6 +283,12 @@ export function useRealtimeVoiceSession(
   const [hasReceivedAudioPart, setHasReceivedAudioPart] = useState(false);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   const [micStream, setMicStream] = useState<MediaStream | null>(null);
+  /**
+   * The last connect attempt was refused for capacity and we are waiting to try
+   * again. Surfaced so the UI can explain a spinner that now lasts minutes
+   * rather than seconds.
+   */
+  const [providerBusy, setProviderBusy] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const audioElementRef = useRef(audioElement);
@@ -393,20 +423,21 @@ export function useRealtimeVoiceSession(
    * Schedule a retry attempt with jittered exponential backoff.
    * Notifies onConnectionLost on the first failure, tracks exhaustion.
    */
-  const scheduleRetry = useCallback((resetAttempts = false) => {
+  const scheduleRetry = useCallback((resetAttempts = false, capacity = false) => {
     if (resetAttempts) retryAttemptsRef.current = 0;
 
     const attempt = retryAttemptsRef.current++;
     const policy = retryPolicyRef.current;
+    const maxRetries = retryBudgetFor(policy, capacity);
 
     // Notify once that the connection is down.
     if (!hasNotifiedLostRef.current) {
       hasNotifiedLostRef.current = true;
-      onConnectionLostRef.current?.();
+      onConnectionLostRef.current?.({ capacity });
     }
 
     // Without a policy, fall through to error state.
-    if (!policy || (policy.maxRetries !== Infinity && attempt >= policy.maxRetries)) {
+    if (!policy || (maxRetries !== Infinity && attempt >= maxRetries)) {
       log.event("REALTIME", "retry exhausted", { feature, attempt });
       reportRealtimeIssue({
         feature,
@@ -423,8 +454,10 @@ export function useRealtimeVoiceSession(
       return;
     }
 
-    const delay = computeRealtimeRetryDelay(attempt);
-    log.event("REALTIME", "retry scheduled", { feature, attempt, delayMs: Math.round(delay) });
+    const delay = capacity
+      ? computeRealtimeCapacityRetryDelay(attempt)
+      : computeRealtimeRetryDelay(attempt);
+    log.event("REALTIME", "retry scheduled", { feature, attempt, capacity, delayMs: Math.round(delay) });
 
     // Keep spinning while retrying.
     setConnectionState("connecting");
@@ -836,6 +869,7 @@ export function useRealtimeVoiceSession(
       retryAttemptsRef.current = 0;
 
       setConnectionState("ready");
+      setProviderBusy(false);
     } catch (e) {
       // Only *our* controller firing means "we cancelled this, drop it". A
       // network timeout also surfaces as an AbortError from fetch, and treating
@@ -865,6 +899,16 @@ export function useRealtimeVoiceSession(
           reason: e instanceof MicrophoneUnavailableError ? e.reason : "unknown",
           message: msg,
         });
+      } else if (kind === "capacity") {
+        // Busy, not broken: wait longer and try more times before going quiet.
+        setProviderBusy(true);
+        reportRealtimeIssue({
+          feature,
+          kind: "capacity",
+          message: `Realtime session refused for capacity, retrying: ${msg}`,
+          code: "start-refused",
+        });
+        scheduleRetry(false, true);
       } else {
         reportRealtimeIssue({
           feature,
@@ -1125,6 +1169,7 @@ export function useRealtimeVoiceSession(
 
   return {
     connectionState,
+    providerBusy,
     error,
     lastCaption,
     lastUserTranscript,

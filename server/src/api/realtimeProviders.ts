@@ -7,7 +7,7 @@ import {
     type ChairVoiceProfile,
 } from "@logic/characterSetupBundle.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { upstreamHttpError, withNetworkRetry } from "@utils/NetworkUtils.js";
 import type {
     IceServer,
     RealtimeBootstrapResponse,
@@ -115,9 +115,12 @@ async function inworldFetch(path: string, init: RequestInit, context: string): P
             }),
         context
     );
+    // Deliberately outside the retry: a browser is waiting on this request
+    // behind its own 15s timeout, so waiting a busy account out here would
+    // just time the visitor out. The status is carried instead, and the
+    // client's own reconnect loop does the waiting.
     if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`Inworld ${path} failed (${response.status}): ${text}`);
+        throw await upstreamHttpError(response, `Inworld ${path}`);
     }
     return response;
 }

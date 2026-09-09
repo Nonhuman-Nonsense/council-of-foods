@@ -38,6 +38,12 @@ export type RealtimeCaptionOverlayProps = {
   };
   /** Hide caption text while reconnecting (e.g. language switch). Errors still show. */
   hideCaptions?: boolean;
+  /**
+   * Standing explanation for a wait, shown in place of captions and in the
+   * smaller size the visitor's own words use — it is about the session, not
+   * something the agent said.
+   */
+  notice?: string | null;
 };
 
 /**
@@ -54,6 +60,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     micActive = false,
     micButton,
     hideCaptions = false,
+    notice = null,
   } = props;
   const isMobile = useMobile();
 
@@ -94,7 +101,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     alignItems: "center",
   };
 
-  const hasText = !hideCaptions && Boolean(lastUserTranscript || lastCaption);
+  const hasText = Boolean(notice) || (!hideCaptions && Boolean(lastUserTranscript || lastCaption));
 
   const textBlockStyle: CSSProperties = {
     display: "flex",
@@ -136,7 +143,11 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
   return (
     <div style={captionContainerStyle} data-subtitle-layout={subtitleLayout}>
       <div style={textBlockStyle} aria-live="polite">
-        {hasText ? (
+        {notice ? (
+          <p style={{ ...secondaryStyle, margin: 0 }} data-testid="agent-notice">
+            {notice}
+          </p>
+        ) : hasText ? (
           <>
             {lastUserTranscript ? (
               <p style={{ ...secondaryStyle, margin: 0 }} data-testid="agent-user">
