@@ -45,6 +45,22 @@ the pattern any new client-driven socket action should follow — see
 For the testing philosophy — what deserves a test, at what level, and what to delete — see
 [TESTING.md](TESTING.md).
 
+### Reading diffs of the prompt files
+
+The prompts in [`shared/prompts/`](shared/prompts/) are JSON, and JSON strings cannot contain
+literal newlines — each prompt is stored as one very long line, so `git diff` shows an edited
+prompt as a single unreadable change. The repo ships a textconv filter that renders these files
+as flattened `path: value` lines with multi-line strings expanded, purely for diffing.
+`.gitattributes` is committed, but the driver itself has to be registered once per clone:
+
+```
+git config diff.jsonprompt.textconv scripts/json-prompt-textconv.py
+```
+
+After that `git diff`, `git show` and `git log -p` on those files are readable. Two caveats:
+`--stat` still counts raw lines, and these diffs are for reading only — `git apply`, `git add -p`
+and merge conflict resolution still operate on the raw JSON.
+
 ### Building
 
 During development, to enable automatic reload on changes
