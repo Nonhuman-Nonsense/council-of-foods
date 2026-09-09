@@ -22,6 +22,8 @@ export type RealtimeIssueKind =
   | "connection-lost"
   /** A turn the event loop rescued after the provider refused it. */
   | "turn-recovered"
+  /** The provider refused work because the account is at its concurrency limit. */
+  | "capacity"
   /** Retries ran out — the agent is down for this visitor. */
   | "retry-exhausted";
 
@@ -29,6 +31,7 @@ const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
   "provider-error": "warning",
   "connection-lost": "warning",
   "turn-recovered": "warning",
+  "capacity": "warning",
   "retry-exhausted": "error",
 };
 
@@ -37,6 +40,8 @@ const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
   "provider-error": "none",
   "connection-lost": "none",
   "turn-recovered": "none",
+  // The session survives; at worst the visitor waits a few seconds longer.
+  "capacity": "none",
   // Nothing is coming back without a reload — the agent is gone for good.
   "retry-exhausted": "terminal",
 };

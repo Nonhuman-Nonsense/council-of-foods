@@ -641,8 +641,21 @@ export function useRealtimeVoiceSession(
             cleanup();
             scheduleRetry();
           },
-          onNonFatalError: ({ message, code, handling }) => {
+          onNonFatalError: ({ message, code, handling, capacity }) => {
             if (isStale()) return;
+            // Being at capacity is neither routine nor a fault, and it is the
+            // one absorbed error worth watching whether or not a turn was
+            // rescued: it says the account needs more headroom, not fixing.
+            if (capacity) {
+              reportRealtimeIssue({
+                feature,
+                kind: "capacity",
+                message: `Realtime provider at capacity, session kept: ${message}`,
+                code,
+                detail: { handling },
+              });
+              return;
+            }
             // `ignored` is the benign-code path: a cancel that raced the end of
             // a response, a truncate past the audio. Those are routine and
             // cost the visitor nothing — reporting them would bury the
