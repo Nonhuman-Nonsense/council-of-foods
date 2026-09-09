@@ -1,7 +1,7 @@
 {
   "metadata": {
     "version": "1.1.0",
-    "last_updated": "2026-09-08 17:20"
+    "last_updated": "2026-09-09 10:40"
   },
   "system": "Welcome to the Council of Foods—an assembly of diverse foods, addressing the broken food system through passionate debate. It is a never ending meeting. Today's meeting is about: [TOPIC]\n\nEach food provides distinct perspectives, stories, and examples, shared from their own experience. They have an unlimited amount of knowledge and they want to share all of it during the debate. The foods perspectives differ and they are not afraid of conflict. Moderated by Water, discussions are dynamic and intense, ensuring a comprehensive exploration of the challenges.\n\nParticipants respond to questions from Water, avoiding repetition, and defending their values and agendas. The tone is witty and funny, but this is spoken council dialogue, not a theatre script. Participants must write plain spoken text only: no Markdown formatting, no asterisks for emphasis, no headings, no bullet lists, no stage directions, no action descriptions, no scene-setting, and no narration outside the words they say aloud. Emojis are allowed when they fit the character, especially Lollipop, but use them sparingly: at most one or two per message.",
   "custom_topic": {
@@ -14,70 +14,70 @@
     {
       "id": "biodiversityloss",
       "title": "Biodiversity Loss",
-      "description": "How farming for yield empties the living world around it.",
+      "description": "Monoculture fields, cleared habitat, drained wetlands, pesticide drift: the everyday machinery of growing food, and the species it writes out of the landscape.",
       "agentBrief": "Agriculture is the largest single driver of biodiversity loss, and the loss feeds back — fewer pollinators, poorer soil, thinner harvests. Press on whether feeding everyone actually requires this, and who pays for agroecology and diversified cropping.",
       "prompt": "the impacts of industrial agriculture and food systems on agriculture-driven biodiversity loss, including the role of monocultures, deforestation, desertification, acidification, eutrophication and pesticide-driven ecosystem degradation. The conversation will address the ecological consequences of habitat destruction, the cascading impacts on global food systems, and the debates surrounding land use. It will also explore strategies like agroecology, crop diversification, and habitat restoration, as well as the need for policy reforms and the integration of biodiversity safeguarding into food systems."
     },
     {
       "id": "industrialagriculture",
       "title": "Industrial Agriculture",
-      "description": "The chemical-fed, water-hungry model that grows most of our food.",
+      "description": "Fertiliser, pesticides, irrigation and machinery at continental scale — how most of the world's food is grown, and what that model asks of soil, water and farm work.",
       "agentBrief": "This is the default system, not a fringe one: cheap calories bought with degraded soil, emissions and emptied rural livelihoods. The live argument is whether it can be reformed from the inside or has to be replaced.",
       "prompt": "the consequences of industrial agriculture, including its reliance on chemical inputs, intensive water use, and large-scale monocultures. The discussion will explore how these practices contribute to soil degradation, greenhouse gas emissions, and loss of biodiversity, while also exacerbating socio-economic inequality and health risks. The meeting will also address the impact of genetic modification and discuss strategies for promoting sustainable farming practices. Solutions such as regenerative farming, agroecological thinking, support for small-scale farmers will be considered, along with the systemic changes needed to transition to a more sustainable and equitable agricultural model."
     },
     {
       "id": "righttofood",
       "title": "The Right to Food",
-      "description": "Food is a human right. Hunger is a failure of distribution, not supply.",
+      "description": "Food as right rather than purchase: written into treaties, undone in practice. The search for food that is adequate, affordable and our own.",
       "agentBrief": "The world already grows enough; people go hungry because of price, conflict and power. The tension worth voicing is food sovereignty against markets that treat food as any other commodity.",
       "prompt": "the concept of food as a fundamental human right, examining global disparities in access, the barriers posed by poverty, conflict, and climate change, and the legal frameworks that aim to secure food justice. The conversation will explore the role of grassroots movements, international organizations, and policy reforms in addressing hunger and malnutrition. Additionally, the debate will touch on the tensions between food sovereignty, market-driven food systems, and the universal right to adequate, culturally appropriate nutrition."
     },
     {
       "id": "foodwaste",
       "title": "Food Waste",
-      "description": "Good food thrown away long before it reaches a shop.",
+      "description": "Roughly a third of what is grown is never eaten — ploughed back in, left in cold storage, or turned away somewhere between the field and the shop door.",
       "agentBrief": "Most waste happens upstream — overproduction, cosmetic standards, contracts that make dumping cheaper than selling. Ask who profits from surplus, and why the waste is designed in rather than accidental.",
       "prompt": "the systemic factors contributing to pre-purchase food waste, including overproduction, supply chain inefficiencies, cosmetic standards, corporate power and market dynamics. The discussion will consider the environmental, political, economic, and ethical implications of food waste at this stage, alongside potential solutions such as precision agriculture, redistribution networks, and policy interventions to reduce surplus. The council will also explore how cultural attitudes toward food abundance and quality shape waste practices."
     },
     {
       "id": "antimicrobial",
       "title": "Antimicrobial Resistance & Diseases",
-      "description": "Antibiotics in livestock, and the diseases that jump to us.",
+      "description": "Common infections becoming untreatable, and new ones crossing from animal to human: the health of the food system read as a question of public health.",
       "agentBrief": "Routine antibiotics keep crowded animals alive and breed resistant bacteria, while density and global trade turn a local outbreak into a pandemic. The stake is whether the next health crisis is grown in a shed.",
       "prompt": "the intersections between antimicrobial resistance, food production systems, and emergent infectious diseases. The discussion will examine how the use of antibiotics in agriculture contributes to antimicrobial resistance, the potential for zoonotic disease transmission through industrial farming, and the role of global trade in spreading pathogens. The council will also consider the socio-economic factors driving overreliance on antibiotics, the challenges of developing alternative solutions, and the responsibility of food systems in preventing future pandemics."
     },
     {
       "id": "seeds",
       "title": "Seeds & Patents",
-      "description": "Who owns a seed — and what farmers lose when someone does.",
+      "description": "Ten thousand years of seed saved, swapped and bred in the field — and the legal machinery that now decides who may plant what, and what stays in the ground.",
       "agentBrief": "A handful of companies hold patents on the crops the world eats, turning saved seed into infringement and narrowing what gets grown at all. Weigh that dependency against the research the patents are said to fund.",
       "prompt": "the growing influence of seed patents and intellectual property laws on global food systems, examining how corporate control of seeds affects farmer autonomy, crop diversity, and traditional agricultural practices. It considers the ethical and economic implications of patented seeds, including how they perpetuate dependency and inequality, while also addressing their potential to foster innovation and agricultural research. The conversation will highlight the importance of biocultural diversity in sustaining ecological and cultural landscapes, the principle of food sovereignty in empowering local communities, and the need for open-access, community-driven seed systems to preserve biodiversity and promote equitable food systems."
     },
     {
       "id": "exploitativelabor",
       "title": "Exploitative Labor Practices",
-      "description": "The hands that pick our food, and the conditions they work in.",
+      "description": "The pickers, packers, cutters and deckhands who move food from field to shelf: their hours, their safety, their papers, and how little of the price reaches them.",
       "agentBrief": "Cheap food rests on underpaid, unsafe and sometimes forced labour, in supply chains still shaped by colonial extraction. Keep the demand for low prices in frame: the exploitation is the business model, not a lapse in it.",
       "prompt": "labor exploitation in food systems, highlighting modern slavery, unsafe conditions, and systemic inequality rooted in colonial legacies. It examines how land theft, forced labor, and extractivism evolved into today’s exploitative supply chains, driven by corporate greed, complicit trade policies, and weak labor protections. Additionally, the discussion will explore the underlying reasons for such conditions, including demand for low-cost food, lack of regulatory enforcement in certain regions, and the economic vulnerabilities forcing workers into oppressive situations. The council will discuss dismantling neocolonial trade systems, strengthening labor rights, unionising, and reimagining food systems centred on justice, equity, and reparations."
     },
     {
       "id": "supplychains",
       "title": "Local & Global Supply Chains",
-      "description": "How far food travels, and what the journey costs.",
+      "description": "Container ships, cold chains, border paperwork and the field down the road — the routes food takes to a plate, and what each costs in fuel, freshness and fairness.",
       "agentBrief": "Global chains deliver variety and fragility together; local ones promise resilience but cannot feed every city on their own. Push past “local good, global bad” towards who each arrangement actually serves.",
       "prompt": "the intricacies of both local and global food chains, including the environmental costs of long-distance trade, the vulnerabilities of globalized supply chains, and the benefits of supporting local food networks. The debate will explore the benefits and challenges of each. Examining how global trade policies shape food availability, quality and affordability, often at the expense of small producers and ecological health. The council will also consider the potential of localized food systems to reduce emissions, empower communities, and promote food security, as well as the challenges of balancing local production with global food needs."
     },
     {
       "id": "ultraprocessedfood",
       "title": "Ultra-processed food",
-      "description": "Engineered, advertised, everywhere — and cheaper than cooking.",
+      "description": "Cheap ingredients reassembled into something shelf-stable, craveable and quick: most of what fills a supermarket, and a growing share of what we actually eat.",
       "agentBrief": "These products are built to be over-eaten and marketed hardest where choice is thinnest, with the health costs landing on public systems. Contest whether that is personal choice or an environment designed to sell.",
       "prompt": "the rise of ultra-processed foods in global diets, their health implications, and their socio-cultural appeal. The conversation will examine how food processing impacts nutrition, the role of advertising and convenience in shaping consumer preferences, and the broader implications for public health systems. The council will also discuss strategies for promoting minimally processed and whole foods, the challenges of accessibility and affordability, and the role of regulation in curbing the proliferation of ultra-processed products."
     },
     {
       "id": "pollination",
       "title": "Pollination",
-      "description": "Bees, wind and water — the unpaid labour behind most of what we eat.",
+      "description": "Twenty thousand species of wild bee, and the moths, beetles, bats, wind and water working alongside them — the quiet labour that turns a flower into a fruit.",
       "agentBrief": "Most fruits, vegetables and nuts depend on pollinators that industrial farming is erasing, and the proposed fix is to hand- and robot-pollinate instead. Ask what it means to replace a living system with a paid service.",
       "prompt": "the vital role of pollination in sustaining global food systems, biodiversity, and ecological balance. The discussion will examine both biotic pollination—performed by insects (bees, butterflies, beetles), birds, bats, and mammals—and abiotic pollination, including wind and water-driven processes that support key crops like wheat, corn, soy, and rice.\n\nThe Council will reflect on the centrality of insect pollination for the vast majority of fruits, vegetables, nuts, and other plants essential for human & nonhuman diets, nutrition, and agricultural livelihoods. Special attention will be given to the diversity of pollinators, from the honey bee (Apis mellifera) to the 20,000+ species of wild bees—many of which are highly specialized and increasingly endangered.\n\nThe conversation will address the growing threats facing pollinators: climate change, pesticide exposure, habitat destruction, monoculture farming, climate-driven disruptions in flowering and nectar availability, invasive species, and diseases. It will also explore human-led interventions such as hand pollination, robotic pollination and targeted insect pollination, and discuss how industrial agriculture both depends on and undermines pollination systems.\n\nThe council will consider the implications of declining pollinator health on food security, nutrition, and ecosystem resilience, while exploring solutions such as agroecology, reduced pesticide use, biodiversity conservation, and policy reforms that protect both wild and managed pollinators. The discussion will also examine the ethical dimensions of human reliance on pollination services and the need to shift towards pollinator-friendly agricultural models."
     }
