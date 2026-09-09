@@ -1,24 +1,29 @@
+import type { ClientErrorKey } from "@shared/SocketTypes";
+
+export type HttpErrorBody = {
+    /** The server's prose, or `fallback` when the body carried none. */
+    message: string;
+    /** Set when the server named the failure — the client prefers its own copy. */
+    errorKey?: ClientErrorKey;
+};
+
 /**
- * Read a JSON `{ message: string }` body from a failed fetch response when present;
- * otherwise return `fallback` (avoids dumping raw HTML or noisy payloads to the UI).
+ * Read a failed fetch's JSON error body when present; otherwise fall back to
+ * `fallback` (rather than dumping raw HTML or a noisy payload into the UI).
  */
-export async function httpErrorMessage(res: Response, fallback: string): Promise<string> {
+export async function httpErrorBody(res: Response, fallback: string): Promise<HttpErrorBody> {
     const text = await res.text();
     try {
-        const body = JSON.parse(text) as unknown;
-        if (
-            body &&
-            typeof body === "object" &&
-            "message" in body &&
-            typeof (body as { message: unknown }).message === "string"
-        ) {
-            const m = (body as { message: string }).message.trim();
-            if (m.length > 0) {
-                return m;
-            }
-        }
+        const body = JSON.parse(text) as { message?: unknown; errorKey?: unknown };
+        const message = typeof body?.message === "string" ? body.message.trim() : "";
+        const errorKey = typeof body?.errorKey === "string" ? (body.errorKey as ClientErrorKey) : undefined;
+        return { message: message.length > 0 ? message : fallback, errorKey };
     } catch {
-        /* not JSON */
+        return { message: fallback };
     }
-    return fallback;
+}
+
+/** Message-only form, for callers with nowhere to put the key. */
+export async function httpErrorMessage(res: Response, fallback: string): Promise<string> {
+    return (await httpErrorBody(res, fallback)).message;
 }

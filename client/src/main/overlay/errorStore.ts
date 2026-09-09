@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { ClientErrorKey } from "@shared/SocketTypes";
 import { reportTerminalError, type ClientReportSeverity, type ClientReportImpact } from "@/logger";
 
 // ---------------------------------------------------------------------------
@@ -19,7 +20,15 @@ export type SetConnectionError = (
 ) => void;
 
 export type UnrecoverableError = {
+  /** The server's (or our own) English prose — what ErrorBot receives. */
   message: string;
+  /** Names the failure so the overlay can show translated copy instead. */
+  errorKey?: ClientErrorKey;
+  /**
+   * The message is internal prose (a state-mismatch, a stack) — report it, but
+   * show the visitor the generic apology instead.
+   */
+  technical?: boolean;
   source: string;
   cause?: unknown;
   meetingId?: number;

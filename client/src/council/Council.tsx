@@ -100,6 +100,7 @@ function Council({
         const isNotFound = error instanceof HttpStatusError && error.status === 404;
         setUnrecoverableError({
           message: msg,
+          errorKey: error instanceof HttpStatusError ? error.errorKey : undefined,
           source: "Council.loadMeeting",
           cause: error,
           meetingId: currentMeetingId,
@@ -191,6 +192,7 @@ function Council({
       const detail = "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.";
       setUnrecoverableError({
         message: detail,
+        technical: true,
         source: "Council.human_panelist_state",
         meetingId: currentMeetingId,
       });

@@ -1,10 +1,11 @@
-import type { ResumeMeetingResponse } from "@shared/SocketTypes";
+import type { ClientErrorKey, ResumeMeetingResponse } from "@shared/SocketTypes";
+import { httpErrorBody } from "./httpErrorMessage";
 import { councilFetch, HttpStatusError } from "./http";
 
 /** Typed error for `PUT /api/meetings/:id` so callers can branch on status code. */
 export class ResumeMeetingError extends HttpStatusError {
-  constructor(status: number, message: string) {
-    super(status, message);
+  constructor(status: number, message: string, errorKey?: ClientErrorKey) {
+    super(status, message, errorKey);
     this.name = "ResumeMeetingError";
   }
 }
@@ -19,16 +20,8 @@ export async function resumeMeeting({
     headers: { "Content-Type": "application/json" },
   });
   if (!res.ok) {
-    let message = `Resume meeting failed (${res.status})`;
-    try {
-      const body = await res.json();
-      if (body && typeof body.message === "string" && body.message.length > 0) {
-        message = body.message;
-      }
-    } catch {
-      // response had no JSON body; fall back to the status-based message
-    }
-    throw new ResumeMeetingError(res.status, message);
+    const { message, errorKey } = await httpErrorBody(res, `Resume meeting failed (${res.status})`);
+    throw new ResumeMeetingError(res.status, message, errorKey);
   }
   return (await res.json()) as ResumeMeetingResponse;
 }

@@ -209,6 +209,14 @@
     "connection": "Connection Lost",
     "busy": "The council is busy",
     "busyRetrying": "Too many people are talking at once — trying again…",
+    "elsewhere": "This meeting is happening somewhere else",
+    "notFound": "That meeting could not be found",
+    "forbidden": "This meeting is not yours to open",
+    "unauthorized": "This meeting needs a key you don't have",
+    "invalidRequest": "Something about that request was wrong",
+    "meetingComplete": "This meeting has already finished",
+    "invalidAudioId": "Could not load meeting audio.",
+    "realtimeUnavailable": "The council's voice is unavailable right now",
     "reconnecting": "Attempting to reconnect...",
     "restartUnavailableRetrying": "Server unavailable for restart, retrying…"
   }

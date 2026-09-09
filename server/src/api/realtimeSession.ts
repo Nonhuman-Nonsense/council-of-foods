@@ -50,7 +50,9 @@ async function sendRealtimeFailure(
     }
 
     await Logger.error("api", `${context} failed`, { error });
-    res.status(500).json(CouncilError.fromUnexpected(error, unavailableMessage).toApiBody(context));
+    res.status(500).json(
+        CouncilError.fromUnexpected(error, unavailableMessage, "realtimeUnavailable").toApiBody(context),
+    );
 }
 
 function parseRequiredBearerToken(req: Request): string | null {

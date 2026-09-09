@@ -72,14 +72,34 @@ export interface ClientErrorDebug {
     raw?: unknown;
 }
 
+/**
+ * Stable name for a failure the visitor can be told about, so the client can
+ * show its own translated copy rather than the server's English prose. Add a
+ * value here and the client's copy map stops compiling until it has words for
+ * it — which is the point.
+ */
+export type ClientErrorKey =
+    | "invalidRequest"
+    | "elsewhere"
+    | "busy"
+    | "notFound"
+    | "unauthorized"
+    | "forbidden"
+    | "meetingComplete"
+    | "invalidAudioId"
+    | "realtimeUnavailable"
+    | "unexpected";
+
 export interface ErrorPayload {
+    /** English fallback. The client prefers its own copy for a known `errorKey`. */
     message: string;
     code: number;
+    errorKey?: ClientErrorKey;
     debug?: ClientErrorDebug;
 }
 
 /** HTTP error JSON body (`message` + optional `debug`; status code is on the response). */
-export type ApiErrorBody = Pick<ErrorPayload, "message" | "debug">;
+export type ApiErrorBody = Pick<ErrorPayload, "message" | "errorKey" | "debug">;
 
 export interface ClientKeyResponse {
     value: string;
