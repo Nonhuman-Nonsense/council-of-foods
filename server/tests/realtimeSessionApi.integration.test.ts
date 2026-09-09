@@ -4,6 +4,8 @@ import http from "http";
 import { registerMeetingRoutes } from "@api/meetingRoutes.js";
 import { registerRealtimeRoutes } from "@api/realtimeSession.js";
 import { cacheControlPrivateNoStoreApi } from "@utils/httpCache.js";
+import { UpstreamHttpError } from "@utils/NetworkUtils.js";
+import { CapacityError } from "@models/Errors.js";
 import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
@@ -123,6 +125,51 @@ describe("POST /api/realtime/* (integration)", () => {
             session: { type: "realtime" },
         });
         expect(vi.mocked(getHumanInputRealtimeBootstrap)).toHaveBeenCalledWith("sv");
+    });
+
+    // A busy account and a broken one want opposite responses from the client:
+    // one is worth waiting out, the other is not. Flattening both to 500 left
+    // it unable to tell them apart.
+    it.each([
+        { status: 429, expected: 503, label: "over capacity" },
+        { status: 500, expected: 500, label: "upstream failure" },
+    ])("answers $expected when the provider is $label", async ({ status, expected }) => {
+        vi.mocked(getSetupAgentRealtimeBootstrap).mockRejectedValue(
+            new UpstreamHttpError(status, `Inworld /v1/realtime/ice-servers API Error: ${status}`)
+        );
+
+        const res = await fetch(`${base()}/api/realtime/bootstrap`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ feature: "setup-agent", language: "en" }),
+        });
+
+        expect(res.status).toBe(expected);
+        if (expected === 503) {
+            expect(res.headers.get("retry-after")).toBe("30");
+            expect((await res.json()).message).toBe(CapacityError.clientErrorMessage);
+        }
+    });
+
+    it("answers 503 when the call endpoint is refused for capacity", async () => {
+        vi.mocked(createRealtimeCall).mockRejectedValue(
+            new UpstreamHttpError(429, "Inworld /v1/realtime/calls API Error: 429")
+        );
+
+        const res = await fetch(`${base()}/api/realtime/call`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                feature: "setup-agent",
+                provider: "inworld",
+                language: "en",
+                sdp: "v=0",
+                session: { type: "realtime" },
+            }),
+        });
+
+        expect(res.status).toBe(503);
+        expect(res.headers.get("retry-after")).toBe("30");
     });
 
     it("returns 200 and delegates setup-agent bootstrap without Authorization", async () => {

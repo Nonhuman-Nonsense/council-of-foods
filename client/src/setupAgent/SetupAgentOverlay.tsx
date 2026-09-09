@@ -17,6 +17,8 @@ type SetupAgentOverlayProps = {
   browserUi?: boolean;
   /** Museum: show the visualiser row with no on-screen button. */
   showMicRow?: boolean;
+  /** Explanation for a long wait, shown in place of captions. */
+  notice?: string | null;
   subtitleLayout?: RealtimeSubtitleLayout;
   micStream?: MediaStream | null;
   /**
@@ -53,6 +55,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     muted,
     browserUi = false,
     showMicRow = false,
+    notice = null,
     subtitleLayout = "compact",
     micStream = null,
     micRequested = false,
@@ -108,6 +111,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
         hideCaptions={isConnecting || muted}
+        notice={notice}
         subtitleLayout={subtitleLayout}
         showMicRow={showMicRow}
         micStream={micStream}

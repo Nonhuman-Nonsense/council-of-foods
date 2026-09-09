@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createMeeting } from "@api/createMeeting";
+import { HttpStatusError } from "@api/http";
 import { isRootPath, useRouting } from "@/navigation";
 import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
@@ -108,6 +109,7 @@ export default function MeetingSetupShell({
       const msg = e instanceof Error && e.message.trim().length > 0 ? e.message : t("error.message");
       setUnrecoverableError({
         message: msg,
+        errorKey: e instanceof HttpStatusError ? e.errorKey : undefined,
         source: "MeetingSetupShell.createMeeting",
         cause: e,
       });

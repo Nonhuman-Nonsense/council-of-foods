@@ -3,6 +3,8 @@ import type { ProvidesReportContext, ReportContext } from "@interfaces/ReportCon
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { CHAIR_ID, getChairMeetingVoice } from "@logic/characterSetupBundle.js";
 import { Logger } from "@utils/Logger.js";
+import { CapacityError } from "@models/Errors.js";
+import { isCapacityError } from "@utils/NetworkUtils.js";
 import { mapSentencesToWords, splitSentences, Word, type MappedSentence } from "@shared/textUtils.js";
 import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
 import { parseBuffer } from 'music-metadata';
@@ -39,6 +41,15 @@ export * from "./audio/AudioUtils.js";
 // synthesis latency down — longer messages noticeably slow down in practice.
 const TTS_CHUNK_LIMIT = 2000;
 
+/**
+ * How many turns in a row may be lost to provider capacity before the meeting
+ * is called off. One skip is a race we lost and the council survives it; a
+ * second in a row means the account is saturated rather than unlucky, and a
+ * conversation made of skipped speakers is no conversation — better to fail
+ * visibly than to hollow the meeting out turn by turn.
+ */
+const MAX_CONSECUTIVE_CAPACITY_SKIPS = 1;
+
 const DEFAULT_SUBTITLE_TIMING_PRIORITIES: GlobalOptions["subtitleTimingPriorities"] = ['elevenlabs', 'inworld', 'estimated', 'whisper'];
 
 export class AudioSystem {
@@ -46,6 +57,8 @@ export class AudioSystem {
     services: Services;
     queue: AudioQueue;
     private generationToken = 0;
+    /** Turns lost to capacity since the last audio that did come through. */
+    private consecutiveCapacitySkips = 0;
     private readonly reportFrom?: ProvidesReportContext;
 
     constructor(
@@ -288,6 +301,9 @@ export class AudioSystem {
             }
 
             this.broadcaster.broadcastAudioUpdate(audioObject);
+            // Audio is flowing again — earlier skips were a passing squeeze,
+            // not a saturated account.
+            this.consecutiveCapacitySkips = 0;
 
             if (generationToken !== this.generationToken) {
                 return;
@@ -317,6 +333,14 @@ export class AudioSystem {
             }
 
         } catch (error: unknown) {
+            // Being over capacity is a race we lost, not a broken meeting: the
+            // retries in `withNetworkRetry` already waited it out for ~30s, so
+            // drop this one turn rather than taking everyone's meeting down.
+            if (isCapacityError(error)) {
+                await this.handleCapacityFailure(message, meeting, environment, error, from, generationToken);
+                return;
+            }
+
             //Crash the client and report
             Logger.reportAndCrashClient("AudioSystem", "Error generating audio", {
                 error,
@@ -324,6 +348,61 @@ export class AudioSystem {
                 broadcaster: this.broadcaster,
             });
         }
+    }
+
+    /**
+     * The provider stayed over capacity through every retry.
+     *
+     * The first lost turn is survivable: mark the message skipped — the client
+     * already steps over those — and let the council carry on one speaker
+     * short. The text is dropped with the audio, because playback only
+     * advances when an audio message arrives, so a message with none would
+     * strand the meeting in `loading` forever. Past
+     * {@link MAX_CONSECUTIVE_CAPACITY_SKIPS} the meeting is failed instead.
+     */
+    private async handleCapacityFailure(
+        message: Message,
+        meeting: StoredMeeting,
+        environment: string,
+        error: unknown,
+        from: ReportContext,
+        generationToken: number,
+    ): Promise<void> {
+        this.consecutiveCapacitySkips += 1;
+
+        if (this.consecutiveCapacitySkips > MAX_CONSECUTIVE_CAPACITY_SKIPS) {
+            Logger.reportAndCrashClient(
+                "AudioSystem",
+                `Provider out of capacity for ${this.consecutiveCapacitySkips} turns in a row`,
+                { error, from, broadcaster: this.broadcaster, clientError: new CapacityError() },
+            );
+            return;
+        }
+
+        void Logger.warn(
+            "AudioSystem",
+            `Provider out of capacity for message ${message.id} — skipping speaker`,
+            { error, from },
+        );
+
+        if (generationToken !== this.generationToken) return;
+
+        const stored = meeting.conversation.find((m) => m.id === message.id);
+        if (stored) stored.type = "skipped";
+
+        if (environment !== "prototype") {
+            // Positional update rather than rewriting the whole conversation:
+            // MeetingManager may be appending the next message right now.
+            await this.services.meetingsCollection.updateOne(
+                { _id: meeting._id, "conversation.id": message.id },
+                { $set: { "conversation.$.type": "skipped" } },
+            );
+        }
+
+        if (generationToken !== this.generationToken) return;
+
+        this.broadcaster.broadcastConversationUpdate(meeting.conversation);
+        this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
     }
 
     private async generateProviderAudio(

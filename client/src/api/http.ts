@@ -1,3 +1,4 @@
+import type { ClientErrorKey } from "@shared/SocketTypes";
 import { log, summarizeLogPayload } from "@/logger";
 import {
   getDevLogEnabled,
@@ -7,10 +8,13 @@ import {
 /** Typed error for a failed council API call, so callers can branch on status code. */
 export class HttpStatusError extends Error {
   readonly status: number;
-  constructor(status: number, message: string) {
+  /** The server's name for the failure, when it sent one. */
+  readonly errorKey?: ClientErrorKey;
+  constructor(status: number, message: string, errorKey?: ClientErrorKey) {
     super(message);
     this.name = "HttpStatusError";
     this.status = status;
+    this.errorKey = errorKey;
   }
 }
 

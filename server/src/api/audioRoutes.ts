@@ -36,7 +36,7 @@ export function registerAudioRoutes(app: Express): void {
     app.get("/api/audio/:audioId", async (req: Request, res: Response) => {
         const audioId = req.params.audioId;
         if (typeof audioId !== "string" || !isSafeAudioId(audioId)) {
-            res.status(400).json(new BadRequestError("Invalid audio id").toApiBody(`api GET /api/audio/${audioId}`));
+            res.status(400).json(new BadRequestError("Invalid audio id", { errorKey: "invalidAudioId" }).toApiBody(`api GET /api/audio/${audioId}`));
             return;
         }
 

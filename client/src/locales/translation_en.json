@@ -59,7 +59,7 @@
   "contact": {
     "label": "Contact",
     "credits": "The project is an initiative by art & design collective <nhn>Nonhuman Nonsense</nhn> developed in collaboration with <sos>Studio Other Spaces</sos>, <in4art>In4Art</in4art>, <elliot>Elliot Cost</elliot>, <albin>Albin Karlsson</albin>, Lachlan Kenneally, and others.",
-    "funding": "Council of Foods is part of <hec>The Hungry EcoCities project</hec>, part of the <starts>S+T+ARTS</starts> programme, and has received funding from the European\u00a0Union's <horizon>Horizon Europe research and innovation programme under grant agreement 101069990</horizon>.",
+    "funding": "Council of Foods is part of <hec>The Hungry EcoCities project</hec>, part of the <starts>S+T+ARTS</starts> programme, and has received funding from the European Union's <horizon>Horizon Europe research and innovation programme under grant agreement 101069990</horizon>.",
     "euImageAlt": "Funded by the EU, as part of S+T+ARTS"
   },
   "staff": {
@@ -207,6 +207,16 @@
     "message": "Something went wrong...\nCouncil cannot continue",
     "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
+    "busy": "The council is busy",
+    "busyRetrying": "Too many people are talking at once — trying again…",
+    "elsewhere": "This meeting is happening somewhere else",
+    "notFound": "That meeting could not be found",
+    "forbidden": "This meeting is not yours to open",
+    "unauthorized": "This meeting needs a key you don't have",
+    "invalidRequest": "Something about that request was wrong",
+    "meetingComplete": "This meeting has already finished",
+    "invalidAudioId": "Could not load meeting audio.",
+    "realtimeUnavailable": "The council's voice is unavailable right now",
     "reconnecting": "Attempting to reconnect...",
     "restartUnavailableRetrying": "Server unavailable for restart, retrying…"
   }

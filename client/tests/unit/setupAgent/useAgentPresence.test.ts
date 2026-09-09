@@ -35,6 +35,7 @@ function fireFocus(): void {
 function baseAgent(overrides: Partial<SetupAgentState> = {}): SetupAgentState {
   return {
     isConnecting: false,
+    providerBusy: false,
     isReady: true,
     hasEverHeardVisitor: true,
     lastCaption: null,

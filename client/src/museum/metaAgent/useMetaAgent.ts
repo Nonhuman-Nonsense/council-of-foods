@@ -20,12 +20,14 @@ export type UseMetaAgentParams = {
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
   onSessionReady?: () => void;
-  onConnectionLost?: () => void;
+  onConnectionLost?: (info: { capacity: boolean }) => void;
   onConnectionRestored?: () => void;
 };
 
 export type UseMetaAgentResult = {
   connectionState: MetaAgentConnectionState;
+  /** Waiting out a provider at capacity rather than a failure. */
+  providerBusy: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   micStream: MediaStream | null;
@@ -99,6 +101,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
 
   return {
     connectionState: session.connectionState,
+    providerBusy: session.providerBusy,
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,
     micStream: session.micStream,

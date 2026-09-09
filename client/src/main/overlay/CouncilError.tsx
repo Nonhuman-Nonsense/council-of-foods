@@ -8,6 +8,7 @@ import {
 } from "@/navigation";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { UnrecoverableError } from "./errorStore";
+import { errorCopy } from "./errorCopy";
 
 export type { UnrecoverableError, SetUnrecoverableError } from "./errorStore";
 
@@ -28,8 +29,11 @@ const TECHNICAL_SOURCES = new Set(["react-error-boundary"]);
 function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
   const { t } = useTranslation();
   const { capabilities } = useCouncilSettings();
-  const detail = error.message.trim();
-  const showGenericOnly = detail.length === 0 || TECHNICAL_SOURCES.has(error.source);
+  // Our own words for a named failure; the server's message only when we have
+  // none — and never when the message is internal prose.
+  const detail = errorCopy(t, error.errorKey, error.message).trim();
+  const showGenericOnly =
+    detail.length === 0 || error.technical === true || TECHNICAL_SOURCES.has(error.source);
 
   return (
     <div>

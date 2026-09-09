@@ -1,5 +1,5 @@
 import { ZodError } from "zod";
-import type { ApiErrorBody, ClientErrorDebug, ErrorPayload } from "@shared/SocketTypes.js";
+import type { ApiErrorBody, ClientErrorDebug, ClientErrorKey, ErrorPayload } from "@shared/SocketTypes.js";
 import { config } from "../config.js";
 
 type CouncilErrorOptions = {
@@ -9,7 +9,12 @@ type CouncilErrorOptions = {
     defaultClientMessage?: string;
     /** Underlying error serialized into `debug` for internal clients (prototype / development). */
     debugCause?: unknown;
+    /** Names the failure for the client's own copy; defaults per error class. */
+    errorKey?: ClientErrorKey;
 };
+
+/** Options a caller may override on a class that has its own defaults. */
+type CouncilErrorOverrides = Pick<CouncilErrorOptions, "debugCause" | "errorKey">;
 
 /** How loudly an error should be logged: 'info' never reaches ErrorBot, 'warning'/'error' do. */
 export type CouncilErrorSeverity = 'info' | 'warning' | 'error';
@@ -52,6 +57,12 @@ function buildDebug(statusCode: number, error?: unknown, context?: string): Clie
 export class CouncilError extends Error {
     readonly statusCode: number;
     readonly clientMessage: string;
+    /**
+     * What went wrong, as a name rather than a sentence. `clientMessage` stays
+     * the fallback — for a client that doesn't know this key yet, and for
+     * everything that reads the API without a translation table.
+     */
+    readonly errorKey: ClientErrorKey;
     readonly debugCause?: unknown;
     /** Log severity for this error class; expected/routine errors override to 'info'. */
     readonly severity: CouncilErrorSeverity = 'warning';
@@ -61,27 +72,34 @@ export class CouncilError extends Error {
         this.statusCode = statusCode;
         this.clientMessage =
             options?.clientMessage ?? options?.defaultClientMessage ?? internalMessage;
+        this.errorKey = options?.errorKey ?? "unexpected";
         this.debugCause = options?.debugCause;
     }
 
     toErrorPayload(context?: string): ErrorPayload {
         const debug = buildDebug(this.statusCode, this.debugCause, context);
         return debug
-            ? { message: this.clientMessage, code: this.statusCode, debug }
-            : { message: this.clientMessage, code: this.statusCode };
+            ? { message: this.clientMessage, code: this.statusCode, errorKey: this.errorKey, debug }
+            : { message: this.clientMessage, code: this.statusCode, errorKey: this.errorKey };
     }
 
     toApiBody(context?: string): ApiErrorBody {
         const debug = buildDebug(this.statusCode, this.debugCause, context);
-        return debug ? { message: this.clientMessage, debug } : { message: this.clientMessage };
+        return debug
+            ? { message: this.clientMessage, errorKey: this.errorKey, debug }
+            : { message: this.clientMessage, errorKey: this.errorKey };
     }
 
     static fromZod(error: ZodError, clientMessage?: string): BadRequestError {
         return new BadRequestError(clientMessage, { debugCause: error });
     }
 
-    static fromUnexpected(error: unknown, clientMessage?: string): InternalServerError {
-        return new InternalServerError(clientMessage, { debugCause: error });
+    static fromUnexpected(
+        error: unknown,
+        clientMessage?: string,
+        errorKey?: ClientErrorKey,
+    ): InternalServerError {
+        return new InternalServerError(clientMessage, { debugCause: error, errorKey });
     }
 }
 
@@ -94,7 +112,7 @@ export class NotFoundError extends CouncilError {
      */
     override readonly severity: CouncilErrorSeverity = 'warning';
     constructor(clientMessage?: string) {
-        super(404, "Meeting not found", clientMessage ? { clientMessage } : undefined);
+        super(404, "Meeting not found", { clientMessage, errorKey: "notFound" });
     }
 }
 
@@ -102,7 +120,7 @@ export class NotFoundError extends CouncilError {
 export class UnauthorizedError extends CouncilError {
     override readonly name = "Unauthorized";
     constructor(clientMessage?: string) {
-        super(401, "Unauthorized", clientMessage ? { clientMessage } : undefined);
+        super(401, "Unauthorized", { clientMessage, errorKey: "unauthorized" });
     }
 }
 
@@ -110,7 +128,7 @@ export class UnauthorizedError extends CouncilError {
 export class ForbiddenError extends CouncilError {
     override readonly name = "Forbidden";
     constructor(clientMessage?: string) {
-        super(403, "Forbidden", clientMessage ? { clientMessage } : undefined);
+        super(403, "Forbidden", { clientMessage, errorKey: "forbidden" });
     }
 }
 
@@ -119,11 +137,12 @@ export class BadRequestError extends CouncilError {
     static readonly clientErrorMessage = "Invalid request";
 
     override readonly name = "Bad request";
-    constructor(clientMessage?: string, options?: Pick<CouncilErrorOptions, "debugCause">) {
+    constructor(clientMessage?: string, options?: CouncilErrorOverrides) {
         super(400, "Bad request", {
             clientMessage,
             defaultClientMessage: BadRequestError.clientErrorMessage,
             debugCause: options?.debugCause,
+            errorKey: options?.errorKey ?? "invalidRequest",
         });
     }
 }
@@ -139,6 +158,31 @@ export class ConflictError extends CouncilError {
         super(ConflictError.statusCode, "Conflict", {
             clientMessage,
             defaultClientMessage: ConflictError.clientErrorMessage,
+            errorKey: "elsewhere",
+        });
+    }
+}
+
+/**
+ * Thrown when the account's provider capacity is exhausted — every retry lost
+ * the same race (maps to HTTP 503).
+ *
+ * Not a fault, so it says so: the visitor is told the council is busy and that
+ * coming back shortly will work, rather than being shown a server error they
+ * can do nothing about.
+ */
+export class CapacityError extends CouncilError {
+    static readonly clientErrorMessage =
+        "Too many people are talking to the council right now. Please try again in a few minutes.";
+
+    override readonly name = "Over capacity";
+    /** Expected under load — worth watching, not the harder 500-level alert. */
+    override readonly severity: CouncilErrorSeverity = 'warning';
+    constructor(clientMessage?: string) {
+        super(503, "Over capacity", {
+            clientMessage,
+            defaultClientMessage: CapacityError.clientErrorMessage,
+            errorKey: "busy",
         });
     }
 }
@@ -148,11 +192,12 @@ export class InternalServerError extends CouncilError {
     override readonly name = "Internal server error";
     /** Genuinely unexpected — worth the harder alert level, unlike routine 4xx CouncilErrors. */
     override readonly severity: CouncilErrorSeverity = 'error';
-    constructor(clientMessage?: string, options?: Pick<CouncilErrorOptions, "debugCause">) {
+    constructor(clientMessage?: string, options?: CouncilErrorOverrides) {
         super(500, "Internal Server Error", {
             clientMessage,
             defaultClientMessage: "Internal Server Error",
             debugCause: options?.debugCause,
+            errorKey: options?.errorKey ?? "unexpected",
         });
     }
 }

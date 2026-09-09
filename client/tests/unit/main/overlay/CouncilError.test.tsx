@@ -50,6 +50,38 @@ describe("CouncilError overlay", () => {
     vi.unstubAllGlobals();
   });
 
+  // The server names the failure; the words are ours. Its English prose is only
+  // the fallback, so a translated build never shows it for a key we know.
+  it("shows our own copy for a named failure, not the server's prose", () => {
+    render(
+      <CouncilError
+        error={{ message: "This meeting is happening somewhere else", errorKey: "elsewhere", source: "test" }}
+      />,
+    );
+    expect(screen.getByText("error.elsewhere")).toBeInTheDocument();
+  });
+
+  it("falls back to the server message for a key it does not know", () => {
+    render(
+      <CouncilError
+        error={{ message: "Something new went wrong", errorKey: "notInvented" as never, source: "test" }}
+      />,
+    );
+    expect(screen.getByText("Something new went wrong")).toBeInTheDocument();
+  });
+
+  // Internal prose ("state mismatch: expected awaiting_human_panelist…") is for
+  // ErrorBot, never for the visitor standing in front of the screen.
+  it("hides technical detail behind the generic apology", () => {
+    render(
+      <CouncilError
+        error={{ message: "Internal state mismatch: expected awaiting_human_panelist", technical: true, source: "test" }}
+      />,
+    );
+    expect(screen.queryByText(/Internal state mismatch/)).not.toBeInTheDocument();
+    expect(screen.getByText("error.message")).toBeInTheDocument();
+  });
+
   it("renders web restart button without probing health", () => {
     render(<CouncilError error={{ message: "boom", source: "test" }} />);
 

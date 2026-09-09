@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { isRetryableNetworkError, withNetworkRetry } from '@utils/NetworkUtils.js';
+import { UpstreamHttpError, isCapacityError, isRetryableNetworkError, withNetworkRetry } from '@utils/NetworkUtils.js';
 import { Logger } from '@utils/Logger.js';
 
 vi.mock('@utils/Logger.js', () => ({
@@ -38,6 +38,23 @@ describe('isRetryableNetworkError', () => {
             cause: { code: 'UND_ERR_CONNECT_TIMEOUT' },
         });
         expect(isRetryableNetworkError(error)).toBe(true);
+    });
+});
+
+describe('isCapacityError', () => {
+    // Only a rate limit means "we lost a race" — the status callers degrade on.
+    // A 503 is retried, but a provider that is down must not be mistaken for a
+    // busy one and quietly degraded around.
+    it.each([
+        { status: 429, capacity: true },
+        { status: 503, capacity: false },
+        { status: 500, capacity: false },
+    ])('status $status is a capacity error: $capacity', ({ status, capacity }) => {
+        expect(isCapacityError(new UpstreamHttpError(status, 'Provider API Error'))).toBe(capacity);
+    });
+
+    it('is false for a plain network error', () => {
+        expect(isCapacityError(new TypeError('fetch failed'))).toBe(false);
     });
 });
 
@@ -90,6 +107,28 @@ describe('withNetworkRetry', () => {
         await expect(promise).resolves.toBe('ok');
 
         expect(fn).toHaveBeenCalledTimes(2);
+    });
+
+    // A non-OK response only gets a second chance when the status says the
+    // upstream was busy rather than unwilling.
+    it.each([
+        { status: 429, retried: true, label: 'rate limited' },
+        { status: 503, retried: true, label: 'temporarily unavailable' },
+        { status: 500, retried: false, label: 'server error' },
+        { status: 401, retried: false, label: 'unauthorized' },
+    ])('$status ($label) retried: $retried', async ({ status, retried }) => {
+        const error = new UpstreamHttpError(status, `Provider API Error: ${status}`);
+        const fn = vi.fn()
+            .mockRejectedValueOnce(error)
+            .mockResolvedValueOnce('ok');
+
+        const promise = retried
+            ? withNetworkRetry(fn, 'TestContext')
+            : withNetworkRetry(fn, 'TestContext').catch((e: unknown) => e);
+        await vi.runAllTimersAsync();
+
+        await expect(promise).resolves.toBe(retried ? 'ok' : error);
+        expect(fn).toHaveBeenCalledTimes(retried ? 2 : 1);
     });
 
     it('rethrows after exhausting retries', async () => {

@@ -139,10 +139,14 @@ export async function acquireMicrophone(): Promise<MediaStream> {
 /**
  * - `fatal` — retrying won't help and the app cannot continue as intended.
  * - `retryable` — transient, worth another attempt.
+ * - `capacity` — the provider is busy, not broken. Retryable, but on a slower
+ *   clock and a longer budget: a squeeze outlasts the seconds a network blip
+ *   needs, and giving up in that window strands a visitor whose agent would
+ *   have connected a moment later.
  * - `unavailable` — the voice agent can't run, but the app is fine without it.
  *   Web-only: the visitor keeps a fully usable, clickable interface.
  */
-export type RealtimeErrorKind = "fatal" | "retryable" | "unavailable";
+export type RealtimeErrorKind = "fatal" | "retryable" | "capacity" | "unavailable";
 
 /**
  * Classify a realtime connection error.
@@ -157,6 +161,9 @@ export function classifyRealtimeError(
   opts?: { selfHealing?: boolean },
 ): RealtimeErrorKind {
   if (err instanceof RealtimeHttpError) {
+    // 503 is the app server saying the provider is at capacity — the only
+    // status it answers that way (see sendRealtimeFailure).
+    if (err.status === 503) return "capacity";
     // 4xx = configuration/auth error — retrying won't help
     if (err.status >= 400 && err.status < 500) return "fatal";
     // 5xx = server/provider blip — worth retrying
@@ -258,6 +265,23 @@ export const REALTIME_RETRY_MAX_MS = 15_000;
 export function computeRealtimeRetryDelay(attempt: number): number {
   const cap = Math.min(REALTIME_RETRY_MAX_MS, REALTIME_RETRY_BASE_MS * 2 ** attempt);
   return Math.random() * cap;
+}
+
+export const REALTIME_CAPACITY_RETRY_BASE_MS = 5_000;
+export const REALTIME_CAPACITY_RETRY_MAX_MS = 30_000;
+
+/**
+ * Backoff for a provider at capacity.
+ *
+ * Unlike {@link computeRealtimeRetryDelay} this keeps a floor: full jitter
+ * from zero would have half the retries land while the slot is still taken,
+ * spending the budget without ever waiting long enough to get one. Jitter
+ * still spreads the retries, it just spreads them across the second half of
+ * the window.
+ */
+export function computeRealtimeCapacityRetryDelay(attempt: number): number {
+  const cap = Math.min(REALTIME_CAPACITY_RETRY_MAX_MS, REALTIME_CAPACITY_RETRY_BASE_MS * 2 ** attempt);
+  return cap / 2 + Math.random() * (cap / 2);
 }
 
 export type ConnectionLogger = (...args: unknown[]) => void;

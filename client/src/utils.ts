@@ -134,3 +134,55 @@ export function usePagePresence(): boolean {
 export function mapFoodIndex(total: number, index: number): number {
   return (Math.ceil(total / 2) + index - 1) % total;
 }
+
+/**
+ * True once `active` has held continuously for `delayMs`, false the moment it
+ * drops. For explanations that are only worth showing once a wait has gone on
+ * long enough to need one — a two-second blip needs no words, a thirty-second
+ * one does.
+ *
+ * Use {@link useElapsedSince} where the wait began before this component
+ * mounted, so the clock runs from the wait rather than from the render.
+ */
+export function useDelayedTrue(active: boolean, delayMs: number): boolean {
+  const [elapsed, setElapsed] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      setElapsed(false);
+      return;
+    }
+    const timer = setTimeout(() => setElapsed(true), delayMs);
+    return () => clearTimeout(timer);
+  }, [active, delayMs]);
+
+  return active && elapsed;
+}
+
+/**
+ * True once `delayMs` has passed since `since` (a timestamp, or null for "not
+ * waiting"). Unlike {@link useDelayedTrue} the clock is the wait's own, so a
+ * component mounting into a wait already underway is immediately correct —
+ * which matters for the meta agent, whose overlay only appears when the
+ * visitor presses the button, long after the agent went quiet.
+ */
+export function useElapsedSince(since: number | null, delayMs: number): boolean {
+  const [elapsed, setElapsed] = useState(false);
+
+  useEffect(() => {
+    if (since == null) {
+      setElapsed(false);
+      return;
+    }
+    const remaining = since + delayMs - Date.now();
+    if (remaining <= 0) {
+      setElapsed(true);
+      return;
+    }
+    setElapsed(false);
+    const timer = setTimeout(() => setElapsed(true), remaining);
+    return () => clearTimeout(timer);
+  }, [since, delayMs]);
+
+  return since != null && elapsed;
+}

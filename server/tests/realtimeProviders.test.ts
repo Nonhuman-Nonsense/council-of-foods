@@ -326,9 +326,11 @@ describe("getInworldIceServers", () => {
             new Response("forbidden", { status: 403, statusText: "Forbidden" })
         );
 
-        await expect(getInworldIceServers()).rejects.toThrow(
-            /Inworld \/v1\/realtime\/ice-servers failed \(403\)/
-        );
+        // The status travels with the error so the route can answer in kind.
+        await expect(getInworldIceServers()).rejects.toMatchObject({
+            status: 403,
+            message: expect.stringContaining("/v1/realtime/ice-servers"),
+        });
     });
 });
 
@@ -379,7 +381,7 @@ describe("createInworldCall", () => {
             new Response("bad", { status: 400, statusText: "Bad Request" })
         );
 
-        await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toThrow(/calls failed \(400\)/);
+        await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toMatchObject({ status: 400 });
     });
 
     it("throws when Inworld returns an empty SDP answer", async () => {

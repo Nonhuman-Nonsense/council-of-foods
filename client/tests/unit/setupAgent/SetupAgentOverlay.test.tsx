@@ -117,6 +117,32 @@ describe('SetupAgentOverlay', () => {
     }
   });
 
+  // The spinner alone reads as broken once a capacity wait runs into minutes,
+  // so the notice explains it — in the visitor's own caption size, because it
+  // is about the session rather than something the agent said.
+  it('shows a notice through a connecting spinner, in the smaller caption size', () => {
+    const { rerender } = render(
+      <SetupAgentOverlay {...baseProps} browserUi lastUserTranscript="hello there" />,
+    );
+    const userSize = getComputedStyle(screen.getByTestId('agent-user')).fontSize;
+
+    rerender(
+      <SetupAgentOverlay
+        {...baseProps}
+        browserUi
+        isConnecting
+        lastCaption="something the agent said"
+        notice="error.busyRetrying"
+      />,
+    );
+
+    const notice = screen.getByTestId('agent-notice');
+    expect(notice).toHaveTextContent('error.busyRetrying');
+    expect(getComputedStyle(notice).fontSize).toBe(userSize);
+    // Captions stay hidden while connecting; the notice is what replaces them.
+    expect(screen.queryByTestId('agent-caption')).not.toBeInTheDocument();
+  });
+
   it('shows the visualiser only once the mic is actually live, not on the request alone', () => {
     const { rerender } = render(
       <SetupAgentOverlay {...baseProps} browserUi micRequested />,

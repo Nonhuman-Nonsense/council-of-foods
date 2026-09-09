@@ -1,7 +1,8 @@
 import type { Express, Request, Response as ExpressResponse } from "express";
 import { meetingsCollection } from "@services/DbService.js";
 import { Logger } from "@utils/Logger.js";
-import { BadRequestError, CouncilError } from "@models/Errors.js";
+import { isCapacityError } from "@utils/NetworkUtils.js";
+import { BadRequestError, CapacityError, CouncilError } from "@models/Errors.js";
 import {
     createRealtimeCall,
     getHumanInputRealtimeBootstrap,
@@ -21,6 +22,38 @@ import type {
 } from "@shared/RealtimeSessionTypes.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
+
+/** How long a visitor is asked to wait out a busy account, in seconds. */
+const CAPACITY_RETRY_AFTER_SECONDS = 30;
+
+/**
+ * Answer a failed realtime request.
+ *
+ * A provider at capacity is answered `503` rather than the blanket `500`, so
+ * the client can tell "everyone is talking at once" from "this is broken" —
+ * the two want opposite responses: one is worth waiting out, the other is not.
+ */
+async function sendRealtimeFailure(
+    res: ExpressResponse,
+    error: unknown,
+    context: string,
+    unavailableMessage: string,
+): Promise<void> {
+    if (isCapacityError(error)) {
+        await Logger.warn("api", `${context} refused: provider at capacity`, { error });
+        const capacity = new CapacityError();
+        res
+            .status(capacity.statusCode)
+            .set("Retry-After", String(CAPACITY_RETRY_AFTER_SECONDS))
+            .json(capacity.toApiBody(context));
+        return;
+    }
+
+    await Logger.error("api", `${context} failed`, { error });
+    res.status(500).json(
+        CouncilError.fromUnexpected(error, unavailableMessage, "realtimeUnavailable").toApiBody(context),
+    );
+}
 
 function parseRequiredBearerToken(req: Request): string | null {
     const raw = req.headers.authorization;
@@ -97,8 +130,7 @@ export function registerRealtimeRoutes(app: Express): void {
             await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
             res.status(200).json(data);
         } catch (e) {
-            await Logger.error("api", "POST /api/realtime/bootstrap failed", { error: e });
-            res.status(500).json(CouncilError.fromUnexpected(e, "Realtime bootstrap unavailable").toApiBody("api POST /api/realtime/bootstrap"));
+            await sendRealtimeFailure(res, e, "api POST /api/realtime/bootstrap", "Realtime bootstrap unavailable");
         }
     });
 
@@ -143,8 +175,7 @@ export function registerRealtimeRoutes(app: Express): void {
             await Logger.info("api", `POST /api/realtime/call successful (${feature}:${provider})`);
             res.status(200).json(data);
         } catch (e) {
-            await Logger.error("api", "POST /api/realtime/call failed", { error: e });
-            res.status(500).json(CouncilError.fromUnexpected(e, "Realtime call unavailable").toApiBody("api POST /api/realtime/call"));
+            await sendRealtimeFailure(res, e, "api POST /api/realtime/call", "Realtime call unavailable");
         }
     });
 }

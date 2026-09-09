@@ -606,6 +606,111 @@ describe("realtimeEventLoop", () => {
         expect(responseCreateCount(send)).toBe(afterFirstTurn + 2);
     });
 
+    /**
+     * A capacity refusal is the one provider error a reconnect cannot fix: the
+     * session is healthy and every slot is taken, so tearing it down loses the
+     * conversation and then queues for a slot that is already gone.
+     */
+    it("keeps the session and retries the turn after a capacity refusal", async () => {
+        vi.useFakeTimers();
+        const send = vi.fn();
+        const onError = vi.fn();
+        const onNonFatalError = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError, onNonFatalError },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+        expect(responseCreateCount(send)).toBe(1);
+
+        await loop.handleEvent({
+            type: "error",
+            error: {
+                event_id: lastResponseCreateEventId(send),
+                code: 8,
+                message: "request failed: rpc error: code = ResourceExhausted",
+            },
+        });
+
+        expect(onError).not.toHaveBeenCalled();
+        expect(onNonFatalError).toHaveBeenCalledWith(
+            expect.objectContaining({ capacity: true, handling: "recovered", code: "8" }),
+        );
+        // Retrying now would ask for the slot that was just refused.
+        expect(responseCreateCount(send)).toBe(1);
+
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(responseCreateCount(send)).toBe(2);
+        vi.useRealTimers();
+    });
+
+    it("does not retry a capacity refusal that arrives while a response is in flight", async () => {
+        vi.useFakeTimers();
+        const send = vi.fn();
+        const onNonFatalError = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn(), onNonFatalError },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+
+        await loop.handleEvent({
+            type: "error",
+            error: { code: 8, message: "maximum allowed number of active contexts reached" },
+        });
+
+        // The in-flight response owns the turn; response.done recovers it if it dies.
+        expect(onNonFatalError).toHaveBeenCalledWith(
+            expect.objectContaining({ capacity: true, handling: "ignored" }),
+        );
+        await vi.advanceTimersByTimeAsync(5000);
+        expect(responseCreateCount(send)).toBe(1);
+        vi.useRealTimers();
+    });
+
+    it("stops retrying capacity refusals after the per-turn budget", async () => {
+        vi.useFakeTimers();
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+
+        loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+        await loop.handleEvent({ type: "session.updated" });
+
+        const refuse = async () => {
+            await loop.handleEvent({
+                type: "error",
+                error: { code: 8, message: "ResourceExhausted" },
+            });
+            await vi.advanceTimersByTimeAsync(5000);
+        };
+
+        await refuse();
+        await refuse();
+        const afterBudget = responseCreateCount(send);
+        await refuse();
+        expect(responseCreateCount(send)).toBe(afterBudget);
+
+        // A new user turn earns a fresh budget.
+        await loop.handleEvent({
+            type: "conversation.item.input_audio_transcription.completed",
+            transcript: "still there?",
+        });
+        await refuse();
+        expect(responseCreateCount(send)).toBe(afterBudget + 1);
+        vi.useRealTimers();
+    });
+
     it("handles caption, user transcript, error, and VAD events", async () => {
         const send = vi.fn();
         const onCaption = vi.fn();

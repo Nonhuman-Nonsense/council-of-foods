@@ -6,11 +6,14 @@ import {
   MicrophoneUnavailableError,
   RealtimeHttpError,
   classifyRealtimeError,
+  computeRealtimeCapacityRetryDelay,
   computeRealtimeRetryDelay,
   queryMicPermission,
   RealtimeTimeoutError,
   REALTIME_RETRY_BASE_MS,
   REALTIME_RETRY_MAX_MS,
+  REALTIME_CAPACITY_RETRY_BASE_MS,
+  REALTIME_CAPACITY_RETRY_MAX_MS,
 } from "@realtime/realtimeConnection";
 
 class MockTrack {
@@ -531,7 +534,13 @@ describe("classifyRealtimeError", () => {
 
   it("marks 5xx HTTP errors as retryable", () => {
     expect(classifyRealtimeError(new RealtimeHttpError(500, "server error"))).toBe("retryable");
-    expect(classifyRealtimeError(new RealtimeHttpError(503, "unavailable"))).toBe("retryable");
+    expect(classifyRealtimeError(new RealtimeHttpError(502, "bad gateway"))).toBe("retryable");
+  });
+
+  // Our server answers 503 for one reason only: the provider is at capacity.
+  // Busy and broken want different waits, so they must not classify alike.
+  it("marks a 503 as capacity rather than a plain retryable failure", () => {
+    expect(classifyRealtimeError(new RealtimeHttpError(503, "at capacity"))).toBe("capacity");
   });
 
   it("marks invalid bootstrap shape as fatal", () => {
@@ -683,6 +692,26 @@ describe("computeRealtimeRetryDelay", () => {
     const avg = (attempt: number) =>
       Array.from({ length: samples }, () => computeRealtimeRetryDelay(attempt)).reduce((a, b) => a + b, 0) / samples;
     expect(avg(2)).toBeGreaterThan(avg(0));
+  });
+});
+
+describe("computeRealtimeCapacityRetryDelay", () => {
+  // Full jitter from zero would land half the retries while the slot is still
+  // taken, spending the budget without ever waiting long enough to get one.
+  it("keeps a floor of half the window and stays within the cap", () => {
+    for (let i = 0; i < 20; i++) {
+      const first = computeRealtimeCapacityRetryDelay(0);
+      expect(first).toBeGreaterThanOrEqual(REALTIME_CAPACITY_RETRY_BASE_MS / 2);
+      expect(first).toBeLessThanOrEqual(REALTIME_CAPACITY_RETRY_BASE_MS);
+      expect(computeRealtimeCapacityRetryDelay(100)).toBeLessThanOrEqual(REALTIME_CAPACITY_RETRY_MAX_MS);
+    }
+  });
+
+  it("waits longer than the ordinary blip backoff", () => {
+    const samples = 200;
+    const avg = (fn: (attempt: number) => number) =>
+      Array.from({ length: samples }, () => fn(0)).reduce((a, b) => a + b, 0) / samples;
+    expect(avg(computeRealtimeCapacityRetryDelay)).toBeGreaterThan(avg(computeRealtimeRetryDelay));
   });
 });
 

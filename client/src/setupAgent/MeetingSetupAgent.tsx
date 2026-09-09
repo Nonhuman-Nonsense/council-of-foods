@@ -23,6 +23,8 @@ import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgen
 import { useAgentPresence } from "./useAgentPresence";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import Loading from "@main/Loading";
+import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
+import { useDelayedTrue } from "@/utils";
 import { useSetupAgent, type SetupAgentContext } from "./useSetupAgent";
 import { useErrorStore } from "@main/overlay/errorStore";
 
@@ -182,6 +184,11 @@ export default function MeetingSetupAgent({
     );
   }, [phase, setupCharacters]);
 
+  // A capacity wait now lasts minutes, and a spinner that says nothing for that
+  // long reads as broken. Held back so a squeeze that clears on the first retry
+  // passes unremarked.
+  const showBusyNotice = useDelayedTrue(agent.providerBusy && !muted, BUSY_NOTICE_DELAY_MS);
+
   const showBlockingReconnect =
     capabilities.selfHealing && !muted && agent.isConnecting && !connectionError;
 
@@ -298,6 +305,7 @@ export default function MeetingSetupAgent({
       lastUserTranscript={agent.lastUserTranscript}
       muted={agent.muted}
       browserUi={capabilities.browserUi}
+      notice={showBusyNotice ? t("error.busyRetrying") : null}
       showMicRow={voiceSetupAgent}
       subtitleLayout={voiceSetupAgent ? "council" : "compact"}
       micStream={agent.micStream}

@@ -4,6 +4,7 @@ import {
   AGENDA_POINTS_PLACEHOLDER,
   AGENDA_SECTION_HEADER,
   AGENDA_SECTION_HEADER_SV,
+  CURRENT_DATE_PLACEHOLDER,
   TOPIC_PLACEHOLDER,
   agendaPointCountFromAgendaPoints,
   buildAgendaPointsText,
@@ -49,5 +50,30 @@ describe("topicPrompt", () => {
     expect(agendaPointCountFromAgendaPoints(["One", "", "Two"])).toBe(2);
     expect(agendaPointCountFromAgendaPoints([])).toBeUndefined();
     expect(nonEmptyAgendaPoints([" One ", ""])).toEqual(["One"]);
+  });
+});
+
+describe("topicPrompt: [CURRENT_DATE] injection", () => {
+  const meetingDate = new Date("2026-10-10T12:00:00Z");
+  const template = `Today is ${CURRENT_DATE_PLACEHOLDER}.\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}`;
+
+  it.each([
+    ["en", "Today is 10 October 2026."],
+    ["sv", "Today is 10 oktober 2026."],
+  ])("injects the meeting date localised for %s", (language, expected) => {
+    const result = buildMeetingSystemPrompt(template, "Topic body.", [], language, meetingDate);
+    expect(result).toContain(expected);
+    expect(result).not.toContain(CURRENT_DATE_PLACEHOLDER);
+  });
+
+  it("leaves a template without the placeholder untouched", () => {
+    const result = buildMeetingSystemPrompt(
+      `Static intro.\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}`,
+      "Topic body.",
+      [],
+      "en",
+      meetingDate,
+    );
+    expect(result).toBe("Static intro.\n\nTopic body.");
   });
 });

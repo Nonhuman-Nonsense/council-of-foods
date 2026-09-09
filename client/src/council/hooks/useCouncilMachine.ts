@@ -251,6 +251,7 @@ export function useCouncilMachine({
             const msg = error.message?.trim() ? error.message : t("error.message");
             setUnrecoverableError({
                 message: msg,
+                errorKey: error.errorKey,
                 source: "useCouncilMachine.conversation_error",
                 cause: error,
                 meetingId: currentMeetingId,
@@ -589,6 +590,7 @@ export function useCouncilMachine({
                 console.error(detail);
                 setUnrecoverableError({
                     message: detail,
+                    technical: true,
                     source: "useCouncilMachine.submit_panelist",
                     meetingId: currentMeetingId,
                 });
@@ -796,6 +798,7 @@ export function useCouncilMachine({
             const isNotFound = err instanceof ResumeMeetingError && err.status === 404;
             setUnrecoverableError({
                 message: msg,
+                errorKey: err instanceof ResumeMeetingError ? err.errorKey : undefined,
                 source: "useCouncilMachine.resume",
                 cause: err,
                 meetingId: currentMeetingId,

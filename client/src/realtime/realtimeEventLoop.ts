@@ -35,6 +35,8 @@ export type EventLoopCallbacks = {
     message: string;
     code: string | null;
     handling: "ignored" | "recovered";
+    /** The provider was at capacity — reported separately from real faults. */
+    capacity: boolean;
   }) => void;
   /** Fired when the server confirms the session config was applied. */
   onSessionReady?: () => void;
@@ -169,8 +171,38 @@ const BENIGN_ERROR_CODES = new Set([
   "audio_end_ms_out_of_range",
 ]);
 
+/**
+ * The error's `code`, as a string. Numbers are stringified: capacity failures
+ * arrive as the gRPC status `8` (a number), and reading it as a string only
+ * would drop the one signal that says "busy" rather than "broken".
+ */
 function errorCode(errRaw: unknown): string | null {
-  return asStr(asObj(errRaw)?.code);
+  const code = asObj(errRaw)?.code;
+  if (typeof code === "number") return String(code);
+  return asStr(code);
+}
+
+/**
+ * gRPC `RESOURCE_EXHAUSTED` — the account is at its concurrency limit and the
+ * provider refused this generation. Matched on the message too, because the
+ * code does not always survive the trip through the realtime transport.
+ */
+const CAPACITY_ERROR_CODES = new Set(["8", "resource_exhausted", "rate_limit_exceeded"]);
+const CAPACITY_MESSAGE_PATTERN = /resource[ _]?exhausted|maximum allowed number of active/i;
+
+/**
+ * Did the provider refuse this because the account is busy rather than broken?
+ *
+ * Worth its own answer: every other unrecognised error tears the session down
+ * and reconnects, which is the one response that cannot help here — the
+ * session itself is healthy, and asking for a new one while every slot is
+ * taken is how a passing squeeze becomes a dead agent for the visitor.
+ */
+function isCapacityRealtimeError(errRaw: unknown): boolean {
+  const code = errorCode(errRaw)?.toLowerCase();
+  if (code && CAPACITY_ERROR_CODES.has(code)) return true;
+  const message = asStr(asObj(errRaw)?.message) ?? "";
+  return CAPACITY_MESSAGE_PATTERN.test(message);
 }
 
 function isBenignRealtimeError(errRaw: unknown): boolean {
@@ -234,6 +266,16 @@ export function createEventLoop(params: {
    */
   let createRejectedRetries = 0;
   const MAX_CREATE_REJECTED_RETRIES = 1;
+  /**
+   * Turns re-requested after a capacity refusal, for the current user turn.
+   *
+   * Unlike the other recoveries this one waits before retrying: an immediate
+   * `response.create` asks for a slot that is, by definition, still taken.
+   */
+  let capacityRetries = 0;
+  const MAX_CAPACITY_RETRIES = 2;
+  const CAPACITY_RETRY_DELAY_MS = 4_000;
+  let capacityRetryTimer: ReturnType<typeof setTimeout> | null = null;
   /** Reason the in-flight response was created ("server-auto" if we didn't send it). */
   let currentResponseReason = "server-auto";
   /**
@@ -365,6 +407,7 @@ export function createEventLoop(params: {
     pendingCreateEventId = null;
     pendingCreateReason = null;
     createRejectedRetries = 0;
+    capacityRetries = 0;
     if (options?.triggerGreetingOnReady) {
       pendingOpeningGreeting = options.greetingUserText ?? DEFAULT_GREETING_USER_TEXT;
     } else {
@@ -407,6 +450,38 @@ export function createEventLoop(params: {
       : "The visitor responded. Respond now and continue.";
     sendUserMessage(recoveryText);
     sendResponseCreate(createReason);
+  };
+
+  /**
+   * Re-request the turn a capacity refusal killed, after a pause long enough
+   * for a slot to free up.
+   *
+   * Returns whether a retry is now pending. Declines when a response is still
+   * in flight (the refusal hit something mid-stream, and `response.done`
+   * already has its own empty-response recovery), when one retry is already
+   * waiting, or when this turn has used its budget — a visitor talking into a
+   * saturated account should hear silence, not an ever-growing queue of
+   * retries landing at once.
+   *
+   * A timer that outlives its connection is harmless: `send` drops anything
+   * written to a data channel that is no longer open.
+   */
+  const scheduleCapacityRecovery = (): boolean => {
+    if (capacityRetryTimer != null) return true;
+    if (activeResponses > 0 || !sessionReady) return false;
+    if (capacityRetries >= MAX_CAPACITY_RETRIES) return false;
+    capacityRetries += 1;
+    devLog.flat("TURN", "capacity refusal — retrying turn after a pause", {
+      capacityRetries,
+      delayMs: CAPACITY_RETRY_DELAY_MS,
+    });
+    capacityRetryTimer = setTimeout(() => {
+      capacityRetryTimer = null;
+      // The visitor may have spoken again while we waited; their new turn wins.
+      if (!sessionReady || activeResponses > 0) return;
+      recoverTurn("capacity-retry");
+    }, CAPACITY_RETRY_DELAY_MS);
+    return true;
   };
 
   /**
@@ -653,6 +728,7 @@ export function createEventLoop(params: {
       // New user turn — reset the turn-recovery retry budgets.
       emptyResponseRetries = 0;
       createRejectedRetries = 0;
+      capacityRetries = 0;
       const transcript = asStr(obj.transcript);
       lastUserTranscript = transcript ?? "";
       devLog.flat("TURN", "IN transcription.completed", {
@@ -702,7 +778,19 @@ export function createEventLoop(params: {
       // back to the create we're waiting on and re-request once per turn.
       let escalate = !isBenignRealtimeError(errRaw);
       let handling: "ignored" | "recovered" = "ignored";
-      if (pendingCreateEventId != null && isResponseCreateRejection(errRaw, pendingCreateEventId)) {
+      const capacity = isCapacityRealtimeError(errRaw);
+
+      if (capacity) {
+        // Never tear down for this one. The session is fine; the account is
+        // busy. A reconnect would cost the conversation and then queue for a
+        // slot that is already gone — so keep the session and retry the turn.
+        if (pendingCreateEventId != null && isResponseCreateRejection(errRaw, pendingCreateEventId)) {
+          pendingCreateEventId = null;
+          pendingCreateReason = null;
+        }
+        escalate = false;
+        handling = scheduleCapacityRecovery() ? "recovered" : "ignored";
+      } else if (pendingCreateEventId != null && isResponseCreateRejection(errRaw, pendingCreateEventId)) {
         const rejectedReason = pendingCreateReason;
         pendingCreateEventId = null;
         pendingCreateReason = null;
@@ -736,8 +824,8 @@ export function createEventLoop(params: {
       }
 
       if (!escalate) {
-        devLog.flat("TURN", "non-fatal realtime error — session kept", { message, handling });
-        callbacks.onNonFatalError?.({ message, code: errorCode(errRaw), handling });
+        devLog.flat("TURN", "non-fatal realtime error — session kept", { message, handling, capacity });
+        callbacks.onNonFatalError?.({ message, code: errorCode(errRaw), handling, capacity });
         return true;
       }
 
