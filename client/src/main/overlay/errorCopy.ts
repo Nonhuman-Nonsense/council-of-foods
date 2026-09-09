@@ -12,7 +12,9 @@ import type { ClientErrorKey } from "@shared/SocketTypes";
 const ERROR_COPY: Record<ClientErrorKey, string> = {
   invalidRequest: "error.invalidRequest",
   elsewhere: "error.elsewhere",
-  busy: "error.busy",
+  // The fuller sentence, not the overlay's two-word heading: this one lands on
+  // an error screen with nothing else to explain it.
+  busy: "error.busyTerminal",
   notFound: "error.notFound",
   unauthorized: "error.unauthorized",
   forbidden: "error.forbidden",

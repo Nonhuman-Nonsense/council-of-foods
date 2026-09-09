@@ -8,7 +8,7 @@ describe("errorCopy", () => {
   // The compat contract: client and server ship independently, so anything the
   // client cannot name must still say something useful.
   it.each([
-    { label: "a known key", errorKey: "busy" as const, expected: "translated:error.busy" },
+    { label: "a known key", errorKey: "busy" as const, expected: "translated:error.busyTerminal" },
     { label: "no key at all", errorKey: undefined, expected: "server prose" },
     { label: "a key from a newer server", errorKey: "notInvented" as never, expected: "server prose" },
     // Nothing useful to say beyond the generic apology the caller supplies.
