@@ -38,6 +38,15 @@ the only place a mode is read. A `mode === "museum"` test anywhere else silently
 other mode into the web branch — which is exactly how presenter mode's first cut broke. Add
 a capability that names the behaviour instead, so each mode has to answer for it.
 
+## Don't drive the app in a browser
+
+Verifying a change by starting a dev server and clicking through the UI is never worth what
+it costs here — the dev ports are usually already taken (by the developer, or a sibling
+project on the same machine), and a meeting needs a live server, Mongo and provider keys
+before anything interesting happens. Verify through the test suites instead. When a change is
+visual, hand the developer a way to look at it themselves — a temporary, clearly-marked flag
+they can switch on beats a screenshot — and say when it is ready to test.
+
 ## Commands
 
 - Server: `cd server && npm test` (type-check + all tests, mocked APIs);
