@@ -99,7 +99,8 @@ describe('Staff overlay', () => {
     expect(screen.getByText('staff.panels.installation')).toBeInTheDocument();
     expect(screen.getByText('staff.web')).toBeInTheDocument();
     expect(screen.getByText('staff.museum')).toBeInTheDocument();
-    expect(screen.getByTestId('staff-museum-switch-button-toggle')).toBeInTheDocument();
+    expect(screen.getByText('staff.presenter')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-mode-switch-button-toggle')).toBeInTheDocument();
     expect(screen.getByTestId('staff-ptt-hardware-toggle')).toBeInTheDocument();
     expect(screen.getByTestId('staff-led-debug-toggle')).toBeInTheDocument();
   });
@@ -109,14 +110,21 @@ describe('Staff overlay', () => {
 
     const web = screen.getByTestId('app-mode-web');
     const museum = screen.getByTestId('app-mode-museum');
+    const presenter = screen.getByTestId('app-mode-presenter');
 
     expect(web).toHaveClass('selected');
     expect(museum).not.toHaveClass('selected');
+    expect(presenter).not.toHaveClass('selected');
 
     fireEvent.click(museum);
     expect(localStorage.getItem('councilAppMode')).toBe('museum');
     expect(museum).toHaveClass('selected');
     expect(web).not.toHaveClass('selected');
+
+    fireEvent.click(presenter);
+    expect(localStorage.getItem('councilAppMode')).toBe('presenter');
+    expect(presenter).toHaveClass('selected');
+    expect(museum).not.toHaveClass('selected');
 
     fireEvent.click(web);
     expect(localStorage.getItem('councilAppMode')).toBe('web');
@@ -126,33 +134,33 @@ describe('Staff overlay', () => {
   it('shows museum switch button toggle below installation mode', () => {
     render(<Staff />);
 
-    const toggle = screen.getByTestId('staff-museum-switch-button-toggle');
+    const toggle = screen.getByTestId('staff-mode-switch-button-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(toggle).toHaveTextContent('staff.museumSwitchButton');
+    expect(toggle).toHaveTextContent('staff.modeSwitchButton');
   });
 
   it('persists museum switch button enablement', () => {
     render(<Staff />);
 
-    fireEvent.click(screen.getByTestId('staff-museum-switch-button-toggle'));
-    expect(localStorage.getItem('councilMuseumSwitchButtonEnabled')).toBe('true');
+    fireEvent.click(screen.getByTestId('staff-mode-switch-button-toggle'));
+    expect(localStorage.getItem('councilModeSwitchButtonEnabled')).toBe('true');
   });
 
   it('clears museum switch button storage when toggled off', () => {
-    localStorage.setItem('councilMuseumSwitchButtonEnabled', 'true');
+    localStorage.setItem('councilModeSwitchButtonEnabled', 'true');
 
     render(<Staff />);
 
-    fireEvent.click(screen.getByTestId('staff-museum-switch-button-toggle'));
-    expect(localStorage.getItem('councilMuseumSwitchButtonEnabled')).toBeNull();
+    fireEvent.click(screen.getByTestId('staff-mode-switch-button-toggle'));
+    expect(localStorage.getItem('councilModeSwitchButtonEnabled')).toBeNull();
   });
 
   it('shows museum switch button toggle with red border glow when active', () => {
-    localStorage.setItem('councilMuseumSwitchButtonEnabled', 'true');
+    localStorage.setItem('councilModeSwitchButtonEnabled', 'true');
 
     render(<Staff />);
 
-    const toggle = screen.getByTestId('staff-museum-switch-button-toggle');
+    const toggle = screen.getByTestId('staff-mode-switch-button-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     expect(toggle).toHaveStyle({ borderColor: 'rgb(252, 165, 165)' });
     expect(toggle).not.toHaveStyle({ backgroundColor: 'rgb(239, 68, 68)' });

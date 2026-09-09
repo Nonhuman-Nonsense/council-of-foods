@@ -8,7 +8,7 @@ import { useButtonStore } from "./buttonStore";
  * the app mode, so a laptop in web mode can drive a real button for testing.
  *
  * Reconnects when the tab becomes visible again: the daemon may have restarted,
- * or the OS may have suspended the socket while the kiosk was idle.
+ * or the OS may have suspended the socket while the installation was idle.
  */
 export default function HardwareButton(): null {
   const available = isButtonBridgeAvailable();

@@ -29,13 +29,14 @@ Council of Foods is part of [The Hungry EcoCities project](https://starts.eu/hun
 
 # Developer instructions
 
-The app has three parts: the client, the server, and (for museum installs) the talk-button stack in [`button/`](button/).
+The app has three parts: the client, the server, and (for physical installations) the talk-button stack in [`button/`](button/).
 
 The client is built on React, and the server on Node.js. They communicate via a Socket.io websocket.
 
 See [Server Documentation](server/README.md) for detailed backend instructions and testing modes.
 
-For physical museum / kiosk installs, see [MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
+For physical installations — unattended museum kiosks and presented screenings alike — see
+[MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
 
 For how the live client survives socket drops without lost input, deadlocks, or crashes — and
 the pattern any new client-driven socket action should follow — see

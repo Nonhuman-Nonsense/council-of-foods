@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import SelectCharacters, { type SelectCharactersProps } from '@newMeeting/SelectCharacters';
 import { characterSetupEn } from '../../../characterSetupTestData';
@@ -535,6 +535,30 @@ describe('SelectCharacters Component', () => {
                     panelistNames: ['Alice'],
                 }));
             });
+        });
+    });
+
+    /**
+     * A museum visitor has no keyboard, so panelists are added for them by name
+     * alone; web and presenter both have one, and building the council by hand
+     * is part of showing the piece off at a screening.
+     */
+    describe('adding human panelists by hand', () => {
+        const cases = [
+            { mode: 'web', canAddByHand: true },
+            { mode: 'museum', canAddByHand: false },
+            { mode: 'presenter', canAddByHand: true },
+        ] as const;
+
+        afterEach(() => {
+            localStorage.clear();
+        });
+
+        it.each(cases)('$mode: add-human button present = $canAddByHand', ({ mode, canAddByHand }) => {
+            localStorage.setItem('councilAppMode', mode);
+            render(<ControlledSelectCharacters />);
+
+            expect(screen.queryByAltText('add human') !== null).toBe(canAddByHand);
         });
     });
 });

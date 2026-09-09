@@ -42,7 +42,7 @@ describe('SetupAgentOverlay', () => {
     expect(screen.getByTestId('icon-volume_on')).toBeInTheDocument();
   });
 
-  it('hides the volume toggle on a kiosk', () => {
+  it('hides the volume toggle on an installation', () => {
     render(<SetupAgentOverlay {...baseProps} />);
     expect(screen.queryByTestId('icon-volume_on')).not.toBeInTheDocument();
     expect(screen.queryByTestId('icon-volume_off')).not.toBeInTheDocument();

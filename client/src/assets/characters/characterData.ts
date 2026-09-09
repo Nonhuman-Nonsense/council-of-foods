@@ -76,3 +76,14 @@ export function characterTransparentVideoUrls(
     }
     return { hevc, vp9 };
 }
+
+/**
+ * Ambient loop sources for a character, ordered by preference — the browser plays the
+ * first it supports. Foods ships no character audio, so this is always empty; the helper
+ * exists so `MediaPreloader` can stay shared with Forest, which does ship loops.
+ */
+export function characterAudioSources(
+    _characterId: string,
+): Array<{ src: string; type: string }> {
+    return [];
+}

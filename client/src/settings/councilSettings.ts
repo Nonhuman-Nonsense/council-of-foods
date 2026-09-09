@@ -9,14 +9,17 @@ export const APP_MODE_STORAGE_KEY = "councilAppMode";
 
 export const APP_MODE_CHANGE_EVENT = "council-app-mode-change";
 
-export type AppMode = "web" | "museum";
+export const APP_MODES = ["web", "museum", "presenter"] as const;
+
+export type AppMode = (typeof APP_MODES)[number];
 
 /**
- * Retired: the agent's listening behaviour is derived from the mode now. Read
- * once on load only to clear it, so an install that stored "off" or "always-on"
- * cannot keep influencing anything.
+ * The non-web mode the escape hatch returns to. Museum and presenter are both
+ * installations, so the top-left staff target toggles web ↔ whichever of them
+ * was last chosen rather than cycling through all three: the control exists to
+ * drop out to web and come back, not to browse modes.
  */
-const LEGACY_AGENT_MODE_STORAGE_KEY = "councilAgentMode";
+export const LAST_INSTALLATION_MODE_STORAGE_KEY = "councilLastInstallationMode";
 
 export const DEV_LOG_ENABLED_KEY = "councilDevLogEnabled";
 
@@ -28,26 +31,29 @@ export const PTT_HARDWARE_ENABLED_KEY = "councilPttHardwareEnabled";
 
 export const PTT_HARDWARE_CHANGE_EVENT = "council-ptt-hardware-change";
 
-export const MUSEUM_SWITCH_BUTTON_ENABLED_KEY = "councilMuseumSwitchButtonEnabled";
+export const MODE_SWITCH_BUTTON_ENABLED_KEY = "councilModeSwitchButtonEnabled";
 
-export const MUSEUM_SWITCH_BUTTON_CHANGE_EVENT = "council-museum-switch-button-change";
+export const MODE_SWITCH_BUTTON_CHANGE_EVENT = "council-mode-switch-button-change";
 
-const LEGACY_ESCAPE_HATCH_ENABLED_KEY = "councilEscapeHatchEnabled";
-
-/** Drop retired keys so they cannot be mistaken for live settings later. */
-export function clearRetiredSettings(): void {
-  try {
-    localStorage.removeItem(LEGACY_AGENT_MODE_STORAGE_KEY);
-  } catch {
-    // ignore storage errors (private mode, quota, etc.)
-  }
+function parseAppMode(value: string | null): AppMode {
+  return (APP_MODES as readonly string[]).includes(value ?? "") ? (value as AppMode) : "web";
 }
 
 export function getAppMode(): AppMode {
   try {
-    return localStorage.getItem(APP_MODE_STORAGE_KEY) === "museum" ? "museum" : "web";
+    return parseAppMode(localStorage.getItem(APP_MODE_STORAGE_KEY));
   } catch {
     return "web";
+  }
+}
+
+/** Installation mode the escape hatch switches into. Museum until staff pick otherwise. */
+export function getLastInstallationMode(): Exclude<AppMode, "web"> {
+  try {
+    const stored = parseAppMode(localStorage.getItem(LAST_INSTALLATION_MODE_STORAGE_KEY));
+    return stored === "web" ? "museum" : stored;
+  } catch {
+    return "museum";
   }
 }
 
@@ -59,6 +65,9 @@ export function getCapabilities(): Capabilities {
 export function setAppMode(mode: AppMode): void {
   try {
     localStorage.setItem(APP_MODE_STORAGE_KEY, mode);
+    if (mode !== "web") {
+      localStorage.setItem(LAST_INSTALLATION_MODE_STORAGE_KEY, mode);
+    }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
@@ -92,41 +101,28 @@ export function setPttHardwareEnabled(enabled: boolean): void {
   window.dispatchEvent(new CustomEvent<boolean>(PTT_HARDWARE_CHANGE_EVENT, { detail: enabled }));
 }
 
-/** Top-left staff control to toggle web/museum without opening #staff. */
-export function getMuseumSwitchButtonEnabled(): boolean {
+/** Top-left staff control to switch mode without opening #staff. */
+export function getModeSwitchButtonEnabled(): boolean {
   try {
-    const stored = localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);
-    if (stored === "true") {
-      return true;
-    }
-
-    const legacy = localStorage.getItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
-    if (legacy === "true") {
-      localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, "true");
-      localStorage.removeItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
-      return true;
-    }
-
-    return false;
+    return localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY) === "true";
   } catch {
     return false;
   }
 }
 
-export function setMuseumSwitchButtonEnabled(enabled: boolean): void {
+export function setModeSwitchButtonEnabled(enabled: boolean): void {
   try {
     if (enabled) {
-      localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, "true");
+      localStorage.setItem(MODE_SWITCH_BUTTON_ENABLED_KEY, "true");
     } else {
-      localStorage.removeItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);
-      localStorage.removeItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
+      localStorage.removeItem(MODE_SWITCH_BUTTON_ENABLED_KEY);
     }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
 
   window.dispatchEvent(
-    new CustomEvent<boolean>(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, { detail: enabled }),
+    new CustomEvent<boolean>(MODE_SWITCH_BUTTON_CHANGE_EVENT, { detail: enabled }),
   );
 }
 
@@ -202,13 +198,14 @@ export function setAllDevLogCategories(enabled: boolean): void {
 
 export function useCouncilSettings(): {
   mode: AppMode;
-  isMuseumMode: boolean;
+  /** Non-web mode the escape hatch switches into — see {@link getLastInstallationMode}. */
+  lastInstallationMode: Exclude<AppMode, "web">;
   setAppMode: (mode: AppMode) => void;
   capabilities: Capabilities;
   pttHardwareEnabled: boolean;
   setPttHardwareEnabled: (enabled: boolean) => void;
-  museumSwitchButtonEnabled: boolean;
-  setMuseumSwitchButtonEnabled: (enabled: boolean) => void;
+  modeSwitchButtonEnabled: boolean;
+  setModeSwitchButtonEnabled: (enabled: boolean) => void;
   devLogEnabled: boolean;
   setDevLogEnabled: (enabled: boolean) => void;
   devLogCategories: Record<LogCategory, boolean>;
@@ -216,9 +213,10 @@ export function useCouncilSettings(): {
   setAllDevLogCategories: (enabled: boolean) => void;
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
+  const [lastInstallationMode, setLastInstallationMode] = useState<Exclude<AppMode, "web">>(getLastInstallationMode);
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
-  const [museumSwitchButtonEnabled, setMuseumSwitchButtonEnabledState] =
-    useState(getMuseumSwitchButtonEnabled);
+  const [modeSwitchButtonEnabled, setModeSwitchButtonEnabledState] =
+    useState(getModeSwitchButtonEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
   const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
 
@@ -231,6 +229,7 @@ export function useCouncilSettings(): {
     function onAppModeChange(event: Event): void {
       const next = (event as CustomEvent<AppMode>).detail;
       setMode(next);
+      setLastInstallationMode(getLastInstallationMode());
     }
 
     function onPttHardwareChange(event: Event): void {
@@ -238,20 +237,23 @@ export function useCouncilSettings(): {
       setPttHardwareEnabledState(next);
     }
 
-    function onMuseumSwitchButtonChange(event: Event): void {
+    function onModeSwitchButtonChange(event: Event): void {
       const next = (event as CustomEvent<boolean>).detail;
-      setMuseumSwitchButtonEnabledState(next);
+      setModeSwitchButtonEnabledState(next);
     }
 
     function onStorage(event: StorageEvent): void {
       if (event.key === APP_MODE_STORAGE_KEY) {
         setMode(getAppMode());
       }
+      if (event.key === LAST_INSTALLATION_MODE_STORAGE_KEY) {
+        setLastInstallationMode(getLastInstallationMode());
+      }
       if (event.key === PTT_HARDWARE_ENABLED_KEY) {
         setPttHardwareEnabledState(getPttHardwareEnabled());
       }
-      if (event.key === MUSEUM_SWITCH_BUTTON_ENABLED_KEY) {
-        setMuseumSwitchButtonEnabledState(getMuseumSwitchButtonEnabled());
+      if (event.key === MODE_SWITCH_BUTTON_ENABLED_KEY) {
+        setModeSwitchButtonEnabledState(getModeSwitchButtonEnabled());
       }
       if (
         event.key === DEV_LOG_ENABLED_KEY ||
@@ -267,13 +269,13 @@ export function useCouncilSettings(): {
 
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
     window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
-    window.addEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
+    window.addEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
       window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
-      window.removeEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
+      window.removeEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
     };
@@ -282,6 +284,7 @@ export function useCouncilSettings(): {
   const setAppModeFromHook = useCallback((next: AppMode) => {
     setAppMode(next);
     setMode(next);
+    setLastInstallationMode(getLastInstallationMode());
   }, []);
 
   const setPttHardwareEnabledFromHook = useCallback((enabled: boolean) => {
@@ -289,9 +292,9 @@ export function useCouncilSettings(): {
     setPttHardwareEnabledState(enabled);
   }, []);
 
-  const setMuseumSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
-    setMuseumSwitchButtonEnabled(enabled);
-    setMuseumSwitchButtonEnabledState(enabled);
+  const setModeSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
+    setModeSwitchButtonEnabled(enabled);
+    setModeSwitchButtonEnabledState(enabled);
   }, []);
 
   const setDevLogEnabledFromHook = useCallback((enabled: boolean) => {
@@ -314,13 +317,13 @@ export function useCouncilSettings(): {
 
   return {
     mode,
-    isMuseumMode: mode === "museum",
+    lastInstallationMode,
     setAppMode: setAppModeFromHook,
     capabilities,
     pttHardwareEnabled,
     setPttHardwareEnabled: setPttHardwareEnabledFromHook,
-    museumSwitchButtonEnabled,
-    setMuseumSwitchButtonEnabled: setMuseumSwitchButtonEnabledFromHook,
+    modeSwitchButtonEnabled,
+    setModeSwitchButtonEnabled: setModeSwitchButtonEnabledFromHook,
     devLogEnabled,
     setDevLogEnabled: setDevLogEnabledFromHook,
     devLogCategories,

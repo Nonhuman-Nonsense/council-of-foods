@@ -3,7 +3,7 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
-import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForMuseum, selectedFoodNames } from "@newMeeting/meetingSetup";
+import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
 
 vi.mock("@newMeeting/CharacterSetup", () => ({
   CHAIR_ID: "chair",
@@ -43,6 +43,7 @@ const topicsBundle = {
     id: "customtopic",
     title: "Custom Topic",
     description: "",
+    agentBrief: "Visitor's own question.",
     prompt: "",
   },
   topics: [
@@ -50,6 +51,7 @@ const topicsBundle = {
       id: "forestry",
       title: "Forestry",
       description: "Forest topic",
+      agentBrief: "What is at stake in forests.",
       prompt: "Topic context.",
       agendaPoints: ["Point one", "Point two"],
     },
@@ -311,6 +313,58 @@ describe("buildMeetingSetupReactionMessage", () => {
   });
 });
 
+/**
+ * The custom topic box is the visitor writing the meeting's subject in their
+ * own words — the agent should hear it, and must not write it back.
+ */
+describe("custom topic typing", () => {
+  it("carries what the visitor typed", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "custom_topic_typed",
+      text: "Who owns the seeds",
+    });
+
+    expect(message).toContain("Who owns the seeds");
+  });
+
+  it("tells the agent not to write the text back into the box", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "custom_topic_typed",
+      text: "Who owns the seeds",
+    });
+
+    expect(message).toContain("set_custom_topic");
+  });
+
+  /**
+   * Clearing the box still fires an event, so it supersedes the reaction
+   * pending for the text the visitor just deleted — but there is nothing left
+   * to react to, so no message goes out.
+   */
+  it.each([["", "empty"], ["   ", "whitespace"]])(
+    "says nothing when the box is left %s (%s)",
+    (text) => {
+      expect(buildMeetingSetupReactionMessage({ type: "custom_topic_typed", text })).toBe("");
+    },
+  );
+
+  /**
+   * A custom topic's title is the bundle's generic "Custom Topic", so
+   * confirming one has to carry the text or the agent enters the food step
+   * not knowing what the meeting is about.
+   */
+  it("names the visitor's own words when a custom topic is confirmed", () => {
+    const message = buildMeetingSetupReactionMessage({
+      type: "topic_committed",
+      topicId: "customtopic",
+      topicTitle: "Custom Topic",
+      topicDescription: "Who owns the seeds",
+    });
+
+    expect(message).toContain("Who owns the seeds");
+  });
+});
+
 describe("getMeetingSetupReactionDelayMs", () => {
   const roster = { selectedNames: ["Beef"], chairName: "Water", isFull: false };
 
@@ -383,6 +437,16 @@ describe("getMeetingSetupReactionDelayMs", () => {
     expect(typingDelay).toBeGreaterThan(characterDelay);
   });
 
+  it("gives custom topic typing the same window as typing a panelist's details", () => {
+    const customTopicDelay = getMeetingSetupReactionDelayMs({
+      type: "custom_topic_typed",
+      text: "Who owns the seeds",
+    });
+    const typingDelay = getMeetingSetupReactionDelayMs({ type: "human_details_typed", ...humanDetails });
+
+    expect(customTopicDelay).toBe(typingDelay);
+  });
+
   /**
    * Leaving the field is a deliberate "I'm done" signal — it should react
    * promptly rather than waiting out whatever's left of the typing window.
@@ -419,6 +483,7 @@ describe("buildTopicFromSelection", () => {
             id: "simple",
             title: "Simple",
             description: "Simple topic",
+            agentBrief: "Simple brief",
             prompt: "Only context.",
           },
         ],
@@ -510,7 +575,7 @@ describe("buildMeetingCharactersPayload", () => {
       ],
       numberOfHumans: 1,
       labels: { formatHumanCount: (count) => (count === 1 ? "1 human: " : `${count} humans: `) },
-      isMuseumMode: true,
+      typedSetup: false,
     });
 
     expect(result.ok).toBe(true);
@@ -546,18 +611,18 @@ describe("buildMeetingCharactersPayload", () => {
   });
 });
 
-describe("orderSelectedCharactersForMuseum", () => {
+describe("orderSelectedCharactersForInstallation", () => {
   it("places panelist near the middle, leaning later when food count is odd", () => {
     expect(
-      orderSelectedCharactersForMuseum(["chair", "food-a", "panelist0", "food-b"])
+      orderSelectedCharactersForInstallation(["chair", "food-a", "panelist0", "food-b"])
     ).toEqual(["chair", "food-a", "panelist0", "food-b"]);
 
     expect(
-      orderSelectedCharactersForMuseum(["chair", "food-a", "food-b", "panelist0", "food-c"])
+      orderSelectedCharactersForInstallation(["chair", "food-a", "food-b", "panelist0", "food-c"])
     ).toEqual(["chair", "food-a", "food-b", "panelist0", "food-c"]);
 
     expect(
-      orderSelectedCharactersForMuseum([
+      orderSelectedCharactersForInstallation([
         "chair",
         "food-a",
         "food-b",
@@ -570,6 +635,6 @@ describe("orderSelectedCharactersForMuseum", () => {
 
   it("returns unchanged when no panelists are selected", () => {
     const input = ["chair", "food-a", "food-b"];
-    expect(orderSelectedCharactersForMuseum(input)).toEqual(input);
+    expect(orderSelectedCharactersForInstallation(input)).toEqual(input);
   });
 });

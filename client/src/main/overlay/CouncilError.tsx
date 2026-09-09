@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import errorIcon from "@assets/error.png?inline";
 import AutoButton from "@/AutoButton";
 import {
-  MUSEUM_HEALTH_RETRY_SECONDS,
+  HEALTH_RETRY_SECONDS,
   probeOriginHealth,
   restartNow,
 } from "@/navigation";
@@ -42,9 +42,9 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
           {detail}
         </p>
       )}
-      {capabilities.unattended ? (
+      {capabilities.autoRestart ? (
         <AutoButton
-          timeout={MUSEUM_HEALTH_RETRY_SECONDS}
+          timeout={HEALTH_RETRY_SECONDS}
           guardAction={probeOriginHealth}
           guardRetryMessage={t("error.restartUnavailableRetrying")}
           action={restartNow}

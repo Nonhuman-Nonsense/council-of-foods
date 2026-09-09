@@ -45,6 +45,8 @@ function FoodAnimation({ food, styles, isPerforming, isPaused }: FoodAnimationPr
           //But this is not a problem, just catch and proceed.
           console.log(e);//log for now but prob safe to fail silently
         }
+        //The component may have unmounted while play() was pending, nulling the ref.
+        if (!video.current) return;
         video.current.pause();
         setVidLoaded(true);
       }

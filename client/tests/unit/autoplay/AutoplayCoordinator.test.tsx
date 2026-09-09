@@ -6,6 +6,7 @@ import { MemoryRouter } from "react-router";
 import AutoplayCoordinator from "@/autoplay/AutoplayCoordinator";
 import { buildLanguagePath } from "@/navigation";
 import routes from "@/routes.json";
+import { capabilitiesFor } from "@/settings/capabilities";
 import {
   _setAutoplayLastActivityMsForTests,
   AUTOPLAY_NEXT_MEETING_MS,
@@ -24,7 +25,7 @@ const mockLocation = vi.hoisted(() => ({
 
 const mockUseCouncilSettings = vi.hoisted(() =>
   vi.fn(() => ({
-    isMuseumMode: true,
+    capabilities: capabilitiesFor("museum"),
   })),
 );
 
@@ -43,7 +44,7 @@ vi.mock("@/settings/councilSettings", () => ({
   useCouncilSettings: () => mockUseCouncilSettings(),
   getDevLogEnabled: () => false,
   isDevLogCategoryEnabled: () => false,
-  getAppMode: () => (mockUseCouncilSettings().isMuseumMode ? "museum" : "web"),
+  getCapabilities: () => mockUseCouncilSettings().capabilities,
 }));
 
 vi.mock("@/navigation", async () => {
@@ -126,7 +127,7 @@ describe("AutoplayCoordinator setup-entry idle", () => {
     });
     mockLocation.pathname = "/";
     mockLocation.hash = "";
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     buttonPressed.value = false;
     useAutoplayStore.getState().resetForTests();
     useErrorStore.getState().resetForTests();
@@ -139,7 +140,7 @@ describe("AutoplayCoordinator setup-entry idle", () => {
   });
 
   it("renders nothing outside museum mode", () => {
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("web") });
     const { container } = renderCoordinator();
     expect(container).toBeEmptyDOMElement();
   });

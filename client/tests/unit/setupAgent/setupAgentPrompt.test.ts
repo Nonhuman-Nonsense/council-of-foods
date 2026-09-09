@@ -1,6 +1,6 @@
 import { buildSetupAgentPrompt } from '@setupAgent/setupAgentPrompt';
 
-const topics = [{ id: 't1', title: 'Topic One', description: 'Desc' }];
+const topics = [{ id: 't1', title: 'Topic One', description: 'Desc', agentBrief: 'Brief' }];
 const characters = [{ id: 'apple', name: 'Apple' }];
 
 describe('buildSetupAgentPrompt', () => {

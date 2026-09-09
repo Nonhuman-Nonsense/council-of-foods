@@ -2,11 +2,11 @@ import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import {
   buildMeetingCharactersPayload,
-  orderSelectedCharactersForMuseum,
+  orderSelectedCharactersForInstallation,
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { getAppMode } from "@/settings/councilSettings";
+import { getCapabilities } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
 import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
@@ -113,12 +113,13 @@ export function createSetupAgentTools({
   otherLanguages,
   topics,
   characters,
-  isWebMode = false,
+  typedSetup = false,
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
-  isWebMode?: boolean;
+  /** The visitor can type, so the agent may describe a panelist for them. */
+  typedSetup?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
   const characterNames = characters
@@ -137,7 +138,7 @@ export function createSetupAgentTools({
       type: "function",
       name: "select_topic",
       description:
-        "Highlight a topic in the UI by title and return its description so you can explain it to the visitor. Does NOT advance to food selection — call confirm_topic when the visitor is ready to proceed.",
+        "Highlight a topic in the UI by title and return notes on what is at stake in it, to speak from (not to recite — the visitor can already read what the topic is). Does NOT advance to food selection — call confirm_topic when the visitor is ready to proceed.",
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -228,7 +229,7 @@ export function createSetupAgentTools({
     },
   ];
 
-  if (isWebMode) {
+  if (typedSetup) {
     tools.push({
       type: "function",
       name: "human_panelist",
@@ -263,11 +264,11 @@ export function createSetupAgentTools({
   return tools;
 }
 
-function syncMuseumPanelistOrder(): void {
-  if (getAppMode() !== "museum") return;
+function syncInstallationPanelistOrder(): void {
+  if (getCapabilities().typedSetup) return;
   const store = useMeetingSetupStore.getState();
   if (!store.selectedCharacters.some((id) => id.startsWith("panelist"))) return;
-  const sorted = orderSelectedCharactersForMuseum(store.selectedCharacters);
+  const sorted = orderSelectedCharactersForInstallation(store.selectedCharacters);
   if (sorted.join(",") !== store.selectedCharacters.join(",")) {
     store.setSelectedCharacters(sorted);
   }
@@ -291,7 +292,9 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!found) return { ok: false, error: `Unknown topic: ${title}` };
       if (ctx.meetingStep === "landing") ctx.beginSetup();
       useMeetingSetupStore.getState().setSelectedTopic(found.id);
-      return { ok: true, data: { title: found.title, description: found.description } };
+      // The brief, not the description: the description is on screen in front
+      // of the visitor, so reading it back is the one thing not worth saying.
+      return { ok: true, data: { title: found.title, brief: found.agentBrief } };
     },
 
     confirm_topic: () => {
@@ -353,7 +356,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
       }
       useMeetingSetupStore.getState().setHoveredCharacter(found.id);
-      syncMuseumPanelistOrder();
+      syncInstallationPanelistOrder();
       return { ok: true, data: { name: found.name, description: found.description } };
     },
 
@@ -366,7 +369,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
       useMeetingSetupStore.getState().handleDeselectCharacterId(found.id);
       useMeetingSetupStore.getState().setHoveredCharacter(null);
-      syncMuseumPanelistOrder();
+      syncInstallationPanelistOrder();
       return { ok: true, data: { name: found.name } };
     },
 
@@ -406,7 +409,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!store.selectedCharacters.includes(`panelist${index}`)) {
         store.handleSelectCharacterId(`panelist${index}`);
       }
-      syncMuseumPanelistOrder();
+      syncInstallationPanelistOrder();
       return { ok: true, data: { index, name } };
     },
 
@@ -432,7 +435,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
         numberOfHumans,
         labels: ctx.meetingCharactersLabels,
         agendaPoints: ctx.buildSelectedTopic()?.agendaPoints,
-        isMuseumMode: getAppMode() === "museum",
+        typedSetup: getCapabilities().typedSetup,
       });
       if (!built.ok) return built;
       await Promise.resolve(ctx.startMeeting(built.characters));
@@ -464,7 +467,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       }
       useMeetingSetupStore.getState().setVisitorName(name);
 
-      if (getAppMode() === "museum") {
+      if (!getCapabilities().typedSetup) {
         const store = useMeetingSetupStore.getState();
         if (store.numberOfHumans === 0) {
           store.setHumans((prev) => {
@@ -480,10 +483,10 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
           }
           const updated = useMeetingSetupStore.getState();
           updated.setSelectedCharacters(
-            orderSelectedCharactersForMuseum(updated.selectedCharacters)
+            orderSelectedCharactersForInstallation(updated.selectedCharacters)
           );
         } else {
-          syncMuseumPanelistOrder();
+          syncInstallationPanelistOrder();
         }
       }
 

@@ -5,7 +5,7 @@ import { useErrorStore } from "@main/overlay/errorStore";
 import { capabilitiesFor } from "@/settings/capabilities";
 
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false, capabilities: capabilitiesFor("web") })),
+  vi.fn(() => ({ capabilities: capabilitiesFor("web") })),
 );
 
 vi.mock("react-i18next", () => ({
@@ -17,19 +17,19 @@ vi.mock("@/settings/councilSettings", async (importOriginal) => {
   return {
     ...actual,
     useCouncilSettings: () => mockUseCouncilSettings(),
-    getAppMode: () => (mockUseCouncilSettings().isMuseumMode ? "museum" : "web"),
+    getCapabilities: () => mockUseCouncilSettings().capabilities,
   };
 });
 vi.mock("@main/Loading", () => ({
   default: () => <div data-testid="loading-spinner" />,
 }));
 
-/** Museum kiosks: probe /health before hard-restart — keep in sync with Reconnecting.tsx */
+/** Unattended installations: probe /health before hard-restart — keep in sync with Reconnecting.tsx */
 const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
 describe("Reconnecting overlay", () => {
   beforeEach(() => {
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false, capabilities: capabilitiesFor("web") });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("web") });
     useErrorStore.getState().resetForTests();
   });
 
@@ -66,7 +66,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: escalates via reloadApp when health is not OK", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 503 })),
@@ -97,7 +97,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: reloads when health probe succeeds after waiting phase", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 200 })),
@@ -129,7 +129,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: cancels reload timer on unmount", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn(

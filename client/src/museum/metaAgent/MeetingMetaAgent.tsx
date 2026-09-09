@@ -27,6 +27,7 @@ import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
+import { useCouncilSettings } from "@/settings/councilSettings";
 
 export type { MetaAgentPhase } from "./useMetaAgent";
 
@@ -34,6 +35,12 @@ export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
+  /**
+   * The chair's invitation to a human turn is playing. While it is, the button
+   * is disarmed so an eager press a beat early opens the human turn (once it
+   * lands) rather than pulling the meeting into meta-agent mode.
+   */
+  invitationPlaying: boolean;
   metaAgentPhase: MetaAgentPhase;
   setMetaAgentPhase: (phase: MetaAgentPhase) => void;
   setAgentSpeaking: (speaking: boolean) => void;
@@ -118,6 +125,7 @@ export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
+  invitationPlaying,
   metaAgentPhase,
   setMetaAgentPhase,
   setAgentSpeaking,
@@ -132,6 +140,7 @@ export default function MeetingMetaAgent({
 }: MeetingMetaAgentProps) {
   const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
+  const { capabilities } = useCouncilSettings();
 
   // Track whether the agent is currently unreachable so we can defer showing
   // the connection error until the visitor actually tries to use the agent.
@@ -270,8 +279,10 @@ export default function MeetingMetaAgent({
   }, [button.claim, button.release]);
 
   useEffect(() => {
-    button.setArmed(connectionState === "ready");
-  }, [button.setArmed, connectionState]);
+    // Disarm (LED dark) while the chair's invitation plays — the press belongs
+    // to the imminent human turn, and human-input claims the button once it lands.
+    button.setArmed(connectionState === "ready" && !invitationPlaying);
+  }, [button.setArmed, connectionState, invitationPlaying]);
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "meta-agent",
@@ -284,12 +295,23 @@ export default function MeetingMetaAgent({
       log.event("META", cfg.idleTerminalEventName);
       toolHandlers[cfg.idleTerminalTool]?.({});
     },
+    // Answering for a silent visitor — resuming after an interruption, or
+    // concluding at the soft cap — is a museum behaviour: nobody is coming back
+    // to say which they wanted. A presenter's silence is them talking to the
+    // room, so the chair waits for the button instead of deciding for them.
     canIdleTerminal: () =>
+      capabilities.idleAnswersForVisitor &&
       (metaAgentPhase === "interruption" || metaAgentPhase === "extension") &&
       connectionState === "ready" &&
       !agentSpeaking &&
       !button.pressed,
-    terminalDeps: [metaAgentPhase, connectionState, agentSpeaking, button.pressed],
+    terminalDeps: [
+      capabilities.idleAnswersForVisitor,
+      metaAgentPhase,
+      connectionState,
+      agentSpeaking,
+      button.pressed,
+    ],
   });
 
   useEffect(() => {

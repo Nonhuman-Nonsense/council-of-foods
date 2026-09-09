@@ -2,13 +2,13 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import VideoPreloader from "@main/VideoPreloader";
+import MediaPreloader from "@main/MediaPreloader";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import {
   buildMeetingCharactersPayload,
-  orderSelectedCharactersForMuseum,
+  orderSelectedCharactersForInstallation,
   selectedFoodNames,
   type CouncilRoster,
   type HumanDetails,
@@ -118,7 +118,8 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { isMuseumMode, capabilities } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
+  const { typedSetup } = capabilities;
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {
@@ -159,9 +160,9 @@ function SelectCharacters({
   }
 
   /** Mirrors the per-panelist readiness check in the effect above (name
-   *  always required, description required outside museum mode). */
+   *  always required, description required only where one can be typed). */
   function isHumanComplete(name: string, description: string): boolean {
-    const needsDescription = !isMuseumMode && description.length === 0;
+    const needsDescription = typedSetup && description.length === 0;
     return name.length > 0 && !needsDescription;
   }
 
@@ -217,7 +218,7 @@ function SelectCharacters({
         formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
       agendaPoints,
-      isMuseumMode,
+      typedSetup,
     });
     if (built.ok) {
       onContinueForward({ characters: built.characters });
@@ -291,24 +292,24 @@ function SelectCharacters({
     for (const humanId of selectedHumans) {
       const index = panelistIndexFromId(humanId);
       if (index !== null && humans[index]) {
-        const needsDescription = !isMuseumMode && humans[index].description.length === 0;
+        const needsDescription = typedSetup && humans[index].description.length === 0;
         if (humans[index].name.length === 0 || needsDescription) {
           ready = false;
         }
       }
     }
     setHumansReady(ready);
-  }, [recheckHumansReady, selectedCharacters, humans, isMuseumMode]);
+  }, [recheckHumansReady, selectedCharacters, humans, typedSetup]);
 
   useEffect(() => {
-    if (!isMuseumMode) return;
+    if (typedSetup) return;
     if (!selectedCharacters.some(isPanelistId)) return;
 
-    const sorted = orderSelectedCharactersForMuseum(selectedCharacters);
+    const sorted = orderSelectedCharactersForInstallation(selectedCharacters);
     if (sorted.join(",") !== selectedCharacters.join(",")) {
       setSelectedCharacters(sorted);
     }
-  }, [isMuseumMode, selectedCharacters, setSelectedCharacters]);
+  }, [typedSetup, selectedCharacters, setSelectedCharacters]);
 
   // Read fresh inside the cleanup below rather than closing over `humans`
   // directly — otherwise it could report whatever the panelist's details
@@ -501,6 +502,7 @@ function SelectCharacters({
         height: "75%",
         justifyContent: "space-between",
         alignItems: "center",
+        marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "30px",
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -534,7 +536,7 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           ))}
-          {capabilities.browserUi && numberOfHumans < MAXHUMANS && (
+          {typedSetup && numberOfHumans < MAXHUMANS && (
             <AddHumanButton
               onMouseEnter={() => setHoveredCharacter("addhuman")}
               onMouseLeave={() => setHoveredCharacter(null)}
@@ -550,7 +552,7 @@ function SelectCharacters({
           </div>
         ) : null}
       </div>
-      <VideoPreloader
+      <MediaPreloader
         foodIds={selectedCharacters.filter(
           (id) => !id.startsWith("panelist") && id !== "addhuman" && id !== ""
         )}

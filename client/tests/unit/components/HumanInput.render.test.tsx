@@ -65,8 +65,8 @@ vi.mock('@/utils', () => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => ({
-        isMuseumMode: mockAppMode.value === "museum",
         mode: mockAppMode.value,
+        lastInstallationMode: "museum",
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor(mockAppMode.value),
     }),
@@ -781,7 +781,6 @@ describe('HumanInput PTT museum mode', () => {
         const result = render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -847,7 +846,6 @@ describe('HumanInput PTT museum mode', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -909,7 +907,6 @@ describe('HumanInput PTT museum mode', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -1239,11 +1236,13 @@ describe('HumanInput PTT museum mode', () => {
     // ── Non-PTT mode unchanged ────────────────────────────────────────────────
 
     it('non-PTT mode: shows mic icon (always visible)', async () => {
+        mockAppMode.value = "web";
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(screen.getByAltText('Say something!')).toBeInTheDocument();
     });
 
     it('non-PTT mode: shows mic button', async () => {
+        mockAppMode.value = "web";
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
@@ -1290,7 +1289,6 @@ describe('HumanInput PTT abandonment', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={vi.fn()}
@@ -1361,7 +1359,6 @@ describe('HumanInput PTT abandonment', () => {
         render(
             <HumanInput
                 phase="warm"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={vi.fn()}
@@ -1378,8 +1375,9 @@ describe('HumanInput PTT abandonment', () => {
         expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 
-    it('fires in web PTT mode without isButtonMuseumMode', async () => {
-        await renderAbandonReady({ isButtonMuseumMode: false });
+    it('does not run in presenter mode — the turn is held open on purpose', async () => {
+        mockAppMode.value = "presenter";
+        await renderAbandonReady();
 
         await act(async () => {
             await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
@@ -1388,7 +1386,7 @@ describe('HumanInput PTT abandonment', () => {
             await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
         });
 
-        expect(mockOnAbandon).toHaveBeenCalledTimes(1);
+        expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 
     it('does not run in web mode', async () => {
@@ -1398,7 +1396,6 @@ describe('HumanInput PTT abandonment', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={false}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={vi.fn()}

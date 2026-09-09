@@ -6,8 +6,8 @@
 
 **Status:** Implemented.
 
-**Related:** [agent-error-handling-plan.md](./agent-error-handling-plan.md) —
-`errorStore` + agent retry already shipped; PR 1 only changes museum reload behavior.
+**Related:** `errorStore` + agent retry already shipped; PR 1 only changes museum
+reload behavior.
 
 ---
 

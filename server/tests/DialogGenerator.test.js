@@ -133,7 +133,7 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
     let manager;
     let dialogGenerator;
 
-    const mockGPTResponse = (content, finish_reason = "stop") => {
+    const mockModelResponse = (content, finish_reason = "stop") => {
         const mockCreate = vi.fn().mockResolvedValue({
             id: 'mock-id',
             choices: [{
@@ -154,10 +154,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
 
     it('should remove speaker name prefix from response', async () => {
         const speaker = manager.meeting.characters[1];
-        mockGPTResponse(`${speaker.name}: Hello world`);
+        mockModelResponse(`${speaker.name}: Hello world`);
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             speaker, m, 1
         );
 
@@ -167,10 +167,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
 
     it('should remove markdown bold speaker name prefix', async () => {
         const speaker = manager.meeting.characters[1];
-        mockGPTResponse(`**${speaker.name}**: Hello bold world`);
+        mockModelResponse(`**${speaker.name}**: Hello bold world`);
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             speaker, m, 1
         );
 
@@ -181,10 +181,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         const speaker = manager.meeting.characters[1];
         manager.serverOptions.trimSentance = true;
 
-        mockGPTResponse("Hello world. This is extra", "length");
+        mockModelResponse("Hello world. This is extra", "length");
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             speaker, m, 1
         );
 
@@ -196,10 +196,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         const speaker = manager.meeting.characters[1];
         manager.serverOptions.trimParagraph = true;
 
-        mockGPTResponse("First paragraph.\n\nSecond paragraph.", "length");
+        mockModelResponse("First paragraph.\n\nSecond paragraph.", "length");
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             speaker, m, 1
         );
 
@@ -211,10 +211,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         const chair = manager.meeting.characters[0];
         const speaker = manager.meeting.characters[1];
 
-        mockGPTResponse(`I am talking. ${chair.name}: Hey stop!`);
+        mockModelResponse(`I am talking. ${chair.name}: Hey stop!`);
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             speaker, m, 1
         );
 
@@ -228,10 +228,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
         manager.serverOptions.trimChairSemicolon = true;
         manager.serverOptions.trimSentance = true;
 
-        mockGPTResponse("1. First.\n2. Second. 3. Thi", "length");
+        mockModelResponse("1. First.\n2. Second. 3. Thi", "length");
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             chair, m, 0
         );
 
@@ -250,10 +250,10 @@ describe('DialogGenerator - Text Cleaning & Post-Processing', () => {
 
     it('should strip trailing conversation delimiter from normal turns', async () => {
         const speaker = manager.meeting.characters[1];
-        mockGPTResponse('Hello council.\n\n---');
+        mockModelResponse('Hello council.\n\n---');
 
         const m = { ...manager.meeting, conversation: [] };
-        const result = await dialogGenerator.generateTextFromGPT(
+        const result = await dialogGenerator.generateResponse(
             speaker, m, 1
         );
 

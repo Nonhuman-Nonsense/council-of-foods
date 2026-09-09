@@ -103,6 +103,8 @@ describe('client-report → errorbot relay', () => {
         const body = JSON.parse(init.body);
         expect(body.severity).toBe('warning');
         expect(body.clientImpact).toBe('none');
-        expect(body.message).toContain('[CLIENT TERMINAL]');
+        // A recoverable report must not read as a dead client at a glance.
+        expect(body.message).toContain('[CLIENT]');
+        expect(body.message).not.toContain('[CLIENT TERMINAL]');
     });
 });

@@ -44,7 +44,8 @@ export default function MeetingSetupAgent({
   onStartMeeting,
 }: MeetingSetupAgentProps) {
   const { i18n, t } = useTranslation();
-  const { isMuseumMode, capabilities } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
+  const { voiceSetupAgent, typedSetup } = capabilities;
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("setup-agent");
   const connectionError = useErrorStore((s) => s.connectionError);
@@ -60,15 +61,19 @@ export default function MeetingSetupAgent({
 
   const setupTopics = useMemo(() => {
     return [
-      ...topicsBundle.topics.map((topic: Topic) => ({
+      ...topicsBundle.topics.map((topic) => ({
         id: topic.id,
         title: topic.title,
         description: topic.description,
+        agentBrief: topic.agentBrief,
       })),
       {
         id: topicsBundle.custom_topic.id,
         title: topicsBundle.custom_topic.title,
+        // No description: the visitor's own words go here, and until they type
+        // them the screen shows a text box rather than a line to read.
         description: "",
+        agentBrief: topicsBundle.custom_topic.agentBrief,
       },
     ];
   }, [topicsBundle]);
@@ -111,15 +116,15 @@ export default function MeetingSetupAgent({
         otherLanguages,
         topics: setupTopics,
         characters: setupCharacters,
-        isWebMode: !isMuseumMode,
+        typedSetup,
       }),
-    [otherLanguages, setupTopics, setupCharacters, isMuseumMode],
+    [otherLanguages, setupTopics, setupCharacters, typedSetup],
   );
 
   const agent = useSetupAgent({
     language: agentLanguage,
     instructions,
-    unattended: capabilities.unattended,
+    selfHealing: capabilities.selfHealing,
     tools,
     toolHandlers: createSetupAgentToolHandlers({
       topics: setupTopics,
@@ -150,7 +155,12 @@ export default function MeetingSetupAgent({
   // Any click or keystroke counts as activity — resets the idle nudge and the
   // absolute idle teardown, so the agent doesn't ask "are you there?" (or tear
   // the session down) while the visitor is mid-sentence typing a description.
-  const { nudgeFired, clearNudge } = useAgentPresence({ agent, phase, lastActivity: lastUserEvent });
+  const { nudgeFired, clearNudge } = useAgentPresence({
+    agent,
+    phase,
+    lastActivity: lastUserEvent,
+    idleNudge: capabilities.idleNudge,
+  });
 
   /**
    * The council as the agent was last told it. Reactions are debounced, so one
@@ -173,11 +183,11 @@ export default function MeetingSetupAgent({
   }, [phase, setupCharacters]);
 
   const showBlockingReconnect =
-    capabilities.unattended && !muted && agent.isConnecting && !connectionError;
+    capabilities.selfHealing && !muted && agent.isConnecting && !connectionError;
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "setup-agent",
-    sessionActive: isMuseumMode && !muted,
+    sessionActive: voiceSetupAgent && !muted,
     isConnecting: agent.isConnecting,
     micOpen: button.wantsMic,
     agentSpeaking: agent.agentSpeaking && !nudgeFired,
@@ -288,8 +298,8 @@ export default function MeetingSetupAgent({
       lastUserTranscript={agent.lastUserTranscript}
       muted={agent.muted}
       browserUi={capabilities.browserUi}
-      showMicRow={isMuseumMode}
-      subtitleLayout={isMuseumMode ? "council" : "compact"}
+      showMicRow={voiceSetupAgent}
+      subtitleLayout={voiceSetupAgent ? "council" : "compact"}
       micStream={agent.micStream}
       micAttaching={agent.micAttaching}
       micRequested={micRequested}

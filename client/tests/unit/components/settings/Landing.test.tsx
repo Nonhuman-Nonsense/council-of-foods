@@ -32,8 +32,8 @@ vi.mock('@main/overlay/RotateDevice', () => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: vi.fn(() => ({
-        isMuseumMode: false,
         mode: 'web',
+        lastInstallationMode: 'museum',
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor('web'),
     })),
@@ -47,14 +47,14 @@ import { capabilitiesFor } from '@/settings/capabilities';
 
 function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSettings>> = {}): ReturnType<typeof useCouncilSettings> {
     return {
-        isMuseumMode: false,
         mode: 'web',
+        lastInstallationMode: 'museum',
         setAppMode: vi.fn(),
         capabilities: capabilitiesFor('web'),
         pttHardwareEnabled: false,
         setPttHardwareEnabled: vi.fn(),
-        museumSwitchButtonEnabled: false,
-        setMuseumSwitchButtonEnabled: vi.fn(),
+        modeSwitchButtonEnabled: false,
+        setModeSwitchButtonEnabled: vi.fn(),
         devLogEnabled: false,
         setDevLogEnabled: vi.fn(),
         devLogCategories: Object.fromEntries(DEV_LOG_CATEGORIES.map((c) => [c, false])) as Record<typeof DEV_LOG_CATEGORIES[number], boolean>,
@@ -128,7 +128,7 @@ describe('Landing', () => {
     });
 
     it('hides description and go button in museum mode', () => {
-        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', isMuseumMode: true, capabilities: capabilitiesFor('museum') }));
+        vi.mocked(useCouncilSettings).mockReturnValue(mockCouncilSettings({ mode: 'museum', capabilities: capabilitiesFor('museum') }));
 
         renderLanding();
 

@@ -65,8 +65,8 @@ export type UseSetupAgentParams = {
    * The blocked-microphone overlay is raised separately by `requestMicrophone`.
    */
   onMicUnavailable?: () => void;
-  /** Nobody is present to fix a failure (capabilities.unattended). */
-  unattended?: boolean;
+  /** The app must recover by itself (capabilities.selfHealing). */
+  selfHealing?: boolean;
 };
 
 export type SetupAgentState = {
@@ -113,7 +113,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     micUpFront = false,
     micOpen = false,
     onMicUnavailable,
-    unattended = false,
+    selfHealing = false,
   } = params;
 
   const [muted, setMuted] = useState(initialMuted);
@@ -128,7 +128,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   /**
    * Whether the browser would let the agent be heard right now. On a cold visit
    * that is false everywhere, and the visitor's first interaction (anywhere —
-   * "Let's go", a topic, the mic button, the space bar) flips it. A kiosk has
+   * "Let's go", a topic, the mic button, the space bar) flips it. An installation has
    * nobody to interact and is configured to allow audio, so it is always true.
    *
    * This no longer gates *connecting* — the session is built straight away, so
@@ -136,7 +136,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
    * greeting waits. Deliberately not keyed on the page: a link pasted straight
    * to the topic step is as cold as the landing page.
    */
-  const audible = unattended || autoplayAllowed;
+  const audible = selfHealing || autoplayAllowed;
 
   // A mic taken up front is always there (museum); a deferred one arrives only
   // when the visitor asks for it, and the latch never goes back.
@@ -179,12 +179,12 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   }, [toolHandlers]);
 
   const onConnectionLost = useCallback(() => {
-    if (unattended) setConnectionError("setup-agent", true);
-  }, [unattended]);
+    if (selfHealing) setConnectionError("setup-agent", true);
+  }, [selfHealing]);
 
   const onConnectionRestored = useCallback(() => {
-    if (unattended) setConnectionError("setup-agent", false);
-  }, [unattended]);
+    if (selfHealing) setConnectionError("setup-agent", false);
+  }, [selfHealing]);
 
   const session = useRealtimeVoiceSession({
     feature: "setup-agent",
@@ -203,8 +203,8 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     // Connect straight away and hold the greeting instead: the handshake is
     // then already done when the visitor first interacts.
     autoConnect: autoStart,
-    unattended,
-    retryPolicy: getRealtimeRetryPolicy(unattended),
+    selfHealing,
+    retryPolicy: getRealtimeRetryPolicy(selfHealing),
     onFatalError: (e) => setUnrecoverableError({ message: e.message, source: e.source, cause: e.cause }),
     onConnectionLost,
     onConnectionRestored,

@@ -26,6 +26,7 @@ import {
   type InworldSubtitleTrack,
   type InworldWordToken,
 } from "@realtime/inworldSubtitleTrack";
+import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
 import { log, summarizeLogPayload } from "@/logger";
 
 function realtimeDebugLog(...args: unknown[]): void {
@@ -47,7 +48,13 @@ export type RealtimeVoiceSessionConnectionState = "idle" | "connecting" | "ready
  * by a few ms — without this margin, capping exactly at the estimate can
  * still exceed the real duration and get the truncate request rejected.
  */
-const AUDIO_END_SAFETY_MARGIN_SEC = 0.15;
+/**
+ * How far from the estimated end of the audio we stop trusting the playback
+ * offset. Widened from 0.15 after a truncate landed 163 ms past the provider's
+ * real duration: the estimate's error is on the order of a jitter buffer, not
+ * a rounding step.
+ */
+const AUDIO_END_SAFETY_MARGIN_SEC = 0.25;
 
 // ---------------------------------------------------------------------------
 // Retry policy
@@ -128,11 +135,11 @@ export type UseRealtimeVoiceSessionParams = {
   /** Fired after the provider acks `session.updated` (safe point for activation). */
   onSessionReady?: () => void;
   /**
-   * Nobody is present to fix a failure (capabilities.unattended). Makes a
+   * The app must recover by itself (capabilities.selfHealing). Makes a
    * missing microphone fatal rather than something the visitor could go and
    * permit; pair it with an unlimited `retryPolicy`.
    */
-  unattended?: boolean;
+  selfHealing?: boolean;
   /** Retry behaviour. Omit to disable automatic retries (error state only). */
   retryPolicy?: RealtimeRetryPolicy;
   /** Called when a fatal, non-recoverable error occurs. Goes through the main error pipeline. */
@@ -233,7 +240,7 @@ export function useRealtimeVoiceSession(
     sessionActive = true,
     autoConnect = true,
     onSessionReady,
-    unattended = false,
+    selfHealing = false,
     retryPolicy,
     onFatalError,
     onUnavailable,
@@ -294,7 +301,7 @@ export function useRealtimeVoiceSession(
   const onConnectionLostRef = useRef(onConnectionLost);
   const onConnectionRestoredRef = useRef(onConnectionRestored);
   const onExhaustedRef = useRef(onExhausted);
-  const unattendedRef = useRef(unattended);
+  const selfHealingRef = useRef(selfHealing);
   useEffect(() => {
     handlersRef.current = toolHandlers;
     instructionsRef.current = instructions;
@@ -306,7 +313,7 @@ export function useRealtimeVoiceSession(
     onConnectionLostRef.current = onConnectionLost;
     onConnectionRestoredRef.current = onConnectionRestored;
     onExhaustedRef.current = onExhausted;
-    unattendedRef.current = unattended;
+    selfHealingRef.current = selfHealing;
     // Read by `configureSession` when the data channel opens, which is long
     // after any render — so it must track every render, not a dependency.
     audibleRef.current = audible;
@@ -401,6 +408,12 @@ export function useRealtimeVoiceSession(
     // Without a policy, fall through to error state.
     if (!policy || (policy.maxRetries !== Infinity && attempt >= policy.maxRetries)) {
       log.event("REALTIME", "retry exhausted", { feature, attempt });
+      reportRealtimeIssue({
+        feature,
+        kind: "retry-exhausted",
+        message: `Realtime agent gave up after ${attempt} reconnect attempts`,
+        detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false },
+      });
       if (policy?.giveUpSilently) {
         setConnectionState("idle");
         onExhaustedRef.current?.();
@@ -620,8 +633,29 @@ export function useRealtimeVoiceSession(
           onError: (message) => {
             if (isStale()) return;
             log.event("ERROR", "realtime provider error", { feature, message });
+            reportRealtimeIssue({
+              feature,
+              kind: "provider-error",
+              message: `Realtime provider error, reconnecting: ${message}`,
+            });
             cleanup();
             scheduleRetry();
+          },
+          onNonFatalError: ({ message, code, handling }) => {
+            if (isStale()) return;
+            // `ignored` is the benign-code path: a cancel that raced the end of
+            // a response, a truncate past the audio. Those are routine and
+            // cost the visitor nothing — reporting them would bury the
+            // failures that matter. A `recovered` turn is the opposite: the
+            // provider refused a response.create and the visitor came one
+            // retry away from silence.
+            if (handling !== "recovered") return;
+            reportRealtimeIssue({
+              feature,
+              kind: "turn-recovered",
+              message: `Realtime turn rescued after a rejected response.create: ${message}`,
+              code,
+            });
           },
           onSessionReady: () => {
             if (!isStale()) onSessionReadyRef.current?.();
@@ -737,7 +771,7 @@ export function useRealtimeVoiceSession(
         onEvent: (event) => {
           if (isStale()) return;
           // Never let a throw inside the loop become an invisible unhandled
-          // rejection — on an unattended kiosk a silent handler crash is
+          // rejection — on an unattended installation a silent handler crash is
           // indistinguishable from the agent simply going quiet.
           void loop.handleEvent(event).catch((err) => {
             log.event("ERROR", "realtime event handling threw", {
@@ -758,6 +792,12 @@ export function useRealtimeVoiceSession(
           log.event("REALTIME", "connection closed", { feature, reason });
           if (reason === "pc_failed" || reason === "dc_error") {
             log.event("ERROR", "realtime connection lost", { feature, reason });
+            reportRealtimeIssue({
+              feature,
+              kind: "connection-lost",
+              message: `Realtime connection lost (${reason}), reconnecting`,
+              code: reason,
+            });
             // Mid-session drop: reset attempt counter (was connected successfully)
             // then tear down and retry.
             cleanup();
@@ -797,7 +837,7 @@ export function useRealtimeVoiceSession(
 
       conn?.close();
 
-      const kind = classifyRealtimeError(e, { unattended: unattendedRef.current });
+      const kind = classifyRealtimeError(e, { selfHealing: selfHealingRef.current });
       const msg = e instanceof Error ? e.message : FEATURE_MESSAGES[feature].startFailed;
       log.event("ERROR", "realtime session start failed", { feature, kind, message: msg });
 
@@ -813,6 +853,12 @@ export function useRealtimeVoiceSession(
           message: msg,
         });
       } else {
+        reportRealtimeIssue({
+          feature,
+          kind: "connection-lost",
+          message: `Realtime session failed to start, retrying: ${msg}`,
+          code: "start-failed",
+        });
         scheduleRetry();
       }
     } finally {
@@ -889,7 +935,7 @@ export function useRealtimeVoiceSession(
       log.event("REALTIME", "mic attached", { feature });
       return true;
     } catch (e) {
-      const kind = classifyRealtimeError(e, { unattended: unattendedRef.current });
+      const kind = classifyRealtimeError(e, { selfHealing: selfHealingRef.current });
       const message = e instanceof Error ? e.message : "The microphone could not be accessed.";
       log.event("ERROR", "mic attach failed", { feature, kind, message });
 
@@ -1020,9 +1066,8 @@ export function useRealtimeVoiceSession(
     const endSec = staleTimeline
       ? null
       : (subtitleTrackRef.current?.getPlaybackEndSec() ?? null);
-    // Our client-side duration estimate can be a few ms ahead of the
-    // provider's own authoritative duration (independent measurements),
-    // so shave a safety margin off the cap rather than clamp to it exactly.
+    // Our client-side duration estimate can run ahead of the provider's own
+    // audio, so shave a safety margin off the end before trusting it.
     const safeEndSec = endSec != null ? Math.max(0, endSec - AUDIO_END_SAFETY_MARGIN_SEC) : null;
 
     const audioAlreadyFinished =
@@ -1031,17 +1076,31 @@ export function useRealtimeVoiceSession(
     if (audioAlreadyFinished) {
       // Nothing to interrupt: the previous response's audio has already
       // finished playing, so just react normally instead of sending a
-      // cancel/truncate/clear that has no target and risks an out-of-range
-      // audio_end_ms right at the tail end of playback (observed crash).
+      // cancel/truncate/clear that has no target.
       loop?.sendUserMessage(text);
       loop?.requestResponseIfIdle();
       return;
     }
 
-    const clampedSec = safeEndSec != null && rawElapsedSec != null
-      ? Math.min(rawElapsedSec, safeEndSec)
-      : rawElapsedSec;
-    const audioElapsedMs = clampedSec != null ? Math.max(0, clampedSec * 1000) : undefined;
+    // Only claim to know the offset while we are confidently *inside* the
+    // audio. Near the tail — or with no alignment data to bound it at all —
+    // every input to this number is unreliable at once:
+    //
+    //  - the offset is AudioContext time since the anchor, which includes any
+    //    lead-in before audio actually flowed, so it overstates what played;
+    //  - word alignment describes speech the model *planned*, which can run
+    //    past what TTS actually synthesised;
+    //  - and the cancel we are about to send is itself what decides the final
+    //    duration, at whatever point the server stops — so the truth does not
+    //    exist yet at the moment we have to name a number.
+    //
+    // Clamping to the estimate does not help: it is the estimate that is wrong
+    // (observed: audio_end_ms 762 against 599 ms of real audio). Truncating at
+    // the tail also buys nothing — the model said essentially all of it — so
+    // skip it and keep the cancel and the buffer clear, which is what actually
+    // stops the sound.
+    const insideAudio = rawElapsedSec != null && safeEndSec != null && rawElapsedSec < safeEndSec;
+    const audioElapsedMs = insideAudio ? Math.max(0, rawElapsedSec * 1000) : undefined;
     loop?.interruptAndRespond(text, { reason, audioElapsedMs });
   }, []);
 

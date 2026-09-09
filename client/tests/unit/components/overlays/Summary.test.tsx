@@ -54,12 +54,10 @@ vi.mock('@/utils', () => ({
 }));
 
 const mockUseCouncilSettings = vi.fn((): {
-    isMuseumMode: boolean;
     mode: AppMode;
     setAppMode: () => void;
     capabilities: Capabilities;
 } => ({
-    isMuseumMode: false,
     mode: 'web',
     setAppMode: vi.fn(),
     capabilities: capabilitiesFor('web'),
@@ -148,7 +146,6 @@ describe('Summary Overlay', () => {
         mockAutoplayState.phase = 'off';
         mockAutoplayState.summaryProtocolFinished = false;
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: false,
             mode: 'web',
             setAppMode: vi.fn(),
             capabilities: capabilitiesFor('web'),
@@ -227,7 +224,6 @@ describe('Summary Overlay', () => {
 
     it('hides PDF download and template in museum mode', () => {
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
             capabilities: capabilitiesFor('museum'),
@@ -260,7 +256,6 @@ describe('Summary Overlay', () => {
 
     it('claims the button and shows the summary banner in museum PTT mode', () => {
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
             capabilities: capabilitiesFor('museum'),
@@ -282,7 +277,6 @@ describe('Summary Overlay', () => {
 
     it('navigates to landing on button press in museum PTT mode', () => {
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
             capabilities: capabilitiesFor('museum'),
@@ -299,7 +293,6 @@ describe('Summary Overlay', () => {
     it('returns to landing 20s after protocol reading when not in autoplay', () => {
         vi.useFakeTimers();
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
             capabilities: capabilitiesFor('museum'),
@@ -315,10 +308,26 @@ describe('Summary Overlay', () => {
         vi.useRealTimers();
     });
 
+    it('keeps the teleprompter on screen in presenter mode — the summary is the talking point', () => {
+        vi.useFakeTimers();
+        mockUseCouncilSettings.mockReturnValue({
+            mode: 'presenter',
+            setAppMode: vi.fn(),
+            capabilities: capabilitiesFor('presenter'),
+        });
+        mockAutoplayState.phase = 'off';
+        mockAutoplayState.summaryProtocolFinished = true;
+
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        vi.advanceTimersByTime(20_000 * 5);
+        expect(mockNavigate).not.toHaveBeenCalled();
+        vi.useRealTimers();
+    });
+
     it('does not auto-return to landing during an active autoplay loop', () => {
         vi.useFakeTimers();
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
             capabilities: capabilitiesFor('museum'),

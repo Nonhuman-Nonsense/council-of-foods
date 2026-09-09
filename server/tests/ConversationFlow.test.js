@@ -172,7 +172,7 @@ describe('MeetingManager - Conversation Flow', () => {
         // Water=0, Tomato=1.
         vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(1);
 
-        // We DO NOT mock generateTextFromGPT. We test it!
+        // We DO NOT mock generateResponse. We test it!
 
         const action = diManager.decideNextAction();
         expect(action.type).toBe('GENERATE_AI_RESPONSE');
@@ -217,10 +217,10 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
         expect(manager.services.meetingsCollection.updateOne).toHaveBeenCalled();
 
-        // Verify it returns early (does not call generateGPT/Audio/recurse)
-        // calculateCurrentSpeaker WAS called, but generateTextFromGPT should NOT be.
-        const gptSpy = vi.spyOn(manager.dialogGenerator, 'generateTextFromGPT');
-        expect(gptSpy).not.toHaveBeenCalled();
+        // Verify it returns early (does not call generateResponse/Audio/recurse)
+        // calculateCurrentSpeaker WAS called, but generateResponse should NOT be.
+        const responseSpy = vi.spyOn(manager.dialogGenerator, 'generateResponse');
+        expect(responseSpy).not.toHaveBeenCalled();
     });
 
     it('should pass trimmed content through on panelist invitation', async () => {
@@ -266,6 +266,31 @@ describe('MeetingManager - Conversation Flow', () => {
         expect(chairInterjectionSpy).not.toHaveBeenCalled();
         expect(manager.meeting.conversation).toHaveLength(2);
         expect(manager.meeting.conversation[0].type).toBe('skipped');
+        expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
+        expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
+    });
+
+    it('should skip the panelist welcome invitation when the previous message directly addressed that panelist', async () => {
+        manager.meeting.characters = [
+            MockFactory.createChair(),
+            { id: 'panelist0', name: 'Alice', description: '', prompt: '', voice: 'alloy' }
+        ];
+        manager.meeting.conversation = [
+            { speaker: 'food1', type: 'message', text: 'Alice, what do you grow?', id: 'msg-1', askParticular: 'panelist0' },
+        ];
+        const panelistIndex = 1;
+
+        vi.spyOn(SpeakerSelector, 'calculateNextSpeaker').mockReturnValue(panelistIndex);
+
+        const action = manager.decideNextAction();
+        expect(action.type).toBe('REQUEST_PANELIST');
+
+        const chairInterjectionSpy = vi.spyOn(manager.dialogGenerator, 'chairInterjection');
+        await manager.processTurn({ type: action.type, speaker: manager.meeting.characters[panelistIndex] });
+
+        expect(chairInterjectionSpy).not.toHaveBeenCalled();
+        expect(manager.meeting.conversation).toHaveLength(2);
+        expect(manager.meeting.conversation[0].type).toBe('message');
         expect(manager.meeting.conversation[1].type).toBe('awaiting_human_panelist');
         expect(manager.meeting.conversation[1].speaker).toBe('panelist0');
     });

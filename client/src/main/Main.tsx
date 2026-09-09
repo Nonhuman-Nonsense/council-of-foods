@@ -28,7 +28,7 @@ import {
 } from "@/navigation";
 import RotateDevice from "./overlay/RotateDevice";
 import FullscreenButton from "./FullscreenButton";
-import MuseumSwitchButton from "@/museum/MuseumSwitchButton";
+import ModeSwitchButton from "@/museum/ModeSwitchButton";
 import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
@@ -105,7 +105,7 @@ export default function Main(props: MainProps) {
   useWakeLock(isMeetingPath(location.pathname) && !isPaused);
   const isIphone = useIsIphone();
   const isPortrait = usePortrait();
-  const { capabilities, pttHardwareEnabled, museumSwitchButtonEnabled } = useCouncilSettings();
+  const { capabilities, pttHardwareEnabled, modeSwitchButtonEnabled } = useCouncilSettings();
   const meetingGeneration = useAutoplayStore((s) => s.meetingGeneration);
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   useMuseumCursorHide();
@@ -228,7 +228,7 @@ export default function Main(props: MainProps) {
         />
       }
       {hamburgerOpen && capabilities.browserUi && <div style={hamburgerCloserStyle} onClick={() => setHamburgerOpen(false)}></div>}
-      {museumSwitchButtonEnabled && <MuseumSwitchButton />}
+      {modeSwitchButtonEnabled && <ModeSwitchButton />}
       {unrecoverableError == null &&
         <Overlay
           isActive={!isMeetingPath(location.pathname)}

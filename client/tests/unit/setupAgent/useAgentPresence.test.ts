@@ -185,6 +185,34 @@ describe("useAgentPresence", () => {
     expect(start).toHaveBeenCalledOnce();
   });
 
+  it("leaves a quiet visitor alone when idle nudging is off", () => {
+    const stop = vi.fn();
+    const sendUserMessage = vi.fn();
+    const agent = baseAgent({ stop, sendUserMessage });
+    renderHook((props) => useAgentPresence(props), {
+      initialProps: { agent, phase: "topic" as const, idleNudge: false },
+    });
+
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS * 2);
+
+    expect(stop).not.toHaveBeenCalled();
+    expect(sendUserMessage).not.toHaveBeenCalled();
+  });
+
+  it("still tears down a hidden tab with idle nudging off — absence is not quiet", () => {
+    const stop = vi.fn();
+    const agent = baseAgent({ stop });
+    renderHook((props) => useAgentPresence(props), {
+      initialProps: { agent, phase: "topic" as const, idleNudge: false },
+    });
+
+    setHidden(true);
+    fireVisibilityChange();
+    vi.advanceTimersByTime(HIDDEN_GRACE_MS);
+
+    expect(stop).toHaveBeenCalledOnce();
+  });
+
   it("resets the idle timer on new visitor speech", () => {
     const stop = vi.fn();
     const agent = baseAgent({ stop, lastUserTranscript: "hello" });

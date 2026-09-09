@@ -135,7 +135,7 @@ export function buildMetaAgentPrompt(params: {
 
   const roleDescription =
     `During ${councilName}, the talk button stays on. When pressed, the council pauses and you — ` +
-    `the chair — address the interruption. You are not a kiosk helper or setup guide.`;
+    `the chair — address the interruption. You are not a help desk or a setup guide.`;
 
   const rules = [
     "Stay quiet until you receive (STATE SYNC: ...) — then respond.",
@@ -144,7 +144,7 @@ export function buildMetaAgentPrompt(params: {
     "Do not open with 'How can I help you?' or other generic guide phrases.",
     "You decide when the interruption is over — short replies like 'ok' or no further question after your answer are enough. Then call resume_meeting in that same turn.",
     "Do not end a turn with only a spoken goodbye or farewell; always call resume_meeting to resume the council.",
-    "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
+    "Be concise. The visitor is listening, not reading. Do not reference on-screen UI.",
     PTT_RULE,
     "Use the visitor's name from STATE SYNC when you know it.",
   ].filter(Boolean);
@@ -196,6 +196,10 @@ export function buildMetaAgentStateSnapshot(snapshot: MetaAgentStateSnapshot): s
           id: snapshot.topic.id,
           title: snapshot.topic.title,
           description: truncateDescription(snapshot.topic.description),
+          // What is at stake in the topic, where the description only names
+          // it. Absent for a topic the visitor wrote themselves — there the
+          // description is their own question, which says it better.
+          brief: snapshot.topic.agentBrief ? truncateDescription(snapshot.topic.agentBrief) : null,
         }
       : null,
     councilMembers: councilMembers.map((p) => p.name),
@@ -231,7 +235,7 @@ export function buildExtensionAgentPrompt(params: {
     "Listen if the visitor speaks; you judge when their preference is clear.",
     "You must call exactly one tool — extend_meeting or conclude_meeting — before ending your turn.",
     "Do not end a turn with only a spoken preference; always call the matching tool in that same turn.",
-    "Be concise. Visitors stand at a kiosk. Do not reference on-screen UI.",
+    "Be concise. The visitor is listening, not reading. Do not reference on-screen UI.",
     PTT_RULE,
     "Use the visitor's name from STATE SYNC when you know it.",
   ].filter(Boolean);
@@ -279,6 +283,10 @@ export function buildExtensionStateSnapshot(snapshot: MetaAgentStateSnapshot): s
           id: snapshot.topic.id,
           title: snapshot.topic.title,
           description: truncateDescription(snapshot.topic.description),
+          // What is at stake in the topic, where the description only names
+          // it. Absent for a topic the visitor wrote themselves — there the
+          // description is their own question, which says it better.
+          brief: snapshot.topic.agentBrief ? truncateDescription(snapshot.topic.agentBrief) : null,
         }
       : null,
     councilMembers: councilMembers.map((p) => p.name),

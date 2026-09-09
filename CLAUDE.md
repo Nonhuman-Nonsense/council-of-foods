@@ -2,7 +2,7 @@
 
 A political arena where AI-driven foods discuss the broken food system. Three parts:
 `client/` (React + Vite + zustand, socket.io client), `server/` (Node + Express + socket.io +
-MongoDB, OpenAI/TTS orchestration), and `button/` (talk-button stack for museum installs).
+MongoDB, conversation/TTS orchestration), and `button/` (talk-button stack for installations).
 `shared/` holds the socket protocol types and prompts used by both sides.
 
 ## Required reading
@@ -20,10 +20,23 @@ MongoDB, OpenAI/TTS orchestration), and `button/` (talk-button stack for museum 
   reconnect/resume logic. New client-driven socket actions must follow this pattern.
 - [README.md](README.md) — project overview and build instructions.
 - [server/README.md](server/README.md) — backend details and test modes (mock/fast/full).
-- [MUSEUM.md](MUSEUM.md) — physical kiosk installs (app mode, button bridge, staff setup).
+- [MUSEUM.md](MUSEUM.md) — physical installations: museum kiosks and presented screenings
+  (app mode, button bridge, staff setup).
 
 The `docs/` folder is for work-in-progress design docs only; durable architecture
 descriptions live in the root docs above.
+
+## App modes
+
+Three: `web` (the visitor's own browser), `museum` (unattended installation), and
+`presenter` (an installation someone presents at a screening). Museum and presenter are
+both *installations* — the app owns the whole screen on hardware the visitor does not own.
+
+**Nothing outside `client/src/settings/capabilities.ts` may branch on the mode.** Every
+behavioural difference is a named capability in that one table, and `capabilitiesFor()` is
+the only place a mode is read. A `mode === "museum"` test anywhere else silently drops every
+other mode into the web branch — which is exactly how presenter mode's first cut broke. Add
+a capability that names the behaviour instead, so each mode has to answer for it.
 
 ## Commands
 

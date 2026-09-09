@@ -2,7 +2,7 @@ import { createSetupAgentToolHandlers, createSetupAgentTools, SetupAgentToolCont
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 
 const TOPICS = [
-  { id: 'topic1', title: 'Topic One', description: 'Desc One' },
+  { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One' },
 ];
 
 const CHARACTERS = [
@@ -47,12 +47,12 @@ describe('createSetupAgentTools', () => {
   });
 
   it('omits human_panelist when isWebMode is false', () => {
-    const tools = createSetupAgentTools({ ...baseToolParams, isWebMode: false });
+    const tools = createSetupAgentTools({ ...baseToolParams, typedSetup: false });
     expect(tools.find((t) => t.name === 'human_panelist')).toBeUndefined();
   });
 
   it('includes human_panelist when isWebMode is true', () => {
-    const tools = createSetupAgentTools({ ...baseToolParams, isWebMode: true });
+    const tools = createSetupAgentTools({ ...baseToolParams, typedSetup: true });
     expect(tools.find((t) => t.name === 'human_panelist')).toBeDefined();
   });
 
@@ -68,7 +68,7 @@ describe('createSetupAgentTools', () => {
       ...baseToolParams,
       topics: TOPICS,
       characters: CHARACTERS,
-      isWebMode: true,
+      typedSetup: true,
     });
 
     expect(tools.find((t) => t.name === 'select_topic')).toBeDefined();
@@ -133,13 +133,11 @@ describe('setupAgentTools', () => {
   });
 
   describe('select_topic', () => {
-    it('highlights the topic in the UI and returns its details', async () => {
+    it('highlights the topic in the UI and returns notes to speak from', async () => {
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.select_topic({ title: 'Topic One' });
-      expect(res).toEqual({
-        ok: true,
-        data: { title: 'Topic One', description: 'Desc One' },
-      });
+      // The brief, not the description: the visitor is already reading that.
+      expect(res).toEqual({ ok: true, data: { title: 'Topic One', brief: 'Brief One' } });
       expect(useMeetingSetupStore.getState().selectedTopic).toBe('topic1');
     });
 

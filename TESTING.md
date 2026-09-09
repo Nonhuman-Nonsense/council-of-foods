@@ -27,10 +27,11 @@ contracts, because the former actively resists refactoring.
 ## This app's risk profile
 
 Council of Foods is a long-running, event-driven orchestration system — meeting lifecycle,
-speaker selection, audio queueing, socket reconnect, resume/replay — that must run
-**unattended in a museum** for days. The failure modes that actually hurt are stalls,
-deadlocks, stale events, dropped intents, and reconnect races. Cosmetic UI regressions are
-noticed and fixed in minutes; a kiosk deadlock at 10am on a Saturday is not.
+speaker selection, audio queueing, socket reconnect, resume/replay — that must run **for days
+in a museum with nobody watching it**, and **in front of a live audience** at a screening. The
+failure modes that actually hurt are stalls, deadlocks, stale events, dropped intents, and
+reconnect races. Cosmetic UI regressions are noticed and fixed in minutes; a meeting that
+deadlocks at 10am on a Saturday, or mid-sentence in front of a room, is not.
 
 That inverts the usual front-end testing instincts. The test suite's center of gravity is
 state machines and protocol, not rendering.

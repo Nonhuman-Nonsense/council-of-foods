@@ -1,7 +1,7 @@
 # Council of Foods Server
 
 ## Overview
-The backend server for the Council of Foods application, built with Node.js, Express, Socket.IO, and MongoDB. It manages the conversation flow, integrates with OpenAI API for text and audio generation, and handles client connections.
+The backend server for the Council of Foods application, built with Node.js, Express, Socket.IO, and MongoDB. It manages the conversation flow, drives text and audio generation through the configured providers, and handles client connections.
 
 ## Testing
 We utilize **Vitest** for unit and integration testing. There are three testing modes available to balance speed, cost, and realism.
@@ -38,4 +38,7 @@ The `npm run e2e-server` script launches the server using `test-options.json`.
 - **MeetingManager**: Orchestrates the meeting lifecycle, state, and event handling.
 - **AudioSystem**: Manages queuing and generating audio (TTS).
 - **SpeakerSelector**: Logic for determining the next speaker.
-- **DialogGenerator**: Interfaces with OpenAI to generate character responses.
+- **DialogGenerator**: Builds prompts and generates character responses, chair interjections, and summary documents. The conversation provider is configurable (`conversationModel` — Inworld or OpenAI direct), so nothing here is OpenAI-specific.
+
+### Empty generations
+A model that returns nothing, or text that post-processing trims away entirely, is retried in one shared place (`completeWithRetry`) for every generation. Each failed attempt is reported to ErrorBot even when a retry rescues it, so a rare provider hiccup is visible rather than silent. Exhausting the attempts throws `EmptyCompletionError`, which is terminal for the meeting — deliberately: a missing chair line is not something to paper over.
