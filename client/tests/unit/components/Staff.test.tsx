@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Staff from '@main/overlay/Staff';
 import '@testing-library/jest-dom';
 import type { BridgePrintHealth, SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
@@ -70,6 +70,23 @@ vi.mock('@/museum/button/useButton', () => ({
     bridgeAvailable: museumButtonState.bridgeAvailable,
     serialConnected: false,
   }),
+}));
+
+const mockCreateProtocolPdf = vi.fn();
+const mockSendTestPage = vi.fn();
+
+vi.mock('@council/protocol/protocolPdf', () => ({
+  createProtocolPdf: (...args: unknown[]) => mockCreateProtocolPdf(...args),
+}));
+
+vi.mock('@/museum/print/printClient', () => ({
+  sendTestPage: (...args: unknown[]) => mockSendTestPage(...args),
+}));
+
+vi.mock('@council/protocol/ProtocolDocument', () => ({
+  default: ({ ref, summaryText }: { ref: React.Ref<HTMLDivElement>; summaryText: string }) => (
+    <div ref={ref} data-testid="staff-test-page-document">{summaryText}</div>
+  ),
 }));
 
 describe('Staff overlay', () => {
@@ -444,6 +461,24 @@ describe('Staff overlay', () => {
       expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('2');
       const lines = screen.getAllByTestId('staff-print-detail-line').map((line) => line.textContent);
       expect(lines).toEqual(['Media Empty', 'Printer alerts: media-empty-error', 'Last error: lp: printer is offline']);
+    });
+
+    it('prints a test page through the same PDF path and reports the result', async () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      const blob = new Blob(['%PDF-']);
+      mockCreateProtocolPdf.mockResolvedValue({ output: () => blob });
+      mockSendTestPage.mockResolvedValue('queued');
+
+      render(<Staff />);
+      fireEvent.click(screen.getByTestId('staff-print-test-page'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('staff-print-test-page-result')).toHaveTextContent(
+          'staff.print.testPageResult.queued',
+        );
+      });
+      expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'));
+      expect(mockSendTestPage).toHaveBeenCalledWith(blob);
     });
 
     it('explains that only museum mode prints', () => {

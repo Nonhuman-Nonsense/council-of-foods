@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=launchd-helpers.sh
 source "$SCRIPT_DIR/launchd-helpers.sh"
 
-INSTALL_DIR="/usr/local/lib/council-button-bridge"
 LOG_OUT="/var/log/council-button-bridge.log"
 LOG_ERR="/var/log/council-button-bridge.err.log"
 PURGE_LOGS=0
@@ -57,8 +56,14 @@ fi
 echo "Removing launchd plist..."
 sudo rm -f "$PLIST_DST"
 
-echo "Removing install directory..."
-sudo rm -rf "$INSTALL_DIR"
+echo "Removing bridge code..."
+remove_bridge_code
+remove_print_spool_links
+if [[ -d "$PRINT_SPOOL_DIR" ]]; then
+  echo "Kept printed protocols in $PRINT_SPOOL_DIR (delete it by hand if no longer needed)."
+else
+  sudo rm -rf "$INSTALL_DIR"
+fi
 
 if [[ $PURGE_LOGS -eq 1 ]]; then
   echo "Removing log files..."
@@ -70,8 +75,8 @@ if [[ -f "$PLIST_DST" ]]; then
   exit 1
 fi
 
-if [[ -d "$INSTALL_DIR" ]]; then
-  echo "Uninstall failed: install directory still present at $INSTALL_DIR" >&2
+if [[ -e "$INSTALL_DIR/dist" ]]; then
+  echo "Uninstall failed: bridge code still present in $INSTALL_DIR" >&2
   exit 1
 fi
 

@@ -1,4 +1,4 @@
-import { mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { PrinterLike, PrinterStatus } from "./printer.js";
 
@@ -64,6 +64,11 @@ export class PrintSpool {
   async start(): Promise<void> {
     await Promise.all(
       [this.pendingDir, this.doneDir, this.tmpDir].map((dir) => mkdir(dir, { recursive: true })),
+    );
+    // Group-writable, so staff can reprint (copy into pending/) and tidy up without
+    // admin rights. New folders take the parent's group; the installer makes that `staff`.
+    await Promise.all(
+      [this.pendingDir, this.doneDir].map((dir) => chmod(dir, 0o775).catch(() => {})),
     );
     // A tmp file is a write that never finished; the client will send it again.
     await rm(this.tmpDir, { recursive: true, force: true });

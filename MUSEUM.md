@@ -25,9 +25,9 @@ staff setup are the same pattern.
 ```
 Visitor browser (Chrome, fullscreen/kiosk)
     ├── Council client (museum or presenter mode)
-    └── ws://127.0.0.1:8765  ← button bridge (on the Mac)
+    └── 127.0.0.1:8765  ← bridge (on the Mac): button socket + protocol printing
 
-Arduino button ──USB──► button bridge daemon (launchd on install Mac)
+Arduino button ──USB──► bridge daemon (launchd on install Mac) ──lp──► printer
 ```
 
 | Piece | Doc |
@@ -103,6 +103,39 @@ Install and service the bridge daemon per
 [button/bridge/README.md](button/bridge/README.md) (GitHub release install or
 `install/macos/install.sh` from a checkout).
 
+### Printing protocols
+
+With **Print summaries** on, museum mode prints the protocol of every **live**
+meeting on the Mac's printer as soon as the summary is ready. That includes
+resumed meetings and meetings the visitor walked away from. Replays and
+idle-autoplay never print, and neither do presenter or web mode. Nothing appears
+on screen.
+
+The browser sends the PDF to the bridge. The bridge keeps it in a folder queue and
+prints it with macOS's own printing, so a crash, a reboot or a printer that is
+off only delays a protocol, never loses it. Each meeting prints once.
+
+The **Bridge** panel on `#staff` shows the printer and how many protocols are
+waiting, with the printer's own message (e.g. out of paper) under **Details**.
+**Print test page** sends a sample protocol along the same path.
+
+The folder is **`/usr/local/lib/council-button-bridge/print`**, with a **Council Print**
+shortcut on the Desktop:
+
+| Folder | Contents |
+|---|---|
+| `pending/` | Waiting to print. Empties by itself once the printer works. |
+| `done/` | Every protocol printed, kept indefinitely. |
+
+- **Reprint** a protocol: copy it from `done/` into `pending/`.
+- **Stop** a protocol from printing: move it out of `pending/`.
+- **Printer stuck** after paper out or a jam: fix the printer. The installer sets
+  it to retry on its own. If the panel still says **Stopped**, resume it in
+  System Settings → Printers & Scanners, or run `sudo cupsenable <printer name>`.
+- Printing goes to the Mac's **default printer**. Set a fixed default in System
+  Settings → Printers & Scanners, not "Last printer used", then re-run the bridge
+  installer so the retry setting is applied to it.
+
 ### Mode switch button (staff escape)
 
 Enable **Mode switch button** on the staff page to show a red-bordered preview
@@ -134,6 +167,14 @@ Optional category toggles on `#staff` for field debugging (`localStorage`-backed
 
 During a live meeting, the button also drives human input and the meta-agent
 (chair) when those phases are active.
+
+### Printed protocols
+
+1. Connect the A4 printer and make it the Mac's default printer
+2. Install (or re-install) the bridge. It sets up the print folder, the Desktop
+   shortcut and the printer's retry setting
+3. `#staff` → **Museum** + **Print summaries**. The Bridge panel shows the printer as **Ready**
+4. **Print test page**, and check a page comes out
 
 ### Screening (presenter)
 
@@ -183,7 +224,9 @@ cd button/bridge && npm i && npm run dev:mock   # or npm run dev
 ```
 
 Open the dev URL at `/#staff`, set **Museum** (or **Presenter**) +
-**Hardware button**. Playwright e2e: `cd client && npm run e2e` (starts mock bridge).
+**Hardware button**. With **Print summaries** on, the mock bridge "prints" into
+`button/bridge/.print-spool/mock-printed/`. See
+[button/bridge/README.md](button/bridge/README.md#printing). Playwright e2e: `cd client && npm run e2e` (starts mock bridge).
 
 ---
 

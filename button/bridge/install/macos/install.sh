@@ -6,7 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/launchd-helpers.sh"
 
 BRIDGE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-INSTALL_DIR="/usr/local/lib/council-button-bridge"
 PLIST_SRC="$SCRIPT_DIR/com.council.button-bridge.plist"
 REBUILD=0
 
@@ -118,7 +117,7 @@ stop_launchd_service || true
 echo "Installing to $INSTALL_DIR..."
 echo "Using Node: $NODE_BIN"
 sudo mkdir -p "$INSTALL_DIR"
-sudo rm -rf "$INSTALL_DIR"/*
+remove_bridge_code
 sudo cp -R "$BRIDGE_DIR/package.json" "$BRIDGE_DIR/dist" "$INSTALL_DIR/"
 if [[ -d "$BRIDGE_DIR/node_modules" ]]; then
   sudo cp -R "$BRIDGE_DIR/node_modules" "$INSTALL_DIR/"
@@ -130,6 +129,11 @@ fi
 
 sudo mkdir -p /var/log
 sudo touch /var/log/council-button-bridge.log /var/log/council-button-bridge.err.log
+
+echo "Setting up printing..."
+setup_print_spool
+link_print_spool_on_desktop
+configure_default_printer
 
 write_launchd_plist "$PLIST_SRC" "$NODE_BIN" "$INSTALL_DIR"
 

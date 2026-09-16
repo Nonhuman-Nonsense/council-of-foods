@@ -3,6 +3,7 @@ import {
   _resetPrintedMeetingsForTests,
   printProtocolOnce,
   sendProtocolToPrinter,
+  sendTestPage,
 } from "@/museum/print/printClient";
 
 const FAST_RETRY = { retryBaseMs: 1, retryMaxMs: 5, giveUpAfterMs: 50 };
@@ -74,6 +75,19 @@ describe("sending a protocol to the bridge", () => {
 
     await expect(sendProtocolToPrinter(42, pdf, FAST_RETRY)).resolves.toBe("gave_up");
     expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it.each([
+    { name: "accepted", next: reply(202), outcome: "queued" },
+    { name: "refused", next: reply(400), outcome: "rejected" },
+    { name: "bridge down", next: new TypeError("Failed to fetch"), outcome: "unreachable" },
+  ])("sends a staff test page once, without retrying: $name", async ({ next, outcome }) => {
+    if (next instanceof Error) fetchMock.mockRejectedValueOnce(next);
+    else fetchMock.mockResolvedValueOnce(next);
+
+    await expect(sendTestPage(pdf)).resolves.toBe(outcome);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe("http://127.0.0.1:8765/v1/print?test=1");
   });
 
   it("creates and sends each meeting's protocol once per page load", async () => {

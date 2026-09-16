@@ -135,6 +135,18 @@ sudo button/bridge/install/macos/install.sh --rebuild
 
 If `dist/` is already built, `install.sh` skips the build step.
 
+The installer also sets up printing:
+
+- It creates the spool at `/usr/local/lib/council-button-bridge/print`, next to the bridge
+  code, writable by staff, and passes it to the daemon as `BRIDGE_PRINT_SPOOL_DIR`.
+  Installing and uninstalling replace the code but never touch `print/`.
+- It puts a **Council Print** shortcut to the spool on the logged-in user's Desktop. The
+  folder isn't on the Desktop itself, because macOS privacy protection can block the root
+  daemon from writing there.
+- It sets `printer-error-policy=retry-job` on the default printer, so CUPS doesn't leave
+  the queue stopped after paper out or a jam. With no default printer it warns, and jobs
+  wait in `pending/` until one is set and the installer is re-run.
+
 ### Uninstall
 
 From a git checkout:
@@ -154,6 +166,9 @@ Add `--purge-logs` to remove log files too:
 ```bash
 curl -fsSL .../uninstall-release.sh | sudo bash -s -- --purge-logs
 ```
+
+Uninstalling removes the Desktop shortcut but keeps `/usr/local/lib/council-button-bridge/print` and its
+printed protocols.
 
 Logs: `/var/log/council-button-bridge.log`
 
@@ -208,6 +223,7 @@ The museum app prints each live meeting's protocol by posting the PDF to the bri
 
 ```
 POST /v1/print?meetingId=42      Content-Type: application/pdf, body = PDF bytes
+POST /v1/print?test=1            staff test page: never a duplicate
 → 202 {"status":"queued"} · 200 {"status":"duplicate"} · 400 · 403 · 413 · 503 (printing off)
 ```
 

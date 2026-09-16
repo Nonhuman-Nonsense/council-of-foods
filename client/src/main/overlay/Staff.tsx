@@ -1,4 +1,4 @@
-import { useEffect, type CSSProperties, type ReactElement, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   APP_MODES,
@@ -19,6 +19,9 @@ import type {
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { modeSwitchButtonToggleStyle } from "@/museum/ModeSwitchButton";
+import ProtocolDocument from "@council/protocol/ProtocolDocument";
+import { createProtocolPdf } from "@council/protocol/protocolPdf";
+import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
@@ -390,6 +393,20 @@ function Staff(): ReactElement {
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive || printSummariesEnabled);
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
+  const testPageRef = useRef<HTMLDivElement>(null);
+  const [testPage, setTestPage] = useState<"idle" | "sending" | TestPageOutcome>("idle");
+
+  const printTestPage = async (): Promise<void> => {
+    if (!testPageRef.current) return;
+    setTestPage("sending");
+    try {
+      const pdf = await createProtocolPdf(testPageRef.current);
+      setTestPage(await sendTestPage(pdf.output("blob")));
+    } catch {
+      setTestPage("rejected");
+    }
+  };
+
   const button = useButton("staff");
 
   useEffect(() => {
@@ -576,6 +593,33 @@ function Staff(): ReactElement {
                 </>
               ) : null}
             </div>
+
+            {printSummariesEnabled ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                <button
+                  type="button"
+                  data-testid="staff-print-test-page"
+                  disabled={testPage === "sending"}
+                  onClick={() => void printTestPage()}
+                  style={staffCompactButton}
+                >
+                  {t("staff.print.testPage")}
+                </button>
+                {testPage !== "idle" ? (
+                  <span data-testid="staff-print-test-page-result">
+                    {t(`staff.print.testPageResult.${testPage}`)}
+                  </span>
+                ) : null}
+                {/* The test page is a real protocol, so it exercises the same PDF path. */}
+                <div style={{ position: "absolute", top: 0, display: "none" }}>
+                  <ProtocolDocument
+                    ref={testPageRef}
+                    summaryText={t("staff.print.testPageText")}
+                    meetingId="TEST"
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {printSummariesEnabled && !capabilities.printSummary ? (
               <p data-testid="staff-print-mode-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>

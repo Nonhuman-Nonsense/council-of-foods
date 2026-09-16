@@ -51,8 +51,15 @@ export function printJobKey(origin: string | undefined, meetingId: string): stri
   return `${host}_${meetingId}`;
 }
 
+/** A staff test page is never a duplicate: each press prints. */
+export function testPageJobKey(origin: string | undefined, now = new Date()): string {
+  const stamp = now.toISOString().replace(/[:.]/g, "-");
+  return printJobKey(origin, `test-${stamp}`);
+}
+
 /**
- * `POST /v1/print?meetingId=<n>` with the PDF as the raw body.
+ * `POST /v1/print?meetingId=<n>` with the PDF as the raw body, or
+ * `POST /v1/print?test=1` for a staff test page.
  * 202 queued · 200 duplicate · 400 invalid · 403 origin · 413 too large · 503 printing off.
  */
 export async function handlePrint(
@@ -83,15 +90,18 @@ export async function handlePrint(
     return;
   }
 
-  const meetingId = new URL(req.url ?? "", "http://bridge").searchParams.get("meetingId") ?? "";
-  if (!/^\d{1,12}$/.test(meetingId)) {
+  const params = new URL(req.url ?? "", "http://bridge").searchParams;
+  const isTestPage = params.get("test") === "1";
+  const meetingId = params.get("meetingId") ?? "";
+  if (!isTestPage && !/^\d{1,12}$/.test(meetingId)) {
     sendJson(res, 400, { ok: false, error: "expected numeric meetingId" }, cors);
     return;
   }
 
   try {
     const pdf = await readBody(req, maxBytes);
-    const status = await print.spool.enqueue(printJobKey(origin, meetingId), pdf);
+    const key = isTestPage ? testPageJobKey(origin) : printJobKey(origin, meetingId);
+    const status = await print.spool.enqueue(key, pdf);
     sendJson(res, status === "queued" ? 202 : 200, { ok: true, status }, cors);
   } catch (error) {
     if (error instanceof BodyTooLargeError) {

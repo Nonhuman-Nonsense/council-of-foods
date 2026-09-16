@@ -117,6 +117,24 @@ describe("bridge printing", () => {
     expect(printed(bridge)).toEqual(["council-of-foods.com_3.pdf"]);
   });
 
+  it("prints every staff test page, however often it is pressed", async () => {
+    const testPage = () =>
+      fetch(`${bridge.printUrl}?test=1`, {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf", Origin: FOODS },
+        body: PDF,
+      });
+
+    expect((await testPage()).status).toBe(202);
+    await settle(5);
+    expect((await testPage()).status).toBe(202);
+
+    await waitForPrinted(bridge, 2);
+    for (const file of printed(bridge)) {
+      expect(file).toMatch(/^council-of-foods\.com_test-.+\.pdf$/);
+    }
+  });
+
   it.each([
     { name: "a body that is not a PDF", meetingId: "1", body: Buffer.from("hello"), status: 400 },
     { name: "a non-numeric meeting id", meetingId: "abc", body: PDF, status: 400 },

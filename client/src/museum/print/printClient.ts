@@ -76,6 +76,28 @@ export async function sendProtocolToPrinter(
   }
 }
 
+export type TestPageOutcome = "queued" | "rejected" | "unreachable";
+
+/** One attempt, no retries: staff are watching and can press again. */
+export async function sendTestPage(pdf: Blob): Promise<TestPageOutcome> {
+  try {
+    const response = await fetch(`${getBridgeHttpBase()}/v1/print?test=1`, {
+      method: "POST",
+      headers: { "Content-Type": "application/pdf" },
+      body: pdf,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const outcome = response.status === 202 ? "queued" : "rejected";
+    log.event("PRINT", `test page ${outcome}`, { status: response.status });
+    return outcome;
+  } catch (error) {
+    log.event("PRINT", "test page: bridge unreachable", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return "unreachable";
+  }
+}
+
 const attempted = new Set<number>();
 
 /**

@@ -20,6 +20,8 @@
     <string>127.0.0.1</string>
     <key>BUTTON_BRIDGE_PORT</key>
     <string>8765</string>
+    <key>BRIDGE_PRINT_SPOOL_DIR</key>
+    <string>__PRINT_SPOOL_DIR__</string>
   </dict>
   <key>StandardOutPath</key>
   <string>/var/log/council-button-bridge.log</string>
