@@ -1,7 +1,8 @@
 # AI footprint meter — vision and roadmap
 
-**Status:** Phases 1 (server usage) and 2 (realtime usage + installation ID) implemented, plus
-the EcoLogits table from phase 3. Phases 3 (rest), 4, 5 planned.
+**Status:** Phases 1 (server usage), 2 (realtime usage + installation ID) and a first version of
+4 (meter screen) implemented, plus the EcoLogits table from phase 3. Remaining: phase 3 (training,
+room, methodology page), tuning phase 4 on the real display, phase 5.
 
 **Goal:** A second screen in the museum installation that shows what the council costs the
 planet while it speaks for the forest — energy, water, emissions and minerals — and makes
@@ -331,17 +332,29 @@ providers directly — their answer (or refusal) is itself content.
 - Training figures as a separate, non-amortised block.
 - Methodology page (static, in the meter entry) listing every coefficient and source.
 
-### Phase 4 — Meter screen
+### Phase 4 — Meter screen (first version ✅, to tune on the display)
 
-- Separate Vite entry `client/meter.html` → `/meter?installation=<id>`; own small React root,
-  no council imports. Served by the same container; optional nginx subdomain alias
-  (`meter.council-of-forest.com` → same upstream).
-- Socket namespace/room `usage:<installationId>` + `usage:global`; initial state over HTTP,
-  increments over socket; reconnect → refetch totals.
-- NumberFlow for ticking values; portrait 864×2880 layout; this meeting / installation /
-  everywhere; uncertainty ranges; one rotating comparison per metric; models in use.
-- Kiosk: second Chrome instance (`--user-data-dir`, `--window-position` on display 2,
-  `--kiosk`); document in MUSEUM.md once tested on the real screen.
+- **Server** (`server/src/api/meterRoutes.ts`): `GET /api/meter?installation=<id>` returns a
+  `MeterSnapshot` (`shared/MeterTypes.ts`) — raw totals for all councils, the installation, and
+  the installation's latest meeting (aggregated from `usage_events`). The `/meter` socket.io
+  namespace pushes every recorded usage to every meter. `/meter` serves `client/dist/meter.html`.
+- **Client** (`client/meter.html` → `client/src/meter/`): its own Vite entry and bundle (~44 kB),
+  no council imports. `useMeterFeed` refetches the snapshot on every socket (re)connect, then
+  folds pushed events in with `applyUsageEvent`; `footprintOf` sums EcoLogits estimates per
+  scope; `toDisplayRange` picks readable units (Wh/kWh, mL/L, mg/g CO₂e, µg/mg Sb eq).
+  NumberFlow animates the values.
+- Screen v1: "This meeting" (large, once the installation has a meeting), "This installation",
+  "All councils" — energy, water, carbon, minerals as midpoint + low–high range; the models
+  answering and their assumed data-centre countries; EcoLogits version in the footer.
+- "This meeting" starts when the meeting is created; setup-agent usage before it counts toward
+  the installation, not the meeting.
+- **Preview:** `cd client && npm run dev`, then open `/meter.html?demo` (TEMPORARY fake feed, marked
+  on screen) or `/meter.html?installation=<id>` against a dev server. Production:
+  `https://<host>/meter?installation=<id>`. `?rotate=90` / `?rotate=-90` rotates the page if
+  macOS can't rotate the display.
+- Still to do: tune layout and copy on the VSDISPLAY; comparisons/scale; training block; room
+  figure; methodology page + QR; kiosk instructions in MUSEUM.md (second Chrome instance with
+  its own `--user-data-dir`, `--window-position` on display 2, `--kiosk`); remove `?demo`.
 
 ### Phase 5 — Speculative / later
 

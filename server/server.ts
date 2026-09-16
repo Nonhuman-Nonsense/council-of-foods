@@ -30,6 +30,7 @@ import {
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerRealtimeUsageRoutes } from '@api/realtimeUsage.js';
+import { registerMeterRoutes, registerMeterSocket } from '@api/meterRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
@@ -64,6 +65,7 @@ app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
 registerRealtimeRoutes(app);
 registerRealtimeUsageRoutes(app);
+registerMeterRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);
@@ -98,6 +100,12 @@ if (environment === "prototype") {
 
   app.get("/index.html", (req, res) => sendSpaShell(res, spaShellTemplate, preferredLangFromRequest(req)));
 
+  // Footprint meter: its own page and bundle, no language routing (docs/ai-footprint-meter.md).
+  app.get("/meter", (_req: Request, res: Response) => {
+    res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
+    res.sendFile(path.join(clientDistPath, "meter.html"));
+  });
+
   app.use(express.static(clientDistPath, {
     maxAge: ONE_YEAR_MS,
     immutable: true,
@@ -129,6 +137,7 @@ if (environment === "prototype") {
 }
 
 // Socket Logic
+registerMeterSocket(io);
 io.on("connection", (socket: Socket) => {
   Logger.info("socket", `[session ${socket.id}] connected`);
   new SocketManager(socket, environment);

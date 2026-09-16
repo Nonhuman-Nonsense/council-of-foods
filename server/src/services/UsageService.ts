@@ -1,5 +1,6 @@
 import type { StoredMeeting } from "@models/DBModels.js";
-import type { UsageEvent, UsageMeasures, UsageRecord } from "@shared/UsageTypes.js";
+import type { UsageTotalsRow } from "@shared/MeterTypes.js";
+import { USAGE_MEASURES, type UsageEvent, type UsageMeasures, type UsageRecord } from "@shared/UsageTypes.js";
 
 import { usageEventsCollection, usageTotalsCollection } from "@services/DbService.js";
 import { Logger } from "@utils/Logger.js";
@@ -208,4 +209,33 @@ export function parseRealtimeUsage(usage: unknown): RealtimeUsagePart[] {
         },
     ];
     return parts.filter((part) => part.model !== "" && Object.keys(part.measures).length > 0);
+}
+
+function toTotalsRow(doc: { provider: string; model: string; requests: number; measures: UsageMeasures }): UsageTotalsRow {
+    return { provider: doc.provider, model: doc.model, requests: doc.requests, measures: cleanMeasures(doc.measures) };
+}
+
+/** Summed usage per model for a scope (global or an installation). */
+export async function getUsageTotals(scope: string): Promise<UsageTotalsRow[]> {
+    const totals = usageTotalsCollection;
+    if (!totals) return [];
+    const docs = await totals.find({ scope }).toArray();
+    return docs.map(toTotalsRow);
+}
+
+/** Summed usage per model for one meeting, from the event log. */
+export async function getMeetingUsageTotals(meetingId: number): Promise<UsageTotalsRow[]> {
+    const events = usageEventsCollection;
+    if (!events) return [];
+    const measureSums = Object.fromEntries(USAGE_MEASURES.map((m) => [m, { $sum: `$measures.${m}` }]));
+    const groups = await events.aggregate<{ _id: { provider: string; model: string }; requests: number } & Record<string, number>>([
+        { $match: { meetingId } },
+        { $group: { _id: { provider: "$provider", model: "$model" }, requests: { $sum: 1 }, ...measureSums } },
+    ]).toArray();
+    return groups.map((group) => toTotalsRow({
+        provider: group._id.provider,
+        model: group._id.model,
+        requests: group.requests,
+        measures: Object.fromEntries(USAGE_MEASURES.map((m) => [m, group[m]])),
+    }));
 }

@@ -1,0 +1,127 @@
+/* Footprint meter — tall portrait strip (864×2880). Sized in vw so it scales with the display. */
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #000;
+  color: #f2efe6;
+  font-family: "Tinos", Georgia, serif;
+  overflow: hidden;
+  cursor: none;
+}
+
+#root {
+  height: 100%;
+}
+
+/* ?rotate: lay a portrait page onto a display the OS shows as landscape. */
+html[data-rotate] #root {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vh;
+  height: 100vw;
+}
+html[data-rotate="90"] #root {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+html[data-rotate="-90"] #root {
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.meter {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6vw;
+  padding: 10vw 7vw;
+  --meter-unit: 1vw;
+}
+html[data-rotate] .meter {
+  --meter-unit: 1vh;
+}
+
+.meter h2 {
+  margin: 0 0 calc(var(--meter-unit) * 3);
+  font-size: calc(var(--meter-unit) * 4);
+  font-weight: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9c9788;
+  border-bottom: 1px solid #333;
+  padding-bottom: calc(var(--meter-unit) * 1.5);
+}
+
+.meter-scope {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: calc(var(--meter-unit) * 4) calc(var(--meter-unit) * 3);
+}
+.meter-scope h2 {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.meter-label {
+  font-size: calc(var(--meter-unit) * 3.2);
+  color: #9c9788;
+}
+
+.meter-value {
+  font-size: calc(var(--meter-unit) * 8);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.meter-scope--large .meter-value {
+  font-size: calc(var(--meter-unit) * 11);
+}
+
+.meter-unit {
+  margin-left: 0.25em;
+  font-size: 0.4em;
+  color: #c9c4b6;
+}
+
+.meter-range {
+  font-size: calc(var(--meter-unit) * 2.8);
+  color: #6f6b60;
+}
+
+.meter-models ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--meter-unit) * 2);
+  font-size: calc(var(--meter-unit) * 3.4);
+}
+.meter-models li {
+  display: flex;
+  justify-content: space-between;
+  gap: calc(var(--meter-unit) * 2);
+}
+.meter-place {
+  color: #9c9788;
+  text-align: right;
+}
+
+.meter-footer {
+  margin-top: auto;
+  font-size: calc(var(--meter-unit) * 2.6);
+  color: #6f6b60;
+}
+
+.meter-demo {
+  position: fixed;
+  top: 0;
+  right: 0;
+  padding: 4px 10px;
+  background: #b3261e;
+  color: #fff;
+  font-family: sans-serif;
+  font-size: 14px;
+  z-index: 1;
+}

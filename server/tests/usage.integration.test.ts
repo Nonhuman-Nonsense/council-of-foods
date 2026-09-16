@@ -1,6 +1,12 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import http from "http";
+import { Server } from "socket.io";
+import { io as connect, type Socket } from "socket.io-client";
 import type { UsageEvent, UsageRecord } from "@shared/UsageTypes.js";
-import { usageEventsCollection, usageTotalsCollection } from "@services/DbService.js";
+import { METER_NAMESPACE, METER_USAGE_EVENT, type MeterUsageEvent } from "@shared/MeterTypes.js";
+import { meetingsCollection, usageEventsCollection, usageTotalsCollection } from "@services/DbService.js";
+import { getMeterSnapshot, registerMeterSocket } from "@api/meterRoutes.js";
+import { MockFactory } from "./factories/MockFactory.js";
 import { onUsageRecorded, parseChatCompletionUsage, recordUsage } from "@services/UsageService.js";
 
 function dialogue(overrides: Partial<UsageRecord> = {}): UsageRecord {
@@ -65,6 +71,70 @@ describe("usage recording", () => {
 
         expect(seen).toHaveLength(1);
         expect(seen[0]).toMatchObject({ installationId: "museum-oslo", measures: { output_tokens: 40 } });
+    });
+});
+
+describe("meter", () => {
+    beforeEach(async () => {
+        await usageEventsCollection?.deleteMany({});
+        await usageTotalsCollection?.deleteMany({});
+    });
+
+    it("snapshots global, installation and latest-meeting usage", async () => {
+        for (const _id of [11, 12]) {
+            await meetingsCollection.insertOne(MockFactory.createStoredMeeting({ _id, liveKey: `key-${_id}`, installationId: "museum-oslo" }));
+        }
+        await recordUsage(dialogue({ meetingId: 11, installationId: "museum-oslo" }));
+        await recordUsage(dialogue({ meetingId: 12, installationId: "museum-oslo" }));
+        await recordUsage(dialogue({ meetingId: 12, installationId: "museum-oslo", measures: { output_tokens: 10 } }));
+        await recordUsage(dialogue({ meetingId: 99 }));
+
+        const snapshot = await getMeterSnapshot("museum-oslo");
+
+        const row = (requests: number, measures: object) => ({
+            provider: "inworld", model: "mistral/mistral-large-3", requests, measures,
+        });
+        expect(snapshot).toEqual({
+            global: [row(4, { input_tokens: 300, output_tokens: 130, request_seconds: 4.5 })],
+            installation: [row(3, { input_tokens: 200, output_tokens: 90, request_seconds: 3 })],
+            meeting: { meetingId: 12, totals: [row(2, { input_tokens: 100, output_tokens: 50, request_seconds: 1.5 })] },
+        });
+    });
+
+    describe("live push", () => {
+        let httpServer: http.Server;
+        let unregister: () => void;
+        let socket: Socket;
+
+        beforeEach(async () => {
+            httpServer = http.createServer();
+            const io = new Server(httpServer);
+            unregister = registerMeterSocket(io);
+            await new Promise<void>((resolve) => httpServer.listen(0, "127.0.0.1", resolve));
+            const { port } = httpServer.address() as { port: number };
+            socket = connect(`http://127.0.0.1:${port}${METER_NAMESPACE}`, { transports: ["websocket"] });
+            await new Promise<void>((resolve) => socket.on("connect", () => resolve()));
+        });
+
+        afterEach(async () => {
+            socket.close();
+            unregister();
+            await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+        });
+
+        it("pushes each recorded usage to connected meters", async () => {
+            const received = new Promise<MeterUsageEvent>((resolve) => socket.on(METER_USAGE_EVENT, resolve));
+
+            await recordUsage(dialogue({ installationId: "museum-oslo" }));
+
+            expect(await received).toMatchObject({
+                provider: "inworld",
+                model: "mistral/mistral-large-3",
+                installationId: "museum-oslo",
+                measures: { output_tokens: 40 },
+                ts: expect.any(String),
+            });
+        });
     });
 });
 
