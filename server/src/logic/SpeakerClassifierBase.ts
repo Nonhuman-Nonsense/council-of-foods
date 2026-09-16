@@ -6,6 +6,7 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 import { config } from "@root/src/config.js";
 import { buildInworldReasoningExtraBody } from "@services/ConversationService.js";
 import { OUTBOUND_HTTP_TIMEOUT_MS, withNetworkRetry } from "@utils/NetworkUtils.js";
+import { parseChatCompletionUsage, recordUsage, usageTagsFor } from "@services/UsageService.js";
 
 export const CLASSIFIER_GENERAL_FLOW_KEYWORD = "anyone";
 export const CLASSIFIER_MAX_TOKENS = 32;
@@ -22,6 +23,7 @@ interface RouterChatCompletionResponse {
             content?: string | null;
         };
     }>;
+    usage?: unknown;
 }
 
 export function normalizeClassifierTargetId(
@@ -87,12 +89,15 @@ export async function requestSpeakerClassifierCompletion(
     serverOptions: GlobalOptions,
     messages: ChatCompletionMessageParam[],
     maxTokens: number,
-    logLabel: string
+    logLabel: string,
+    /** The meeting to tag the call's usage with. */
+    meeting: StoredMeeting,
 ): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), OUTBOUND_HTTP_TIMEOUT_MS);
 
     try {
+        const startedAt = Date.now();
         const response = await withNetworkRetry(
             () =>
                 fetch(INWORLD_CHAT_COMPLETIONS_URL, {
@@ -119,6 +124,17 @@ export async function requestSpeakerClassifierCompletion(
         }
 
         const data = (await response.json()) as RouterChatCompletionResponse;
+        void recordUsage({
+            source: "server",
+            feature: "classifier",
+            provider: "inworld",
+            model: serverOptions.speakerClassifierModel,
+            measures: {
+                ...parseChatCompletionUsage(data.usage),
+                request_seconds: (Date.now() - startedAt) / 1000,
+            },
+            ...usageTagsFor(meeting),
+        });
         const content = data.choices?.[0]?.message?.content;
         return typeof content === "string" ? content : "";
     } finally {

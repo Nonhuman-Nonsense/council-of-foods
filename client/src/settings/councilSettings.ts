@@ -35,6 +35,8 @@ export const PRINT_SUMMARIES_ENABLED_KEY = "councilPrintSummariesEnabled";
 
 export const PRINT_SUMMARIES_CHANGE_EVENT = "council-print-summaries-change";
 
+export const INSTALLATION_ID_KEY = "councilInstallationId";
+
 export const MODE_SWITCH_BUTTON_ENABLED_KEY = "councilModeSwitchButtonEnabled";
 
 export const MODE_SWITCH_BUTTON_CHANGE_EVENT = "council-mode-switch-button-change";
@@ -77,6 +79,31 @@ export function setAppMode(mode: AppMode): void {
   }
 
   window.dispatchEvent(new CustomEvent<AppMode>(APP_MODE_CHANGE_EVENT, { detail: mode }));
+}
+
+/**
+ * Staff-set name of this installation (e.g. "museum-oslo"). Tags the AI usage of meetings
+ * and setup sessions run here, for the footprint meter. Empty when unset.
+ */
+export function getInstallationId(): string {
+  try {
+    return localStorage.getItem(INSTALLATION_ID_KEY)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+export function setInstallationId(installationId: string): void {
+  try {
+    const trimmed = installationId.trim();
+    if (trimmed) {
+      localStorage.setItem(INSTALLATION_ID_KEY, trimmed);
+    } else {
+      localStorage.removeItem(INSTALLATION_ID_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
 }
 
 /**

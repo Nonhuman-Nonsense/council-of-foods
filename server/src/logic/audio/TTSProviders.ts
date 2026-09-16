@@ -6,6 +6,7 @@ import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 import { characterAlignmentToWords, type CharacterAlignment } from "@utils/ElevenLabsAlignmentUtils.js";
 
 const INWORLD_TTS_2_MODEL = "inworld-tts-2";
+export const WHISPER_MODEL = "whisper-1";
 /**
  * TTS draws on the same account-wide concurrency pool as every other provider
  * call, so a 429 here is a race we lost rather than a fault. Five attempts of
@@ -32,6 +33,8 @@ interface GenerateParams {
 export interface AudioResult {
     audio: Buffer;
     words?: Word[];
+    /** What the provider billed, for the footprint meter. Audio seconds are measured by the caller. */
+    usage: { provider: string; model: string; characters: number; region?: string };
 }
 
 function hasSpokenToken(word: string): boolean {
@@ -51,7 +54,10 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Audio
         instructions: speaker.voiceInstruction,
         response_format: "opus"
     }));
-    return { audio: Buffer.from(await mp3.arrayBuffer()) };
+    return {
+        audio: Buffer.from(await mp3.arrayBuffer()),
+        usage: { provider: "openai", model: options.voiceModel, characters: text.length },
+    };
 }
 
 export async function generateElevenLabsAudio(params: GenerateParams): Promise<AudioResult> {
@@ -115,6 +121,13 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
     return {
         audio: Buffer.from(data.audio_base64, "base64"),
         words,
+        // ElevenLabs bills per character of the text it was sent.
+        usage: {
+            provider: "elevenlabs",
+            model: modelId,
+            characters: processedText.length,
+            region: response.headers.get("x-region") ?? undefined,
+        },
     };
 }
 
@@ -170,6 +183,10 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
                 wordEndTimeSeconds?: number[];
             };
         };
+        usage?: {
+            processedCharactersCount?: number;
+            modelId?: string;
+        };
     }
 
     const data = (await response.json()) as InworldTtsJson;
@@ -201,7 +218,15 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
             }
         }
 
-        return { audio: buffer, words };
+        return {
+            audio: buffer,
+            words,
+            usage: {
+                provider: "inworld",
+                model: data.usage?.modelId ?? modelId,
+                characters: data.usage?.processedCharactersCount ?? processedText.length,
+            },
+        };
     } else {
         throw new Error("No audio content returned from Inworld TTS");
     }
@@ -214,7 +239,7 @@ export async function getWhisperWords(buffer: Buffer, services: { getOpenAI: () 
     const audioFile = new File([new Uint8Array(buffer)], "speech.ogg", { type: "audio/ogg" });
     const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({
         file: audioFile,
-        model: "whisper-1",
+        model: WHISPER_MODEL,
         response_format: "verbose_json",
         timestamp_granularities: ["word"]
     }), "AudioSystemWhisper");

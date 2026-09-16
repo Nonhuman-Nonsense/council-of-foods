@@ -54,7 +54,8 @@ export class SpeakerTargetClassifier {
                 this.serverOptions,
                 buildClassifierMessages(meeting, { ...request, eligibleCharacters, allowedTargetIds }),
                 CLASSIFIER_MAX_TOKENS,
-                `SpeakerTargetClassifier:${request.mode}`
+                `SpeakerTargetClassifier:${request.mode}`,
+                meeting,
             );
 
             const targetId = resolveClassifierTarget(content, allowedTargetIds, eligibleCharacters);

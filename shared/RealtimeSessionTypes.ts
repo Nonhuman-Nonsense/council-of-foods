@@ -17,11 +17,22 @@ export interface RealtimeBootstrapResponse {
      * Human-input treats this as the full session to create.
      */
     session: Record<string, unknown>;
+    /**
+     * Authorises `POST /api/usage/realtime` reports for this session's usage (footprint
+     * meter). Added by the bootstrap route, so provider bootstraps leave it unset.
+     */
+    usageToken?: string;
 }
 
 export interface HumanInputRealtimeBootstrapRequest {
     feature: "human-input";
     language: string;
+}
+
+/** `POST /api/usage/realtime`: raw `response.usage` objects from one realtime session. */
+export interface RealtimeUsageReport {
+    usageToken: string;
+    responses: unknown[];
 }
 
 export interface RealtimeCallResponse {
@@ -40,6 +51,8 @@ export interface HumanInputRealtimeCallRequest {
 export interface SetupAgentRealtimeBootstrapRequest {
     feature: "setup-agent";
     language: string;
+    /** Staff-configured installation; tags the session's usage. Meetings carry their own. */
+    installationId?: string;
 }
 
 export interface SetupAgentRealtimeCallRequest {

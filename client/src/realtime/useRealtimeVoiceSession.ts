@@ -29,6 +29,8 @@ import {
 } from "@realtime/inworldSubtitleTrack";
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
 import { log, summarizeLogPayload } from "@/logger";
+import { getInstallationId } from "@/settings/councilSettings";
+import { createRealtimeUsageReporter, type RealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
 
 function realtimeDebugLog(...args: unknown[]): void {
   const [first, ...rest] = args;
@@ -292,6 +294,8 @@ export function useRealtimeVoiceSession(
   const [providerBusy, setProviderBusy] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
+
+  const usageReporterRef = useRef<RealtimeUsageReporter | null>(null);
   const audioElementRef = useRef(audioElement);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
@@ -380,6 +384,8 @@ export function useRealtimeVoiceSession(
   }, []);
 
   const cleanup = useCallback(() => {
+    usageReporterRef.current?.dispose();
+    usageReporterRef.current = null;
     abortRef.current?.abort();
     abortRef.current = null;
     attemptRef.current += 1;
@@ -488,8 +494,9 @@ export function useRealtimeVoiceSession(
       // the success path. But await mic first: a mic failure is always fatal and
       // resolved instantly by the browser — there is no reason to block on the
       // bootstrap network round-trip (up to 15 s) before surfacing the error.
+      const installationId = getInstallationId();
       const bootstrapPromise = fetchRealtimeBootstrap(
-        { feature, language },
+        { feature, language, ...(installationId ? { installationId } : {}) },
         controller.signal,
         authHeaders,
       );
@@ -523,7 +530,10 @@ export function useRealtimeVoiceSession(
         return;
       }
 
-      const { provider, session: defaults, iceServers } = bootstrapValue;
+      const { provider, session: defaults, iceServers, usageToken } = bootstrapValue;
+      usageReporterRef.current?.dispose();
+      const usageReporter = createRealtimeUsageReporter(usageToken);
+      usageReporterRef.current = usageReporter;
       if (micStreamValue) setMicTracksEnabled(micStreamValue, !pttMic);
 
       serverDefaultsRef.current = defaults;
@@ -750,6 +760,8 @@ export function useRealtimeVoiceSession(
             realtimeDebugLog("[SUBS] response.created — audio may still be draining, waiting for confirmed silence");
           },
           onResponseDone: (info) => {
+            // Billed whether or not this attempt is still current.
+            usageReporter.report(info?.usage);
             const cancelled = info?.status === "cancelled" || info?.status === "failed";
             // Transition state, not display state: this decides whether the
             // next transition may trust the playback clock, so it is tracked

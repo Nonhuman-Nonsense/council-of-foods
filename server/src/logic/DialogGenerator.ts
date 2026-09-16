@@ -9,6 +9,8 @@ import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import type { ConversationCompletionResult, ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { recordUsage, usageTagsFor } from "@services/UsageService.js";
+import type { UsageFeature } from "@shared/UsageTypes.js";
 
 /**
  * How many times a single generation may be sampled before giving up. A model
@@ -103,6 +105,8 @@ export class DialogGenerator {
         ctx: {
             /** Names the generation in logs and in the error a caller sees. */
             operation: string;
+            /** What the generation is for, in the footprint meter's usage log. */
+            feature: UsageFeature;
             meeting: StoredMeeting;
             /**
              * Interrupts (hand raise, pause, teardown), checked between attempts.
@@ -114,7 +118,7 @@ export class DialogGenerator {
             shouldAbort?: () => boolean;
         },
     ): Promise<{ id: string | null } & T> {
-        const { operation, meeting, shouldAbort } = ctx;
+        const { operation, feature, meeting, shouldAbort } = ctx;
         let lastEmpty: { id: string | null } & T | null = null;
 
         for (let attempt = 1; attempt <= GENERATION_ATTEMPTS; attempt++) {
@@ -123,6 +127,11 @@ export class DialogGenerator {
                 request.maxCompletionTokens,
                 request.stop,
             );
+
+            // Every attempt is paid for, including the empty ones.
+            if (completion.usage) {
+                void recordUsage({ source: "server", feature, ...completion.usage, ...usageTagsFor(meeting) });
+            }
 
             if (completion.content) {
                 const processed = postProcess(completion);
@@ -360,7 +369,7 @@ export class DialogGenerator {
                         currentSpeakerIndex,
                         completion.finishReason,
                     ),
-                { operation: `${speaker.name}'s turn`, meeting, shouldAbort },
+                { operation: `${speaker.name}'s turn`, feature: "dialogue", meeting, shouldAbort },
             );
         } catch (error) {
             //Just log and rethrow
@@ -404,7 +413,7 @@ export class DialogGenerator {
                         0,
                         completion.finishReason,
                     ),
-                { operation: "chair interjection", meeting },
+                { operation: "chair interjection", feature: "dialogue", meeting },
             );
         } catch (error) {
             //Just log and rethrow
@@ -443,7 +452,7 @@ export class DialogGenerator {
                         completion.finishReason,
                     );
                 },
-                { operation: "summary document", meeting },
+                { operation: "summary document", feature: "summary", meeting },
             );
 
             const trimmedNote = result.trimmed
