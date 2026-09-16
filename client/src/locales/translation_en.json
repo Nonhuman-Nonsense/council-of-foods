@@ -96,6 +96,23 @@
     "bridge": {
       "title": "Bridge"
     },
+    "alerts": {
+      "label": "Alert emails",
+      "venueLabel": "Venue",
+      "noVenue": "No venue (no emails)",
+      "test": "Send test alert",
+      "status": {
+        "notConfigured": "Not set up on bridge",
+        "chooseVenue": "Choose a venue",
+        "failing": "Failing",
+        "on": "On"
+      },
+      "testResult": {
+        "sending": "Sending…",
+        "sent": "Sent, check the inbox",
+        "failed": "Not sent"
+      }
+    },
     "installationId": {
       "label": "Installation ID",
       "placeholder": "e.g. museum-oslo",
@@ -105,6 +122,8 @@
       "toggle": "Print summaries",
       "printerLabel": "Printer",
       "pendingLabel": "Waiting to print",
+      "attentionLabel": "Needs attention",
+      "since": "since {{time}}",
       "modeHint": "Protocols only print in museum mode.",
       "testPage": "Print test page",
       "testPageText": "## Test page\n\nIf you can read this, printing works: this browser sent the page to the bridge, and the bridge sent it to the printer.\n\nMeeting protocols print the same way, as soon as a live meeting in museum mode has its summary.",

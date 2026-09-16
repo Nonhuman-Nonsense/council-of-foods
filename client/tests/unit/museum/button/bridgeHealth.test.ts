@@ -32,6 +32,7 @@ describe("fetchButtonBridgeHealth", () => {
       expectedVendorId: "2341",
       scannedPorts: [{ path: "/dev/mock", vendorId: "2341", productId: "8037" }],
       print: null,
+      alerts: null,
     });
   });
 

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Staff from '@main/overlay/Staff';
 import '@testing-library/jest-dom';
-import type { BridgePrintHealth, SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
+import type { BridgeAlertsHealth, BridgePrintHealth, SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
 
 const museumButtonState = {
   bridgeStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error',
@@ -22,6 +22,7 @@ const bridgeHealthState: {
   expectedVendorId: string | null;
   scannedPorts: UsbPortInfo[];
   print: BridgePrintHealth | null;
+  alerts: BridgeAlertsHealth | null;
 } = {
   status: 'running',
   serial: 'connected',
@@ -32,6 +33,7 @@ const bridgeHealthState: {
   expectedVendorId: '2341',
   scannedPorts: [],
   print: null,
+  alerts: null,
 };
 
 vi.mock('react-i18next', () => ({
@@ -89,6 +91,16 @@ vi.mock('@council/protocol/ProtocolDocument', () => ({
   ),
 }));
 
+const mockFetchAlertVenues = vi.fn();
+const mockChooseAlertVenue = vi.fn();
+const mockSendTestAlert = vi.fn();
+
+vi.mock('@/museum/print/alertsClient', () => ({
+  fetchAlertVenues: (...args: unknown[]) => mockFetchAlertVenues(...args),
+  chooseAlertVenue: (...args: unknown[]) => mockChooseAlertVenue(...args),
+  sendTestAlert: (...args: unknown[]) => mockSendTestAlert(...args),
+}));
+
 describe('Staff overlay', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -106,6 +118,10 @@ describe('Staff overlay', () => {
     bridgeHealthState.expectedVendorId = '2341';
     bridgeHealthState.scannedPorts = [];
     bridgeHealthState.print = null;
+    bridgeHealthState.alerts = null;
+    mockFetchAlertVenues.mockReset();
+    mockChooseAlertVenue.mockReset();
+    mockSendTestAlert.mockReset();
   });
 
   afterEach(() => {
@@ -447,6 +463,30 @@ describe('Staff overlay', () => {
       expect(screen.getByTestId('staff-print-printer-status')).toHaveTextContent(expected);
     });
 
+    it('says what needs attention, counting protocols waiting in the printer too', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = {
+        ...readyPrint,
+        printer: { name: 'Museum_Printer', state: 'idle', alerts: ['media-empty-error'], message: null, queuedJobs: 2, oldestJobAt: '2026-09-16T12:00:00.000Z' },
+        pending: 1,
+        attention: { reason: 'media-empty', since: '2026-09-16T12:00:00.000Z' },
+      };
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-attention')).toHaveTextContent('out of paper');
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('3');
+    });
+
+    it('shows no attention chip while the printer is fine', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = { ...readyPrint, attention: null };
+
+      render(<Staff />);
+
+      expect(screen.queryByTestId('staff-print-attention')).not.toBeInTheDocument();
+    });
+
     it('surfaces why the printer is stuck in the details', () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
       bridgeHealthState.print = {
@@ -488,6 +528,79 @@ describe('Staff overlay', () => {
 
       fireEvent.click(screen.getByTestId('app-mode-museum'));
       expect(screen.queryByTestId('staff-print-mode-hint')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('printer alert emails', () => {
+    const venue = { id: 'example-museum', name: 'Example Museum', recipients: ['s***@example-museum.org'] };
+    const alerts = (overrides: Partial<BridgeAlertsHealth> = {}): BridgeAlertsHealth => ({
+      configured: true,
+      venue: null,
+      open: null,
+      phase: 'ok',
+      lastSentAt: null,
+      lastError: null,
+      undelivered: false,
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      mockFetchAlertVenues.mockResolvedValue({ venues: [venue], current: null });
+      mockChooseAlertVenue.mockResolvedValue(undefined);
+    });
+
+    it('says alerts are not set up when the bridge has no server, and offers no venue picker', () => {
+      bridgeHealthState.alerts = alerts({ configured: false });
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.notConfigured');
+      expect(screen.queryByTestId('staff-alerts-venue')).not.toBeInTheDocument();
+      expect(mockFetchAlertVenues).not.toHaveBeenCalled();
+    });
+
+    it("lets staff choose a venue from the server's list, and only then send a test", async () => {
+      bridgeHealthState.alerts = alerts();
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.chooseVenue');
+      expect(screen.getByTestId('staff-alerts-test')).toBeDisabled();
+      const picker = screen.getByTestId('staff-alerts-venue');
+      await waitFor(() => expect(picker).not.toBeDisabled());
+
+      fireEvent.change(picker, { target: { value: 'example-museum' } });
+      await waitFor(() => expect(mockChooseAlertVenue).toHaveBeenCalledWith('example-museum'));
+    });
+
+    it('shows the chosen venue, who is emailed and why alerts are failing', () => {
+      bridgeHealthState.print = { enabled: true, printer: null, pending: 0, lastError: null, lastPrintedAt: null };
+      bridgeHealthState.alerts = alerts({ venue, lastError: 'council server unreachable' });
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.failing');
+      const lines = screen.getAllByTestId('staff-print-detail-line').map((line) => line.textContent);
+      expect(lines).toContain('Alert emails go to s***@example-museum.org');
+      expect(lines).toContain('Alert error: council server unreachable');
+    });
+
+    it.each([
+      { name: 'delivered', outcome: () => mockSendTestAlert.mockResolvedValue(undefined), expected: 'staff.alerts.testResult.sent' },
+      {
+        name: 'refused',
+        outcome: () => mockSendTestAlert.mockRejectedValue(new Error('a test alert was just sent')),
+        expected: 'staff.alerts.testResult.failed: a test alert was just sent',
+      },
+    ])('reports a test alert that was $name', async ({ outcome, expected }) => {
+      outcome();
+      bridgeHealthState.alerts = alerts({ venue });
+
+      render(<Staff />);
+      fireEvent.click(screen.getByTestId('staff-alerts-test'));
+
+      await waitFor(() => expect(screen.getByTestId('staff-alerts-test-result')).toHaveTextContent(expected));
     });
   });
 });

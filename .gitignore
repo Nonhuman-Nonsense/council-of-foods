@@ -44,3 +44,5 @@ server/gen-lang-client-*.json
 
 # button bridge print spool (dev)
 .print-spool/
+# button bridge printer alert settings (secret)
+button/bridge/alerts.env

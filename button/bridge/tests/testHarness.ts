@@ -5,7 +5,9 @@ import path from "node:path";
 import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import type { BridgeConfig } from "../src/config.js";
 import { MockSerialManager } from "../src/mockSerialManager.js";
+import { AlertMonitor } from "../src/alertMonitor.js";
 import { MockPrinter } from "../src/printer.js";
+import { ServerClient } from "../src/serverClient.js";
 import type { PrintRuntime } from "../src/printRoutes.js";
 import { PrintSpool } from "../src/printSpool.js";
 import { WsServer } from "../src/wsServer.js";
@@ -56,6 +58,8 @@ export type TestBridge = {
   clearWrittenLines: () => void;
   printUrl: string;
   /** Present when started with `print: true`. */
+  alerts: () => AlertMonitor | null;
+  /** Present when started with `print: true`. */
   printer: MockPrinter | null;
   /** Spool folder; survives restart() so a restart sees what was left on disk. */
   spoolDir: string | null;
@@ -68,6 +72,8 @@ export type StartTestBridgeOptions = {
   serialConnected?: boolean;
   /** Run the print spool against a mock printer in a temp folder. */
   print?: boolean;
+  /** Council server for printer alerts (needs `print`). */
+  alertServer?: { url: string; key: string };
 };
 
 function createTestConfig(port: number): BridgeConfig {
@@ -88,6 +94,18 @@ function createTestConfig(port: number): BridgeConfig {
     printRetryBaseMs: 20,
     printRetryMaxMs: 100,
     printStatusIntervalMs: 50,
+    printNotPrintingAfterMs: 300,
+    serverUrl: null,
+    serverKey: null,
+    alertsFile: "",
+    alertGraceMs: 100,
+    alertReminderMs: 60 * 60_000,
+    alertOpeningReminderGapMs: 60 * 60_000,
+    alertTickMs: 25,
+    alertVenueRefreshMs: 60 * 60_000,
+    alertRetryBaseMs: 50,
+    alertRetryMaxMs: 200,
+    alertTestIntervalMs: 60_000,
   };
 }
 
@@ -171,9 +189,27 @@ export async function startTestBridge(
         retryBaseMs: config.printRetryBaseMs,
         retryMaxMs: config.printRetryMaxMs,
         statusIntervalMs: config.printStatusIntervalMs,
+        notPrintingAfterMs: config.printNotPrintingAfterMs,
       });
       await spool.start();
-      runtime.print = { spool, mockPrinter: printer };
+      const alerts = new AlertMonitor({
+        server: options.alertServer ? new ServerClient(options.alertServer.url, options.alertServer.key) : null,
+        spool,
+        stateFile: path.join(spoolDir, "alerts-state.json"),
+        host: "test-mac",
+        timings: {
+          graceMs: config.alertGraceMs,
+          reminderMs: config.alertReminderMs,
+          openingReminderGapMs: config.alertOpeningReminderGapMs,
+        },
+        tickMs: config.alertTickMs,
+        venueRefreshMs: config.alertVenueRefreshMs,
+        deliveryRetryBaseMs: config.alertRetryBaseMs,
+        deliveryRetryMaxMs: config.alertRetryMaxMs,
+        testAlertIntervalMs: config.alertTestIntervalMs,
+      });
+      await alerts.start();
+      runtime.print = { spool, mockPrinter: printer, alerts };
     }
     runtime.server = new WsServer(
       config,
@@ -206,12 +242,14 @@ export async function startTestBridge(
     getWrittenLines: () => runtime.serial.getWrittenLines(),
     clearWrittenLines: () => runtime.serial.clearWrittenLines(),
     printUrl,
+    alerts: () => runtime.print?.alerts ?? null,
     printer,
     spoolDir,
     restart: async () => {
       if (runtime.server) {
         await runtime.server.stop();
       }
+      await runtime.print?.alerts?.stop();
       await runtime.print?.spool.stop();
       await runtime.serial.stop();
       await boot(true);
@@ -221,6 +259,7 @@ export async function startTestBridge(
         await runtime.server.stop();
         runtime.server = null;
       }
+      await runtime.print?.alerts?.stop();
       await runtime.print?.spool.stop();
       await runtime.serial.stop();
       if (spoolDir) {

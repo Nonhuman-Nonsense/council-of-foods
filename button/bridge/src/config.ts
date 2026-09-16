@@ -1,6 +1,7 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { BUTTON_BAUD_RATE } from "../../../shared/buttonProtocol.js";
-import type { MockPrinterMode } from "./printer.js";
+import { MOCK_PRINTER_MODES, type MockPrinterMode } from "./printer.js";
 
 export type BridgeConfig = {
   host: string;
@@ -23,6 +24,20 @@ export type BridgeConfig = {
   printRetryBaseMs: number;
   printRetryMaxMs: number;
   printStatusIntervalMs: number;
+  printNotPrintingAfterMs: number;
+  /** Council server that emails printer alerts; alerts are off without both. */
+  serverUrl: string | null;
+  serverKey: string | null;
+  /** Holds BRIDGE_SERVER_URL / BRIDGE_SERVER_KEY; kept out of the plist, which installs rewrite. */
+  alertsFile: string;
+  alertGraceMs: number;
+  alertReminderMs: number;
+  alertOpeningReminderGapMs: number;
+  alertTickMs: number;
+  alertVenueRefreshMs: number;
+  alertRetryBaseMs: number;
+  alertRetryMaxMs: number;
+  alertTestIntervalMs: number;
 };
 
 function readInt(value: string | undefined, fallback: number): number {
@@ -43,11 +58,17 @@ function readBool(value: string | undefined): boolean {
 }
 
 function readMockPrinter(value: string | undefined): MockPrinterMode | null {
-  if (value?.trim().toLowerCase() === "fail") return "fail";
+  const mode = value?.trim().toLowerCase();
+  if ((MOCK_PRINTER_MODES as readonly string[]).includes(mode ?? "")) return mode as MockPrinterMode;
   return readBool(value) ? "ok" : null;
 }
 
 export function loadConfig(): BridgeConfig {
+  const alertsFile = path.resolve(readOptionalString(process.env.BRIDGE_ALERTS_FILE) ?? "alerts.env");
+  if (existsSync(alertsFile)) {
+    // Real environment variables win over the file.
+    process.loadEnvFile(alertsFile);
+  }
   return {
     host: process.env.BUTTON_BRIDGE_HOST?.trim() || "127.0.0.1",
     port: readInt(process.env.BUTTON_BRIDGE_PORT, 8765),
@@ -68,5 +89,17 @@ export function loadConfig(): BridgeConfig {
     printRetryBaseMs: 5_000,
     printRetryMaxMs: 5 * 60_000,
     printStatusIntervalMs: 30_000,
+    printNotPrintingAfterMs: 10 * 60_000,
+    serverUrl: readOptionalString(process.env.BRIDGE_SERVER_URL),
+    serverKey: readOptionalString(process.env.BRIDGE_SERVER_KEY),
+    alertsFile,
+    alertGraceMs: 2 * 60_000,
+    alertReminderMs: 4 * 60 * 60_000,
+    alertOpeningReminderGapMs: 60 * 60_000,
+    alertTickMs: 30_000,
+    alertVenueRefreshMs: 60 * 60_000,
+    alertRetryBaseMs: 30_000,
+    alertRetryMaxMs: 10 * 60_000,
+    alertTestIntervalMs: 60_000,
   };
 }

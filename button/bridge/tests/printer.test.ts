@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLpArgs, parseDefaultPrinter, parsePrinterDetails } from "../src/printer.js";
+import { buildLpArgs, parseDefaultPrinter, parsePrinterDetails, parseQueuedJobs } from "../src/printer.js";
 
 describe("lp arguments", () => {
   it("prints A4 to the system default unless a printer is named", () => {
@@ -50,5 +50,23 @@ describe("lpstat parsing", () => {
     },
   ])("printer details: $name", ({ output, expected }) => {
     expect(parsePrinterDetails(output)).toEqual(expected);
+  });
+
+  it.each([
+    { name: "an empty queue", output: "", expected: { queuedJobs: 0, oldestJobAt: null } },
+    {
+      name: "two waiting jobs",
+      output:
+        "Museum_Printer-13      root           20480   Wed Sep 16 15:05:00 2026\n" +
+        "Museum_Printer-12      root          102400   Wed Sep 16 15:00:00 2026\n",
+      expected: { queuedJobs: 2, oldestJobAt: new Date("Wed Sep 16 15:00:00 2026").toISOString() },
+    },
+    {
+      name: "a printer name with dashes",
+      output: "HP-LaserJet-Pro-7      root           20480   Wed Sep 16 15:05:00 2026\n",
+      expected: { queuedJobs: 1, oldestJobAt: new Date("Wed Sep 16 15:05:00 2026").toISOString() },
+    },
+  ])("queued jobs: $name", ({ output, expected }) => {
+    expect(parseQueuedJobs(output)).toEqual(expected);
   });
 });

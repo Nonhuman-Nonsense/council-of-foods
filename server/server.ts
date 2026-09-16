@@ -9,6 +9,7 @@ import { Logger } from '@utils/Logger.js';
 import { initReporting } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
+import { initMail } from '@services/MailService.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 import {
@@ -34,6 +35,7 @@ import { registerMeterRoutes, registerMeterSocket } from '@api/meterRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
+import { registerBridgeRoutes } from '@api/bridgeRoutes.js';
 
 const environment: string = config.NODE_ENV;
 
@@ -45,6 +47,7 @@ const io = new Server(httpServer);
 // Initialize Services
 try {
   initReporting();
+  initMail();
   await initDb();
   initOpenAI();
 } catch (e) {
@@ -69,6 +72,7 @@ registerMeterRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);
+registerBridgeRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {

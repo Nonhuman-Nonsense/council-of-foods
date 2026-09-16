@@ -34,6 +34,17 @@ npm run test:full
 End-to-End tests are located in the client directory but rely on the server running in test mode.
 The `npm run e2e-server` script launches the server using `test-options.json`.
 
+## Email and installation bridges
+Email goes through Brevo's transactional API (`MailService`), from `COUNCIL_MAIL_FROM`. The sender name ("Council of Foods") also titles the emails. Without `COUNCIL_BREVO_API_KEY` and `COUNCIL_MAIL_FROM`, nothing is emailed.
+
+Museum installation bridges call `/api/bridge/*` with the shared `X-Bridge-Key` (`COUNCIL_BRIDGE_KEY`):
+- `GET /api/bridge/venues` lists `COUNCIL_VENUES`, with addresses masked, for the staff page's venue picker.
+- `POST /api/bridge/printer-alerts` emails a printer problem, reminder, recovery or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. It's rate-limited to 12 per venue per hour.
+
+Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to email anyone else. Venues are a JSON array (see `example.env`) and are validated at startup.
+
+To try it locally without Brevo, leave the key unset: the alert endpoint answers 503. To send a real email to yourself, set a Brevo key and add a venue with your own address.
+
 ## Key Components
 - **MeetingManager**: Orchestrates the meeting lifecycle, state, and event handling.
 - **AudioSystem**: Manages queuing and generating audio (TTS).

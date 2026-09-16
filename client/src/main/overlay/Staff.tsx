@@ -14,6 +14,7 @@ import {
   useButtonBridgeHealth,
 } from "@/museum/button/useButton";
 import type {
+  BridgeAlertsHealth,
   BridgePrintHealth,
   ButtonBridgeHealthState,
   ButtonTransportStatus,
@@ -24,6 +25,13 @@ import { modeSwitchButtonToggleStyle } from "@/museum/ModeSwitchButton";
 import ProtocolDocument from "@council/protocol/ProtocolDocument";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
+import { describePrinterReason } from "@shared/printerReasons";
+import {
+  chooseAlertVenue,
+  fetchAlertVenues,
+  sendTestAlert,
+  type AlertVenue,
+} from "@/museum/print/alertsClient";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
@@ -195,6 +203,30 @@ function getStaffPrintDetailLines(print: EnabledPrintHealth): string[] {
   if (print.lastPrintedAt) {
     lines.push(`Last printed ${new Date(print.lastPrintedAt).toLocaleString()}`);
   }
+  return lines;
+}
+
+type AlertsStatus = "notConfigured" | "chooseVenue" | "failing" | "on";
+
+function getAlertsStatus(alerts: BridgeAlertsHealth): AlertsStatus {
+  if (!alerts.configured) return "notConfigured";
+  if (!alerts.venue) return "chooseVenue";
+  if (alerts.lastError) return "failing";
+  return "on";
+}
+
+const ALERTS_STATUS_TONE: Record<AlertsStatus, StatusTone> = {
+  notConfigured: "idle",
+  chooseVenue: "warn",
+  failing: "error",
+  on: "ok",
+};
+
+function getStaffAlertDetailLines(alerts: BridgeAlertsHealth): string[] {
+  const lines: string[] = [];
+  if (alerts.venue) lines.push(`Alert emails go to ${alerts.venue.recipients.join(", ")}`);
+  if (alerts.lastSentAt) lines.push(`Last alert sent ${new Date(alerts.lastSentAt).toLocaleString()}`);
+  if (alerts.lastError) lines.push(`Alert error: ${alerts.lastError}`);
   return lines;
 }
 
@@ -393,6 +425,9 @@ function Staff(): ReactElement {
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive || printSummariesEnabled);
+  const alertsHealth = bridgeHealth.status === "running" ? bridgeHealth.alerts : null;
+  const alertsStatus = alertsHealth ? getAlertsStatus(alertsHealth) : null;
+  const alertsConfigured = alertsHealth?.configured === true;
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
   const [installationId, setInstallationIdState] = useState(getInstallationId);
@@ -411,6 +446,12 @@ function Staff(): ReactElement {
     }
   };
 
+  const [alertVenues, setAlertVenues] = useState<AlertVenue[] | null>(null);
+  const [alertVenuesError, setAlertVenuesError] = useState<string | null>(null);
+  const [testAlert, setTestAlert] = useState<{ state: "idle" | "sending" | "sent" } | { state: "failed"; error: string }>({
+    state: "idle",
+  });
+
   const button = useButton("staff");
 
   useEffect(() => {
@@ -422,6 +463,45 @@ function Staff(): ReactElement {
     button.setArmed(true);
   }, [button.setArmed]);
 
+  // The venue list comes from the council server through the bridge, so only ask
+  // once the bridge says alerts are configured.
+  useEffect(() => {
+    if (!printSummariesEnabled || !alertsConfigured) return;
+    let cancelled = false;
+    fetchAlertVenues().then(
+      ({ venues }) => {
+        if (cancelled) return;
+        setAlertVenues(venues);
+        setAlertVenuesError(null);
+      },
+      (error: unknown) => {
+        if (!cancelled) setAlertVenuesError(error instanceof Error ? error.message : String(error));
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [printSummariesEnabled, alertsConfigured]);
+
+  const chooseVenue = async (venueId: string): Promise<void> => {
+    try {
+      await chooseAlertVenue(venueId === "" ? null : venueId);
+      setAlertVenuesError(null);
+    } catch (error) {
+      setAlertVenuesError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const sendAlertTest = async (): Promise<void> => {
+    setTestAlert({ state: "sending" });
+    try {
+      await sendTestAlert();
+      setTestAlert({ state: "sent" });
+    } catch (error) {
+      setTestAlert({ state: "failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  };
+
   const daemonStatus = getBridgeDaemonStatus(bridgeHealth);
   const appStatus = getBridgeAppStatus(bridgeAvailable, bridgeHealth, bridgeStatus);
   const usbStatus = getUsbButtonStatus(bridgeHealth);
@@ -430,7 +510,12 @@ function Staff(): ReactElement {
 
   const printerStatus = getPrinterStatus(bridgeHealth);
   const printHealth = getPrintHealth(bridgeHealth);
-  const printDetailLines = printHealth ? getStaffPrintDetailLines(printHealth) : [];
+  const printDetailLines = [
+    ...(printHealth ? getStaffPrintDetailLines(printHealth) : []),
+    ...(alertsHealth ? getStaffAlertDetailLines(alertsHealth) : []),
+  ];
+  // Protocols not yet on paper: still in the bridge's folder, or accepted by the printer.
+  const printWaiting = printHealth ? printHealth.pending + (printHealth.printer?.queuedJobs ?? 0) : 0;
 
   // One panel for everything that goes through the bridge: the hardware button
   // and the printer each add their chips and hints when staff switch them on.
@@ -608,9 +693,31 @@ function Staff(): ReactElement {
                   {printHealth ? (
                     <StaffStatusChip
                       label={t("staff.print.pendingLabel")}
-                      value={String(printHealth.pending)}
-                      tone={printHealth.pending > 0 ? "warn" : "ok"}
+                      value={String(printWaiting)}
+                      tone={printWaiting > 0 ? "warn" : "ok"}
                       testId="staff-print-pending"
+                    />
+                  ) : null}
+                  {printHealth?.attention ? (
+                    <StaffStatusChip
+                      label={t("staff.print.attentionLabel")}
+                      value={`${describePrinterReason(printHealth.attention.reason)} (${t("staff.print.since", {
+                        time: new Date(printHealth.attention.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                      })})`}
+                      tone="error"
+                      testId="staff-print-attention"
+                    />
+                  ) : null}
+                  {alertsHealth && alertsStatus ? (
+                    <StaffStatusChip
+                      label={t("staff.alerts.label")}
+                      value={
+                        alertsStatus === "on" && alertsHealth.venue
+                          ? `${t("staff.alerts.status.on")} — ${alertsHealth.venue.name}`
+                          : t(`staff.alerts.status.${alertsStatus}`)
+                      }
+                      tone={ALERTS_STATUS_TONE[alertsStatus]}
+                      testId="staff-alerts-status"
                     />
                   ) : null}
                 </>
@@ -641,6 +748,49 @@ function Staff(): ReactElement {
                     meetingId="TEST"
                   />
                 </div>
+              </div>
+            ) : null}
+
+            {printSummariesEnabled && alertsConfigured ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {t("staff.alerts.venueLabel")}
+                  <select
+                    data-testid="staff-alerts-venue"
+                    value={alertsHealth?.venue?.id ?? ""}
+                    disabled={alertVenues === null}
+                    onChange={(event) => void chooseVenue(event.target.value)}
+                    style={{ fontSize: "16px" }}
+                  >
+                    <option value="">{t("staff.alerts.noVenue")}</option>
+                    {(alertVenues ?? []).map((venue) => (
+                      <option key={venue.id} value={venue.id}>
+                        {venue.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  data-testid="staff-alerts-test"
+                  disabled={!alertsHealth?.venue || testAlert.state === "sending"}
+                  onClick={() => void sendAlertTest()}
+                  style={staffCompactButton}
+                >
+                  {t("staff.alerts.test")}
+                </button>
+                {testAlert.state !== "idle" ? (
+                  <span data-testid="staff-alerts-test-result">
+                    {testAlert.state === "failed"
+                      ? `${t("staff.alerts.testResult.failed")}: ${testAlert.error}`
+                      : t(`staff.alerts.testResult.${testAlert.state}`)}
+                  </span>
+                ) : null}
+                {alertVenuesError ? (
+                  <span data-testid="staff-alerts-error" style={{ fontStyle: "italic" }}>
+                    {alertVenuesError}
+                  </span>
+                ) : null}
               </div>
             ) : null}
 
