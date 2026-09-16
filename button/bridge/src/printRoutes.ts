@@ -1,5 +1,6 @@
 import type http from "node:http";
 import { isAllowedOrigin } from "./cors.js";
+import type { AlertMonitor } from "./alertMonitor.js";
 import { MOCK_PRINTER_MODES, type MockPrinter, type MockPrinterMode } from "./printer.js";
 import { InvalidPrintJobError, type PrintSpool } from "./printSpool.js";
 import { readJsonBody } from "./testApi.js";
@@ -11,6 +12,7 @@ export type PrintRuntime = {
   spool: PrintSpool;
   /** Set when the bridge runs the mock printer; enables the test endpoint. */
   mockPrinter: MockPrinter | null;
+  alerts: AlertMonitor | null;
 };
 
 class BodyTooLargeError extends Error {}

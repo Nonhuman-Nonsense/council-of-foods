@@ -3,6 +3,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { BridgeConfig } from "./config.js";
 import { corsHeaders, isAllowedOrigin } from "./cors.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
+import { ALERT_PATHS, handleAlerts } from "./alertRoutes.js";
 import { handlePrint, handleTestPrinter, PRINT_PATH, TEST_PRINTER_PATH, type PrintRuntime } from "./printRoutes.js";
 import { isMockSerialManager, readJsonBody } from "./testApi.js";
 import { BRIDGE_VERSION, parseClientMessage, serializeServerMessage, type ServerMessage } from "./types.js";
@@ -60,6 +61,7 @@ export class WsServer {
           expectedVendorId: diagnostics.expectedVendorId,
           scannedPorts: diagnostics.scannedPorts,
           print: this.print?.spool.health() ?? { enabled: false },
+          alerts: this.print?.alerts?.health() ?? null,
         });
         res.writeHead(200, { "Content-Type": "application/json", ...cors });
         res.end(body);
@@ -75,6 +77,16 @@ export class WsServer {
           return;
         }
         void handlePrint(req, res, { print: this.print, maxBytes: this.config.printMaxBytes, cors });
+        return;
+      }
+
+      if (ALERT_PATHS.includes(pathname)) {
+        if (!isLocalAddress(remote)) {
+          res.writeHead(403);
+          res.end();
+          return;
+        }
+        void handleAlerts(req, res, pathname, this.print?.alerts ?? null, cors);
         return;
       }
 

@@ -1,4 +1,6 @@
+import os from "node:os";
 import path from "node:path";
+import { AlertMonitor } from "./alertMonitor.js";
 import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import { loadConfig } from "./config.js";
 import { MockSerialManager } from "./mockSerialManager.js";
@@ -6,6 +8,7 @@ import { LpPrinter, MockPrinter } from "./printer.js";
 import type { PrintRuntime } from "./printRoutes.js";
 import { PrintSpool } from "./printSpool.js";
 import { SerialManager } from "./serialManager.js";
+import { ServerClient } from "./serverClient.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
 import { WsServer } from "./wsServer.js";
 
@@ -36,7 +39,23 @@ function createPrintRuntime(config: ReturnType<typeof loadConfig>): PrintRuntime
     statusIntervalMs: config.printStatusIntervalMs,
     notPrintingAfterMs: config.printNotPrintingAfterMs,
   });
-  return { spool, mockPrinter };
+  const alerts = new AlertMonitor({
+    server: config.serverUrl && config.serverKey ? new ServerClient(config.serverUrl, config.serverKey) : null,
+    spool,
+    stateFile: path.join(config.printSpoolDir, "alerts-state.json"),
+    host: os.hostname(),
+    timings: {
+      graceMs: config.alertGraceMs,
+      reminderMs: config.alertReminderMs,
+      openingReminderGapMs: config.alertOpeningReminderGapMs,
+    },
+    tickMs: config.alertTickMs,
+    venueRefreshMs: config.alertVenueRefreshMs,
+    deliveryRetryBaseMs: config.alertRetryBaseMs,
+    deliveryRetryMaxMs: config.alertRetryMaxMs,
+    testAlertIntervalMs: config.alertTestIntervalMs,
+  });
+  return { spool, mockPrinter, alerts };
 }
 
 function notifyNoClientIfSerialOpen(serial: SerialManagerLike, clientCount: number): void {
@@ -82,12 +101,14 @@ async function main(): Promise<void> {
   await print?.spool.start().catch((error: unknown) => {
     console.error("[button-bridge/print] spool failed to start — printing unavailable", error);
   });
+  await print?.alerts?.start();
   serial.start();
   ws.start();
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[button-bridge] ${signal} — shutting down`);
     await serial.stop();
+    await print?.alerts?.stop();
     await print?.spool.stop();
     await ws.stop();
     process.exit(0);
