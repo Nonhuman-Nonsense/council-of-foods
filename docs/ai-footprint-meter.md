@@ -300,9 +300,10 @@ providers directly — their answer (or refusal) is itself content.
 - `POST /api/usage/realtime` `{ usageToken, responses }`: unknown/expired token → 403; at most
   50 responses per report and 2,000 per token; each part parsed and clamped by
   `parseRealtimeUsage` (e.g. ≤ 50,000 characters, ≤ 3,600 audio seconds per response).
-- Client `realtime/realtimeUsageReporter.ts`: batches of 5, flushes on session end and on
-  `pagehide`, `fetch` with `keepalive` so the last batch survives a reload. Fire and forget —
-  not a reconciled socket intent (RESILIENCE.md does not apply).
+- Client `realtime/realtimeUsageReporter.ts`: one POST per completed response, sent immediately
+  so the meter moves while the agent speaks (a few small requests a minute — no socket
+  needed). `fetch` with `keepalive`; fire and forget — not a reconciled socket intent
+  (RESILIENCE.md does not apply).
 - Tests: server `realtimeSessionApi.integration.test.ts` (tagging for setup/meta sessions,
   forged token, clamping); client `realtimeUsageReporter.test.ts`.
 
@@ -310,11 +311,17 @@ providers directly — their answer (or refusal) is itself content.
 
 - ✅ EcoLogits export script, committed table, TS evaluator, golden-sample test, `footprint:check`
   / `footprint:update` (see "EcoLogits as the footprint engine").
-- Add `inworld|soniox/stt-rt-v4` to the table (no published size; estimate by analogy, widest
-  range, per audio second).
-- Realtime TTS reports no request time, so EcoLogits' LLM latency regression applies (~2.3 GPU-s
-  per second of speech). Streaming TTS must generate at least as fast as playback, so cap
-  generation time at `audio_seconds` for audio models — defensible and much tighter.
+- ✅ `inworld|soniox/stt-rt-v4`: 0.6–2B (Parakeet TDT 0.6B to Whisper large-v3 1.55B, rounded up),
+  50 tokens per audio second, EcoLogits' generic US cloud profile. Estimate by analogy, labelled.
+- ✅ Estimation rule for summed totals (`estimateImpacts`): measured `request_seconds` is **not**
+  used, because the same model is called with it (server) and without it (realtime), so a summed
+  request time would cover only part of the tokens. Generation time comes from EcoLogits'
+  latency model (published tokens/s where known); for audio models it is capped at the audio's
+  length, since streamed speech and transcription run at least as fast as real time.
+  `estimateEcologitsImpacts` is the exact EcoLogits computation the golden test checks.
+- Known limitation, inherited from EcoLogits: only output tokens drive energy. Input (prefill)
+  is not modelled, which matters for the realtime agents (~3,000 input tokens per turn).
+- Remaining: training block (Mistral published figures), room figure, methodology page.
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.

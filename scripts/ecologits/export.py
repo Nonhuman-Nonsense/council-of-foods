@@ -49,6 +49,12 @@ ELEVENLABS_ASSUMPTIONS = [
     "Responses carry x-region: europe-west4 (Google Cloud, Netherlands): EcoLogits' google_genai data-centre profile with the Dutch electricity mix is assumed.",
 ]
 
+SONIOX_ASSUMPTIONS = [
+    "Soniox publishes no model size: assumed in the range of open speech-recognition models (NVIDIA Parakeet TDT 0.6B to OpenAI Whisper large-v3 1.55B, rounded up to 2B).",
+    "Modelled as 50 tokens per audio second (Whisper's encoder frame rate), with generation capped at real time since recognition is streamed.",
+    "Soniox hosts in the US by default (EU and Japan on request); EcoLogits' generic US cloud profile (huggingface_hub: PUE 1.09–1.14, WUE 0.13–0.99) is assumed.",
+]
+
 # Keys match what the server records: "<provider>|<model>".
 MODELS = {
     "inworld|mistral/mistral-large-3": {
@@ -79,6 +85,17 @@ MODELS = {
         "tokensPerUnit": 50,
         "assumptions": INWORLD_TTS_ASSUMPTIONS + ["Size unpublished: the range of TTS-1 and TTS-1-Max (1.6–8.8B) is assumed."],
         "sources": INWORLD_TTS_SOURCES,
+    },
+    "inworld|soniox/stt-rt-v4": {
+        "custom": {"parameters": RangeValue(min=0.6, max=2.0), "datacenter": "huggingface_hub"},
+        "usageMeasure": "audio_seconds",
+        "tokensPerUnit": 50,
+        "assumptions": SONIOX_ASSUMPTIONS,
+        "sources": [
+            "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2",
+            "https://huggingface.co/openai/whisper-large-v3",
+            "https://soniox.com/docs/data-residency",
+        ],
     },
     "elevenlabs|eleven_flash_v2_5": {
         "custom": {"parameters": RangeValue(min=1.6, max=8.8), "datacenter": "google_genai", "zone": "NLD"},

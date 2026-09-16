@@ -8,7 +8,7 @@ import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from "@assets/animations/loading.json";
 import { bootstrapHumanInputRealtimeSession } from "@api/realtimeSession";
-import { createRealtimeUsageReporter, type RealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
+import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
 import { log } from "@/logger";
 import {
   createRealtimeConnection,
@@ -318,7 +318,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const transcriptionModelRef = useRef<string>("");
   const completedTranscriptKeysRef = useRef<Set<string>>(new Set());
   const connectionRef = useRef<RealtimeConnection | null>(null);
-  const usageReporterRef = useRef<RealtimeUsageReporter | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
   const finishingQuietTimerRef = useRef<number | null>(null);
   const finishingNoEventsTimerRef = useRef<number | null>(null);
@@ -555,8 +554,6 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   function closeRealtimeConnection() {
     clearFinishingTimers();
-    usageReporterRef.current?.dispose();
-    usageReporterRef.current = null;
     connectionRef.current?.close();
     connectionRef.current = null;
     setMicStream(null);
@@ -586,9 +583,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       );
 
       const sessionForDc = bootstrap.session;
-      usageReporterRef.current?.dispose();
-      const usageReporter = createRealtimeUsageReporter(bootstrap.usageToken);
-      usageReporterRef.current = usageReporter;
+      const reportUsage = createRealtimeUsageReporter(bootstrap.usageToken);
       realtimeProviderRef.current = bootstrap.provider;
       transcriptionModelRef.current = readTranscriptionModel(bootstrap.session);
       hiLog("bootstrap-ok", {
@@ -627,7 +622,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
           const usage = (event as { usage?: unknown } | null)?.usage;
           if (usage !== undefined) {
             hiLog("usage", { type: dcEventType(event), usage });
-            usageReporter.report(usage);
+            reportUsage(usage);
           }
           if (!isHumanInputRealtimeEvent(event)) {
             const type = dcEventType(event);

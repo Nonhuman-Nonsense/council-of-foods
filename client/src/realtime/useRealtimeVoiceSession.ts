@@ -30,7 +30,7 @@ import {
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
 import { log, summarizeLogPayload } from "@/logger";
 import { getInstallationId } from "@/settings/councilSettings";
-import { createRealtimeUsageReporter, type RealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
+import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
 
 function realtimeDebugLog(...args: unknown[]): void {
   const [first, ...rest] = args;
@@ -295,7 +295,6 @@ export function useRealtimeVoiceSession(
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
 
-  const usageReporterRef = useRef<RealtimeUsageReporter | null>(null);
   const audioElementRef = useRef(audioElement);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
@@ -384,8 +383,6 @@ export function useRealtimeVoiceSession(
   }, []);
 
   const cleanup = useCallback(() => {
-    usageReporterRef.current?.dispose();
-    usageReporterRef.current = null;
     abortRef.current?.abort();
     abortRef.current = null;
     attemptRef.current += 1;
@@ -531,9 +528,7 @@ export function useRealtimeVoiceSession(
       }
 
       const { provider, session: defaults, iceServers, usageToken } = bootstrapValue;
-      usageReporterRef.current?.dispose();
-      const usageReporter = createRealtimeUsageReporter(usageToken);
-      usageReporterRef.current = usageReporter;
+      const reportUsage = createRealtimeUsageReporter(usageToken);
       if (micStreamValue) setMicTracksEnabled(micStreamValue, !pttMic);
 
       serverDefaultsRef.current = defaults;
@@ -761,7 +756,7 @@ export function useRealtimeVoiceSession(
           },
           onResponseDone: (info) => {
             // Billed whether or not this attempt is still current.
-            usageReporter.report(info?.usage);
+            reportUsage(info?.usage);
             const cancelled = info?.status === "cancelled" || info?.status === "failed";
             // Transition state, not display state: this decides whether the
             // next transition may trust the playback clock, so it is tracked

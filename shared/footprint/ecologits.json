@@ -963,6 +963,199 @@
         }
       ]
     },
+    "inworld|soniox/stt-rt-v4": {
+      "ecologitsModel": null,
+      "usageMeasure": "audio_seconds",
+      "tokensPerUnit": 50,
+      "datacenterZone": "USA",
+      "activeParameters": [
+        0.6,
+        2.0
+      ],
+      "totalParameters": [
+        0.6,
+        2.0
+      ],
+      "low": {
+        "secondsPerToken": 0.039844408859939465,
+        "firstTokenSeconds": 0.0,
+        "perToken": {
+          "energy": 4.454931348154667e-08,
+          "gwp": 1.712475610230654e-08,
+          "adpe": 4.390334843606425e-15,
+          "pe": 4.3161156873461675e-07,
+          "wcf": 1.4484612562949824e-07
+        },
+        "perGenerationSecond": {
+          "energy": 7.09635416661235e-07,
+          "gwp": 4.355442708319717e-07,
+          "adpe": 9.186499765644556e-12,
+          "pe": 8.934881853262752e-06,
+          "wcf": 2.307284505191505e-06
+        }
+      },
+      "high": {
+        "secondsPerToken": 0.04079432119314898,
+        "firstTokenSeconds": 0.0,
+        "perToken": {
+          "energy": 4.750164453529503e-08,
+          "gwp": 1.825963215936741e-08,
+          "adpe": 4.681287068953325e-15,
+          "pe": 4.602149329157523e-07,
+          "wcf": 1.9003132899806952e-07
+        },
+        "perGenerationSecond": {
+          "energy": 7.421874999976114e-07,
+          "gwp": 4.4805729166829785e-07,
+          "adpe": 9.189707773456878e-12,
+          "pe": 9.250259457494026e-06,
+          "wcf": 2.9691367187166234e-06
+        }
+      },
+      "assumptions": [
+        "Soniox publishes no model size: assumed in the range of open speech-recognition models (NVIDIA Parakeet TDT 0.6B to OpenAI Whisper large-v3 1.55B, rounded up to 2B).",
+        "Modelled as 50 tokens per audio second (Whisper's encoder frame rate), with generation capped at real time since recognition is streamed.",
+        "Soniox hosts in the US by default (EU and Japan on request); EcoLogits' generic US cloud profile (huggingface_hub: PUE 1.09\u20131.14, WUE 0.13\u20130.99) is assumed."
+      ],
+      "warnings": [],
+      "sources": [
+        "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2",
+        "https://huggingface.co/openai/whisper-large-v3",
+        "https://soniox.com/docs/data-residency"
+      ],
+      "samples": [
+        {
+          "units": 1,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              2.582283382410667e-06,
+              2.746175976764751e-06
+            ],
+            "gwp": [
+              1.0740099405319937e-06,
+              1.1370102538017037e-06
+            ],
+            "adpe": [
+              4.81276662500273e-12,
+              4.828918240176325e-12
+            ],
+            "pe": [
+              2.6048019363370233e-05,
+              2.763587637451034e-05
+            ],
+            "wcf": [
+              8.39594853407908e-06,
+              1.0986134809278476e-05
+            ]
+          }
+        },
+        {
+          "units": 40,
+          "requestSeconds": 3.0,
+          "impacts": {
+            "energy": [
+              9.122753321309333e-05,
+              9.722985157059006e-05
+            ],
+            "gwp": [
+              3.555614501711308e-05,
+              3.786343619373482e-05
+            ],
+            "adpe": [
+              3.6340168984147305e-11,
+              3.693169745827861e-11
+            ],
+            "pe": [
+              0.0008900277830290698,
+              0.0009481806442038411
+            ],
+            "wcf": [
+              0.00029661410477462144,
+              0.0003889700681523891
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              0.0008913410873392667,
+              0.0009504039844559005
+            ],
+            "gwp": [
+              0.00034271289418154744,
+              0.0003654166718331815
+            ],
+            "adpe": [
+              9.23999467549509e-11,
+              9.822059526579515e-11
+            ],
+            "pe": [
+              0.008636698815618973,
+              0.009208923788043768
+            ],
+            "wcf": [
+              0.002898076154842569,
+              0.0038021111483207653
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 20.0,
+          "impacts": {
+            "energy": [
+              0.0009051789779642667,
+              0.0009648766407059005
+            ],
+            "gwp": [
+              0.0003512060074627975,
+              0.00037415378902068153
+            ],
+            "adpe": [
+              2.715366921850249e-10,
+              2.7741989684821287e-10
+            ],
+            "pe": [
+              0.00881092901175791,
+              0.009389303847463955
+            ],
+            "wcf": [
+              0.0029430682026941315,
+              0.0038600093143363904
+            ]
+          }
+        },
+        {
+          "units": 2000,
+          "requestSeconds": null,
+          "impacts": {
+            "energy": [
+              0.007282431716470684,
+              0.007777867979583528
+            ],
+            "gwp": [
+              0.003447876010599408,
+              0.003653782522854984
+            ],
+            "adpe": [
+              3.704209874976966e-08,
+              3.795691776505491e-08
+            ],
+            "pe": [
+              0.07876166544119106,
+              0.08375729883427463
+            ],
+            "wcf": [
+              0.02367785128112222,
+              0.031115524596912945
+            ]
+          }
+        }
+      ]
+    },
     "elevenlabs|eleven_flash_v2_5": {
       "ecologitsModel": null,
       "usageMeasure": "audio_seconds",

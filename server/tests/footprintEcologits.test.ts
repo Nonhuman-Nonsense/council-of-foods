@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
     ecologitsSamples,
+    estimateEcologitsImpacts,
     estimateImpacts,
     findEcologitsModel,
     IMPACTS,
@@ -19,19 +20,29 @@ describe("EcoLogits footprint table", () => {
     );
 
     it.each(cases)("reproduces EcoLogits for $key at $label", ({ model, sample }) => {
-        const impacts = estimateImpacts(model, {
-            measures: {
-                [model.usageMeasure]: sample.units,
-                ...(sample.requestSeconds !== null ? { request_seconds: sample.requestSeconds } : {}),
-            },
-            requests: 1,
-        });
+        const impacts = estimateEcologitsImpacts(
+            model,
+            sample.units,
+            1,
+            sample.requestSeconds ?? Number.POSITIVE_INFINITY,
+        );
 
         for (const impact of IMPACTS) {
             const [low, high] = sample.impacts[impact];
             expectSame(impacts[impact].low, low);
             expectSame(impacts[impact].high, high);
         }
+    });
+
+    it.each([
+        { key: "inworld|inworld-tts-1.5-max", measures: { audio_seconds: 30 }, units: 30, cap: 30 },
+        { key: "inworld|mistral/mistral-large-3", measures: { output_tokens: 400, request_seconds: 0.1 }, units: 400, cap: Infinity },
+    ])("estimates $key with generation time capped at $cap s", ({ key, measures, units, cap }) => {
+        const [provider, model] = key.split("|");
+        const entry = findEcologitsModel(provider, model)!;
+
+        expect(estimateImpacts(entry, { measures, requests: 2 }))
+            .toEqual(estimateEcologitsImpacts(entry, units, 2, cap));
     });
 
     it("has an entry for every model production is configured to call", () => {

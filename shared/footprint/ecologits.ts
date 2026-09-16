@@ -67,26 +67,46 @@ export interface UsageSummary {
     requests: number;
 }
 
-function estimateEnd(end: RangeEnd, tokens: number, requests: number, requestSeconds: number): Record<Impact, number> {
-    const generationSeconds = Math.min(requestSeconds, tokens * end.secondsPerToken + requests * end.firstTokenSeconds);
-    const impacts = {} as Record<Impact, number>;
+/**
+ * EcoLogits for `requests` requests totalling `units`, with generation time capped at
+ * `capSeconds` — exactly EcoLogits' own result when the cap is the measured request latency.
+ */
+export function estimateEcologitsImpacts(
+    model: EcologitsModel,
+    units: number,
+    requests: number,
+    capSeconds: number,
+): Impacts {
+    const tokens = units * model.tokensPerUnit;
+    const impacts = {} as Impacts;
+    const ends = { low: model.low, high: model.high };
+    const generationSeconds = {
+        low: Math.min(capSeconds, tokens * ends.low.secondsPerToken + requests * ends.low.firstTokenSeconds),
+        high: Math.min(capSeconds, tokens * ends.high.secondsPerToken + requests * ends.high.firstTokenSeconds),
+    };
     for (const impact of IMPACTS) {
-        impacts[impact] = end.perToken[impact] * tokens + end.perGenerationSecond[impact] * generationSeconds;
+        impacts[impact] = {
+            low: ends.low.perToken[impact] * tokens + ends.low.perGenerationSecond[impact] * generationSeconds.low,
+            high: ends.high.perToken[impact] * tokens + ends.high.perGenerationSecond[impact] * generationSeconds.high,
+        };
     }
     return impacts;
 }
 
+/**
+ * Impacts of summed usage for one model.
+ *
+ * Measured request time is not used: the same model is called both with it (server calls)
+ * and without it (realtime sessions), so a summed request time would cover only some of the
+ * tokens. Generation time comes from EcoLogits' latency model instead (published tokens per
+ * second where known). For audio models that model is an LLM regression far slower than any
+ * streaming voice, so generation is capped at the audio's own length: streamed speech and
+ * transcription must run at least as fast as real time.
+ */
 export function estimateImpacts(model: EcologitsModel, usage: UsageSummary): Impacts {
-    const tokens = (usage.measures[model.usageMeasure] ?? 0) * model.tokensPerUnit;
-    const requestSeconds = usage.measures.request_seconds ?? Number.POSITIVE_INFINITY;
-    const low = estimateEnd(model.low, tokens, usage.requests, requestSeconds);
-    const high = estimateEnd(model.high, tokens, usage.requests, requestSeconds);
-
-    const impacts = {} as Impacts;
-    for (const impact of IMPACTS) {
-        impacts[impact] = { low: low[impact], high: high[impact] };
-    }
-    return impacts;
+    const units = usage.measures[model.usageMeasure] ?? 0;
+    const capSeconds = model.usageMeasure === "audio_seconds" ? units : Number.POSITIVE_INFINITY;
+    return estimateEcologitsImpacts(model, units, usage.requests, capSeconds);
 }
 
 /** Every exported model, for the methodology page and tests. */

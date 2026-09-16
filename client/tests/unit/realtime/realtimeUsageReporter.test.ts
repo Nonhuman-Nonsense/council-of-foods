@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { councilFetch } from "@/api/http";
-import { createRealtimeUsageReporter, USAGE_REPORT_BATCH_SIZE } from "@/realtime/realtimeUsageReporter";
+import { createRealtimeUsageReporter } from "@/realtime/realtimeUsageReporter";
 
 vi.mock("@/api/http", () => ({ councilFetch: vi.fn() }));
 
@@ -11,73 +11,37 @@ const greeting = {
   tts: { model: "inworld-tts-1.5-max", characters: 261, audio_seconds: 13.6 },
 };
 
-function sentBatches(): unknown[][] {
-  return vi.mocked(councilFetch).mock.calls.map(([, init]) => JSON.parse(String(init?.body)).responses);
-}
-
 describe("realtime usage reporter", () => {
   beforeEach(() => {
     vi.mocked(councilFetch).mockReset().mockResolvedValue(new Response(null, { status: 204 }));
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
+  it("sends each response's usage immediately, so the meter moves live", () => {
+    const reportUsage = createRealtimeUsageReporter("token-1");
 
-  it("sends usage in batches against the session's token", () => {
-    const reporter = createRealtimeUsageReporter("token-1");
+    reportUsage(greeting);
 
-    for (let i = 0; i < USAGE_REPORT_BATCH_SIZE + 1; i++) reporter.report(greeting);
-
-    expect(sentBatches()).toEqual([Array(USAGE_REPORT_BATCH_SIZE).fill(greeting)]);
+    expect(councilFetch).toHaveBeenCalledTimes(1);
     const [path, init] = vi.mocked(councilFetch).mock.calls[0];
     expect(path).toBe("/api/usage/realtime");
-    expect(JSON.parse(String(init?.body)).usageToken).toBe("token-1");
+    expect(JSON.parse(String(init?.body))).toEqual({ usageToken: "token-1", responses: [greeting] });
     expect(init?.keepalive).toBe(true);
-    reporter.dispose();
   });
 
   it.each([
-    { name: "session end", end: (reporter: ReturnType<typeof createRealtimeUsageReporter>) => reporter.dispose() },
-    { name: "page hide", end: () => window.dispatchEvent(new Event("pagehide")) },
-  ])("sends what is queued on $name", ({ end }) => {
-    const reporter = createRealtimeUsageReporter("token-1");
-    reporter.report(greeting);
-
-    end(reporter);
-
-    expect(sentBatches()).toEqual([[greeting]]);
-    reporter.dispose();
-  });
-
-  it.each([
-    { name: "a cancelled response with no parts", usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 } },
-    { name: "a missing usage", usage: undefined },
-  ])("skips $name", ({ usage }) => {
-    const reporter = createRealtimeUsageReporter("token-1");
-
-    reporter.report(usage);
-    reporter.dispose();
+    { name: "a cancelled response with no parts", token: "token-1", usage: { total_tokens: 0, input_tokens: 0, output_tokens: 0 } },
+    { name: "a missing usage", token: "token-1", usage: undefined },
+    { name: "usage without a token", token: undefined, usage: greeting },
+  ])("skips $name", ({ token, usage }) => {
+    createRealtimeUsageReporter(token)(usage);
 
     expect(councilFetch).not.toHaveBeenCalled();
   });
 
-  it("reports nothing without a usage token", () => {
-    const reporter = createRealtimeUsageReporter(undefined);
+  it("swallows a failed report", async () => {
+    vi.mocked(councilFetch).mockRejectedValue(new TypeError("offline"));
 
-    reporter.report(greeting);
-    reporter.dispose();
-
-    expect(councilFetch).not.toHaveBeenCalled();
-  });
-
-  it("stops listening for page hide once disposed", () => {
-    const reporter = createRealtimeUsageReporter("token-1");
-    reporter.dispose();
-    reporter.report(greeting);
-
-    window.dispatchEvent(new Event("pagehide"));
-
-    expect(councilFetch).not.toHaveBeenCalled();
+    expect(() => createRealtimeUsageReporter("token-1")(greeting)).not.toThrow();
+    await Promise.resolve();
   });
 });

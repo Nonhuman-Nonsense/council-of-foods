@@ -32,11 +32,15 @@ async function latestVersion() {
     return (await res.json()).info.version;
 }
 
-/** Energy (Wh) of one SUMMARY_UNITS response, at the given range end, with unmeasured latency. */
+/**
+ * Energy (Wh) of one SUMMARY_UNITS request at the given range end, the way the meter estimates
+ * it (shared/footprint/ecologits.ts): modelled latency, capped at real time for audio models.
+ */
 function summaryWh(model, end) {
     const c = model[end];
     const tokens = SUMMARY_UNITS * model.tokensPerUnit;
-    const seconds = tokens * c.secondsPerToken + c.firstTokenSeconds;
+    const modelled = tokens * c.secondsPerToken + c.firstTokenSeconds;
+    const seconds = model.usageMeasure === "audio_seconds" ? Math.min(modelled, SUMMARY_UNITS) : modelled;
     return (c.perToken.energy * tokens + c.perGenerationSecond.energy * seconds) * 1000;
 }
 
