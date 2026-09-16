@@ -145,13 +145,16 @@ export async function acquireMicrophone(): Promise<MediaStream> {
  *   have connected a moment later.
  * - `unavailable` — the voice agent can't run, but the app is fine without it.
  *   Web-only: the visitor keeps a fully usable, clickable interface.
+ * - `refused` — the server turned the session down (a 4xx, or a response we
+ *   can't use). Retrying won't help, but on the web the app is fine without the
+ *   agent, so it gives up quietly instead of taking the page down with it.
  */
-export type RealtimeErrorKind = "fatal" | "retryable" | "capacity" | "unavailable";
+export type RealtimeErrorKind = "fatal" | "retryable" | "capacity" | "unavailable" | "refused";
 
 /**
  * Classify a realtime connection error.
  *
- * `selfHealing` decides how microphone failures land. An installation with no working
+ * `selfHealing` decides how refusals and microphone failures land. An installation with no working
  * mic is genuinely broken and should surface as a terminal error, since nobody
  * is there to grant a permission; a web visitor who declines the prompt has
  * simply chosen not to talk, and the setup flow still works by clicking.
@@ -164,13 +167,16 @@ export function classifyRealtimeError(
     // 503 is the app server saying the provider is at capacity — the only
     // status it answers that way (see sendRealtimeFailure).
     if (err.status === 503) return "capacity";
-    // 4xx = configuration/auth error — retrying won't help
-    if (err.status >= 400 && err.status < 500) return "fatal";
+    // 4xx = configuration/auth error, or something in front of us (a CDN)
+    // turning the request away — retrying won't help.
+    if (err.status >= 400 && err.status < 500) return opts?.selfHealing ? "fatal" : "refused";
     // 5xx = server/provider blip — worth retrying
     return "retryable";
   }
   // Invalid bootstrap shape — a structural/config problem
-  if (err instanceof Error && err.message.includes("response invalid")) return "fatal";
+  if (err instanceof Error && err.message.includes("response invalid")) {
+    return opts?.selfHealing ? "fatal" : "refused";
+  }
   // Microphone failures never resolve by retrying — a blocked permission,
   // missing hardware or busy device all need the user (or a technician) to act.
   if (err instanceof MicrophoneUnavailableError) {

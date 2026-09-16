@@ -174,7 +174,8 @@ export type UseRealtimeVoiceSessionParams = {
   /** Called when connection is re-established after having been lost. */
   onConnectionRestored?: () => void;
   /**
-   * Called when retries are exhausted and `giveUpSilently` is true (web mode).
+   * Called when retries are exhausted and `giveUpSilently` is true (web mode),
+   * or when the server refuses the session outright (web mode, no retries).
    * Lets the caller return to a clean idle state so the user can manually retry.
    */
   onExhausted?: () => void;
@@ -899,6 +900,17 @@ export function useRealtimeVoiceSession(
           reason: e instanceof MicrophoneUnavailableError ? e.reason : "unknown",
           message: msg,
         });
+      } else if (kind === "refused") {
+        // Retrying won't change the answer, and the app works without the
+        // agent: go quiet the same way running out of retries does.
+        reportRealtimeIssue({
+          feature,
+          kind: "refused",
+          message: `Realtime session refused, giving up: ${msg}`,
+          code: "start-refused",
+        });
+        setConnectionState("idle");
+        onExhaustedRef.current?.();
       } else if (kind === "capacity") {
         // Busy, not broken: wait longer and try more times before going quiet.
         setProviderBusy(true);

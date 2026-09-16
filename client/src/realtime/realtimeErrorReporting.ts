@@ -25,7 +25,9 @@ export type RealtimeIssueKind =
   /** The provider refused work because the account is at its concurrency limit. */
   | "capacity"
   /** Retries ran out — the agent is down for this visitor. */
-  | "retry-exhausted";
+  | "retry-exhausted"
+  /** The server turned the session down — the agent is off for this visitor. */
+  | "refused";
 
 const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
   "provider-error": "warning",
@@ -33,6 +35,7 @@ const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
   "turn-recovered": "warning",
   "capacity": "warning",
   "retry-exhausted": "error",
+  "refused": "error",
 };
 
 const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
@@ -44,6 +47,8 @@ const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
   "capacity": "none",
   // Nothing is coming back without a reload — the agent is gone for good.
   "retry-exhausted": "terminal",
+  // The agent is off, but the app carries on without it.
+  "refused": "none",
 };
 
 /** Occurrence numbers worth reporting: dense at first, then a thinning heartbeat. */

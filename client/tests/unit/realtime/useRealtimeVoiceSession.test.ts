@@ -804,6 +804,32 @@ describe("useRealtimeVoiceSession", () => {
     expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
   });
 
+  it("gives up quietly without retrying when the session is refused", async () => {
+    mockClassifyRealtimeError.mockReturnValue("refused");
+    mockFetchRealtimeBootstrap.mockRejectedValue(
+      Object.assign(new Error("Realtime bootstrap failed (403): "), { name: "RealtimeHttpError" })
+    );
+    const onExhausted = vi.fn();
+    const onFatalError = vi.fn();
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: true },
+        onExhausted,
+        onFatalError,
+      })
+    );
+
+    await waitFor(() => {
+      expect(onExhausted).toHaveBeenCalledOnce();
+    });
+    expect(onFatalError).not.toHaveBeenCalled();
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledOnce();
+    expect(result.current.connectionState).toBe("idle");
+    expect(reportRealtimeIssue).toHaveBeenCalledWith(expect.objectContaining({ kind: "refused" }));
+  });
+
   it("stays connecting while waiting out a capacity refusal", async () => {
     // The mic button's spinner reads `connectionState`, and a capacity wait is
     // now minutes rather than seconds — so the session must read as connecting
