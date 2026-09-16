@@ -43,7 +43,7 @@ export type EventLoopCallbacks = {
   /** Fired when an assistant response begins, before audio is audible. */
   onResponseStarted?: () => void;
   /** Fired when an assistant response completes (`response.done`). */
-  onResponseDone?: (info?: { status?: string }) => void;
+  onResponseDone?: (info?: { status?: string; usage?: unknown }) => void;
   /** Fired when the data channel reports that the audio content part exists. */
   onAudioPartReady?: () => void;
   /**
@@ -570,7 +570,7 @@ export function createEventLoop(params: {
         outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
         activeResponses,
       });
-      callbacks.onResponseDone?.({ status: r?.status });
+      callbacks.onResponseDone?.({ status: r?.status, usage: rFull?.usage });
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         sendResponseCreate("deferred-on-response-done");

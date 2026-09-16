@@ -29,6 +29,7 @@ import {
 } from '@utils/httpCache.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
+import { registerRealtimeUsageRoutes } from '@api/realtimeUsage.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
@@ -62,6 +63,7 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
 registerRealtimeRoutes(app);
+registerRealtimeUsageRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);

@@ -96,6 +96,11 @@
     "bridge": {
       "title": "Bridge"
     },
+    "installationId": {
+      "label": "Installation ID",
+      "placeholder": "e.g. museum-oslo",
+      "hint": "Tags the AI usage of meetings run on this computer, for the footprint meter. Leave empty outside installations."
+    },
     "print": {
       "toggle": "Print summaries",
       "printerLabel": "Printer",

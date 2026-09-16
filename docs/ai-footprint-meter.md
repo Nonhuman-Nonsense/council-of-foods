@@ -1,7 +1,7 @@
 # AI footprint meter — vision and roadmap
 
-**Status:** Phase 1 (server-side usage recording) and the EcoLogits table (first part of
-phase 3) implemented. Phases 2, 3 (rest), 4, 5 planned.
+**Status:** Phases 1 (server usage) and 2 (realtime usage + installation ID) implemented, plus
+the EcoLogits table from phase 3. Phases 3 (rest), 4, 5 planned.
 
 **Goal:** A second screen in the museum installation that shows what the council costs the
 planet while it speaks for the forest — energy, water, emissions and minerals — and makes
@@ -87,7 +87,8 @@ settings or in CSS — decide once the screen arrives.
 | Voices (`tts`) — ElevenLabs (used on `forest-leo`) | `generateElevenLabsAudio` | `eleven_flash_v2_5` | `characters` sent, `audio_seconds`, `request_seconds`, `region` from `x-region` header |
 | Voices (`tts`) — OpenAI (not used in current data) | `generateOpenAIAudio` | `gpt-4o-mini-tts` | `characters`, `audio_seconds` |
 | Whisper timing fallback (`subtitle-timing`) | `AudioSystem` whisper branch | `whisper-1` | `audio_seconds` |
-| Setup agent, meta agent, human input | client ↔ Inworld realtime (WebRTC) | `gemini-2.5-flash` + `soniox/stt-rt-v4` + Inworld TTS | Phase 2: `response.done` → `response.usage`, reported by the client |
+| Setup agent, meta agent (`setup-agent`, `meta-agent`) | client ↔ Inworld realtime (WebRTC); `response.done` usage → `POST /api/usage/realtime` | `gemini-2.5-flash` + `inworld-tts-1.5-max` / `inworld-tts-2` + `soniox/stt-rt-v4` | one record per part: LLM tokens (incl. reasoning), TTS `characters` + `audio_seconds`, STT `audio_seconds` |
+| Human input (`human-input`) | same route; any data-channel event carrying `usage` | `gemini-2.5-flash` + `soniox/stt-rt-v4` | as above — **shape unverified**, see below |
 
 Cached audio (replays) is not re-recorded — only freshly generated audio counts.
 Retried requests that fail without a response are not counted.
@@ -99,7 +100,13 @@ Retried requests that fail without a response are not counted.
 - Inworld TTS: `usage: { processedCharactersCount, modelId }`.
 - ElevenLabs: no usage body; responses carry an `x-region` header (e.g. `europe-west4`, Google
   Cloud Netherlands) — a real data-centre location signal.
-- Inworld realtime `response.usage`: still to verify (phase 2); the client already logs it.
+- Inworld realtime `response.done` → `response.usage` (setup agent, logged 2026-09-16):
+  `{ input_tokens, output_tokens, input_token_details, output_token_details: { reasoning_tokens },
+  llm: { model }, tts: { model, characters, audio_seconds }, stt: { model, audio_seconds } }`.
+  Parts appear only when used: a cancelled response can carry just `stt`.
+- Human input (text-only session, `create_response: false`) has no `response.done`. The client
+  forwards `usage` from any event and logs it as `[HI] usage`; check a dev log to confirm STT
+  usage arrives, otherwise human-input transcription goes uncounted.
 
 ## Data model
 
@@ -282,26 +289,32 @@ providers directly — their answer (or refusal) is itself content.
 - Tests: `tests/usage.integration.test.ts` (totals, empty usage, listeners, usage parser
   table), `ConversationService.test.ts` (usage per route), meetings HTTP (installation tag).
 
-### Phase 2 — Client-reported realtime usage + installation ID
+### Phase 2 — Client-reported realtime usage + installation ID ✅
 
-- `#staff`: installation ID field, stored like the hardware button setting (a stored setting,
-  not a mode capability). Sent on meeting creation and realtime bootstrap.
-- Realtime bootstrap response gains a `usageToken`: random, held server-side in memory with
-  its feature, meeting/installation and a TTL (e.g. 2 h).
-- `POST /api/usage/realtime`: accepts `{ usageToken, responses: [usage…] }`. Rejects unknown
-  or expired tokens, validates with zod, clamps per-report values to plausible maxima, caps
-  reports per token. Enough to stop casual inflation without accounts or signatures.
-- Client: collect `response.usage` from `response.done`; flush in small batches (every few
-  responses / on session end) and on `pagehide` via `navigator.sendBeacon`. A lost report is
-  acceptable; sendBeacon covers the common loss (tab closed, reload) for almost no code.
-  This is fire-and-forget HTTP, not a reconciled socket intent (RESILIENCE.md does not apply).
+- `#staff` → Installation panel: **Installation ID** field (`councilInstallationId` in
+  localStorage; a stored setting, not a mode capability). Sent on meeting creation and on
+  setup-agent bootstrap; meeting sessions (meta agent, human input) take it from the meeting.
+- `POST /api/realtime/bootstrap` returns a `usageToken` (`server/src/api/realtimeUsage.ts`):
+  random, in memory, 4 h TTL, bound to the feature and the meeting/installation tags; the
+  registry is capped at 10,000 grants.
+- `POST /api/usage/realtime` `{ usageToken, responses }`: unknown/expired token → 403; at most
+  50 responses per report and 2,000 per token; each part parsed and clamped by
+  `parseRealtimeUsage` (e.g. ≤ 50,000 characters, ≤ 3,600 audio seconds per response).
+- Client `realtime/realtimeUsageReporter.ts`: batches of 5, flushes on session end and on
+  `pagehide`, `fetch` with `keepalive` so the last batch survives a reload. Fire and forget —
+  not a reconciled socket intent (RESILIENCE.md does not apply).
+- Tests: server `realtimeSessionApi.integration.test.ts` (tagging for setup/meta sessions,
+  forged token, clamping); client `realtimeUsageReporter.test.ts`.
 
 ### Phase 3 — Footprint function + methodology
 
 - ✅ EcoLogits export script, committed table, TS evaluator, golden-sample test, `footprint:check`
   / `footprint:update` (see "EcoLogits as the footprint engine").
-- Not yet covered by the table: realtime sessions (Gemini Flash is there; Soniox STT and realtime
-  TTS need entries once phase 2 shows what `response.usage` contains).
+- Add `inworld|soniox/stt-rt-v4` to the table (no published size; estimate by analogy, widest
+  range, per audio second).
+- Realtime TTS reports no request time, so EcoLogits' LLM latency regression applies (~2.3 GPU-s
+  per second of speech). Streaming TTS must generate at least as fast as playback, so cap
+  generation time at `audio_seconds` for audio models — defensible and much tighter.
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.

@@ -4,6 +4,8 @@ import {
   APP_MODES,
   DEV_LOG_CATEGORIES,
   useCouncilSettings,
+  getInstallationId,
+  setInstallationId,
 } from "@/settings/councilSettings";
 import type { LogCategory } from "@/logger";
 import {
@@ -393,6 +395,8 @@ function Staff(): ReactElement {
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive || printSummariesEnabled);
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
+  const [installationId, setInstallationIdState] = useState(getInstallationId);
+
   const testPageRef = useRef<HTMLDivElement>(null);
   const [testPage, setTestPage] = useState<"idle" | "sending" | TestPageOutcome>("idle");
 
@@ -532,6 +536,25 @@ function Staff(): ReactElement {
               {t("staff.button.ledDebugOverlay")}
             </button>
           </div>
+          <label
+            style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+            title={t("staff.installationId.hint")}
+          >
+            <span>{t("staff.installationId.label")}</span>
+            <input
+              type="text"
+              data-testid="staff-installation-id"
+              value={installationId}
+              maxLength={64}
+              placeholder={t("staff.installationId.placeholder")}
+              onChange={(e) => setInstallationIdState(e.target.value)}
+              onBlur={() => {
+                setInstallationId(installationId);
+                setInstallationIdState(getInstallationId());
+              }}
+              style={{ flex: 1, minWidth: 160, fontSize: 16, padding: "6px 10px" }}
+            />
+          </label>
         </StaffPanel>
 
         {showBridgePanel ? (

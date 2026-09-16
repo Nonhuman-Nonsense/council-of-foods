@@ -10,6 +10,7 @@ import {
     getSetupAgentRealtimeBootstrap,
     resolveChairRealtimeCallProvider,
 } from "./realtimeProviders.js";
+import { grantRealtimeUsageToken } from "./realtimeUsage.js";
 import type {
     HumanInputRealtimeBootstrapRequest,
     HumanInputRealtimeCallRequest,
@@ -63,6 +64,15 @@ function parseRequiredBearerToken(req: Request): string | null {
     return match ? match[1].trim() : null;
 }
 
+const MAX_INSTALLATION_ID_LENGTH = 64;
+
+/** Same rule as meeting creation: a trimmed, bounded tag, or nothing. */
+function parseInstallationId(value: unknown): string | undefined {
+    if (typeof value !== "string") return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 && trimmed.length <= MAX_INSTALLATION_ID_LENGTH ? trimmed : undefined;
+}
+
 function parseCallLanguage(body: Record<string, unknown>): string | undefined {
     return typeof body.language === "string" ? body.language : undefined;
 }
@@ -82,7 +92,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
         try {
             if (feature === "setup-agent") {
-                const { language } = body as SetupAgentRealtimeBootstrapRequest;
+                const { language, installationId } = body as SetupAgentRealtimeBootstrapRequest;
                 if (typeof language !== "string" || language.trim().length === 0) {
                     res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
                     return;
@@ -90,7 +100,10 @@ export function registerRealtimeRoutes(app: Express): void {
 
                 const data = await getSetupAgentRealtimeBootstrap(language);
                 await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
-                res.status(200).json(data);
+                res.status(200).json({
+                    ...data,
+                    usageToken: grantRealtimeUsageToken({ feature, installationId: parseInstallationId(installationId) }),
+                });
                 return;
             }
 
@@ -101,11 +114,19 @@ export function registerRealtimeRoutes(app: Express): void {
                 return;
             }
 
-            const exists = await meetingsCollection.findOne({ liveKey: bearer }, { projection: { _id: 1 } });
-            if (!exists) {
+            const meeting = await meetingsCollection.findOne(
+                { liveKey: bearer },
+                { projection: { _id: 1, installationId: 1 } },
+            );
+            if (!meeting) {
                 res.status(403).json({ message: "Forbidden" });
                 return;
             }
+            const usageToken = grantRealtimeUsageToken({
+                feature,
+                meetingId: meeting._id,
+                ...(meeting.installationId ? { installationId: meeting.installationId } : {}),
+            });
 
             if (feature === "meta-agent") {
                 const { language } = body as MetaAgentRealtimeBootstrapRequest;
@@ -116,7 +137,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
                 const data = await getMetaAgentRealtimeBootstrap(language);
                 await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
-                res.status(200).json(data);
+                res.status(200).json({ ...data, usageToken });
                 return;
             }
 
@@ -128,7 +149,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
             const data = await getHumanInputRealtimeBootstrap(language);
             await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
-            res.status(200).json(data);
+            res.status(200).json({ ...data, usageToken });
         } catch (e) {
             await sendRealtimeFailure(res, e, "api POST /api/realtime/bootstrap", "Realtime bootstrap unavailable");
         }
