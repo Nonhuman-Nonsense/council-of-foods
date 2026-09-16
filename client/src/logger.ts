@@ -240,7 +240,13 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 // Known-harmless noise injected by host environments, not bugs in our code — e.g. an
 // in-app browser's (Instagram/TikTok/Facebook) native bridge script throwing because its
 // own window.webkit.messageHandlers object isn't present in this context.
-const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [/webkit\.messageHandlers/i];
+const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [
+  /webkit\.messageHandlers/i,
+  // A browser extension's messaging bridge failing inside our page.
+  /No Listener: tabs:/i,
+  // Safari's autoplay policy refusing someone's play() — ours all handle it; never actionable.
+  /play method is not allowed by the user agent/i,
+];
 
 // Caps how many distinct window-level errors get reported per page load, and skips exact
 // repeats — protects against a broken interval/loop flooding the report endpoint, since

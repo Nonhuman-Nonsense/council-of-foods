@@ -45,8 +45,9 @@ const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
   "turn-recovered": "none",
   // The session survives; at worst the visitor waits a few seconds longer.
   "capacity": "none",
-  // Nothing is coming back without a reload — the agent is gone for good.
-  "retry-exhausted": "terminal",
+  // Only the web gives up (installations retry forever): the agent switches
+  // off and the app carries on.
+  "retry-exhausted": "none",
   // The agent is off, but the app carries on without it.
   "refused": "none",
 };

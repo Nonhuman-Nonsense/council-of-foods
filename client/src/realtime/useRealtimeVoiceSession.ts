@@ -443,7 +443,7 @@ export function useRealtimeVoiceSession(
       reportRealtimeIssue({
         feature,
         kind: "retry-exhausted",
-        message: `Realtime agent gave up after ${attempt} reconnect attempts`,
+        message: `Realtime agent gave up after ${attempt} reconnect attempts${policy?.giveUpSilently ? ", switched off" : ""}`,
         detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false },
       });
       if (policy?.giveUpSilently) {
