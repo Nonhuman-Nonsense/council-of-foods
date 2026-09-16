@@ -197,6 +197,59 @@ button/bridge/install/macos/smoke-bundle.sh
 | `BUTTON_SERIAL_VENDOR_ID` | `2341` | Arduino USB vendor (Council button board) |
 | `BUTTON_MOCK_SERIAL` | `0` | `1` = mock device (no USB) |
 | `BUTTON_BAUD_RATE` | `115200` | Match Arduino firmware |
+| `BRIDGE_PRINT_ENABLED` | `1` | `0` = refuse print jobs |
+| `BRIDGE_PRINT_SPOOL_DIR` | `./.print-spool` | Folder holding `pending/` and `done/` |
+| `BRIDGE_PRINTER` | system default | CUPS queue name to print to |
+| `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer, `fail` = mock printer that refuses jobs |
+
+## Printing
+
+The museum app prints each live meeting's protocol by posting the PDF to the bridge:
+
+```
+POST /v1/print?meetingId=42      Content-Type: application/pdf, body = PDF bytes
+→ 202 {"status":"queued"} · 200 {"status":"duplicate"} · 400 · 403 · 413 · 503 (printing off)
+```
+
+Jobs go through a folder spool, so printing survives crashes, reboots and a printer that is off:
+
+- The PDF is written to `pending/<host>_<meetingId>.pdf`, where `<host>` is the page's host.
+- A worker prints one job at a time with `lp -o media=A4` and moves it to `done/` (kept forever).
+- A job `lp` refuses stays in `pending/` and is retried with backoff (5 s up to 5 min) until it prints.
+- Anything in `pending/` is printed when the bridge starts, or within 30 s of being copied
+  there. To reprint a protocol, copy it from `done/` back into `pending/`.
+- A key already in `pending/` or `done/` is never printed again, so client retries are safe.
+
+`/health` includes a `print` block: the printer (`name`, `state`, CUPS `alerts`), the `pending`
+count, `lastError` and `lastPrintedAt`.
+
+`lp` succeeding means CUPS accepted the job, not that paper came out. After that CUPS holds
+the job, and by default it stops the whole queue on a printer error.
+
+### Developing without a printer
+
+`npm run dev:mock` also runs the mock printer: "printed" PDFs are copied to
+`.print-spool/mock-printed/` so you can open them. To exercise the endpoint and a printer
+outage by hand:
+
+```bash
+curl -X POST -H 'Content-Type: application/pdf' --data-binary @protocol.pdf \
+  'http://127.0.0.1:8765/v1/print?meetingId=42'
+curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"fail"}'   # jobs pile up in pending/
+curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"ok"}'     # they print
+```
+
+To test real `lp`/`lpstat` without paper, add a fake network printer that `nc` listens for.
+Don't test against a real printer queue that happens to be disconnected: its jobs wait in CUPS
+and come out the next time it's plugged in.
+
+```bash
+sudo lpadmin -p CouncilFake -E -v socket://127.0.0.1:9100 -o printer-error-policy=retry-job \
+  -P /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/Resources/Generic.ppd
+nc -l 9100 > /tmp/printed.ps          # the "printer"; stop nc to switch it off
+BRIDGE_PRINTER=CouncilFake BUTTON_MOCK_SERIAL=1 npm run dev
+sudo lpadmin -x CouncilFake           # clean up
+```
 
 ## Wire protocol
 

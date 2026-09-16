@@ -12,9 +12,9 @@
     "build": "tsc",
     "start": "node dist/button/bridge/src/index.js",
     "dev": "tsx src/index.ts",
-    "dev:mock": "BUTTON_MOCK_SERIAL=1 tsx src/index.ts",
+    "dev:mock": "BUTTON_MOCK_SERIAL=1 BRIDGE_MOCK_PRINTER=1 tsx src/index.ts",
     "stop": "node scripts/stop-dev.mjs",
-    "restart:mock": "npm run stop && BUTTON_MOCK_SERIAL=1 tsx src/index.ts",
+    "restart:mock": "npm run stop && BUTTON_MOCK_SERIAL=1 BRIDGE_MOCK_PRINTER=1 tsx src/index.ts",
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:install-smoke": "install/macos/smoke-bundle.sh"

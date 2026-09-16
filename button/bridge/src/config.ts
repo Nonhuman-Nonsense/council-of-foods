@@ -1,4 +1,6 @@
+import path from "node:path";
 import { BUTTON_BAUD_RATE } from "../../../shared/buttonProtocol.js";
+import type { MockPrinterMode } from "./printer.js";
 
 export type BridgeConfig = {
   host: string;
@@ -9,6 +11,18 @@ export type BridgeConfig = {
   reconnectBaseMs: number;
   reconnectMaxMs: number;
   mockSerial: boolean;
+  /** Accept print jobs on /v1/print. */
+  printEnabled: boolean;
+  /** Holds pending/ and done/. Relative paths resolve against the working directory. */
+  printSpoolDir: string;
+  /** CUPS queue name; null prints to the system default printer. */
+  printer: string | null;
+  /** Use the mock printer instead of `lp`; "fail" starts it refusing every job. */
+  mockPrinter: MockPrinterMode | null;
+  printMaxBytes: number;
+  printRetryBaseMs: number;
+  printRetryMaxMs: number;
+  printStatusIntervalMs: number;
 };
 
 function readInt(value: string | undefined, fallback: number): number {
@@ -28,6 +42,11 @@ function readBool(value: string | undefined): boolean {
   return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
+function readMockPrinter(value: string | undefined): MockPrinterMode | null {
+  if (value?.trim().toLowerCase() === "fail") return "fail";
+  return readBool(value) ? "ok" : null;
+}
+
 export function loadConfig(): BridgeConfig {
   return {
     host: process.env.BUTTON_BRIDGE_HOST?.trim() || "127.0.0.1",
@@ -38,5 +57,16 @@ export function loadConfig(): BridgeConfig {
     reconnectBaseMs: readInt(process.env.BUTTON_RECONNECT_BASE_MS, 500),
     reconnectMaxMs: readInt(process.env.BUTTON_RECONNECT_MAX_MS, 10_000),
     mockSerial: readBool(process.env.BUTTON_MOCK_SERIAL),
+    printEnabled:
+      process.env.BRIDGE_PRINT_ENABLED === undefined || readBool(process.env.BRIDGE_PRINT_ENABLED),
+    printSpoolDir: path.resolve(
+      readOptionalString(process.env.BRIDGE_PRINT_SPOOL_DIR) ?? ".print-spool",
+    ),
+    printer: readOptionalString(process.env.BRIDGE_PRINTER),
+    mockPrinter: readMockPrinter(process.env.BRIDGE_MOCK_PRINTER),
+    printMaxBytes: 20 * 1024 * 1024,
+    printRetryBaseMs: 5_000,
+    printRetryMaxMs: 5 * 60_000,
+    printStatusIntervalMs: 30_000,
   };
 }

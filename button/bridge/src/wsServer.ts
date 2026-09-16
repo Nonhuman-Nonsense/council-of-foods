@@ -3,6 +3,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import type { BridgeConfig } from "./config.js";
 import { corsHeaders, isAllowedOrigin } from "./cors.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
+import { handlePrint, handleTestPrinter, PRINT_PATH, TEST_PRINTER_PATH, type PrintRuntime } from "./printRoutes.js";
 import { isMockSerialManager, readJsonBody } from "./testApi.js";
 import { BRIDGE_VERSION, parseClientMessage, serializeServerMessage, type ServerMessage } from "./types.js";
 
@@ -14,6 +15,7 @@ export class WsServer {
   private readonly config: BridgeConfig;
   private readonly serial: SerialManagerLike;
   private readonly onClientCountChange?: (count: number) => void;
+  private readonly print: PrintRuntime | null;
   private httpServer: http.Server | null = null;
   private wss: WebSocketServer | null = null;
 
@@ -21,10 +23,12 @@ export class WsServer {
     config: BridgeConfig,
     serial: SerialManagerLike,
     onClientCountChange?: (count: number) => void,
+    print: PrintRuntime | null = null,
   ) {
     this.config = config;
     this.serial = serial;
     this.onClientCountChange = onClientCountChange;
+    this.print = print;
   }
 
   /** Authoritative count — `wss.clients` is maintained by the `ws` library itself. */
@@ -55,9 +59,36 @@ export class WsServer {
           serialMessage: diagnostics.message,
           expectedVendorId: diagnostics.expectedVendorId,
           scannedPorts: diagnostics.scannedPorts,
+          print: this.print?.spool.health() ?? { enabled: false },
         });
         res.writeHead(200, { "Content-Type": "application/json", ...cors });
         res.end(body);
+        return;
+      }
+
+      const pathname = new URL(req.url ?? "", "http://bridge").pathname;
+
+      if (pathname === PRINT_PATH && (req.method === "OPTIONS" || req.method === "POST")) {
+        if (!isLocalAddress(remote)) {
+          res.writeHead(403);
+          res.end();
+          return;
+        }
+        void handlePrint(req, res, { print: this.print, maxBytes: this.config.printMaxBytes, cors });
+        return;
+      }
+
+      if (
+        this.print?.mockPrinter &&
+        pathname === TEST_PRINTER_PATH &&
+        (req.method === "OPTIONS" || req.method === "POST")
+      ) {
+        if (!isLocalAddress(remote)) {
+          res.writeHead(403);
+          res.end();
+          return;
+        }
+        void handleTestPrinter(req, res, this.print, cors);
         return;
       }
 

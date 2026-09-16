@@ -41,3 +41,6 @@ playwright/.auth/
 release/
 
 server/gen-lang-client-*.json
+
+# button bridge print spool (dev)
+.print-spool/
