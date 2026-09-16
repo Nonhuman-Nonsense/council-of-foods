@@ -194,23 +194,25 @@ export class AudioSystem {
             if (generateNew || buffers.length === 0) {
                 Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${resolvedSpeaker.voiceProvider}/${resolvedSpeaker.voice})`, { from });
                 // Generate audio for all chunks in parallel
-                const results = await Promise.all(textChunks.map(chunk =>
-                    isInworld
-                        ? this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions, true, inworldReplacedWords)
-                        : this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions)
-                ));
+                const results = await Promise.all(textChunks.map(async chunk => {
+                    const startedAt = Date.now();
+                    const result = isInworld
+                        ? await this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions, true, inworldReplacedWords)
+                        : await this.generateProviderAudio(chunk, resolvedSpeaker, effectiveOptions);
+                    return { ...result, requestSeconds: (Date.now() - startedAt) / 1000 };
+                }));
                 buffers = results.map(r => r.audio);
                 providerWords = results.map(r => r.words);
                 generateNew = true;
 
                 chunkDurations = await Promise.all(buffers.map(b => this.getAudioDuration(b)));
-                results.forEach(({ usage: { characters, region, ...usage } }, i) => {
+                results.forEach(({ usage: { characters, region, ...usage }, requestSeconds }, i) => {
                     void recordUsage({
                         source: "server",
                         feature: "tts",
                         ...usage,
                         ...(region ? { region } : {}),
-                        measures: { characters, audio_seconds: chunkDurations?.[i] },
+                        measures: { characters, audio_seconds: chunkDurations?.[i], request_seconds: requestSeconds },
                         ...usageTagsFor(meeting),
                     });
                 });

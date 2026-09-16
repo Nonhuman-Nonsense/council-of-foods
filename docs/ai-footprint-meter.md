@@ -1,6 +1,7 @@
 # AI footprint meter — vision and roadmap
 
-**Status:** Phase 1 (server-side usage recording) implemented. Phases 2–5 planned.
+**Status:** Phase 1 (server-side usage recording) and the EcoLogits table (first part of
+phase 3) implemented. Phases 2, 3 (rest), 4, 5 planned.
 
 **Goal:** A second screen in the museum installation that shows what the council costs the
 planet while it speaks for the forest — energy, water, emissions and minerals — and makes
@@ -82,8 +83,8 @@ settings or in CSS — decide once the screen arrives.
 |---|---|---|---|
 | Council dialogue, chair (`dialogue`), summary (`summary`) | `ConversationService` → recorded per attempt in `DialogGenerator.completeWithRetry` | Inworld router → `mistral/mistral-large-3` | input/output/cached/reasoning tokens, `request_seconds` |
 | Speaker classifier (`classifier`) | `SpeakerClassifierBase.requestSpeakerClassifierCompletion` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens, `request_seconds` |
-| Voices (`tts`) — Inworld | `TTSProviders.generateInworldAudio` → recorded per chunk in `AudioSystem` | `inworld-tts-1.5-max` / `inworld-tts-2` | `characters` (provider-reported), `audio_seconds` |
-| Voices (`tts`) — ElevenLabs (used on `forest-leo`) | `generateElevenLabsAudio` | `eleven_flash_v2_5` | `characters` sent, `audio_seconds`, `region` from `x-region` header |
+| Voices (`tts`) — Inworld | `TTSProviders.generateInworldAudio` → recorded per chunk in `AudioSystem` | `inworld-tts-1.5-max` / `inworld-tts-2` | `characters` (provider-reported), `audio_seconds`, `request_seconds` |
+| Voices (`tts`) — ElevenLabs (used on `forest-leo`) | `generateElevenLabsAudio` | `eleven_flash_v2_5` | `characters` sent, `audio_seconds`, `request_seconds`, `region` from `x-region` header |
 | Voices (`tts`) — OpenAI (not used in current data) | `generateOpenAIAudio` | `gpt-4o-mini-tts` | `characters`, `audio_seconds` |
 | Whisper timing fallback (`subtitle-timing`) | `AudioSystem` whisper branch | `whisper-1` | `audio_seconds` |
 | Setup agent, meta agent, human input | client ↔ Inworld realtime (WebRTC) | `gemini-2.5-flash` + `soniox/stt-rt-v4` + Inworld TTS | Phase 2: `response.done` → `response.usage`, reported by the client |
@@ -175,25 +176,34 @@ EcoLogits is the right engine: open LCA methodology, ranges built in, energy + G
   electricity_mix_zone)`.
 - **The TypeScript port is stale:** `@genai-impact/ecologits.js` 2.0.5 (Dec 2024) pins model
   data to EcoLogits 0.5.0 and fetches a CSV from GitHub at import time. Not usable as is.
-- **Plan (phase 3): export at dev time, no Python at runtime.** EcoLogits' LLM model is linear
+- **Implemented: export at dev time, no Python at runtime.** EcoLogits' LLM model is linear
   per request: `impact = a·output_tokens + b·generation_seconds`, where
-  `generation_seconds = min(request_seconds, output_tokens/tps + ttft)` and `a`, `b` are
-  constant per model (they depend only on parameter count, GPU count, data-centre PUE/WUE and
-  electricity mix). So:
-  1. `scripts/ecologits/export.py` — a `uv` script with a pinned dependency
-     (`# /// script dependencies = ["ecologits==0.11.1"]`). It calls EcoLogits' own
-     `llm_impacts` / `compute_llm_impacts` for each model we use and writes
-     `shared/footprint/ecologits.json`: EcoLogits version, per model × impact (energy, GWP,
-     ADPe, PE, water) low/high `a` and `b`, `tps`/`ttft`, assumed data-centre zone, warnings
-     and sources, plus a handful of golden samples (inputs → EcoLogits' exact output).
-  2. The JSON is committed. The Node image stays lean; dev and tests need no Python; a
-     methodology change shows up as a reviewable diff.
-  3. A TS function evaluates `a·tokens + b·seconds`; a unit test checks it reproduces the
-     golden samples, so a future EcoLogits change that breaks linearity fails loudly.
-  4. Updating: bump the pin, `uv run scripts/ecologits/export.py`, review the diff.
-  5. Speech models go through the same EcoLogits maths with our inputs: e.g. Inworld TTS-1-Max
-     as a dense 8.8B model with `output_tokens = audio_seconds × 50`, on Google Cloud (USA mix)
-     — assumptions listed in the JSON next to their sources.
+  `generation_seconds = min(request_seconds, output_tokens × seconds_per_token + ttft)` and
+  `a`, `b` are constant per model (parameter count, GPU count, data-centre PUE/WUE,
+  electricity mix).
+  - `scripts/ecologits/export.py` reads the constants off EcoLogits' own DAG for each model in
+    its `MODELS` table and writes `shared/footprint/ecologits.json`: version, low/high
+    coefficients per impact (energy kWh, GWP kgCO₂eq, ADPe kgSbeq, PE MJ, water L),
+    data-centre zone, parameters, assumptions, warnings, sources — plus golden samples from
+    EcoLogits' public `llm_impacts` / `compute_llm_impacts`.
+  - `shared/footprint/ecologits.ts`: `findEcologitsModel(provider, model)` and
+    `estimateImpacts(model, { measures, requests })` over raw usage totals.
+  - `server/tests/footprintEcologits.test.ts`: the evaluator reproduces every golden sample
+    (relative error ~1e-11), and every model in `global-options.json` has an entry.
+  - The JSON is committed; `tsc` copies it into `dist`, so the Docker image needs nothing new.
+  - **Commands (in `server/`, need [uv](https://docs.astral.sh/uv/)):**
+    - `npm run footprint:check` — compares the committed EcoLogits version with the latest on
+      PyPI; exits 1 when a newer release exists.
+    - `npm run footprint:update` — regenerates with the latest release (or
+      `-- --version X`), prints energy per 400 units before → after. Review the JSON diff and
+      run the tests; a formula change in EcoLogits that breaks linearity fails the golden test.
+    - Adding a model: add it to `MODELS` in `export.py`, run `footprint:update`.
+  - Speech models use the same EcoLogits maths with our inputs, written into the JSON:
+    Inworld TTS-1.5-Max 8.8B / Mini 1.6B / TTS-2 1.6–8.8B, 50 tokens per audio second, Google
+    data-centre profile (USA); ElevenLabs Flash v2.5 assumed 1.6–8.8B on the Google profile
+    with the Dutch electricity mix (from `x-region: europe-west4`). TTS calls record
+    `request_seconds`, so EcoLogits' LLM latency regression (which would imply ~2.3 s of GPU
+    time per second of speech) is capped by the measured time.
 - **First run (0.11.1), per 400-token response:** Mistral Large 3 ≈ 0.21–0.24 Wh, ~1.3–1.4 mL
   water, 8–15 mg CO₂e (Swedish grid assumed); Gemini 2.5 Flash ≈ 0.46–0.89 Wh, 1.9–3.6 mL,
   0.18–0.36 g CO₂e (US grid). Compare Mistral's own LCA: 1.14 g CO₂e and 45 mL — a much wider
@@ -288,9 +298,10 @@ providers directly — their answer (or refusal) is itself content.
 
 ### Phase 3 — Footprint function + methodology
 
-- EcoLogits export script + committed `shared/footprint/ecologits.json` + TS evaluator with
-  golden-sample test (see "EcoLogits as the footprint engine"). Map our `provider/model` ids to
-  EcoLogits ids (e.g. `mistral/mistral-large-3` → `mistralai/mistral-large-2512`).
+- ✅ EcoLogits export script, committed table, TS evaluator, golden-sample test, `footprint:check`
+  / `footprint:update` (see "EcoLogits as the footprint engine").
+- Not yet covered by the table: realtime sessions (Gemini Flash is there; Soniox STT and realtime
+  TTS need entries once phase 2 shows what `response.usage` contains).
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.
