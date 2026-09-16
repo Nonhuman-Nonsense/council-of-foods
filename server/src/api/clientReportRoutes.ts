@@ -10,15 +10,32 @@ export const ClientReportBody = z.object({
     cause: z.unknown().optional(),
     severity: z.enum(['info', 'warning', 'error', 'critical']).optional(),
     clientImpact: z.enum(['none', 'notified', 'terminal', 'process_exit']).optional(),
+    // Optional so reports from older cached bundles still validate.
+    interacted: z.boolean().optional(),
+    webdriver: z.boolean().optional(),
 });
 
 export type ClientReportInput = z.infer<typeof ClientReportBody>;
 
+const MAX_USER_AGENT_LENGTH = 200;
+
+/**
+ * A second line telling a visitor from a crawler: bots run our JavaScript but
+ * never interact, and headless browsers announce themselves via webdriver.
+ */
+function describeClient(input: ClientReportInput, userAgent: string | undefined): string {
+    const tags: string[] = [];
+    if (input.interacted === false) tags.push('[no-interaction]');
+    if (input.webdriver) tags.push('[webdriver]');
+    tags.push(`UA: ${userAgent ? userAgent.slice(0, MAX_USER_AGENT_LENGTH) : 'unknown'}`);
+    return tags.join(' ');
+}
+
 /** Builds the errorbot report for a validated client report body, applying defaults. */
-export function buildClientErrorReport(input: ClientReportInput): ErrorReport {
+export function buildClientErrorReport(input: ClientReportInput, userAgent?: string): ErrorReport {
     const { message, source, meetingId, url, cause, severity, clientImpact } = input;
     const context = `client ${source}`;
-    const detail = url ? `${message} (${url})` : message;
+    const detail = `${url ? `${message} (${url})` : message}\n${describeClient(input, userAgent)}`;
     const impact = clientImpact ?? 'terminal';
     // Recoverable reports (a realtime agent reconnecting, say) also come
     // through here; labelling those TERMINAL would misread at a glance.
@@ -51,6 +68,6 @@ export function registerClientReportRoutes(app: Express): void {
 
         res.status(204).end();
 
-        await sendReport(buildClientErrorReport(parsed.data));
+        await sendReport(buildClientErrorReport(parsed.data, req.get('user-agent')));
     });
 }

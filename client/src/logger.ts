@@ -2,6 +2,7 @@ import {
   getDevLogEnabled,
   isDevLogCategoryEnabled,
 } from "@/settings/councilSettings";
+import { hasSignOfLife } from "@/signOfLife";
 
 export const DEV_LOG_CATEGORIES = [
   "API",
@@ -212,6 +213,9 @@ function postClientReport(
       severity: meta?.severity,
       clientImpact: meta?.clientImpact,
       url: window.location.href,
+      // Lets ErrorBot tell a visitor from a crawler.
+      interacted: hasSignOfLife(),
+      webdriver: navigator.webdriver === true,
       cause: cause === undefined ? undefined : serializeClientCause(cause),
     }),
     keepalive: true,
