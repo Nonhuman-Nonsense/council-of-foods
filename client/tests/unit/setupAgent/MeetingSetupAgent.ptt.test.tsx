@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
 import type { AppMode } from "@/settings/councilSettings";
 import { capabilitiesFor, type Capabilities } from "@/settings/capabilities";
+import { installSignOfLife, resetSignOfLifeForTests } from "@/signOfLife";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
@@ -242,5 +243,40 @@ describe("MeetingSetupAgent button ownership", () => {
     render(<MeetingSetupAgent {...defaultProps} />);
 
     expect(screen.getByTestId("mic-attaching")).toHaveTextContent("true");
+  });
+});
+
+describe("MeetingSetupAgent connecting before anyone is there", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseSetupAgent.mockReturnValue(agentState());
+    resetSignOfLifeForTests();
+    installSignOfLife();
+  });
+
+  function lastAutoStart(): unknown {
+    const params = mockUseSetupAgent.mock.calls.at(-1)?.[0] as { autoStart?: boolean };
+    return params.autoStart;
+  }
+
+  it.each([
+    { mode: "web" as const, beforeLife: false },
+    { mode: "museum" as const, beforeLife: true },
+    { mode: "presenter" as const, beforeLife: true },
+  ])("in $mode, autoStart is $beforeLife until a sign of life, then true", ({ mode, beforeLife }) => {
+    mockUseCouncilSettings.mockReturnValue({
+      isMuseumMode: mode === "museum",
+      mode,
+      setAppMode: vi.fn(),
+      capabilities: capabilitiesFor(mode),
+    });
+
+    render(<MeetingSetupAgent {...defaultProps} />);
+    expect(lastAutoStart()).toBe(beforeLife);
+
+    act(() => {
+      window.dispatchEvent(new Event("pointermove"));
+    });
+    expect(lastAutoStart()).toBe(true);
   });
 });

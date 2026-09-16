@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { hasSignOfLife, installSignOfLife, resetSignOfLifeForTests } from "@/signOfLife";
+import { act, renderHook } from "@testing-library/react";
+import { hasSignOfLife, installSignOfLife, resetSignOfLifeForTests, useSignOfLife } from "@/signOfLife";
 
 describe("signOfLife", () => {
   beforeEach(() => {
@@ -18,4 +19,14 @@ describe("signOfLife", () => {
       expect(hasSignOfLife()).toBe(true);
     },
   );
+
+  it("re-renders the hook when the first sign of life arrives", () => {
+    const { result } = renderHook(() => useSignOfLife());
+    expect(result.current).toBe(false);
+
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
+    expect(result.current).toBe(true);
+  });
 });

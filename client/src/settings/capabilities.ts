@@ -88,6 +88,12 @@ export type Capabilities = {
    */
   voiceSetupAgent: boolean;
   /**
+   * The setup agent connects only once someone shows a sign of life on the page
+   * (a pointer move, touch, scroll or key), so crawlers and prerendered pages
+   * never open a realtime session. An installation has nobody to wait for.
+   */
+  agentWaitsForVisitor: boolean;
+  /**
    * Human panelists are added and described by hand. Where they cannot be,
    * panelists go in by name alone, the visitor is added as one automatically,
    * and the lineup is ordered for the screen instead.
@@ -123,6 +129,7 @@ const WEB: Capabilities = {
   micToggleButton: true,
   latchOnTap: true,
   voiceSetupAgent: false,
+  agentWaitsForVisitor: true,
   typedSetup: true,
   installationReload: false,
 };
@@ -143,6 +150,7 @@ const MUSEUM: Capabilities = {
   micToggleButton: false,
   latchOnTap: false,
   voiceSetupAgent: true,
+  agentWaitsForVisitor: false,
   typedSetup: false,
   installationReload: true,
 };

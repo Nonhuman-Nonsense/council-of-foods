@@ -18,6 +18,7 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { useButton } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { useSignOfLife } from "@/signOfLife";
 import { buildSetupAgentPrompt } from "./setupAgentPrompt";
 import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgentTools";
 import { useAgentPresence } from "./useAgentPresence";
@@ -123,9 +124,13 @@ export default function MeetingSetupAgent({
     [otherLanguages, setupTopics, setupCharacters, typedSetup],
   );
 
+  const signOfLife = useSignOfLife();
+
   const agent = useSetupAgent({
     language: agentLanguage,
     instructions,
+    // Crawlers run the page but never interact — don't open a session for them.
+    autoStart: !capabilities.agentWaitsForVisitor || signOfLife,
     selfHealing: capabilities.selfHealing,
     tools,
     toolHandlers: createSetupAgentToolHandlers({
