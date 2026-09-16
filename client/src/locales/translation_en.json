@@ -96,6 +96,23 @@
     "bridge": {
       "title": "Bridge"
     },
+    "alerts": {
+      "label": "Alert emails",
+      "venueLabel": "Venue",
+      "noVenue": "No venue (no emails)",
+      "test": "Send test alert",
+      "status": {
+        "notConfigured": "Not set up on bridge",
+        "chooseVenue": "Choose a venue",
+        "failing": "Failing",
+        "on": "On"
+      },
+      "testResult": {
+        "sending": "Sending…",
+        "sent": "Sent, check the inbox",
+        "failed": "Not sent"
+      }
+    },
     "print": {
       "toggle": "Print summaries",
       "printerLabel": "Printer",

@@ -139,6 +139,39 @@ shortcut on the Desktop:
   Settings → Printers & Scanners, not "Last printer used", then re-run the bridge
   installer so the retry setting is applied to it.
 
+### Printer alert emails
+
+When the printer needs attention, museum staff get an email from
+`council@council-of-foods.com` (or `council-of-forest.com`), plus a copy to our
+errorbot on Telegram:
+
+- **Needs attention**, once a problem has lasted 2 minutes: out of paper, a jam, an
+  open cover, a paused queue, a protocol that hasn't printed for 10 minutes, or no
+  printer. A different problem sends a new email.
+- **Reminder** every 4 hours while it lasts, only during the venue's opening hours,
+  plus one when the venue opens.
+- **Working again** once it has stayed fixed for 2 minutes.
+
+**Who gets them:** the **venue** chosen on `#staff` (Bridge panel → Venue).
+Venues and their addresses are set on the council server, so staff can only choose
+among them, never type an address. The panel shows the masked addresses,
+**Alert emails: On / Choose a venue / Failing / Not set up on bridge**, and a
+**Send test alert** button (once a minute).
+
+**Adding or changing a venue** is a server config change: edit `COUNCIL_VENUES`
+in the server's environment and redeploy. Each venue has an id, name, alert
+addresses, timezone and one weekly opening window:
+
+```json
+[{"id":"example-museum","name":"Example Museum","alertEmails":["staff@example.org"],
+  "timezone":"Europe/Stockholm","openingHours":{"days":["wed","thu","fri","sat","sun"],"from":"12:00","to":"16:00"}}]
+```
+
+Holidays and closed weeks aren't modelled. The worst case is a reminder on a closed day.
+
+**Nothing is sent if the Mac, the bridge or the internet is down.** That needs a
+watchdog outside the Mac (see section 7).
+
 ### Mode switch button (staff escape)
 
 Enable **Mode switch button** on the staff page to show a red-bordered preview
@@ -176,8 +209,10 @@ During a live meeting, the button also drives human input and the meta-agent
 1. Connect the A4 printer and make it the Mac's default printer
 2. Install (or re-install) the bridge. It sets up the print folder, the Desktop
    shortcut and the printer's retry setting
+   and, for alert emails, asks for the bridge key (`COUNCIL_BRIDGE_KEY` on the council server)
 3. `#staff` → **Museum** + **Print summaries**. The Bridge panel shows the printer as **Ready**
 4. **Print test page**, and check a page comes out
+5. Bridge panel → **Venue** → choose the museum, then **Send test alert** and check the inbox
 
 ### Screening (presenter)
 

@@ -13,6 +13,11 @@ INSTALL_DIR="/usr/local/lib/council-button-bridge"
 PRINT_SPOOL_DIR="$INSTALL_DIR/print"
 PRINT_DESKTOP_LINK_NAME="Council Print"
 
+# Printer alert settings (council server + bridge key). The bridge reads alerts.env from
+# its working directory; installs keep it, since it holds a secret nobody wants to re-enter.
+ALERTS_FILE="$INSTALL_DIR/alerts.env"
+DEFAULT_ALERT_SERVER="https://council-of-foods.com"
+
 launchd_service_loaded() {
   launchctl print "system/$SERVICE_LABEL" >/dev/null 2>&1
 }
@@ -118,10 +123,10 @@ print_launchd_failure() {
 }
 
 # Removes everything in the install directory except the print spool, whose done/
-# folder is the archive of every printed protocol.
+# folder is the archive of every printed protocol, and the alert settings.
 remove_bridge_code() {
   if [[ -d "$INSTALL_DIR" ]]; then
-    sudo find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 ! -name print -exec rm -rf {} +
+    sudo find "$INSTALL_DIR" -mindepth 1 -maxdepth 1 ! -name print ! -name alerts.env -exec rm -rf {} +
   fi
 }
 
@@ -191,5 +196,54 @@ configure_default_printer() {
     echo "Printer: $printer (retries jobs after errors)"
   else
     echo "Warning: could not set retry-job policy on $printer." >&2
+  fi
+}
+
+# --- printer alert emails ---
+
+has_terminal() {
+  { true </dev/tty; } 2>/dev/null
+}
+
+# Asks for the council server and bridge key the first time, and keeps the answers on
+# later installs. Reads from /dev/tty, so it also works under `curl | sudo bash`. With no
+# terminal, or no key given, alerts stay off and the file explains how to turn them on.
+configure_alerts() {
+  if sudo test -f "$ALERTS_FILE"; then
+    echo "Keeping printer alert settings in $ALERTS_FILE."
+    return 0
+  fi
+
+  local server="" key=""
+  if has_terminal; then
+    echo
+    echo "Printer alert emails tell museum staff when the printer needs attention."
+    echo "They need the council server and its bridge key (COUNCIL_BRIDGE_KEY). Leave the key empty to skip."
+    read -r -p "Council server [$DEFAULT_ALERT_SERVER]: " server </dev/tty || true
+    read -r -s -p "Bridge key: " key </dev/tty || true
+    echo
+  fi
+  server="${server:-$DEFAULT_ALERT_SERVER}"
+
+  local tmp
+  tmp="$(mktemp /tmp/council-bridge-alerts.XXXXXX)"
+  {
+    echo "# Printer alert emails: the council server that sends them, and its bridge key"
+    echo "# (COUNCIL_BRIDGE_KEY on that server). After editing, restart the bridge:"
+    echo "#   sudo launchctl kickstart -k system/$SERVICE_LABEL"
+    echo "BRIDGE_SERVER_URL=$server"
+    if [[ -n "$key" ]]; then
+      echo "BRIDGE_SERVER_KEY=$key"
+    else
+      echo "# BRIDGE_SERVER_KEY="
+    fi
+  } >"$tmp"
+  sudo install -m 600 -o root -g wheel "$tmp" "$ALERTS_FILE"
+  rm -f "$tmp"
+
+  if [[ -n "$key" ]]; then
+    echo "Printer alerts: on, via $server. Choose the venue on the #staff page."
+  else
+    echo "Printer alerts: off. To turn them on, set BRIDGE_SERVER_KEY in $ALERTS_FILE and restart the bridge."
   fi
 }

@@ -75,6 +75,20 @@ export type BridgePrintHealth =
       lastPrintedAt: string | null;
     };
 
+/** The bridge's printer alert emails, as reported in `/health`. */
+export type BridgeAlertsHealth = {
+  /** The bridge has a council server and key (alerts.env). */
+  configured: boolean;
+  venue: { id: string; name: string; recipients: string[] } | null;
+  /** Whether the venue is open right now; null without a venue. */
+  open: boolean | null;
+  phase: "ok" | "pending" | "alerting";
+  lastSentAt: string | null;
+  lastError: string | null;
+  /** An alert is waiting to be delivered to the council server. */
+  undelivered: boolean;
+};
+
 export type ButtonBridgeHealthState =
   | { status: "checking" }
   | {
@@ -88,6 +102,8 @@ export type ButtonBridgeHealthState =
       scannedPorts: UsbPortInfo[];
       /** Null from a bridge that predates printing. */
       print: BridgePrintHealth | null;
+      /** Null when printing is off, or from a bridge that predates alerts. */
+      alerts: BridgeAlertsHealth | null;
     }
   | { status: "not_running" }
   | { status: "error"; message: string };
@@ -102,6 +118,7 @@ type ButtonBridgeHealthResponse = {
   expectedVendorId?: string | null;
   scannedPorts?: UsbPortInfo[];
   print?: BridgePrintHealth;
+  alerts?: BridgeAlertsHealth | null;
 };
 
 /** Stable summary for health state-change logging (not per-poll HTTP). */
@@ -167,6 +184,7 @@ export async function fetchButtonBridgeHealth(
       expectedVendorId: body.expectedVendorId ?? null,
       scannedPorts: body.scannedPorts ?? [],
       print: body.print ?? null,
+      alerts: body.alerts ?? null,
     };
   } catch {
     return { status: "not_running" };

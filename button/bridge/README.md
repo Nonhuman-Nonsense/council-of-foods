@@ -146,6 +146,10 @@ The installer also sets up printing:
 - It sets `printer-error-policy=retry-job` on the default printer, so CUPS doesn't leave
   the queue stopped after paper out or a jam. With no default printer it warns, and jobs
   wait in `pending/` until one is set and the installer is re-run.
+- The first time, it asks for the council server (default `https://council-of-foods.com`)
+  and the bridge key, and writes them to `/usr/local/lib/council-button-bridge/alerts.env`
+  (root-only, mode 600). Later installs keep the file. With no key, or no terminal, alerts
+  stay off; set `BRIDGE_SERVER_KEY` in the file and restart the bridge to turn them on.
 
 ### Uninstall
 
@@ -215,6 +219,9 @@ button/bridge/install/macos/smoke-bundle.sh
 | `BRIDGE_PRINT_ENABLED` | `1` | `0` = refuse print jobs |
 | `BRIDGE_PRINT_SPOOL_DIR` | `./.print-spool` | Folder holding `pending/` and `done/` |
 | `BRIDGE_PRINTER` | system default | CUPS queue name to print to |
+| `BRIDGE_ALERTS_FILE` | `./alerts.env` | Env file read at startup for the settings below; real env vars win |
+| `BRIDGE_SERVER_URL` | _(none)_ | Council server that emails printer alerts |
+| `BRIDGE_SERVER_KEY` | _(none)_ | That server's `COUNCIL_BRIDGE_KEY`; alerts are off without it |
 | `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer; or start it in a mode: `fail`, `paper-out`, `stuck` |
 
 ## Printing
@@ -256,6 +263,33 @@ The wording for each reason is in `shared/printerReasons.ts`.
 
 `lp` succeeding means CUPS accepted the job, not that paper came out. After that CUPS holds
 the job, and by default it stops the whole queue on a printer error.
+
+### Alert emails
+
+The bridge decides **when** museum staff should hear about `attention`; the council server
+decides **who** and sends the email (see `server/README.md`). Nothing here holds an address.
+
+- `src/printAlerts.ts` holds the rules: 2 min grace, a new email when the reason changes,
+  reminders every 4 h (only while the venue is open, plus one at opening), and "resolved"
+  after 2 min fixed. A problem that clears before staff were told sends nothing.
+- `src/alertMonitor.ts` runs them every 30 s and posts to `/api/bridge/printer-alerts`,
+  retrying with backoff (30 s up to 10 min) if the server is unreachable. Only the newest
+  undelivered alert is kept. The venue and state are saved in `print/alerts-state.json`,
+  so restarts don't resend.
+- Staff page endpoints (same origin rules as `/v1/print`):
+  - `GET /v1/alerts/venues`: `{ venues, current }` from the server, addresses masked
+  - `PUT /v1/alerts/venue {"venueId": "…" | null}`: only listed venues
+  - `POST /v1/alerts/test`: test alert to the chosen venue, once a minute
+- `/health` has an `alerts` block: `configured`, `venue`, `open`, `phase`, `lastSentAt`,
+  `lastError`, `undelivered`. It never includes the key.
+
+In development, put the settings in `button/bridge/alerts.env` (gitignored) and point them
+at your local server:
+
+```
+BRIDGE_SERVER_URL=http://localhost:3001
+BRIDGE_SERVER_KEY=<COUNCIL_BRIDGE_KEY from server/.env>
+```
 
 ### Developing without a printer
 
