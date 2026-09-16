@@ -1,10 +1,10 @@
 import NumberFlow from "@number-flow/react";
 import { QRCodeSVG } from "qrcode.react";
-import type { ReactElement } from "react";
-import type { UsageTotalsRow } from "@shared/MeterTypes";
+import { useEffect, useState, type ReactElement } from "react";
+import type { RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
 import { ECOLOGITS_VERSION, findEcologitsModel } from "@shared/footprint/ecologits";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
-import { footprintOf, toDisplayRange, type ScopeFootprint } from "./meterState";
+import { footprintOf, roomFootprintOf, toDisplayRange, type ScopeFootprint } from "./meterState";
 import { methodologyUrl, zoneName } from "./modelInfo";
 import { useMeterFeed } from "./useMeterFeed";
 
@@ -68,6 +68,52 @@ function Models({ rows }: { rows: UsageTotalsRow[] }): ReactElement | null {
   );
 }
 
+/** Re-renders every `intervalMs`, so plugs that fall silent are noticed without new data. */
+function useNow(intervalMs: number): number {
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(timer);
+  }, [intervalMs]);
+  return now;
+}
+
+/** The visible part: this room's electricity, measured rather than estimated. */
+function Room({ readings }: { readings: RoomPowerReading[] }): ReactElement | null {
+  const now = useNow(10_000);
+  if (readings.length === 0) return null;
+
+  const room = roomFootprintOf(readings, now);
+  const energy = toDisplayRange("energy", { low: room.energyWh / 1000, high: room.energyWh / 1000 });
+  return (
+    <section className="meter-scope meter-room">
+      <h2>In this room, measured</h2>
+      <div className="meter-metric">
+        <div className="meter-label">Power now</div>
+        <div className="meter-value">
+          <NumberFlow value={Math.round(room.watts)} />
+          <span className="meter-unit">W</span>
+        </div>
+      </div>
+      <div className="meter-metric">
+        <div className="meter-label">Electricity so far</div>
+        <div className="meter-value">
+          <NumberFlow value={energy.central} format={{ maximumFractionDigits: 1, minimumFractionDigits: 1 }} />
+          <span className="meter-unit">{energy.unit}</span>
+        </div>
+      </div>
+      <ul className="meter-plugs">
+        {room.plugs.map((plug) => (
+          <li key={plug.deviceId}>
+            <span>{plug.label}</span>
+            <span className="meter-place">{plug.silent ? "no signal" : `${Math.round(plug.watts)} W`}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 /** Training is inherited, not caused per meeting: shown whole, and what is undisclosed is named. */
 function Training(): ReactElement {
   const disclosed = TRAINING_DISCLOSURES.filter((entry) => entry.disclosed);
@@ -115,6 +161,7 @@ export function Meter(): ReactElement {
     <main className="meter">
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
       {state.meeting ? <Scope title="This meeting" footprint={footprintOf(meetingRows)} large /> : null}
+      <Room readings={state.room} />
       {installationId || demo ? <Scope title="This installation" footprint={footprintOf(state.installation)} /> : null}
       <Scope title="All councils" footprint={footprintOf(state.global)} />
       <Models rows={meetingRows.length > 0 ? meetingRows : state.installation} />

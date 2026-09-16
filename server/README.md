@@ -45,6 +45,14 @@ Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to ema
 
 To try it locally without Brevo, leave the key unset: the alert endpoint answers 503. To send a real email to yourself, set a Brevo key and add a venue with your own address.
 
+## Footprint meter
+
+AI usage is recorded for the footprint meter (`/meter`); see
+[docs/ai-footprint-meter.md](../docs/ai-footprint-meter.md). Room electricity comes from smart
+plugs posting `POST /api/room-power` with `X-Room-Power-Key` (`COUNCIL_ROOM_POWER_KEY`); without
+the key the endpoint answers 503. Plug setup: [MUSEUM.md](../MUSEUM.md#room-power-plugs).
+`npm run footprint:check` / `footprint:update` keep the EcoLogits table current (needs uv).
+
 ## Key Components
 - **MeetingManager**: Orchestrates the meeting lifecycle, state, and event handling.
 - **AudioSystem**: Manages queuing and generating audio (TTS).

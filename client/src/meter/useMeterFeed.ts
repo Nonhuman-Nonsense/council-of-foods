@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import {
   METER_NAMESPACE,
+  METER_ROOM_POWER_EVENT,
   METER_USAGE_EVENT,
   type MeterSnapshot,
   type MeterUsageEvent,
+  type RoomPowerReading,
 } from "@shared/MeterTypes";
-import { applyUsageEvent, EMPTY_METER_STATE, type MeterState } from "./meterState";
+import { applyRoomPower, applyUsageEvent, EMPTY_METER_STATE, type MeterState } from "./meterState";
 
 /**
  * Live usage for the meter: a snapshot over HTTP whenever the socket (re)connects, then every
@@ -38,6 +40,9 @@ export function useMeterFeed(installationId: string | undefined, demo: boolean):
     socket.on(METER_USAGE_EVENT, (event: MeterUsageEvent) => {
       setState((current) => applyUsageEvent(current, event, installationId));
     });
+    socket.on(METER_ROOM_POWER_EVENT, (reading: RoomPowerReading) => {
+      setState((current) => applyRoomPower(current, reading, installationId));
+    });
 
     return () => {
       cancelled = true;
@@ -62,9 +67,27 @@ const DEMO_CALLS: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "meas
   { feature: "meta-agent", provider: "inworld", model: "soniox/stt-rt-v4", measures: { audio_seconds: 6 } },
 ];
 
+const DEMO_PLUGS = [
+  { deviceId: "demo-projector", label: "Projector", watts: 244 },
+  { deviceId: "demo-computer", label: "Computer & meter screen", watts: 38 },
+  { deviceId: "demo-sound", label: "Sound", watts: 22 },
+];
+
 function startDemoFeed(installationId: string, setState: (update: (s: MeterState) => MeterState) => void): () => void {
   let call = 0;
+  const startedAt = Date.now();
   const timer = setInterval(() => {
+    const hours = (Date.now() - startedAt) / 3_600_000;
+    for (const plug of DEMO_PLUGS) {
+      const reading: RoomPowerReading = {
+        ...plug,
+        installationId,
+        watts: plug.watts * (0.95 + Math.random() * 0.1),
+        energyWh: plug.watts * hours,
+        updatedAt: new Date().toISOString(),
+      };
+      setState((current) => applyRoomPower(current, reading, installationId));
+    }
     const event: MeterUsageEvent = {
       ...DEMO_CALLS[call % DEMO_CALLS.length],
       source: "server",

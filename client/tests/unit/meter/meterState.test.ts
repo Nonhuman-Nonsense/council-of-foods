@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { MeterUsageEvent } from "@shared/MeterTypes";
 import { estimateImpacts, findEcologitsModel } from "@shared/footprint/ecologits";
-import { applyUsageEvent, EMPTY_METER_STATE, footprintOf, toDisplayRange, type MeterState } from "@/meter/meterState";
+import type { RoomPowerReading } from "@shared/MeterTypes";
+import {
+  applyRoomPower,
+  applyUsageEvent,
+  EMPTY_METER_STATE,
+  footprintOf,
+  ROOM_POWER_STALE_MS,
+  roomFootprintOf,
+  toDisplayRange,
+  type MeterState,
+} from "@/meter/meterState";
 
 function usage(overrides: Partial<MeterUsageEvent> = {}): MeterUsageEvent {
   return {
@@ -27,6 +37,7 @@ describe("meter state", () => {
     global: [row(1, 100)],
     installation: [row(1, 100)],
     meeting: { meetingId: 5, totals: [row(1, 100)] },
+    room: [],
   };
 
   it.each([
@@ -38,12 +49,12 @@ describe("meter state", () => {
     {
       name: "adds usage of the current meeting to every scope",
       event: usage({ installationId: "museum-oslo", meetingId: 5 }),
-      expected: { global: [row(2, 200)], installation: [row(2, 200)], meeting: { meetingId: 5, totals: [row(2, 200)] } },
+      expected: { global: [row(2, 200)], installation: [row(2, 200)], meeting: { meetingId: 5, totals: [row(2, 200)] }, room: [] },
     },
     {
       name: "starts over when the installation begins a newer meeting",
       event: usage({ installationId: "museum-oslo", meetingId: 6 }),
-      expected: { global: [row(2, 200)], installation: [row(2, 200)], meeting: { meetingId: 6, totals: [row(1, 100)] } },
+      expected: { global: [row(2, 200)], installation: [row(2, 200)], meeting: { meetingId: 6, totals: [row(1, 100)] }, room: [] },
     },
     {
       name: "keeps setup usage without a meeting out of the meeting",
@@ -82,5 +93,40 @@ describe("toDisplayRange", () => {
 
     expect(display.unit).toBe(expected.unit);
     expect(display.central).toBeCloseTo(expected.central, 10);
+  });
+});
+
+describe("room power", () => {
+  const NOW = Date.parse("2026-09-20T12:00:00.000Z");
+
+  function plug(overrides: Partial<RoomPowerReading> = {}): RoomPowerReading {
+    return {
+      installationId: "museum-oslo",
+      deviceId: "projector",
+      label: "Projector",
+      watts: 244,
+      energyWh: 500,
+      updatedAt: new Date(NOW).toISOString(),
+      ...overrides,
+    };
+  }
+
+  it("keeps the latest reading per plug of this installation only", () => {
+    let state = applyRoomPower(EMPTY_METER_STATE, plug(), "museum-oslo");
+    state = applyRoomPower(state, plug({ watts: 250 }), "museum-oslo");
+    state = applyRoomPower(state, plug({ deviceId: "sound", label: "Sound", watts: 20 }), "museum-oslo");
+    state = applyRoomPower(state, plug({ installationId: "elsewhere", deviceId: "other" }), "museum-oslo");
+
+    expect(state.room.map((r) => [r.label, r.watts])).toEqual([["Projector", 250], ["Sound", 20]]);
+  });
+
+  it("sums the room, leaving a silent plug's watts out but keeping its energy", () => {
+    const silentSince = new Date(NOW - ROOM_POWER_STALE_MS - 1).toISOString();
+
+    const room = roomFootprintOf([plug(), plug({ deviceId: "sound", watts: 20, energyWh: 40, updatedAt: silentSince })], NOW);
+
+    expect(room.watts).toBe(244);
+    expect(room.energyWh).toBe(540);
+    expect(room.plugs.map((p) => p.silent)).toEqual([false, true]);
   });
 });

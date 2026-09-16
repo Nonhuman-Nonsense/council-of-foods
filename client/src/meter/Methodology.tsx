@@ -156,6 +156,14 @@ export function Methodology(): ReactElement {
       </section>
 
       <section>
+        <h2>This room</h2>
+        <p>
+          The electricity used in the room — projector, computers, speakers, screens — is not estimated but
+          measured, by power meters in the plugs, and shown as it happens. It is the part of the cost you can see.
+        </p>
+      </section>
+
+      <section>
         <h2>The models</h2>
         {listEcologitsModels().map(([id, model]) => <ModelEntry key={id} id={id} model={model} />)}
       </section>
@@ -167,7 +175,7 @@ export function Methodology(): ReactElement {
         <ul>
           <li>Reading: EcoLogits models the energy of generating output, not of reading the input. The voice agents read thousands of tokens of context per answer.</li>
           <li>Requests that failed and were retried, and voice usage the browser could not report.</li>
-          <li>The network, the visitor's devices and the electricity of this room.</li>
+          <li>The network and the visitor's own devices.</li>
           <li>Training, except where shown above as a whole.</li>
         </ul>
       </section>

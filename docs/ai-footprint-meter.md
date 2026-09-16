@@ -339,22 +339,20 @@ providers directly — their answer (or refusal) is itself content.
   figures for contrast; EcoLogits credit (MPL-2.0).
 - Remaining: room figure (smart plug, below).
 
-**Room electricity (smart plug) — options (checked 2026-09-16, Stockholm):**
-- **Recommended: Shelly Power Strip 4 Gen4** (S4PL-00416EU, Schuko; 859 SEK at Kjell & Company, in
-  stock). Four sockets, **each metered separately** (`switch:0`–`switch:3`: `apower` W,
-  `aenergy.total` Wh), 16 A / 3680 W total. Wi-Fi 6, local web UI and HTTP RPC, MQTT, outbound
-  websocket, scripts (up to 10), cloud optional. Per-socket figures let the screen name what uses the
-  room's electricity (Mac, main display, speakers, the meter itself).
-- Fallback: Shelly Plug S Gen3 (discontinued by Shelly, still 299 SEK in stock at Kjell): one
-  number for the whole installation behind a normal power strip. Same API.
-- Avoid: Shelly Wave plugs (Z-Wave, need a hub); Tapo and similar (app/cloud-first).
-- Integration, simplest first:
-  1. On-device script POSTs socket readings every few seconds to the council server (e.g.
-     `POST /api/room-power` with a per-installation secret). No Mac or cloud account; needs museum
-     Wi-Fi on 2.4/5 GHz without a captive portal.
-  2. The button bridge on the Mac polls the strip over the LAN and forwards (needs the strip and
-     Mac on the same network without client isolation).
-  3. Shelly Cloud Control API polled by the server with an auth key (depends on Shelly's cloud).
+**Room electricity — implemented (any number of plugs):**
+- Hardware: Shelly Plug S Gen3 ×3 (ordered 2026-09). Plug M Gen3 / Plug PM Gen3 / Power Strip 4 Gen4
+  use the same API. Projector BenQ TH682ST ≈ 244 W typical, 320 W max.
+- Each plug runs `scripts/shelly/room-power.js`: every 5 s, `POST /api/room-power`
+  `{ installationId, deviceId, label, watts, energyCounterWh }` with `X-Room-Power-Key`
+  (`COUNCIL_ROOM_POWER_KEY`; unset → 503). Separate from the bridge key: a plug's script is readable
+  on the museum LAN.
+- Server (`RoomPowerService`): latest reading per plug in `room_power`; energy accumulated from the
+  plug's counter in one atomic update, surviving counter resets. Pushed as `room-power` on `/meter`;
+  part of the meter snapshot.
+- Meter: **In this room, measured** — power now (W), electricity so far, one line per plug; a plug
+  silent for 60 s shows "no signal" and its watts drop out. Demo mode fakes three plugs.
+- Setup steps: MUSEUM.md → "Room power plugs". Needs museum Wi-Fi without a login page; fallback if
+  not: the button bridge polls plugs on the LAN (not built).
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.

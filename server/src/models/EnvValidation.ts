@@ -27,6 +27,8 @@ export const EnvSchema = z.object({
     // Installation bridges: shared key and the venues they can alert.
     COUNCIL_BRIDGE_KEY: unsetIfBlank(z.string().min(16)),
     COUNCIL_VENUES: unsetIfBlank(VenuesEnv),
+    // Smart plugs reporting the installation room's electricity to the footprint meter.
+    COUNCIL_ROOM_POWER_KEY: unsetIfBlank(z.string().min(16)),
 });
 
 export type EnvConfig = z.infer<typeof EnvSchema>;

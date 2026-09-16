@@ -1,4 +1,4 @@
-import type { StoredMeeting, StoredAudio, Counter, StoredUsageEvent, UsageTotals } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio, Counter, StoredRoomPower, StoredUsageEvent, UsageTotals } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
@@ -18,6 +18,7 @@ export let audioCollection: Collection<StoredAudio>;
 export let counters: Collection<Counter>;
 export let usageEventsCollection: Collection<StoredUsageEvent> | undefined;
 export let usageTotalsCollection: Collection<UsageTotals> | undefined;
+export let roomPowerCollection: Collection<StoredRoomPower> | undefined;
 
 export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
   // Config is already validated by the time we import this, but allow overrides for testing
@@ -45,6 +46,7 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   const usageEvents = db.collection<StoredUsageEvent>("usage_events");
   usageEventsCollection = usageEvents;
   usageTotalsCollection = db.collection<UsageTotals>("usage_totals");
+  roomPowerCollection = db.collection<StoredRoomPower>("room_power");
   activeConnectionKey = connectionKey;
 
   await initializeCounters();
@@ -125,6 +127,7 @@ export const closeDb = async (): Promise<void> => {
   activeConnectionKey = null;
   usageEventsCollection = undefined;
   usageTotalsCollection = undefined;
+  roomPowerCollection = undefined;
 };
 
 const initializeCounters = async (): Promise<void> => {

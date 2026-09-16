@@ -1,4 +1,4 @@
-import type { MeterSnapshot, MeterUsageEvent, UsageTotalsRow } from "@shared/MeterTypes";
+import type { MeterSnapshot, MeterUsageEvent, RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
 import type { UsageMeasures } from "@shared/UsageTypes";
 import {
   estimateImpacts,
@@ -15,7 +15,7 @@ import {
 
 export type MeterState = MeterSnapshot;
 
-export const EMPTY_METER_STATE: MeterState = { global: [], installation: [], meeting: null };
+export const EMPTY_METER_STATE: MeterState = { global: [], installation: [], meeting: null, room: [] };
 
 function addToRows(rows: UsageTotalsRow[], event: MeterUsageEvent): UsageTotalsRow[] {
   const index = rows.findIndex((row) => row.provider === event.provider && row.model === event.model);
@@ -47,7 +47,34 @@ export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, insta
       meeting = { ...meeting, totals: addToRows(meeting.totals, event) };
     }
   }
-  return { global, installation, meeting };
+  return { ...state, global, installation, meeting };
+}
+
+/** Replaces a plug's reading, if the plug belongs to this installation. */
+export function applyRoomPower(state: MeterState, reading: RoomPowerReading, installationId: string | undefined): MeterState {
+  if (!installationId || reading.installationId !== installationId) return state;
+  const others = state.room.filter((r) => r.deviceId !== reading.deviceId);
+  return { ...state, room: [...others, reading].sort((a, b) => a.label.localeCompare(b.label)) };
+}
+
+/** A plug that has not reported for this long is shown as silent, and its watts not counted. */
+export const ROOM_POWER_STALE_MS = 60_000;
+
+export interface RoomFootprint {
+  /** Watts now, from plugs that are reporting. */
+  watts: number;
+  /** Energy since each plug was first heard, Wh. */
+  energyWh: number;
+  plugs: (RoomPowerReading & { silent: boolean })[];
+}
+
+export function roomFootprintOf(readings: RoomPowerReading[], now: number): RoomFootprint {
+  const plugs = readings.map((r) => ({ ...r, silent: now - Date.parse(r.updatedAt) > ROOM_POWER_STALE_MS }));
+  return {
+    watts: plugs.reduce((sum, p) => sum + (p.silent ? 0 : p.watts), 0),
+    energyWh: plugs.reduce((sum, p) => sum + p.energyWh, 0),
+    plugs,
+  };
 }
 
 export interface ScopeFootprint {

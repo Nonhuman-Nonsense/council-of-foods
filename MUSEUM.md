@@ -172,6 +172,41 @@ Holidays and closed weeks aren't modelled. The worst case is a reminder on a clo
 **Nothing is sent if the Mac, the bridge or the internet is down.** That needs a
 watchdog outside the Mac (see section 7).
 
+### Installation ID and footprint meter
+
+**Installation ID** (Installation panel) names this computer's installation, e.g.
+`museum-oslo`. It tags the AI usage of meetings run here, so a second screen can
+show what this installation costs:
+
+- **Meter:** `https://<host>/meter?installation=<id>`, full screen on the second
+  display. `?rotate=90` or `?rotate=-90` if the OS cannot rotate that display.
+- **Methodology:** `/meter/methodology`, linked by the QR code on the meter.
+
+Design and estimation method: [docs/ai-footprint-meter.md](docs/ai-footprint-meter.md).
+
+### Room power plugs
+
+Shelly smart plugs (Plug S Gen3, Plug M Gen3, Plug PM Gen3 or any Gen2+ plug with
+power metering) measure the room's electricity for the meter's **In this room**
+section. Use one plug per group of devices, e.g. projector / computer and meter
+screen / sound; any number works.
+
+1. Plug in, add it to the museum Wi-Fi with the Shelly app or its own access point.
+   A Shelly cloud account is not needed. The Wi-Fi must reach the internet without a
+   login page.
+2. In the plug's settings, set it to **turn on after power loss** and never switch it
+   off: a lamp projector must be able to cool down.
+3. Open the plug's web page (`http://<plug-ip>/`) → **Scripts** → create a script,
+   paste [scripts/shelly/room-power.js](scripts/shelly/room-power.js), and fill in
+   the server URL, `COUNCIL_ROOM_POWER_KEY`, the installation ID and a label
+   ("Projector"). Save, **Start**, and enable **Run on startup**.
+4. Within a few seconds the plug appears on the meter. The script's console on the
+   plug's web page shows any failed request.
+
+The server needs `COUNCIL_ROOM_POWER_KEY` (16+ characters) in its environment;
+without it, plug reports are refused. A plug that stops reporting shows **no signal**
+after a minute, and its energy so far is kept.
+
 ### Mode switch button (staff escape)
 
 Enable **Mode switch button** on the staff page to show a red-bordered preview

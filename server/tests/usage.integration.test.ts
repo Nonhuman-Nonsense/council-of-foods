@@ -98,6 +98,7 @@ describe("meter", () => {
             global: [row(4, { input_tokens: 300, output_tokens: 130, request_seconds: 4.5 })],
             installation: [row(3, { input_tokens: 200, output_tokens: 90, request_seconds: 3 })],
             meeting: { meetingId: 12, totals: [row(2, { input_tokens: 100, output_tokens: 50, request_seconds: 1.5 })] },
+            room: [],
         });
     });
 

@@ -89,6 +89,21 @@ html[data-rotate] .meter {
   color: #6f6b60;
 }
 
+.meter-plugs {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--meter-unit) * 1.5);
+  font-size: calc(var(--meter-unit) * 3.2);
+}
+.meter-plugs li {
+  display: flex;
+  justify-content: space-between;
+}
+
 .meter-models ul {
   list-style: none;
   margin: 0;

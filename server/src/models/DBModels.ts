@@ -14,6 +14,20 @@ export interface StoredMeeting extends BaseMeeting, Document {
 
 export interface StoredUsageEvent extends UsageEvent, Document {}
 
+/** Latest reading of one room power plug; `_id` is `<installationId>|<deviceId>`. */
+export interface StoredRoomPower extends Document {
+    _id: string;
+    installationId: string;
+    deviceId: string;
+    label: string;
+    watts: number;
+    /** Accumulated energy since first report, Wh. */
+    energyWh: number;
+    /** The plug's counter at the last report, to accumulate deltas across its resets. */
+    lastCounterWh: number;
+    updatedAt: Date;
+}
+
 /** Running sum of raw usage for one scope ("global" or "installation:<id>") and model. */
 export interface UsageTotals extends Document {
     _id: string;
