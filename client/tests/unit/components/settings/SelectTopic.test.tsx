@@ -17,6 +17,8 @@ function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSett
         capabilities: capabilitiesFor('web'),
         pttHardwareEnabled: false,
         setPttHardwareEnabled: vi.fn(),
+        printSummariesEnabled: false,
+        setPrintSummariesEnabled: vi.fn(),
         modeSwitchButtonEnabled: false,
         setModeSwitchButtonEnabled: vi.fn(),
         devLogEnabled: false,

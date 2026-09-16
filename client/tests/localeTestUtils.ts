@@ -40,7 +40,8 @@ export function loadLocaleKeySet(lang: string): Set<string> {
 const STAFF_BRIDGE_STATUSES = ["checking", "running", "notRunning", "error"] as const;
 const STAFF_APP_STATUSES = ["disconnected", "connecting", "connected", "error", "unavailable"] as const;
 const STAFF_USB_STATUSES = ["connected", "checking", "notDetected", "wrongDevice", "unavailable"] as const;
-const STAFF_LOG_CATEGORIES = ["API", "SOCKET", "AGENT", "REALTIME", "BUTTON", "META", "AUTOPLAY", "SYSTEM", "ERROR"] as const;
+const STAFF_LOG_CATEGORIES = ["API", "SOCKET", "AGENT", "REALTIME", "BUTTON", "META", "AUTOPLAY", "PRINT", "SYSTEM", "ERROR"] as const;
+const STAFF_PRINTER_STATUSES = ["unavailable", "outdated", "disabled", "checking", "noDefault", "idle", "printing", "stopped", "unknown"] as const;
 const STAFF_BUTTON_OWNERS = ["none", "staff", "autoplay", "setup-agent", "human-input", "meta-agent"] as const;
 
 const STATIC_USED_KEYS = [
@@ -51,6 +52,7 @@ const STATIC_USED_KEYS = [
   ...STAFF_APP_STATUSES.map((status) => `staff.button.app.${status}`),
   ...STAFF_USB_STATUSES.map((status) => `staff.button.usb.${status}`),
   ...STAFF_LOG_CATEGORIES.map((category) => `staff.logging.categories.${category}`),
+  ...STAFF_PRINTER_STATUSES.map((status) => `staff.print.printer.${status}`),
   ...STAFF_BUTTON_OWNERS.map((owner) => `staff.button.owners.${owner}`),
 ] as const;
 

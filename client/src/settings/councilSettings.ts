@@ -31,6 +31,10 @@ export const PTT_HARDWARE_ENABLED_KEY = "councilPttHardwareEnabled";
 
 export const PTT_HARDWARE_CHANGE_EVENT = "council-ptt-hardware-change";
 
+export const PRINT_SUMMARIES_ENABLED_KEY = "councilPrintSummariesEnabled";
+
+export const PRINT_SUMMARIES_CHANGE_EVENT = "council-print-summaries-change";
+
 export const MODE_SWITCH_BUTTON_ENABLED_KEY = "councilModeSwitchButtonEnabled";
 
 export const MODE_SWITCH_BUTTON_CHANGE_EVENT = "council-mode-switch-button-change";
@@ -99,6 +103,35 @@ export function setPttHardwareEnabled(enabled: boolean): void {
   }
 
   window.dispatchEvent(new CustomEvent<boolean>(PTT_HARDWARE_CHANGE_EVENT, { detail: enabled }));
+}
+
+/**
+ * Print live meetings' protocols through the local bridge. Staff opt in per
+ * install, since it needs a printer; only takes effect where the mode's
+ * capabilities include `printSummary`.
+ */
+export function getPrintSummariesEnabled(): boolean {
+  try {
+    return localStorage.getItem(PRINT_SUMMARIES_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setPrintSummariesEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(PRINT_SUMMARIES_ENABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(PRINT_SUMMARIES_ENABLED_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<boolean>(PRINT_SUMMARIES_CHANGE_EVENT, { detail: enabled }),
+  );
 }
 
 /** Top-left staff control to switch mode without opening #staff. */
@@ -204,6 +237,8 @@ export function useCouncilSettings(): {
   capabilities: Capabilities;
   pttHardwareEnabled: boolean;
   setPttHardwareEnabled: (enabled: boolean) => void;
+  printSummariesEnabled: boolean;
+  setPrintSummariesEnabled: (enabled: boolean) => void;
   modeSwitchButtonEnabled: boolean;
   setModeSwitchButtonEnabled: (enabled: boolean) => void;
   devLogEnabled: boolean;
@@ -215,6 +250,8 @@ export function useCouncilSettings(): {
   const [mode, setMode] = useState<AppMode>(getAppMode);
   const [lastInstallationMode, setLastInstallationMode] = useState<Exclude<AppMode, "web">>(getLastInstallationMode);
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
+  const [printSummariesEnabled, setPrintSummariesEnabledState] =
+    useState(getPrintSummariesEnabled);
   const [modeSwitchButtonEnabled, setModeSwitchButtonEnabledState] =
     useState(getModeSwitchButtonEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
@@ -237,6 +274,11 @@ export function useCouncilSettings(): {
       setPttHardwareEnabledState(next);
     }
 
+    function onPrintSummariesChange(event: Event): void {
+      const next = (event as CustomEvent<boolean>).detail;
+      setPrintSummariesEnabledState(next);
+    }
+
     function onModeSwitchButtonChange(event: Event): void {
       const next = (event as CustomEvent<boolean>).detail;
       setModeSwitchButtonEnabledState(next);
@@ -251,6 +293,9 @@ export function useCouncilSettings(): {
       }
       if (event.key === PTT_HARDWARE_ENABLED_KEY) {
         setPttHardwareEnabledState(getPttHardwareEnabled());
+      }
+      if (event.key === PRINT_SUMMARIES_ENABLED_KEY) {
+        setPrintSummariesEnabledState(getPrintSummariesEnabled());
       }
       if (event.key === MODE_SWITCH_BUTTON_ENABLED_KEY) {
         setModeSwitchButtonEnabledState(getModeSwitchButtonEnabled());
@@ -269,12 +314,14 @@ export function useCouncilSettings(): {
 
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
     window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
+    window.addEventListener(PRINT_SUMMARIES_CHANGE_EVENT, onPrintSummariesChange);
     window.addEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
       window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
+      window.removeEventListener(PRINT_SUMMARIES_CHANGE_EVENT, onPrintSummariesChange);
       window.removeEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
@@ -290,6 +337,11 @@ export function useCouncilSettings(): {
   const setPttHardwareEnabledFromHook = useCallback((enabled: boolean) => {
     setPttHardwareEnabled(enabled);
     setPttHardwareEnabledState(enabled);
+  }, []);
+
+  const setPrintSummariesEnabledFromHook = useCallback((enabled: boolean) => {
+    setPrintSummariesEnabled(enabled);
+    setPrintSummariesEnabledState(enabled);
   }, []);
 
   const setModeSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
@@ -322,6 +374,8 @@ export function useCouncilSettings(): {
     capabilities,
     pttHardwareEnabled,
     setPttHardwareEnabled: setPttHardwareEnabledFromHook,
+    printSummariesEnabled,
+    setPrintSummariesEnabled: setPrintSummariesEnabledFromHook,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled: setModeSwitchButtonEnabledFromHook,
     devLogEnabled,

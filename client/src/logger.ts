@@ -13,6 +13,7 @@ export const DEV_LOG_CATEGORIES = [
   "BUTTON",
   "META",
   "AUTOPLAY",
+  "PRINT",
   "SYSTEM",
   "ERROR",
 ] as const;
@@ -39,6 +40,7 @@ const CATEGORY_STYLE: Record<LogCategory, string> = {
   BUTTON: "color: #10b981; font-weight: bold;",
   META: "color: #ec4899; font-weight: bold;",
   AUTOPLAY: "color: #f59e0b; font-weight: bold;",
+  PRINT: "color: #64748b; font-weight: bold;",
   SYSTEM: "color: #6b7280; font-weight: bold;",
   ERROR: "color: #ef4444; font-weight: bold;",
 };
@@ -52,6 +54,7 @@ const CATEGORY_ICON: Record<LogCategory, string> = {
   BUTTON: "🔘",
   META: "🪑",
   AUTOPLAY: "🔁",
+  PRINT: "🖨️",
   SYSTEM: "⚙️",
   ERROR: "❌",
 };

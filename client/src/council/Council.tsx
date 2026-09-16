@@ -16,6 +16,7 @@ import { HttpStatusError } from "@api/http";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 import CouncilReplaySession from "./CouncilReplaySession";
+import SummaryPrintJob from "./protocol/SummaryPrintJob";
 import ButtonBanner from "@/museum/button/ButtonBanner";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
@@ -50,7 +51,7 @@ function Council({
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
-  const { capabilities } = useCouncilSettings();
+  const { capabilities, printSummariesEnabled } = useCouncilSettings();
   const connectionError = useErrorStore((s) => s.connectionError);
 
   const navigate = useNavigate();
@@ -275,6 +276,9 @@ function Council({
           currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name ?? ""}
           humanName={humanName}
         />
+      )}
+      {liveKey && capabilities.printSummary && printSummariesEnabled && (
+        <SummaryPrintJob meetingId={currentMeetingId} textMessages={textMessages} />
       )}
       {liveKey && participationPhase !== "off" && (
         <HumanInput

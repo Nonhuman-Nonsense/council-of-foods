@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Staff from '@main/overlay/Staff';
 import '@testing-library/jest-dom';
-import type { SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
+import type { BridgePrintHealth, SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
 
 const museumButtonState = {
   bridgeStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error',
@@ -21,6 +21,7 @@ const bridgeHealthState: {
   serialMessage: string;
   expectedVendorId: string | null;
   scannedPorts: UsbPortInfo[];
+  print: BridgePrintHealth | null;
 } = {
   status: 'running',
   serial: 'connected',
@@ -30,6 +31,7 @@ const bridgeHealthState: {
   serialMessage: 'Council button connected at /dev/cu.usbmodem1',
   expectedVendorId: '2341',
   scannedPorts: [],
+  print: null,
 };
 
 vi.mock('react-i18next', () => ({
@@ -86,6 +88,7 @@ describe('Staff overlay', () => {
     bridgeHealthState.serialMessage = 'Council button connected at /dev/cu.usbmodem1';
     bridgeHealthState.expectedVendorId = '2341';
     bridgeHealthState.scannedPorts = [];
+    bridgeHealthState.print = null;
   });
 
   afterEach(() => {
@@ -260,7 +263,7 @@ describe('Staff overlay', () => {
 
     const toggle = screen.getByTestId('staff-ptt-hardware-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByTestId('staff-button-status')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('staff-bridge-panel')).not.toBeInTheDocument();
   });
 
   it('persists hardware enablement and shows button status panel', () => {
@@ -269,7 +272,7 @@ describe('Staff overlay', () => {
 
     fireEvent.click(screen.getByTestId('staff-ptt-hardware-toggle'));
     expect(localStorage.getItem('councilPttHardwareEnabled')).toBe('true');
-    expect(screen.getByTestId('staff-button-status')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-bridge-panel')).toBeInTheDocument();
   });
 
   it('shows button status panel in web mode when hardware is enabled', () => {
@@ -279,7 +282,7 @@ describe('Staff overlay', () => {
 
     render(<Staff />);
 
-    expect(screen.getByTestId('staff-button-status')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-bridge-panel')).toBeInTheDocument();
     expect(screen.getByTestId('staff-bridge-app-status')).toHaveTextContent(
       'staff.button.app.connected',
     );
@@ -347,5 +350,109 @@ describe('Staff overlay', () => {
 
     fireEvent.click(screen.getByText('staff.panels.details'));
     expect(screen.getByTestId('staff-button-usb-hint')).toBeInTheDocument();
+  });
+
+  describe('printing', () => {
+    const readyPrint: BridgePrintHealth = {
+      enabled: true,
+      printer: { name: 'Museum_Printer', state: 'idle', alerts: [], message: null },
+      pending: 0,
+      lastError: null,
+      lastPrintedAt: null,
+    };
+
+    it('persists the print summaries toggle and shows the printer panel only while on', () => {
+      bridgeHealthState.print = readyPrint;
+      render(<Staff />);
+      expect(screen.queryByTestId('staff-bridge-panel')).not.toBeInTheDocument();
+
+      const toggle = screen.getByTestId('staff-print-summaries-toggle');
+      fireEvent.click(toggle);
+
+      expect(localStorage.getItem('councilPrintSummariesEnabled')).toBe('true');
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('staff-print-printer-status')).toHaveTextContent(
+        'Museum_Printer — staff.print.printer.idle',
+      );
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('0');
+
+      fireEvent.click(toggle);
+      expect(screen.queryByTestId('staff-bridge-panel')).not.toBeInTheDocument();
+    });
+
+    it('shares one bridge panel and one bridge status with the hardware button', () => {
+      localStorage.setItem('councilPttHardwareEnabled', 'true');
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = readyPrint;
+
+      render(<Staff />);
+
+      expect(screen.getAllByTestId('staff-bridge-panel')).toHaveLength(1);
+      expect(screen.getAllByTestId('staff-bridge-daemon-status')).toHaveLength(1);
+      expect(screen.getByTestId('staff-button-usb-status')).toBeInTheDocument();
+      expect(screen.getByTestId('staff-print-printer-status')).toBeInTheDocument();
+    });
+
+    it('shows only printer chips when printing is on without the hardware button', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = readyPrint;
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-bridge-daemon-status')).toBeInTheDocument();
+      expect(screen.queryByTestId('staff-button-usb-status')).not.toBeInTheDocument();
+      expect(screen.getByTestId('staff-print-printer-status')).toBeInTheDocument();
+    });
+
+    it.each([
+      { name: 'bridge not running', status: 'not_running', print: null, expected: 'staff.print.printer.unavailable' },
+      { name: 'bridge predates printing', status: 'running', print: null, expected: 'staff.print.printer.outdated' },
+      { name: 'printing off on the bridge', status: 'running', print: { enabled: false }, expected: 'staff.print.printer.disabled' },
+      {
+        name: 'no default printer',
+        status: 'running',
+        print: { ...readyPrint, printer: { name: null, state: 'unknown', alerts: [], message: 'No default printer' } },
+        expected: 'staff.print.printer.noDefault',
+      },
+      {
+        name: 'printer stopped',
+        status: 'running',
+        print: { ...readyPrint, printer: { name: 'Museum_Printer', state: 'stopped', alerts: ['media-empty-error'], message: 'Media Empty' } },
+        expected: 'Museum_Printer — staff.print.printer.stopped',
+      },
+    ] as const)('shows the printer as: $name', ({ status, print, expected }) => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.status = status;
+      bridgeHealthState.print = print as BridgePrintHealth | null;
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-printer-status')).toHaveTextContent(expected);
+    });
+
+    it('surfaces why the printer is stuck in the details', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = {
+        ...readyPrint,
+        printer: { name: 'Museum_Printer', state: 'stopped', alerts: ['media-empty-error'], message: 'Media Empty' },
+        pending: 2,
+        lastError: 'lp: printer is offline',
+      };
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('2');
+      const lines = screen.getAllByTestId('staff-print-detail-line').map((line) => line.textContent);
+      expect(lines).toEqual(['Media Empty', 'Printer alerts: media-empty-error', 'Last error: lp: printer is offline']);
+    });
+
+    it('explains that only museum mode prints', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      render(<Staff />);
+      expect(screen.getByTestId('staff-print-mode-hint')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('app-mode-museum'));
+      expect(screen.queryByTestId('staff-print-mode-hint')).not.toBeInTheDocument();
+    });
   });
 });

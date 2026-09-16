@@ -84,6 +84,7 @@
         "BUTTON": "Button",
         "META": "Meta agent",
         "AUTOPLAY": "Autoplay",
+        "PRINT": "Printing",
         "SYSTEM": "System",
         "ERROR": "Error detail"
       }
@@ -92,8 +93,27 @@
     "museum": "Museum",
     "presenter": "Presenter",
     "modeSwitchButton": "Mode switch button",
+    "bridge": {
+      "title": "Bridge"
+    },
+    "print": {
+      "toggle": "Print summaries",
+      "printerLabel": "Printer",
+      "pendingLabel": "Waiting to print",
+      "modeHint": "Protocols only print in museum mode.",
+      "printer": {
+        "unavailable": "—",
+        "outdated": "Bridge too old — update it",
+        "disabled": "Printing off on bridge",
+        "checking": "Checking…",
+        "noDefault": "No default printer",
+        "idle": "Ready",
+        "printing": "Printing",
+        "stopped": "Stopped",
+        "unknown": "Unknown"
+      }
+    },
     "button": {
-      "title": "Button",
       "bridgeLabel": "Bridge",
       "appLabel": "App",
       "usbLabel": "USB button",

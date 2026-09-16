@@ -51,6 +51,25 @@ export type SerialDetail =
   | "probing"
   | "shutdown";
 
+export type BridgePrinterState = "idle" | "printing" | "stopped" | "unknown";
+
+/** The bridge's print spool, as reported in `/health`. */
+export type BridgePrintHealth =
+  | { enabled: false }
+  | {
+      enabled: true;
+      /** Null until the bridge has asked CUPS for the first time. */
+      printer: {
+        name: string | null;
+        state: BridgePrinterState;
+        alerts: string[];
+        message: string | null;
+      } | null;
+      pending: number;
+      lastError: string | null;
+      lastPrintedAt: string | null;
+    };
+
 export type ButtonBridgeHealthState =
   | { status: "checking" }
   | {
@@ -62,6 +81,8 @@ export type ButtonBridgeHealthState =
       serialMessage: string;
       expectedVendorId: string | null;
       scannedPorts: UsbPortInfo[];
+      /** Null from a bridge that predates printing. */
+      print: BridgePrintHealth | null;
     }
   | { status: "not_running" }
   | { status: "error"; message: string };
@@ -75,6 +96,7 @@ type ButtonBridgeHealthResponse = {
   serialMessage?: string;
   expectedVendorId?: string | null;
   scannedPorts?: UsbPortInfo[];
+  print?: BridgePrintHealth;
 };
 
 /** Stable summary for health state-change logging (not per-poll HTTP). */
@@ -139,6 +161,7 @@ export async function fetchButtonBridgeHealth(
       serialMessage: body.serialMessage ?? "",
       expectedVendorId: body.expectedVendorId ?? null,
       scannedPorts: body.scannedPorts ?? [],
+      print: body.print ?? null,
     };
   } catch {
     return { status: "not_running" };

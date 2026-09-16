@@ -85,6 +85,12 @@ vi.mock('@museum/metaAgent/MeetingMetaAgent', async () => {
 });
 
 
+vi.mock('@council/protocol/SummaryPrintJob', () => ({
+    default: ({ meetingId }: { meetingId: number }) => (
+        <div data-testid="summary-print-job" data-meeting-id={meetingId} />
+    ),
+}));
+
 // Mock useCouncilMachine Hook
 const mockToggleMute = vi.fn();
 const mockUseCouncilMachine = vi.fn();
@@ -134,6 +140,7 @@ const mockUseCouncilSettings = vi.fn((): {
   mode: AppMode;
   setAppMode: () => void;
   capabilities: Capabilities;
+  printSummariesEnabled?: boolean;
 } => ({
   isMuseumMode: false,
   mode: 'web',
@@ -206,6 +213,30 @@ describe('Council Component', () => {
         });
 
         expect(mockNavigate).not.toHaveBeenCalledWith('/');
+    });
+
+    it.each([
+        { name: 'a live museum meeting with printing on', mode: 'museum', enabled: true, liveKey: 'live', prints: true },
+        { name: 'a museum replay', mode: 'museum', enabled: true, liveKey: null, prints: false },
+        { name: 'museum with printing switched off', mode: 'museum', enabled: false, liveKey: 'live', prints: false },
+        { name: 'a presenter screening', mode: 'presenter', enabled: true, liveKey: 'live', prints: false },
+        { name: 'the web app', mode: 'web', enabled: true, liveKey: 'live', prints: false },
+    ] as const)('prints the protocol only for $name → $prints', ({ mode, enabled, liveKey, prints }) => {
+        mockUseCouncilSettings.mockReturnValue({
+            isMuseumMode: mode === 'museum',
+            mode,
+            setAppMode: vi.fn(),
+            capabilities: capabilitiesFor(mode),
+            printSummariesEnabled: enabled,
+        });
+
+        render(<Council {...defaultProps} liveKey={liveKey} />);
+
+        if (prints) {
+            expect(screen.getByTestId('summary-print-job')).toHaveAttribute('data-meeting-id', '123');
+        } else {
+            expect(screen.queryByTestId('summary-print-job')).not.toBeInTheDocument();
+        }
     });
 
     it('passes isMuted state correctly to ConversationControls', () => {

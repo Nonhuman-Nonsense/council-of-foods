@@ -111,6 +111,13 @@ export type Capabilities = {
    * language, or a reload into a server that is still coming back up.
    */
   installationReload: boolean;
+  /**
+   * Print each live meeting's protocol on the installation's printer, through
+   * the local bridge, once staff have switched printing on. A museum visitor
+   * takes the protocol home on paper; at a screening the audience is shown it,
+   * and nobody wants the printer going mid-talk.
+   */
+  printSummary: boolean;
 };
 
 const WEB: Capabilities = {
@@ -132,6 +139,7 @@ const WEB: Capabilities = {
   agentWaitsForVisitor: true,
   typedSetup: true,
   installationReload: false,
+  printSummary: false,
 };
 
 const MUSEUM: Capabilities = {
@@ -153,6 +161,7 @@ const MUSEUM: Capabilities = {
   agentWaitsForVisitor: false,
   typedSetup: false,
   installationReload: true,
+  printSummary: true,
 };
 
 /**
@@ -160,6 +169,9 @@ const MUSEUM: Capabilities = {
  * on its own, because the person standing next to it is talking and the screen
  * must wait for them. Chrome, teleprompter, meta agent, push-to-talk and
  * self-healing are the museum's.
+ *
+ * It doesn't print protocols either: a screening shows the protocol to the
+ * room, and a printer starting up mid-talk only interrupts.
  *
  * Adding human panelists is the exception: a presenter has a keyboard, and
  * putting people on the council by hand is part of showing the piece off. The
@@ -173,6 +185,7 @@ const PRESENTER: Capabilities = {
   autoReturnToLanding: false,
   autoplay: false,
   typedSetup: true,
+  printSummary: false,
 };
 
 const CAPABILITIES: Record<AppMode, Capabilities> = {

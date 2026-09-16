@@ -12,6 +12,7 @@ import {
   useButtonBridgeHealth,
 } from "@/museum/button/useButton";
 import type {
+  BridgePrintHealth,
   ButtonBridgeHealthState,
   ButtonTransportStatus,
   UsbPortInfo,
@@ -51,6 +52,7 @@ const LOG_CATEGORY_COLOR: Record<LogCategory, string> = {
   BUTTON: "#10b981",
   META: "#ec4899",
   AUTOPLAY: "#f59e0b",
+  PRINT: "#94a3b8",
   SYSTEM: "#6b7280",
   ERROR: "#ef4444",
 };
@@ -142,6 +144,52 @@ function getStaffBridgeDetailLines(health: ButtonBridgeHealthState): string[] {
     lines.push(`USB path ${health.path}`);
   }
 
+  return lines;
+}
+
+type PrinterStatus =
+  | "unavailable"
+  | "outdated"
+  | "disabled"
+  | "checking"
+  | "noDefault"
+  | "idle"
+  | "printing"
+  | "stopped"
+  | "unknown";
+
+type EnabledPrintHealth = Extract<BridgePrintHealth, { enabled: true }>;
+
+function getPrintHealth(health: ButtonBridgeHealthState): EnabledPrintHealth | null {
+  return health.status === "running" && health.print?.enabled ? health.print : null;
+}
+
+function getPrinterStatus(health: ButtonBridgeHealthState): PrinterStatus {
+  if (health.status !== "running") return "unavailable";
+  if (!health.print) return "outdated";
+  if (!health.print.enabled) return "disabled";
+  if (!health.print.printer) return "checking";
+  if (!health.print.printer.name) return "noDefault";
+  return health.print.printer.state;
+}
+
+function printerStatusTone(status: PrinterStatus): StatusTone {
+  if (status === "idle" || status === "printing") return "ok";
+  if (status === "checking" || status === "unknown") return "warn";
+  if (status === "unavailable") return "idle";
+  return "error";
+}
+
+function getStaffPrintDetailLines(print: EnabledPrintHealth): string[] {
+  const lines: string[] = [];
+  if (print.printer?.message) lines.push(print.printer.message);
+  if (print.printer && print.printer.alerts.length > 0) {
+    lines.push(`Printer alerts: ${print.printer.alerts.join(", ")}`);
+  }
+  if (print.lastError) lines.push(`Last error: ${print.lastError}`);
+  if (print.lastPrintedAt) {
+    lines.push(`Last printed ${new Date(print.lastPrintedAt).toLocaleString()}`);
+  }
   return lines;
 }
 
@@ -325,6 +373,9 @@ function Staff(): ReactElement {
     setAppMode,
     pttHardwareEnabled,
     setPttHardwareEnabled,
+    printSummariesEnabled,
+    setPrintSummariesEnabled,
+    capabilities,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled,
     devLogEnabled,
@@ -336,7 +387,7 @@ function Staff(): ReactElement {
   const bridgeButtonActive = pttHardwareEnabled;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
     useButtonConnection(bridgeButtonActive);
-  const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive);
+  const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive || printSummariesEnabled);
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
   const button = useButton("staff");
@@ -356,13 +407,25 @@ function Staff(): ReactElement {
   const bridgeDetailLines =
     bridgeHealth.status === "running" ? getStaffBridgeDetailLines(bridgeHealth) : [];
 
-  const showButtonPanel = pttHardwareEnabled;
-  const showButtonDetails =
-    showButtonPanel &&
-    (bridgeDetailLines.length > 0 ||
-      daemonStatus === "notRunning" ||
-      (daemonStatus === "running" &&
-        (usbStatus === "notDetected" || usbStatus === "wrongDevice")));
+  const printerStatus = getPrinterStatus(bridgeHealth);
+  const printHealth = getPrintHealth(bridgeHealth);
+  const printDetailLines = printHealth ? getStaffPrintDetailLines(printHealth) : [];
+
+  // One panel for everything that goes through the bridge: the hardware button
+  // and the printer each add their chips and hints when staff switch them on.
+  const showBridgePanel = pttHardwareEnabled || printSummariesEnabled;
+  const showUsbHint =
+    pttHardwareEnabled && daemonStatus === "running" && usbStatus === "notDetected";
+  const showWrongDeviceHint =
+    pttHardwareEnabled && daemonStatus === "running" && usbStatus === "wrongDevice";
+  const buttonDetailLines = pttHardwareEnabled ? bridgeDetailLines : [];
+  const printerDetailLines = printSummariesEnabled ? printDetailLines : [];
+  const showBridgeDetails =
+    buttonDetailLines.length > 0 ||
+    printerDetailLines.length > 0 ||
+    daemonStatus === "notRunning" ||
+    showUsbHint ||
+    showWrongDeviceHint;
 
   return (
     <div
@@ -433,6 +496,16 @@ function Staff(): ReactElement {
             </button>
             <button
               type="button"
+              data-testid="staff-print-summaries-toggle"
+              className={printSummariesEnabled ? "control" : ""}
+              aria-pressed={printSummariesEnabled}
+              onClick={() => setPrintSummariesEnabled(!printSummariesEnabled)}
+              style={{ ...ledPreviewToggleStyle(printSummariesEnabled), flex: 1 }}
+            >
+              {t("staff.print.toggle")}
+            </button>
+            <button
+              type="button"
               data-testid="staff-led-debug-toggle"
               className={ledDebugOverlay ? "control" : ""}
               aria-pressed={ledDebugOverlay}
@@ -444,8 +517,8 @@ function Staff(): ReactElement {
           </div>
         </StaffPanel>
 
-        {showButtonPanel ? (
-          <StaffPanel title={t("staff.button.title")} fullWidth testId="staff-button-status">
+        {showBridgePanel ? (
+          <StaffPanel title={t("staff.bridge.title")} fullWidth testId="staff-bridge-panel">
             <div
               style={{
                 display: "flex",
@@ -460,31 +533,68 @@ function Staff(): ReactElement {
                 tone={statusTone(daemonStatus)}
                 testId="staff-bridge-daemon-status"
               />
-              <StaffStatusChip
-                label={t("staff.button.appLabel")}
-                value={
-                  appStatus === "error" && bridgeError
-                    ? `${t(`staff.button.app.${appStatus}`)} — ${bridgeError}`
-                    : t(`staff.button.app.${appStatus}`)
-                }
-                tone={statusTone(appStatus)}
-                testId="staff-bridge-app-status"
-              />
-              <StaffStatusChip
-                label={t("staff.button.usbLabel")}
-                value={t(`staff.button.usb.${usbStatus}`)}
-                tone={statusTone(usbStatus)}
-                testId="staff-button-usb-status"
-              />
+              {pttHardwareEnabled ? (
+                <>
+                  <StaffStatusChip
+                    label={t("staff.button.appLabel")}
+                    value={
+                      appStatus === "error" && bridgeError
+                        ? `${t(`staff.button.app.${appStatus}`)} — ${bridgeError}`
+                        : t(`staff.button.app.${appStatus}`)
+                    }
+                    tone={statusTone(appStatus)}
+                    testId="staff-bridge-app-status"
+                  />
+                  <StaffStatusChip
+                    label={t("staff.button.usbLabel")}
+                    value={t(`staff.button.usb.${usbStatus}`)}
+                    tone={statusTone(usbStatus)}
+                    testId="staff-button-usb-status"
+                  />
+                </>
+              ) : null}
+              {printSummariesEnabled ? (
+                <>
+                  <StaffStatusChip
+                    label={t("staff.print.printerLabel")}
+                    value={
+                      printHealth?.printer?.name
+                        ? `${printHealth.printer.name} — ${t(`staff.print.printer.${printerStatus}`)}`
+                        : t(`staff.print.printer.${printerStatus}`)
+                    }
+                    tone={printerStatusTone(printerStatus)}
+                    testId="staff-print-printer-status"
+                  />
+                  {printHealth ? (
+                    <StaffStatusChip
+                      label={t("staff.print.pendingLabel")}
+                      value={String(printHealth.pending)}
+                      tone={printHealth.pending > 0 ? "warn" : "ok"}
+                      testId="staff-print-pending"
+                    />
+                  ) : null}
+                </>
+              ) : null}
             </div>
 
-            {showButtonDetails ? (
+            {printSummariesEnabled && !capabilities.printSummary ? (
+              <p data-testid="staff-print-mode-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
+                {t("staff.print.modeHint")}
+              </p>
+            ) : null}
+
+            {showBridgeDetails ? (
               <StaffCollapsible
                 label={t("staff.panels.details")}
-                testId="staff-button-details"
+                testId="staff-bridge-details"
               >
-                {bridgeDetailLines.map((line) => (
+                {buttonDetailLines.map((line) => (
                   <p key={line} data-testid="staff-bridge-detail-line" style={{ margin: 0, textAlign: "center" }}>
+                    {line}
+                  </p>
+                ))}
+                {printerDetailLines.map((line) => (
+                  <p key={line} data-testid="staff-print-detail-line" style={{ margin: 0, textAlign: "center" }}>
                     {line}
                   </p>
                 ))}
@@ -495,12 +605,12 @@ function Staff(): ReactElement {
                     })}
                   </p>
                 ) : null}
-                {daemonStatus === "running" && usbStatus === "notDetected" ? (
+                {showUsbHint ? (
                   <p data-testid="staff-button-usb-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
                     {t("staff.button.usbNotDetectedHint")}
                   </p>
                 ) : null}
-                {daemonStatus === "running" && usbStatus === "wrongDevice" ? (
+                {showWrongDeviceHint ? (
                   <p
                     data-testid="staff-button-wrong-device-hint"
                     style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}

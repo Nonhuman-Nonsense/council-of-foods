@@ -21,6 +21,9 @@ import {
   MODE_SWITCH_BUTTON_ENABLED_KEY,
   getModeSwitchButtonEnabled,
   setModeSwitchButtonEnabled,
+  getPrintSummariesEnabled,
+  setPrintSummariesEnabled,
+  PRINT_SUMMARIES_ENABLED_KEY,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
@@ -88,6 +91,26 @@ describe("councilSettings", () => {
       setAppMode("museum");
       setAppMode("web");
       expect(getPttHardwareEnabled()).toBe(true);
+    });
+  });
+
+  describe("print summaries storage", () => {
+    it("is off until staff switch it on, and removes its key when switched off", () => {
+      expect(getPrintSummariesEnabled()).toBe(false);
+
+      setPrintSummariesEnabled(true);
+      expect(localStorage.getItem(PRINT_SUMMARIES_ENABLED_KEY)).toBe("true");
+      expect(getPrintSummariesEnabled()).toBe(true);
+
+      setPrintSummariesEnabled(false);
+      expect(localStorage.getItem(PRINT_SUMMARIES_ENABLED_KEY)).toBeNull();
+    });
+
+    it("survives a mode switch — whether it prints is the mode's call", () => {
+      setPrintSummariesEnabled(true);
+      setAppMode("presenter");
+      setAppMode("museum");
+      expect(getPrintSummariesEnabled()).toBe(true);
     });
   });
 
