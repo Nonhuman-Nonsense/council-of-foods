@@ -22,6 +22,7 @@ import { modeSwitchButtonToggleStyle } from "@/museum/ModeSwitchButton";
 import ProtocolDocument from "@council/protocol/ProtocolDocument";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
+import { describePrinterReason } from "@shared/printerReasons";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
 
@@ -427,6 +428,8 @@ function Staff(): ReactElement {
   const printerStatus = getPrinterStatus(bridgeHealth);
   const printHealth = getPrintHealth(bridgeHealth);
   const printDetailLines = printHealth ? getStaffPrintDetailLines(printHealth) : [];
+  // Protocols not yet on paper: still in the bridge's folder, or accepted by the printer.
+  const printWaiting = printHealth ? printHealth.pending + (printHealth.printer?.queuedJobs ?? 0) : 0;
 
   // One panel for everything that goes through the bridge: the hardware button
   // and the printer each add their chips and hints when staff switch them on.
@@ -585,9 +588,19 @@ function Staff(): ReactElement {
                   {printHealth ? (
                     <StaffStatusChip
                       label={t("staff.print.pendingLabel")}
-                      value={String(printHealth.pending)}
-                      tone={printHealth.pending > 0 ? "warn" : "ok"}
+                      value={String(printWaiting)}
+                      tone={printWaiting > 0 ? "warn" : "ok"}
                       testId="staff-print-pending"
+                    />
+                  ) : null}
+                  {printHealth?.attention ? (
+                    <StaffStatusChip
+                      label={t("staff.print.attentionLabel")}
+                      value={`${describePrinterReason(printHealth.attention.reason)} (${t("staff.print.since", {
+                        time: new Date(printHealth.attention.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                      })})`}
+                      tone="error"
+                      testId="staff-print-attention"
                     />
                   ) : null}
                 </>

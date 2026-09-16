@@ -4,7 +4,8 @@ import { config } from "@root/src/config.js";
 import { maskEmail, type Venue } from "@models/Venues.js";
 import { getSender, isMailConfigured, sendEmail } from "@services/MailService.js";
 import { sendReport } from "@utils/errorbot.js";
-import { PrinterAlertBody, buildPrinterAlertEmail, describeReason } from "./printerAlerts.js";
+import { describePrinterReason } from "@shared/printerReasons.js";
+import { PrinterAlertBody, buildPrinterAlertEmail } from "./printerAlerts.js";
 
 /**
  * Endpoints for installation bridges (the local daemon on a museum Mac). Only
@@ -100,7 +101,7 @@ export function registerBridgeRoutes(app: Express): void {
             severity: "warning",
             source: "server",
             message: `[PRINTER ${alert.kind.toUpperCase()}] ${venue.name}: ${
-                alert.kind === "resolved" ? "working again" : describeReason(alert.reason)
+                alert.kind === "resolved" ? "working again" : describePrinterReason(alert.reason)
             }${alert.waiting !== undefined ? ` (${alert.waiting} waiting)` : ""}${alert.host ? ` · ${alert.host}` : ""}`,
         });
 

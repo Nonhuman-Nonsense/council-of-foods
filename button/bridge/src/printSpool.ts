@@ -1,6 +1,7 @@
 import { chmod, mkdir, readdir, rename, rm, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { PrinterLike, PrinterStatus } from "./printer.js";
+import { detectAttention } from "./printAttention.js";
 
 export type PrintSpoolOptions = {
   dir: string;
@@ -8,6 +9,8 @@ export type PrintSpoolOptions = {
   retryBaseMs: number;
   retryMaxMs: number;
   statusIntervalMs: number;
+  /** A protocol waiting this long means printing is stuck, whatever the printer says. */
+  notPrintingAfterMs: number;
 };
 
 export type EnqueueResult = "queued" | "duplicate";
@@ -16,6 +19,10 @@ export type PrintHealth = {
   enabled: true;
   printer: PrinterStatus | null;
   pending: number;
+  /** Oldest protocol in pending/, ISO 8601. */
+  oldestPendingAt: string | null;
+  /** Why the printer needs someone to look at it, and since when; null when all is well. */
+  attention: { reason: string; since: string } | null;
   lastError: string | null;
   lastPrintedAt: string | null;
 };
@@ -54,6 +61,8 @@ export class PrintSpool {
   private printerStatus: PrinterStatus | null = null;
   private lastError: string | null = null;
   private lastPrintedAt: string | null = null;
+  private oldestPendingAt: number | null = null;
+  private attention: { reason: string; since: number } | null = null;
 
   constructor(private readonly options: PrintSpoolOptions) {
     this.pendingDir = path.join(options.dir, "pending");
@@ -124,6 +133,7 @@ export class PrintSpool {
       throw error;
     }
     this.pendingCount += 1;
+    this.oldestPendingAt ??= Date.now();
     console.log(`[button-bridge/print] queued ${key}`);
     this.kick();
     return "queued";
@@ -141,6 +151,10 @@ export class PrintSpool {
       enabled: true,
       printer: this.printerStatus,
       pending: this.pendingCount,
+      oldestPendingAt: this.oldestPendingAt === null ? null : new Date(this.oldestPendingAt).toISOString(),
+      attention: this.attention
+        ? { reason: this.attention.reason, since: new Date(this.attention.since).toISOString() }
+        : null,
       lastError: this.lastError,
       lastPrintedAt: this.lastPrintedAt,
     };
@@ -206,7 +220,10 @@ export class PrintSpool {
       (key) => !this.printedNotMoved.has(key),
     );
     this.pendingCount = keys.length;
-    if (keys.length === 0) return null;
+    if (keys.length === 0) {
+      this.oldestPendingAt = null;
+      return null;
+    }
     const withTimes = await Promise.all(
       keys.map(async (key) => ({
         key,
@@ -218,6 +235,7 @@ export class PrintSpool {
       })),
     );
     withTimes.sort((a, b) => a.mtime - b.mtime || a.key.localeCompare(b.key));
+    this.oldestPendingAt = Number.isFinite(withTimes[0].mtime) ? withTimes[0].mtime : Date.now();
     return withTimes[0].key;
   }
 
@@ -244,6 +262,26 @@ export class PrintSpool {
   private refreshStatus(): void {
     void this.options.printer.status().then((status) => {
       this.printerStatus = status;
+      this.updateAttention(Date.now());
     });
+  }
+
+  private updateAttention(now: number): void {
+    const inPrinterQueue = this.printerStatus?.oldestJobAt ? Date.parse(this.printerStatus.oldestJobAt) : null;
+    const waiting = [this.oldestPendingAt, inPrinterQueue].filter((at): at is number => at !== null);
+    const detected = detectAttention({
+      printer: this.printerStatus,
+      oldestWaitingAt: waiting.length > 0 ? Math.min(...waiting) : null,
+      now,
+      notPrintingAfterMs: this.options.notPrintingAfterMs,
+    });
+
+    if (!detected) {
+      if (this.attention) console.log(`[button-bridge/print] printer ok again (was ${this.attention.reason})`);
+      this.attention = null;
+    } else if (detected.reason !== this.attention?.reason) {
+      console.warn(`[button-bridge/print] printer needs attention: ${detected.reason}`);
+      this.attention = { reason: detected.reason, since: detected.since ?? now };
+    }
   }
 }

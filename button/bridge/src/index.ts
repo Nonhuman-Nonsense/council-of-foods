@@ -34,6 +34,7 @@ function createPrintRuntime(config: ReturnType<typeof loadConfig>): PrintRuntime
     retryBaseMs: config.printRetryBaseMs,
     retryMaxMs: config.printRetryMaxMs,
     statusIntervalMs: config.printStatusIntervalMs,
+    notPrintingAfterMs: config.printNotPrintingAfterMs,
   });
   return { spool, mockPrinter };
 }

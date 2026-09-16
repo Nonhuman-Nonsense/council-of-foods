@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Venue } from "@models/Venues.js";
 import type { Email } from "@services/MailService.js";
+import { describePrinterReason } from "@shared/printerReasons.js";
 
 /**
  * What an installation bridge reports about its printer, and the email museum
@@ -28,26 +29,6 @@ export const PrinterAlertBody = z.object({
 
 export type PrinterAlert = z.infer<typeof PrinterAlertBody>;
 
-const REASON_TEXT: Record<string, string> = {
-    "media-empty": "out of paper",
-    "media-needed": "out of paper",
-    "media-jam": "paper jam",
-    "door-open": "a cover or door is open",
-    "cover-open": "a cover or door is open",
-    "offline": "switched off or disconnected",
-    "toner-empty": "out of toner",
-    "marker-supply-empty": "out of ink or toner",
-    "input-tray-missing": "the paper tray is missing",
-    "stopped": "the print queue is paused",
-    "not-printing": "protocols are not printing",
-    "no-printer": "no printer is set up",
-};
-
-export function describeReason(reason: string | undefined): string {
-    if (!reason) return "needs attention";
-    return REASON_TEXT[reason] ?? reason;
-}
-
 function formatWhen(iso: string, timeZone: string): string {
     return new Intl.DateTimeFormat("en-GB", {
         timeZone,
@@ -60,7 +41,7 @@ function formatWhen(iso: string, timeZone: string): string {
 }
 
 export function buildPrinterAlertEmail(product: string, venue: Venue, alert: PrinterAlert): Email {
-    const what = describeReason(alert.reason);
+    const what = describePrinterReason(alert.reason);
     const printerName = `${product} printer at ${venue.name}`;
 
     const details: string[] = [];

@@ -88,6 +88,7 @@ function createTestConfig(port: number): BridgeConfig {
     printRetryBaseMs: 20,
     printRetryMaxMs: 100,
     printStatusIntervalMs: 50,
+    printNotPrintingAfterMs: 300,
   };
 }
 
@@ -171,6 +172,7 @@ export async function startTestBridge(
         retryBaseMs: config.printRetryBaseMs,
         retryMaxMs: config.printRetryMaxMs,
         statusIntervalMs: config.printStatusIntervalMs,
+        notPrintingAfterMs: config.printNotPrintingAfterMs,
       });
       await spool.start();
       runtime.print = { spool, mockPrinter: printer };

@@ -32,6 +32,8 @@ describe("loadConfig", () => {
     [undefined, null],
     ["1", "ok"],
     ["fail", "fail"],
+    ["paper-out", "paper-out"],
+    ["stuck", "stuck"],
   ])("BRIDGE_MOCK_PRINTER=%s selects mock printer %s", (value, expected) => {
     if (value === undefined) delete process.env.BRIDGE_MOCK_PRINTER;
     else process.env.BRIDGE_MOCK_PRINTER = value;

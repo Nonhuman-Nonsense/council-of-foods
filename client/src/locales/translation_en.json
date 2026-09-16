@@ -100,6 +100,8 @@
       "toggle": "Print summaries",
       "printerLabel": "Printer",
       "pendingLabel": "Waiting to print",
+      "attentionLabel": "Needs attention",
+      "since": "since {{time}}",
       "modeHint": "Protocols only print in museum mode.",
       "testPage": "Print test page",
       "testPageText": "## Test page\n\nIf you can read this, printing works: this browser sent the page to the bridge, and the bridge sent it to the printer.\n\nMeeting protocols print the same way, as soon as a live meeting in museum mode has its summary.",

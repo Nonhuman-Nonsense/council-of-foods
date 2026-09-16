@@ -115,8 +115,11 @@ The browser sends the PDF to the bridge. The bridge keeps it in a folder queue a
 prints it with macOS's own printing, so a crash, a reboot or a printer that is
 off only delays a protocol, never loses it. Each meeting prints once.
 
-The **Bridge** panel on `#staff` shows the printer and how many protocols are
-waiting, with the printer's own message (e.g. out of paper) under **Details**.
+The **Bridge** panel on `#staff` shows the printer, how many protocols are
+waiting, and **Needs attention** with the reason when something is wrong: out of
+paper, a jam, a paused queue, or protocols that haven't printed for 10 minutes
+even though the printer reports nothing. The printer's own message is under
+**Details**.
 **Print test page** sends a sample protocol along the same path.
 
 The folder is **`/usr/local/lib/council-button-bridge/print`**, with a **Council Print**

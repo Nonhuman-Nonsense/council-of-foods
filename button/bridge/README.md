@@ -215,7 +215,7 @@ button/bridge/install/macos/smoke-bundle.sh
 | `BRIDGE_PRINT_ENABLED` | `1` | `0` = refuse print jobs |
 | `BRIDGE_PRINT_SPOOL_DIR` | `./.print-spool` | Folder holding `pending/` and `done/` |
 | `BRIDGE_PRINTER` | system default | CUPS queue name to print to |
-| `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer, `fail` = mock printer that refuses jobs |
+| `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer; or start it in a mode: `fail`, `paper-out`, `stuck` |
 
 ## Printing
 
@@ -236,8 +236,23 @@ Jobs go through a folder spool, so printing survives crashes, reboots and a prin
   there. To reprint a protocol, copy it from `done/` back into `pending/`.
 - A key already in `pending/` or `done/` is never printed again, so client retries are safe.
 
-`/health` includes a `print` block: the printer (`name`, `state`, CUPS `alerts`), the `pending`
-count, `lastError` and `lastPrintedAt`.
+`/health` includes a `print` block: the printer (`name`, `state`, CUPS `alerts`, and the jobs
+still in its queue, `queuedJobs`/`oldestJobAt`), the `pending` count, `lastError`,
+`lastPrintedAt`, and `attention`.
+
+`attention` (`{ reason, since }` or `null`) says the printer needs someone to look at it. It
+comes from `src/printAttention.ts` and is re-checked every 30 s:
+
+- A CUPS error the printer reports (`media-empty`, `media-jam`, `door-open`…), with the
+  `-error`/`-report` suffix removed. Warnings such as low toner don't count. `offline`
+  only counts while something is waiting to print, so a printer switched off overnight
+  is fine.
+- `stopped`: the print queue is paused.
+- `not-printing`: a protocol has waited 10 minutes, in `pending/` or in the printer's
+  queue, whatever the printer says. Many USB printers never report being out of paper.
+- `no-printer`: there's no default printer.
+
+The wording for each reason is in `shared/printerReasons.ts`.
 
 `lp` succeeding means CUPS accepted the job, not that paper came out. After that CUPS holds
 the job, and by default it stops the whole queue on a printer error.
@@ -246,12 +261,15 @@ the job, and by default it stops the whole queue on a printer error.
 
 `npm run dev:mock` also runs the mock printer: "printed" PDFs are copied to
 `.print-spool/mock-printed/` so you can open them. To exercise the endpoint and a printer
-outage by hand:
+outage by hand. The modes are `fail` (lp refuses jobs), `paper-out` (jobs wait and the
+printer reports `media-empty-error`), `stuck` (jobs wait and the printer reports nothing) and
+`ok` (waiting jobs print):
 
 ```bash
 curl -X POST -H 'Content-Type: application/pdf' --data-binary @protocol.pdf \
   'http://127.0.0.1:8765/v1/print?meetingId=42'
 curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"fail"}'   # jobs pile up in pending/
+curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"paper-out"}'  # jobs wait in the printer
 curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"ok"}'     # they print
 ```
 

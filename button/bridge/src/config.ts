@@ -1,6 +1,6 @@
 import path from "node:path";
 import { BUTTON_BAUD_RATE } from "../../../shared/buttonProtocol.js";
-import type { MockPrinterMode } from "./printer.js";
+import { MOCK_PRINTER_MODES, type MockPrinterMode } from "./printer.js";
 
 export type BridgeConfig = {
   host: string;
@@ -23,6 +23,7 @@ export type BridgeConfig = {
   printRetryBaseMs: number;
   printRetryMaxMs: number;
   printStatusIntervalMs: number;
+  printNotPrintingAfterMs: number;
 };
 
 function readInt(value: string | undefined, fallback: number): number {
@@ -43,7 +44,8 @@ function readBool(value: string | undefined): boolean {
 }
 
 function readMockPrinter(value: string | undefined): MockPrinterMode | null {
-  if (value?.trim().toLowerCase() === "fail") return "fail";
+  const mode = value?.trim().toLowerCase();
+  if ((MOCK_PRINTER_MODES as readonly string[]).includes(mode ?? "")) return mode as MockPrinterMode;
   return readBool(value) ? "ok" : null;
 }
 
@@ -68,5 +70,6 @@ export function loadConfig(): BridgeConfig {
     printRetryBaseMs: 5_000,
     printRetryMaxMs: 5 * 60_000,
     printStatusIntervalMs: 30_000,
+    printNotPrintingAfterMs: 10 * 60_000,
   };
 }

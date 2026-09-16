@@ -64,8 +64,13 @@ export type BridgePrintHealth =
         state: BridgePrinterState;
         alerts: string[];
         message: string | null;
+        /** Absent from older bridges. */
+        queuedJobs?: number;
+        oldestJobAt?: string | null;
       } | null;
       pending: number;
+      /** Why the printer needs someone to look at it; absent from older bridges. */
+      attention?: { reason: string; since: string } | null;
       lastError: string | null;
       lastPrintedAt: string | null;
     };

@@ -447,6 +447,30 @@ describe('Staff overlay', () => {
       expect(screen.getByTestId('staff-print-printer-status')).toHaveTextContent(expected);
     });
 
+    it('says what needs attention, counting protocols waiting in the printer too', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = {
+        ...readyPrint,
+        printer: { name: 'Museum_Printer', state: 'idle', alerts: ['media-empty-error'], message: null, queuedJobs: 2, oldestJobAt: '2026-09-16T12:00:00.000Z' },
+        pending: 1,
+        attention: { reason: 'media-empty', since: '2026-09-16T12:00:00.000Z' },
+      };
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-attention')).toHaveTextContent('out of paper');
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('3');
+    });
+
+    it('shows no attention chip while the printer is fine', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = { ...readyPrint, attention: null };
+
+      render(<Staff />);
+
+      expect(screen.queryByTestId('staff-print-attention')).not.toBeInTheDocument();
+    });
+
     it('surfaces why the printer is stuck in the details', () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
       bridgeHealthState.print = {
