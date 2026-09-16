@@ -339,19 +339,22 @@ providers directly — their answer (or refusal) is itself content.
   figures for contrast; EcoLogits credit (MPL-2.0).
 - Remaining: room figure (smart plug, below).
 
-**Room electricity (smart plug) — options:**
-- **Recommended: Shelly Plug S Gen3** (EU, 12 A / 2500 W, ~€20–25). Live `apower` (W) and
-  cumulative `aenergy.total` (Wh) via local HTTP RPC (`/rpc/Switch.GetStatus?id=0`), MQTT, an
-  outbound websocket, Shelly Cloud API, and on-device scripts (`Timer.set` + `HTTP.Request`).
-  Integration options, simplest first:
-  1. On-device script POSTs `{apower, aenergy.total}` every few seconds to the council server
-     (e.g. `POST /api/room-power` with a per-installation secret). No Mac or cloud account
-     involved; needs museum Wi-Fi (2.4 GHz, no captive portal).
-  2. The button bridge on the Mac polls the plug on the LAN and forwards it (needs the plug and Mac
-     on the same network without client isolation).
+**Room electricity (smart plug) — options (checked 2026-09-16, Stockholm):**
+- **Recommended: Shelly Power Strip 4 Gen4** (S4PL-00416EU, Schuko; 859 SEK at Kjell & Company, in
+  stock). Four sockets, **each metered separately** (`switch:0`–`switch:3`: `apower` W,
+  `aenergy.total` Wh), 16 A / 3680 W total. Wi-Fi 6, local web UI and HTTP RPC, MQTT, outbound
+  websocket, scripts (up to 10), cloud optional. Per-socket figures let the screen name what uses the
+  room's electricity (Mac, main display, speakers, the meter itself).
+- Fallback: Shelly Plug S Gen3 (discontinued by Shelly, still 299 SEK in stock at Kjell): one
+  number for the whole installation behind a normal power strip. Same API.
+- Avoid: Shelly Wave plugs (Z-Wave, need a hub); Tapo and similar (app/cloud-first).
+- Integration, simplest first:
+  1. On-device script POSTs socket readings every few seconds to the council server (e.g.
+     `POST /api/room-power` with a per-installation secret). No Mac or cloud account; needs museum
+     Wi-Fi on 2.4/5 GHz without a captive portal.
+  2. The button bridge on the Mac polls the strip over the LAN and forwards (needs the strip and
+     Mac on the same network without client isolation).
   3. Shelly Cloud Control API polled by the server with an auth key (depends on Shelly's cloud).
-- Tapo P110 and similar: cheap, but app/cloud-first; local access is unofficial. Not recommended.
-- All installation devices on one power strip behind the one plug.
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.
