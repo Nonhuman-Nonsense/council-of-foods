@@ -139,7 +139,7 @@ The installer also sets up printing:
 
 - It creates the spool at `/usr/local/lib/council-button-bridge/print`, next to the bridge
   code, writable by staff, and passes it to the daemon as `BRIDGE_PRINT_SPOOL_DIR`.
-  Installing and uninstalling replace the code but never touch `print/`.
+  Reinstalling or updating replaces the code but keeps `print/`.
 - It puts a **Council Print** shortcut to the spool on the logged-in user's Desktop. The
   folder isn't on the Desktop itself, because macOS privacy protection can block the root
   daemon from writing there.
@@ -167,8 +167,8 @@ Add `--purge-logs` to remove log files too:
 curl -fsSL .../uninstall-release.sh | sudo bash -s -- --purge-logs
 ```
 
-Uninstalling removes the Desktop shortcut but keeps `/usr/local/lib/council-button-bridge/print` and its
-printed protocols.
+Uninstalling removes everything, including the Desktop shortcut and the printed protocols in
+`/usr/local/lib/council-button-bridge/print`.
 
 Logs: `/var/log/council-button-bridge.log`
 

@@ -56,14 +56,9 @@ fi
 echo "Removing launchd plist..."
 sudo rm -f "$PLIST_DST"
 
-echo "Removing bridge code..."
-remove_bridge_code
+echo "Removing install directory (including printed protocols)..."
 remove_print_spool_links
-if [[ -d "$PRINT_SPOOL_DIR" ]]; then
-  echo "Kept printed protocols in $PRINT_SPOOL_DIR (delete it by hand if no longer needed)."
-else
-  sudo rm -rf "$INSTALL_DIR"
-fi
+sudo rm -rf "$INSTALL_DIR"
 
 if [[ $PURGE_LOGS -eq 1 ]]; then
   echo "Removing log files..."
@@ -75,8 +70,8 @@ if [[ -f "$PLIST_DST" ]]; then
   exit 1
 fi
 
-if [[ -e "$INSTALL_DIR/dist" ]]; then
-  echo "Uninstall failed: bridge code still present in $INSTALL_DIR" >&2
+if [[ -d "$INSTALL_DIR" ]]; then
+  echo "Uninstall failed: install directory still present at $INSTALL_DIR" >&2
   exit 1
 fi
 

@@ -19,7 +19,7 @@ describe("bridge integration", () => {
 
     expect(response.ok).toBe(true);
     expect(body.ok).toBe(true);
-    expect(body.version).toBe("1.0.0");
+    expect(body.version).toBe("1.1.0");
     expect(body.serial).toBe("connected");
     expect(body.path).toBe("mock");
     expect(body.serialDetail).toBe("connected");

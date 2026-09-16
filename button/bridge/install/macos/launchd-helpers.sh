@@ -6,8 +6,8 @@ PLIST_DST="/Library/LaunchDaemons/com.council.button-bridge.plist"
 
 INSTALL_DIR="/usr/local/lib/council-button-bridge"
 
-# Print spool lives next to the bridge code, and survives reinstalls and uninstalls:
-# see remove_bridge_code. Staff reach it through a Desktop shortcut; the folder itself
+# Print spool lives next to the bridge code. Reinstalling keeps it (see
+# remove_bridge_code); uninstalling removes it with everything else. Staff reach it through a Desktop shortcut; the folder itself
 # is not on the Desktop, which macOS privacy protection can block the root daemon from
 # writing.
 PRINT_SPOOL_DIR="$INSTALL_DIR/print"
