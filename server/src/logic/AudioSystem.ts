@@ -13,8 +13,10 @@ import {
     generateElevenLabsAudio,
     generateOpenAIAudio,
     getWhisperWords,
-    AudioResult
+    AudioResult,
+    WHISPER_MODEL,
 } from "./audio/TTSProviders.js";
+import { recordUsage, usageTagsFor } from "@services/UsageService.js";
 import {
     AudioQueue,
     mergeAudioBuffers,
@@ -187,6 +189,7 @@ export class AudioSystem {
             }
 
             let providerWords: (Word[] | undefined)[] = [];
+            let chunkDurations: number[] | undefined;
 
             if (generateNew || buffers.length === 0) {
                 Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${resolvedSpeaker.voiceProvider}/${resolvedSpeaker.voice})`, { from });
@@ -199,6 +202,18 @@ export class AudioSystem {
                 buffers = results.map(r => r.audio);
                 providerWords = results.map(r => r.words);
                 generateNew = true;
+
+                chunkDurations = await Promise.all(buffers.map(b => this.getAudioDuration(b)));
+                results.forEach(({ usage: { characters, region, ...usage } }, i) => {
+                    void recordUsage({
+                        source: "server",
+                        feature: "tts",
+                        ...usage,
+                        ...(region ? { region } : {}),
+                        measures: { characters, audio_seconds: chunkDurations?.[i] },
+                        ...usageTagsFor(meeting),
+                    });
+                });
             }
 
             if (generationToken !== this.generationToken) {
@@ -211,7 +226,9 @@ export class AudioSystem {
             let sentencesWithTimings: MappedSentence[] = [];
             let subtitleTimingType: SubtitleTimingType;
 
-            const durations = shouldSkipMatching ? [] : await Promise.all(buffers.map(async b => this.getAudioDuration(b)));
+            const durations = shouldSkipMatching
+                ? []
+                : chunkDurations ?? await Promise.all(buffers.map(async b => this.getAudioDuration(b)));
 
             if (!shouldSkipMatching) {
                 const subtitleTimingPriorities =
@@ -259,6 +276,14 @@ export class AudioSystem {
                     if (timingType === 'whisper') {
                         try {
                             const chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
+                            void recordUsage({
+                                source: "server",
+                                feature: "subtitle-timing",
+                                provider: "openai",
+                                model: WHISPER_MODEL,
+                                measures: { audio_seconds: durations.reduce((sum, d) => sum + Math.max(d, 0), 0) },
+                                ...usageTagsFor(meeting),
+                            });
                             const whisperSentences = mapSentencesToWords(
                                 sentenceTexts,
                                 this.offsetChunkWords(chunkWordsWithTimings, durations)

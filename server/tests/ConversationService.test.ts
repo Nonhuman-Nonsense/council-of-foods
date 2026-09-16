@@ -10,6 +10,7 @@ function createMockClient(response: {
     id?: string;
     content?: string | null;
     finishReason?: string | null;
+    usage?: unknown;
 } = {}) {
     const create = vi.fn().mockResolvedValue({
         id: response.id ?? "mock-id",
@@ -19,6 +20,7 @@ function createMockClient(response: {
                 finish_reason: response.finishReason ?? "stop",
             },
         ],
+        usage: response.usage,
     });
 
     return {
@@ -56,7 +58,7 @@ describe("ConversationService", () => {
 
         const result = await service.createChatCompletion(createParams("openai-direct/gpt-5.2"));
 
-        expect(result).toEqual({
+        expect(result).toMatchObject({
             id: "direct-id",
             content: "direct-response",
             finishReason: "stop",
@@ -82,7 +84,7 @@ describe("ConversationService", () => {
 
         const result = await service.createChatCompletion(createParams("anthropic/claude-opus-4-6"));
 
-        expect(result).toEqual({
+        expect(result).toMatchObject({
             id: "inworld-id",
             content: "inworld-response",
             finishReason: "stop",
@@ -96,6 +98,24 @@ describe("ConversationService", () => {
         }));
         expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("extra_body");
         expect(direct.create).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        { model: "openai-direct/gpt-5.2", provider: "openai", reportedModel: "gpt-5.2" },
+        { model: "mistral/mistral-large-3", provider: "inworld", reportedModel: "mistral/mistral-large-3" },
+    ])("reports token usage and request time for $model", async ({ model, provider, reportedModel }) => {
+        const usage = { prompt_tokens: 9, completion_tokens: 12, prompt_tokens_details: { cached_tokens: 0 } };
+        const direct = createMockClient({ usage });
+        const inworld = createMockClient({ usage });
+        const service = createConversationService(() => direct.client as never, () => inworld.client);
+
+        const result = await service.createChatCompletion(createParams(model));
+
+        expect(result.usage).toEqual({
+            provider,
+            model: reportedModel,
+            measures: { input_tokens: 9, output_tokens: 12, request_seconds: expect.any(Number) },
+        });
     });
 
     it("omits reasoning params when conversation reasoning is none", async () => {

@@ -32,6 +32,7 @@ function mockElevenLabsResponse(text) {
 
     return {
         ok: true,
+        headers: new Headers({ 'x-region': 'europe-west4' }),
         json: async () => ({
             audio_base64: Buffer.from('fake-elevenlabs-audio').toString('base64'),
             normalized_alignment: {

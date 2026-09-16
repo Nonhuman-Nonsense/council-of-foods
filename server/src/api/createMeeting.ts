@@ -30,6 +30,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         maximumPlayedIndex: 0,
         conversationExtraSlots: 0,
         meetingComplete: false,
+        ...(setup.installationId ? { installationId: setup.installationId } : {}),
     };
 
     const result = await insertMeeting(meeting);

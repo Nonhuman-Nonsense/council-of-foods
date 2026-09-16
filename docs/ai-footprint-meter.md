@@ -1,0 +1,373 @@
+# AI footprint meter — vision and roadmap
+
+**Status:** Phase 1 (server-side usage recording) implemented. Phases 2–5 planned.
+
+**Goal:** A second screen in the museum installation that shows what the council costs the
+planet while it speaks for the forest — energy, water, emissions and minerals — and makes
+visible that most of that cost lands somewhere else, on someone else.
+
+---
+
+## Vision
+
+The council uses AI to give the forest a voice, and AI is part of what destroys forests. The
+meter holds that contradiction up next to the council instead of hiding it.
+
+It is an artwork, not an audit. The numbers do not have to be exact, but they must be
+**reasonable, sourced and defensible**, and must say out loud how uncertain they are.
+
+### Framing: visible vs invisible
+
+"Room vs cloud" is the starting point, but the honest split is **what you can see vs what you
+cannot**:
+
+| Visible (here) | Invisible (elsewhere) |
+|---|---|
+| Electricity of the Mac, screens, speakers | Electricity of GPUs in data centres, on grids we do not choose |
+| | Water evaporated for cooling and power generation |
+| | Emissions of those grids |
+| | Minerals mined for the GPUs, servers — *and* for the Mac in the room |
+| | The one-off cost of training the models |
+
+Expect the room's electricity per hour to be comparable to, or larger than, the inference
+energy of the meetings. That is fine — the externalised burden is mostly in water, minerals,
+training and place, not in watt-hours. Don't let an energy-only comparison accidentally argue
+that AI is harmless.
+
+A second, useful asymmetry: the room can be **measured**; the cloud can only be **estimated**,
+because providers don't disclose where or on what they ran. Show the room as a number and the
+cloud as a range. The uncertainty is part of the message.
+
+### What the screen could show (to be designed)
+
+- **This meeting** — live-ticking totals while the council speaks.
+- **Since the installation opened** / **all councils everywhere** — where the numbers become
+  tangible.
+- **A scale** — one rotating concrete comparison per metric (litres, phone charges, …).
+- **Uncertainty** — low/central/high, not a single false-precise number.
+- **Models and places** — which models answered, and where they probably run.
+- **Speculative:** a live map where data-centre regions "light up" per call; mining sites
+  for the minerals embodied in the hardware.
+- **Training** — the inherited cost of the models the council stands on.
+- A QR code to a methodology page with every coefficient and source.
+
+Screen: VSDISPLAY 12.8" 2880×864, mounted portrait (864×2880). Rotate in macOS display
+settings or in CSS — decide once the screen arrives.
+
+---
+
+## Principles
+
+1. **Store raw usage, convert at display time.** Every event stores the provider's own unit
+   (tokens, characters, audio seconds). The footprint comes from a pinned EcoLogits version
+   plus our own sourced table for what it lacks; changing either never needs a data migration.
+2. **Count everything, tag installations.** Every AI call from every client and meeting is
+   recorded. Installation ID is an optional tag, not a filter at write time.
+3. **Record what we are billed for.** Only provider-reported usage (plus derivable units like
+   audio duration). No speculative "mic was open" estimates. Failed/retried attempts that
+   return no usage are not counted.
+4. **One container.** The meter is served by the existing council server; live updates come
+   straight from the process that records the usage (Mongo on server-3 is standalone — no
+   change streams — so a separate service would have to poll).
+5. **Isolated client code.** The meter is its own Vite entry point and imports nothing from the
+   council app.
+6. **Sources for every coefficient.** No number on screen without a citation in the
+   methodology table.
+
+---
+
+## Where usage comes from
+
+| Feature | Call site | Provider → model (current config) | Stored measures |
+|---|---|---|---|
+| Council dialogue, chair (`dialogue`), summary (`summary`) | `ConversationService` → recorded per attempt in `DialogGenerator.completeWithRetry` | Inworld router → `mistral/mistral-large-3` | input/output/cached/reasoning tokens, `request_seconds` |
+| Speaker classifier (`classifier`) | `SpeakerClassifierBase.requestSpeakerClassifierCompletion` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens, `request_seconds` |
+| Voices (`tts`) — Inworld | `TTSProviders.generateInworldAudio` → recorded per chunk in `AudioSystem` | `inworld-tts-1.5-max` / `inworld-tts-2` | `characters` (provider-reported), `audio_seconds` |
+| Voices (`tts`) — ElevenLabs (used on `forest-leo`) | `generateElevenLabsAudio` | `eleven_flash_v2_5` | `characters` sent, `audio_seconds`, `region` from `x-region` header |
+| Voices (`tts`) — OpenAI (not used in current data) | `generateOpenAIAudio` | `gpt-4o-mini-tts` | `characters`, `audio_seconds` |
+| Whisper timing fallback (`subtitle-timing`) | `AudioSystem` whisper branch | `whisper-1` | `audio_seconds` |
+| Setup agent, meta agent, human input | client ↔ Inworld realtime (WebRTC) | `gemini-2.5-flash` + `soniox/stt-rt-v4` + Inworld TTS | Phase 2: `response.done` → `response.usage`, reported by the client |
+
+Cached audio (replays) is not re-recorded — only freshly generated audio counts.
+Retried requests that fail without a response are not counted.
+
+**Verified response shapes (probed 2026-09-16):**
+- Inworld router chat completions: OpenAI-style `usage`
+  (`prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens`), plus
+  `metadata.attempts[].time_to_first_token_ms` and `metadata.total_duration_ms`.
+- Inworld TTS: `usage: { processedCharactersCount, modelId }`.
+- ElevenLabs: no usage body; responses carry an `x-region` header (e.g. `europe-west4`, Google
+  Cloud Netherlands) — a real data-centre location signal.
+- Inworld realtime `response.usage`: still to verify (phase 2); the client already logs it.
+
+## Data model
+
+```ts
+// shared/UsageTypes.ts (implemented)
+type UsageFeature =
+  | "dialogue" | "summary" | "classifier" | "tts" | "subtitle-timing"
+  | "setup-agent" | "meta-agent" | "human-input";
+
+type UsageMeasure =
+  | "input_tokens" | "output_tokens" | "cached_input_tokens" | "reasoning_tokens"
+  | "input_audio_tokens" | "output_audio_tokens"
+  | "characters" | "audio_seconds" | "request_seconds";
+
+interface UsageEvent {
+  ts: Date;
+  source: "server" | "client";
+  feature: UsageFeature;
+  provider: string;            // who we called: "inworld" | "elevenlabs" | "openai"
+  model: string;               // as requested/reported, e.g. "mistral/mistral-large-3"
+  measures: Partial<Record<UsageMeasure, number>>;
+  region?: string;             // when the provider tells us
+  meetingId?: number;
+  installationId?: string;
+}
+```
+
+Collections:
+- `usage_events` — append-only log, indexed on `ts`, `installationId`, `meetingId`.
+- `usage_totals` — one doc per scope × provider × model
+  (`_id: "global|inworld|mistral/mistral-large-3"`, `installation:<id>|…`), raw measures and
+  request count summed with `$inc`. Keeps the meter's initial load cheap.
+
+`request_seconds` is stored because EcoLogits needs request latency alongside output tokens.
+
+Conversion (phase 3) is a function over the totals:
+
+```ts
+estimateFootprint(totals, coefficients) → {
+  energyWh, waterMl, co2eG, mineralsMgSbEq   // each { low, central, high }
+}
+```
+
+Language models go through EcoLogits; speech models and training use our own sourced ranges
+(see Methodology). Table-driven tests cover the mapping and arithmetic, never the coefficient
+values themselves.
+
+---
+
+## Methodology: reference points found (Sept 2026)
+
+These anchor the coefficient table. Re-check before an opening.
+
+| Source | Scope | Figures |
+|---|---|---|
+| **Mistral AI — Large 2 lifecycle analysis** (with Carbone 4 / ADEME, July 2025) | Inference per 400-token response, incl. hardware manufacturing; excl. user devices | **1.14 gCO₂e, 45 mL water, 0.16 mg Sb eq** |
+| same | Training + 18 months of use of Mistral Large 2 | **20.4 ktCO₂e, 281,000 m³ water, 660 kg Sb eq** |
+| **Google — "Measuring the environmental impact of delivering AI at Google scale"** (Aug 2025, arXiv 2508.15734) | Median Gemini Apps text prompt, "comprehensive" boundary (accelerators + host + idle + PUE); on-site water only | **0.24 Wh, 0.03 gCO₂e, 0.26 mL**. Narrow boundary (accelerators only): 0.10 Wh, 0.12 mL |
+| Epoch AI / OpenAI statements | Typical GPT-4o query | ~0.3 / 0.34 Wh |
+| **EcoLogits** (GenAI Impact, open source) | LLM inference, LCA-based: energy, GWP, ADPe (minerals), primary energy, water | Energy per output token `α·e^(βB)·P_active + γ` from ML.ENERGY H100 data; per-provider PUE/WUE (e.g. Mistral 1.16 / 0.09, Sweden); embodied H100 0.00895 kg Sb eq, server 0.37 kg Sb eq, 3-year lifetime. Excludes training |
+| "How Hungry is AI?" (arXiv 2505.09598) | Benchmarks energy/water/carbon across 30 models | Order-of-magnitude spread by model size; reasoning models >30 Wh per long prompt |
+| G7 French Presidency overview (May 2026) | Catalogue of standards: ISO/IEC TR 20226, ITU-T L.1801, IEEE P7100, AFNOR Spec 2314, AI Energy Score, ML.ENERGY | Use to cite our method's lineage |
+
+### EcoLogits as the footprint engine
+
+EcoLogits is the right engine: open LCA methodology, ranges built in, energy + GWP + ADPe
+(minerals) + primary energy + water, maintained model repository with sources.
+
+- **Python library is active:** v0.11.1 (July 2026). Its model repository
+  (`ecologits/data/models.json`, 344 models) includes `google_genai/gemini-2.5-flash`
+  (MoE, 440B total, 44–132B active), `mistralai/mistral-large-2512`,
+  `openai/gpt-4o-mini-tts` and `gpt-4o-mini-transcribe`, plus per-country electricity mixes.
+  Entry point: `llm_impacts(provider, model_name, output_token_count, request_latency,
+  electricity_mix_zone)`.
+- **The TypeScript port is stale:** `@genai-impact/ecologits.js` 2.0.5 (Dec 2024) pins model
+  data to EcoLogits 0.5.0 and fetches a CSV from GitHub at import time. Not usable as is.
+- **Plan (phase 3): export at dev time, no Python at runtime.** EcoLogits' LLM model is linear
+  per request: `impact = a·output_tokens + b·generation_seconds`, where
+  `generation_seconds = min(request_seconds, output_tokens/tps + ttft)` and `a`, `b` are
+  constant per model (they depend only on parameter count, GPU count, data-centre PUE/WUE and
+  electricity mix). So:
+  1. `scripts/ecologits/export.py` — a `uv` script with a pinned dependency
+     (`# /// script dependencies = ["ecologits==0.11.1"]`). It calls EcoLogits' own
+     `llm_impacts` / `compute_llm_impacts` for each model we use and writes
+     `shared/footprint/ecologits.json`: EcoLogits version, per model × impact (energy, GWP,
+     ADPe, PE, water) low/high `a` and `b`, `tps`/`ttft`, assumed data-centre zone, warnings
+     and sources, plus a handful of golden samples (inputs → EcoLogits' exact output).
+  2. The JSON is committed. The Node image stays lean; dev and tests need no Python; a
+     methodology change shows up as a reviewable diff.
+  3. A TS function evaluates `a·tokens + b·seconds`; a unit test checks it reproduces the
+     golden samples, so a future EcoLogits change that breaks linearity fails loudly.
+  4. Updating: bump the pin, `uv run scripts/ecologits/export.py`, review the diff.
+  5. Speech models go through the same EcoLogits maths with our inputs: e.g. Inworld TTS-1-Max
+     as a dense 8.8B model with `output_tokens = audio_seconds × 50`, on Google Cloud (USA mix)
+     — assumptions listed in the JSON next to their sources.
+- **First run (0.11.1), per 400-token response:** Mistral Large 3 ≈ 0.21–0.24 Wh, ~1.3–1.4 mL
+  water, 8–15 mg CO₂e (Swedish grid assumed); Gemini 2.5 Flash ≈ 0.46–0.89 Wh, 1.9–3.6 mL,
+  0.18–0.36 g CO₂e (US grid). Compare Mistral's own LCA: 1.14 g CO₂e and 45 mL — a much wider
+  boundary. Worth showing both. Latency dominates the embodied (minerals) share, and our
+  `request_seconds` includes network time, so it errs high there; the `min(…, tokens/tps + ttft)`
+  cap limits that.
+- EcoLogits is MPL-2.0; credit it on the methodology page.
+- **Check before trusting:** EcoLogits lists `mistral-large-2512` as 123B dense, but Mistral
+  Large 3 was announced as a mixture-of-experts model (reported ~675B total / ~41B active).
+  Verify and, if wrong, report upstream — a good contribution back.
+- EcoLogits excludes training; training stays a separate block (below).
+
+### Speech
+
+- **Inworld publishes nothing about energy or location** for TTS, STT or realtime (searched
+  docs, pricing, blog). It runs on Google Cloud (Google customer case study); region
+  unpublished.
+- **But its TTS is a language model:** the TTS-1 technical report (arXiv 2507.21138) describes
+  autoregressive transformer SpeechLMs — TTS-1 **1.6B** and TTS-1-Max **8.8B** parameters —
+  generating **50 audio tokens per second** of speech. So Inworld TTS fits EcoLogits' LLM
+  formula: `output_tokens ≈ audio_seconds × 50`, parameters 1.6–8.8B. TTS-1.5 and TTS-2 sizes
+  are unpublished; use the range and mark it as assumed.
+- **ElevenLabs Flash, Soniox STT:** no published sizes or energy data. Estimate by analogy to a
+  small model per audio second, widest range, labelled as such.
+
+**What this means for us:**
+- **Mistral Large 3 is our dialogue model** — Mistral's own lifecycle analysis is the most direct,
+  defensible anchor, and the only published per-response *mineral* figure.
+- **Water differs ~170× between sources** (45 mL vs 0.26 mL) purely from boundary: Mistral
+  includes off-site electricity generation and manufacturing; Google counts on-site cooling
+  only. Show this as the range, and say why.
+- **Speech (TTS/STT) has almost no published per-second figures.** Estimate via GPU-seconds
+  (EcoLogits-style: GPU power × PUE × realtime factor) and label as "estimated by analogy".
+- **Training:** amortising per request needs the model's lifetime request count, which no
+  provider publishes. Proposal: show training as a whole, inherited cost ("the models this
+  council stands on cost at least …"), not a per-meeting share. Only Mistral publishes this;
+  others are marked unknown.
+
+**Minerals, made tangible** (sources below): Sb eq is meaningless to visitors. Pair the number with named
+materials and places from the hardware supply chain: tantalum (DRC, Rwanda), cobalt (DRC),
+gallium and germanium (China), copper (Chile), plus water-intensive chip fabs (Taiwan).
+Sources to use: FP Analytics "AI and the Critical Minerals Crunch" (2025), WEF data-centre
+materials (Dec 2025), USGS mineral commodity summaries. Pick sites with documented,
+citable impacts on local communities — careful wording, no overclaiming about which mine fed
+which GPU.
+
+**Places, as far as they are knowable:**
+| Provider | What is public |
+|---|---|
+| Inworld (router, TTS, realtime) | Runs on Google Cloud; region not published |
+| Google AI Studio (Gemini) | Google global fleet; no per-request region |
+| Mistral | EcoLogits assumes Microsoft Azure, Sweden; Mistral also operates its own compute in France |
+| ElevenLabs | US by default; EU/India/Singapore residency on enterprise plans |
+| Soniox | US by default; EU and Japan regions available |
+
+Tracing IPs won't locate the GPUs: API endpoints sit behind anycast/CDN front-ends, so
+geolocation returns the nearest edge. The one partial exception is the realtime WebRTC media
+server (ICE candidates), which shows where audio is terminated, not where inference ran.
+Plan: show **"probable regions"** with the reasoning on the methodology page, and ask
+providers directly — their answer (or refusal) is itself content.
+
+---
+
+## Roadmap
+
+### Phase 1 — Record everything (server) ✅
+
+- Probed one real response per provider (see "Verified response shapes").
+- `shared/UsageTypes.ts`; `server/src/services/UsageService.ts`: `recordUsage(record)` inserts
+  the event, `$inc`s global + installation totals, notifies `onUsageRecorded` listeners.
+  Never throws; callers fire and forget. No-op without a database.
+- `ConversationService` returns `usage` (provider, model, parsed tokens, request seconds);
+  `DialogGenerator` records every attempt. Classifier records its own call. `AudioSystem`
+  records each freshly generated TTS chunk and Whisper timing runs.
+- Meetings accept and store `installationId` (`POST /api/meetings`).
+- Tests: `tests/usage.integration.test.ts` (totals, empty usage, listeners, usage parser
+  table), `ConversationService.test.ts` (usage per route), meetings HTTP (installation tag).
+
+### Phase 2 — Client-reported realtime usage + installation ID
+
+- `#staff`: installation ID field, stored like the hardware button setting (a stored setting,
+  not a mode capability). Sent on meeting creation and realtime bootstrap.
+- Realtime bootstrap response gains a `usageToken`: random, held server-side in memory with
+  its feature, meeting/installation and a TTL (e.g. 2 h).
+- `POST /api/usage/realtime`: accepts `{ usageToken, responses: [usage…] }`. Rejects unknown
+  or expired tokens, validates with zod, clamps per-report values to plausible maxima, caps
+  reports per token. Enough to stop casual inflation without accounts or signatures.
+- Client: collect `response.usage` from `response.done`; flush in small batches (every few
+  responses / on session end) and on `pagehide` via `navigator.sendBeacon`. A lost report is
+  acceptable; sendBeacon covers the common loss (tab closed, reload) for almost no code.
+  This is fire-and-forget HTTP, not a reconciled socket intent (RESILIENCE.md does not apply).
+
+### Phase 3 — Footprint function + methodology
+
+- EcoLogits export script + committed `shared/footprint/ecologits.json` + TS evaluator with
+  golden-sample test (see "EcoLogits as the footprint engine"). Map our `provider/model` ids to
+  EcoLogits ids (e.g. `mistral/mistral-large-3` → `mistralai/mistral-large-2512`).
+- Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
+  tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
+  fall back to the widest range rather than failing.
+- Room figure: a per-installation constant watts (measured once with a plug power meter)
+  × uptime while the meter page is open. Live smart-plug readings: not planned — revisit only
+  if the constant feels wrong.
+- Training figures as a separate, non-amortised block.
+- Methodology page (static, in the meter entry) listing every coefficient and source.
+
+### Phase 4 — Meter screen
+
+- Separate Vite entry `client/meter.html` → `/meter?installation=<id>`; own small React root,
+  no council imports. Served by the same container; optional nginx subdomain alias
+  (`meter.council-of-forest.com` → same upstream).
+- Socket namespace/room `usage:<installationId>` + `usage:global`; initial state over HTTP,
+  increments over socket; reconnect → refetch totals.
+- NumberFlow for ticking values; portrait 864×2880 layout; this meeting / installation /
+  everywhere; uncertainty ranges; one rotating comparison per metric; models in use.
+- Kiosk: second Chrome instance (`--user-data-dir`, `--window-position` on display 2,
+  `--kiosk`); document in MUSEUM.md once tested on the real screen.
+
+### Phase 5 — Speculative / later
+
+- Live map: probable data-centre regions pulse per call.
+- Mining sites layer for embodied minerals.
+- Backfill historical meetings from stored transcripts and audio durations.
+- Ask providers for region and per-request data; publish the replies.
+
+---
+
+## Open questions
+
+- Scope of "everywhere": all councils on this deployment only, or foods + forest combined?
+- Which comparisons per metric? (Pick ones that are true at both small and large scale.)
+- Training block: Mistral only (published), or also rough estimates for Gemini Flash / TTS
+  models clearly marked as such?
+- Which mining sites / communities to name, and who reviews that wording?
+- Room constant: which devices count as "the installation" (projector/TV, speakers, meter
+  screen, Mac)?
+
+---
+
+## Sources
+
+Footprint data and methodology
+- Mistral AI, "Our contribution to a global environmental standard for AI" (Large 2 LCA, July 2025) —
+  https://mistral.ai/news/our-contribution-to-a-global-environmental-standard-for-ai
+  (summary: https://www.deeplearning.ai/the-batch/french-ai-startup-discloses-full-lifecycle-consumption-and-emissions-for-mistral-large-2)
+- Google, "Measuring the environmental impact of delivering AI at Google scale" (Aug 2025) —
+  https://arxiv.org/abs/2508.15734 ·
+  https://cloud.google.com/blog/products/infrastructure/measuring-the-environmental-impact-of-ai-inference
+- EcoLogits methodology — https://ecologits.ai/latest/methodology/llm_inference/ ·
+  repository https://github.com/mlco2/ecologits (v0.11.1, models in `ecologits/data/models.json`)
+- EcoLogits.js (stale TS port) — https://www.npmjs.com/package/@genai-impact/ecologits.js
+- "How Hungry is AI? Benchmarking Energy, Water, and Carbon Footprint of LLM Inference" —
+  https://arxiv.org/abs/2505.09598
+- G7 French Presidency, "Overview of voluntary initiatives … energy and resource requirements of
+  AI models" (May 2026) —
+  https://www.entreprises.gouv.fr/files/files/Actualites/2026/g7/overview-measurement-monitoring-energy-resource-ai-models.pdf
+- ML.ENERGY leaderboard (EcoLogits' energy data) — https://ml.energy/
+- AI Energy Score — https://huggingface.co/AIEnergyScore
+
+Speech models
+- Inworld, "TTS-1 Technical Report" (1.6B / 8.8B params, 50 tokens/s) — https://arxiv.org/abs/2507.21138
+- Inworld TTS API (`usage.processedCharactersCount`) — https://apis.io/apis/inworld-ai/inworld-tts-api/
+- Inworld on Google Cloud — https://cloud.google.com/customers/inworld
+- Inworld pricing (billing units) — https://inworld.ai/pricing
+
+Places
+- Soniox data residency (US default; EU, Japan) — https://soniox.com/docs/data-residency
+- ElevenLabs data residency (US default; EU, India, Singapore) —
+  https://elevenlabs.io/docs/overview/administration/data-residency
+
+Minerals and supply chain
+- FP Analytics, "Artificial Intelligence and the Critical Minerals Crunch" (2025) —
+  https://fpanalytics.foreignpolicy.com/2025/07/18/artificial-intelligence-critical-minerals-supply-chains/
+- World Economic Forum, "Scaling metals to secure the data centre materials backbone" (Dec 2025) —
+  https://www.weforum.org/stories/2025/12/securing-data-centre-materials/
+- China, the DRC and artisanal cobalt mining 2000–2020 — https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10293843/
+- USGS Mineral Commodity Summaries — https://www.usgs.gov/centers/national-minerals-information-center/mineral-commodity-summaries

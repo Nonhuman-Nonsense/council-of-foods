@@ -85,6 +85,19 @@ describe('HTTP meetings API (integration)', () => {
         expect(meeting.state.humanName).toBe('Leo');
     });
 
+    it('POST /api/meetings tags the meeting with the installation it runs on', async () => {
+        const res = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...validCreateBody(), installationId: ' museum-oslo ' }),
+        });
+        expect(res.status).toBe(201);
+        const { meetingId } = await res.json();
+
+        const stored = await meetingsCollection.findOne({ _id: Number(meetingId) });
+        expect(stored.installationId).toBe('museum-oslo');
+    });
+
     it('POST /api/meetings returns 400 on invalid payload', async () => {
         const res = await fetch(`${base()}/api/meetings`, {
             method: 'POST',

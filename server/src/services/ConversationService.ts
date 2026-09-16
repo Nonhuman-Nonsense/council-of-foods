@@ -3,6 +3,8 @@ import type { ChatCompletionMessageParam } from "openai/resources/chat/completio
 
 import { config } from "@root/src/config.js";
 import { OUTBOUND_HTTP_TIMEOUT_MS } from "@utils/NetworkUtils.js";
+import { parseChatCompletionUsage } from "@services/UsageService.js";
+import type { UsageMeasures } from "@shared/UsageTypes.js";
 
 const INWORLD_BASE_URL = "https://api.inworld.ai/v1";
 const OPENAI_DIRECT_PREFIX = "openai-direct/";
@@ -21,6 +23,14 @@ export interface ConversationCompletionResult {
     id: string | null;
     content: string | null;
     finishReason: string | null;
+    /** Who served the completion and what it consumed, for the footprint meter. */
+    usage?: {
+        /** Who we called: "inworld" (router) or "openai". */
+        provider: string;
+        /** As requested, e.g. "mistral/mistral-large-3". */
+        model: string;
+        measures: UsageMeasures;
+    };
 }
 
 export interface ConversationService {
@@ -52,6 +62,7 @@ interface ChatCompletionClient {
                     };
                     finish_reason?: string | null;
                 }>;
+                usage?: unknown;
             }>;
         };
     };
@@ -157,12 +168,19 @@ async function requestChatCompletion(
         requestParams.reasoning_effort = params.reasoning;
     }
 
+    const startedAt = Date.now();
     const completion = await client.chat.completions.create(requestParams);
+    const requestSeconds = (Date.now() - startedAt) / 1000;
 
     return {
         id: completion.id ?? null,
         content: completion.choices?.[0]?.message?.content ?? null,
         finishReason: completion.choices?.[0]?.finish_reason ?? "stop",
+        usage: {
+            provider: provider === "openai-direct" ? "openai" : provider,
+            model,
+            measures: { ...parseChatCompletionUsage(completion.usage), request_seconds: requestSeconds },
+        },
     };
 }
 
