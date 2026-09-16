@@ -37,6 +37,11 @@ export interface EcologitsModel {
     usageMeasure: "output_tokens" | "audio_seconds";
     tokensPerUnit: number;
     datacenterZone: string;
+    /** Billions, [low, high]. */
+    activeParameters: [number, number];
+    totalParameters: [number, number];
+    /** Bits per weight EcoLogits sizes the GPU fleet with, [low, high]. */
+    quantizationBits: [number, number];
     low: RangeEnd;
     high: RangeEnd;
     assumptions: string[];

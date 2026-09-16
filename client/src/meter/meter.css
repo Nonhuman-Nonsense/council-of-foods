@@ -108,10 +108,27 @@ html[data-rotate] .meter {
   text-align: right;
 }
 
+.meter-training-values {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--meter-unit) * 1);
+}
+.meter-training .meter-value {
+  font-size: calc(var(--meter-unit) * 6);
+}
+
 .meter-footer {
   margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--meter-unit) * 4);
   font-size: calc(var(--meter-unit) * 2.6);
   color: #6f6b60;
+}
+.meter-qr {
+  flex: none;
+  width: calc(var(--meter-unit) * 20);
+  height: calc(var(--meter-unit) * 20);
 }
 
 .meter-demo {
@@ -124,4 +141,67 @@ html[data-rotate] .meter {
   font-family: sans-serif;
   font-size: 14px;
   z-index: 1;
+}
+
+/* Methodology page: read on a visitor's phone, so it scrolls and keeps the pointer. */
+html[data-page="methodology"] body {
+  overflow: auto;
+  cursor: auto;
+  background: #f4f1e8;
+  color: #1d1c19;
+}
+.methodology {
+  box-sizing: border-box;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 2rem 1rem 4rem;
+  font-size: 1.05rem;
+  line-height: 1.55;
+}
+.methodology h1 {
+  font-size: 1.9rem;
+  line-height: 1.2;
+}
+.methodology h2 {
+  margin-top: 2.5rem;
+  font-size: 1.35rem;
+}
+.methodology a {
+  color: inherit;
+}
+.method-model {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid #d8d2c2;
+  border-radius: 6px;
+  background: #fbf9f3;
+}
+.method-model h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.method-role {
+  margin: 0.1rem 0 0.75rem;
+  color: #6f6b60;
+}
+.method-model dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.2rem 1rem;
+  margin: 0 0 0.75rem;
+}
+.method-model dt {
+  color: #6f6b60;
+}
+.method-model dd {
+  margin: 0;
+}
+.method-assumptions,
+.method-warning,
+.method-sources {
+  font-size: 0.92rem;
+  color: #4a473f;
+}
+.method-undisclosed {
+  font-weight: bold;
 }

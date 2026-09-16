@@ -101,7 +101,7 @@ if (environment === "prototype") {
   app.get("/index.html", (req, res) => sendSpaShell(res, spaShellTemplate, preferredLangFromRequest(req)));
 
   // Footprint meter: its own page and bundle, no language routing (docs/ai-footprint-meter.md).
-  app.get("/meter", (_req: Request, res: Response) => {
+  app.get(["/meter", "/meter/methodology"], (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
     res.sendFile(path.join(clientDistPath, "meter.html"));
   });

@@ -219,9 +219,15 @@ EcoLogits is the right engine: open LCA methodology, ranges built in, energy + G
   `request_seconds` includes network time, so it errs high there; the `min(…, tokens/tps + ttft)`
   cap limits that.
 - EcoLogits is MPL-2.0; credit it on the methodology page.
-- **Check before trusting:** EcoLogits lists `mistral-large-2512` as 123B dense, but Mistral
-  Large 3 was announced as a mixture-of-experts model (reported ~675B total / ~41B active).
-  Verify and, if wrong, report upstream — a good contribution back.
+- **Mistral Large 3 architecture — corrected (verified 2026-09-16):** EcoLogits 0.11.1 *and* its
+  `main` branch list `mistral-large-2512` as 123B dense, with sources pointing at Mistral Large 2
+  (`mistral-large-2407`) — a copied entry. Mistral's announcement, docs and Hugging Face model card
+  all give **675B total / 41B active, mixture-of-experts**, trained on 3,000 H200s. No open issue
+  upstream. `export.py` overrides the parameters for this model and adds a **quantization range of
+  8–16 bits** (weights are published in FP8 and BF16), since EcoLogits sizes the GPU fleet by
+  weight memory: 16–32 GPUs. Effect: 0.24 Wh → **0.60–1.20 Wh per 400 tokens**. Golden samples for
+  overridden models come from EcoLogits' `compute_llm_impacts` with the corrected inputs.
+  To do: report upstream to mlco2/ecologits.
 - EcoLogits excludes training; training stays a separate block (below).
 
 ### Speech
@@ -322,7 +328,30 @@ providers directly — their answer (or refusal) is itself content.
   `estimateEcologitsImpacts` is the exact EcoLogits computation the golden test checks.
 - Known limitation, inherited from EcoLogits: only output tokens drive energy. Input (prefill)
   is not modelled, which matters for the realtime agents (~3,000 input tokens per turn).
-- Remaining: training block (Mistral published figures), room figure, methodology page.
+- ✅ Training block (`shared/footprint/training.ts`): published figures only, shown whole, never
+  per request. Mistral Large 2 LCA (training + 18 months: 20.4 kt CO₂e, 281,000 m³, 660 kg Sb eq)
+  as the closest figure for Large 3 (no Large 3 LCA; trained on 3,000 H200s, 5.5× the parameters).
+  Google, Inworld, ElevenLabs, Soniox: "not disclosed" — named on screen.
+- ✅ Methodology page: `/meter/methodology` (dev: `/meter.html?page=methodology`), reached by a QR
+  code in the meter footer. Generated from `ecologits.json` and `training.ts`: what is counted,
+  how EcoLogits works, per model role/location/size/impacts per 400 tokens or per minute of audio
+  with assumptions, warnings and sources; training; what is left out; Mistral's and Google's own
+  figures for contrast; EcoLogits credit (MPL-2.0).
+- Remaining: room figure (smart plug, below).
+
+**Room electricity (smart plug) — options:**
+- **Recommended: Shelly Plug S Gen3** (EU, 12 A / 2500 W, ~€20–25). Live `apower` (W) and
+  cumulative `aenergy.total` (Wh) via local HTTP RPC (`/rpc/Switch.GetStatus?id=0`), MQTT, an
+  outbound websocket, Shelly Cloud API, and on-device scripts (`Timer.set` + `HTTP.Request`).
+  Integration options, simplest first:
+  1. On-device script POSTs `{apower, aenergy.total}` every few seconds to the council server
+     (e.g. `POST /api/room-power` with a per-installation secret). No Mac or cloud account
+     involved; needs museum Wi-Fi (2.4 GHz, no captive portal).
+  2. The button bridge on the Mac polls the plug on the LAN and forwards it (needs the plug and Mac
+     on the same network without client isolation).
+  3. Shelly Cloud Control API polled by the server with an auth key (depends on Shelly's cloud).
+- Tapo P110 and similar: cheap, but app/cloud-first; local access is unofficial. Not recommended.
+- All installation devices on one power strip behind the one plug.
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.

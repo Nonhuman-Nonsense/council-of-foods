@@ -59,7 +59,23 @@ SONIOX_ASSUMPTIONS = [
 MODELS = {
     "inworld|mistral/mistral-large-3": {
         "ecologits": ("mistralai", "mistral-large-2512"),
-        "assumptions": ["Routed through Inworld to Mistral's own API; EcoLogits' Mistral data-centre profile applies."],
+        # EcoLogits (0.11.1 and main as of 2026-09) lists mistral-large-2512 as 123B dense, with
+        # Mistral Large 2's sources. Mistral publishes Large 3 as a 675B / 41B-active MoE.
+        "parameters": {"total": 675, "active": 41},
+        # Weights ship in FP8 and BF16; EcoLogits' default is 16-bit. The GPU count, and with it
+        # most of the estimate, depends on which one serves.
+        "quantizationBits": (8, 16),
+        "assumptions": [
+            "Routed through Inworld to Mistral's own API; EcoLogits' Mistral data-centre profile applies.",
+            "Architecture corrected from EcoLogits' entry (123B dense, copied from Mistral Large 2) to Mistral's published 675B total / 41B active mixture-of-experts.",
+            "Served with 8-bit (FP8, published) to 16-bit weights: EcoLogits sizes the GPU fleet by memory, so this halves or doubles the GPUs a request occupies (16 to 32 H100-class GPUs).",
+        ],
+        "sources": [
+            "https://mistral.ai/news/mistral-3/",
+            "https://docs.mistral.ai/models/mistral-large-3-25-12",
+            "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512",
+            "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512-NVFP4",
+        ],
     },
     "inworld|google-ai-studio/gemini-2.5-flash": {
         "ecologits": ("google_genai", "gemini-2.5-flash"),
@@ -126,16 +142,21 @@ def resolve(key, spec):
             raise SystemExit(f"{key}: EcoLogits has no model {provider}/{name}")
         params = model.architecture.parameters
         total, active = (params.total, params.active) if isinstance(params, ParametersMoE) else (params, params)
+        overridden = "parameters" in spec
+        if overridden:
+            total, active = spec["parameters"]["total"], spec["parameters"]["active"]
         deployment = model.deployment
         return {
             "datacenter": provider,
             "zone": PROVIDER_CONFIG_MAP[provider].datacenter_location,
             "active": ends(active),
             "total": ends(total),
+            "bits": tuple(spec.get("quantizationBits", (16, 16))),
             "tps": deployment.tps if deployment else None,
             "ttft": deployment.ttft if deployment else None,
             "warnings": [str(w) for w in model.warnings],
-            "sources": list(model.sources),
+            # EcoLogits' sources describe its own architecture entry, which an override replaces.
+            "sources": [] if overridden else list(model.sources),
         }
     custom = spec["custom"]
     return {
@@ -143,6 +164,7 @@ def resolve(key, spec):
         "zone": custom.get("zone", PROVIDER_CONFIG_MAP[custom["datacenter"]].datacenter_location),
         "active": ends(custom["parameters"]),
         "total": ends(custom["parameters"]),
+        "bits": tuple(spec.get("quantizationBits", (16, 16))),
         "tps": None,
         "ttft": None,
         "warnings": [],
@@ -164,6 +186,7 @@ def dag(inputs, end, tokens, request_seconds):
         if_electricity_mix_wue=mix.wue,
         datacenter_pue=ends(config.datacenter_pue)[end],
         datacenter_wue=ends(config.datacenter_wue)[end],
+        model_quantization_bits=inputs["bits"][end],
         tps=inputs["tps"],
         ttft=inputs["ttft"],
     )
@@ -194,7 +217,7 @@ def coefficients(inputs, end):
 def golden(key, spec, inputs, units, request_seconds):
     tokens = units * spec.get("tokensPerUnit", 1)
     latency = math.inf if request_seconds is None else request_seconds
-    if "ecologits" in spec:
+    if "ecologits" in spec and "parameters" not in spec:
         provider, name = spec["ecologits"]
         result = llm_impacts(provider, name, tokens, latency)
         if result.has_errors:
@@ -202,19 +225,40 @@ def golden(key, spec, inputs, units, request_seconds):
     else:
         config = PROVIDER_CONFIG_MAP[inputs["datacenter"]]
         mix = electricity_mixes.find_electricity_mix(zone=inputs["zone"])
-        low, high = inputs["active"]
-        result = compute_llm_impacts(
-            model_active_parameter_count=RangeValue(min=low, max=high) if low != high else low,
-            model_total_parameter_count=RangeValue(min=low, max=high) if low != high else low,
-            output_token_count=tokens,
-            request_latency=latency,
-            if_electricity_mix_adpe=mix.adpe,
-            if_electricity_mix_pe=mix.pe,
-            if_electricity_mix_gwp=mix.gwp,
-            if_electricity_mix_wue=mix.wue,
-            datacenter_pue=config.datacenter_pue,
-            datacenter_wue=config.datacenter_wue,
-        )
+
+        def value(pair):
+            low, high = pair
+            return RangeValue(min=low, max=high) if low != high else low
+
+        def run(bits):
+            return compute_llm_impacts(
+                model_active_parameter_count=value(inputs["active"]),
+                model_total_parameter_count=value(inputs["total"]),
+                tps=inputs["tps"],
+                ttft=inputs["ttft"],
+                output_token_count=tokens,
+                request_latency=latency,
+                if_electricity_mix_adpe=mix.adpe,
+                if_electricity_mix_pe=mix.pe,
+                if_electricity_mix_gwp=mix.gwp,
+                if_electricity_mix_wue=mix.wue,
+                datacenter_pue=config.datacenter_pue,
+                datacenter_wue=config.datacenter_wue,
+                model_quantization_bits=bits,
+            )
+
+        # compute_llm_impacts ranges over parameters only; a quantization range is the low end
+        # of an 8-bit run and the high end of a 16-bit one.
+        low_bits, high_bits = inputs["bits"]
+        low_run, high_run = run(low_bits), run(high_bits)
+        return {
+            "units": units,
+            "requestSeconds": request_seconds,
+            "impacts": {
+                i: [ends(getattr(low_run, IMPACTS[i][2]).value)[0], ends(getattr(high_run, IMPACTS[i][2]).value)[1]]
+                for i in IMPACTS
+            },
+        }
     return {
         "units": units,
         "requestSeconds": request_seconds,
@@ -245,6 +289,7 @@ def export(expected_version):
             "datacenterZone": inputs["zone"],
             "activeParameters": list(inputs["active"]),
             "totalParameters": list(inputs["total"]),
+            "quantizationBits": list(inputs["bits"]),
             "low": coefficients(inputs, 0),
             "high": coefficients(inputs, 1),
             "assumptions": spec.get("assumptions", []),
