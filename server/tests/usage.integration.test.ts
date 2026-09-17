@@ -27,9 +27,9 @@ describe("usage recording", () => {
         await usageTotalsCollection?.deleteMany({});
     });
 
-    it("sums raw measures per model into the global and installation totals", async () => {
-        await recordUsage(dialogue({ installationId: "museum-oslo" }));
-        await recordUsage(dialogue({ installationId: "museum-oslo" }));
+    it("sums raw measures per model into the global and venue totals", async () => {
+        await recordUsage(dialogue({ venueId: "museum-oslo" }));
+        await recordUsage(dialogue({ venueId: "museum-oslo" }));
         await recordUsage(dialogue());
 
         const totals = await usageTotalsCollection?.find({}).sort({ _id: 1 }).toArray();
@@ -43,8 +43,8 @@ describe("usage recording", () => {
                 measures: { input_tokens: 300, output_tokens: 120, request_seconds: 4.5 },
             },
             {
-                _id: "installation:museum-oslo|inworld|mistral/mistral-large-3",
-                scope: "installation:museum-oslo",
+                _id: "venue:museum-oslo|inworld|mistral/mistral-large-3",
+                scope: "venue:museum-oslo",
                 provider: "inworld",
                 model: "mistral/mistral-large-3",
                 requests: 2,
@@ -65,12 +65,12 @@ describe("usage recording", () => {
         const seen: UsageEvent[] = [];
         const unsubscribe = onUsageRecorded((event) => seen.push(event));
 
-        await recordUsage(dialogue({ installationId: "museum-oslo" }));
+        await recordUsage(dialogue({ venueId: "museum-oslo" }));
         unsubscribe();
         await recordUsage(dialogue());
 
         expect(seen).toHaveLength(1);
-        expect(seen[0]).toMatchObject({ installationId: "museum-oslo", measures: { output_tokens: 40 } });
+        expect(seen[0]).toMatchObject({ venueId: "museum-oslo", measures: { output_tokens: 40 } });
     });
 });
 
@@ -80,13 +80,13 @@ describe("meter", () => {
         await usageTotalsCollection?.deleteMany({});
     });
 
-    it("snapshots global, installation and latest-meeting usage", async () => {
+    it("snapshots global, venue and latest-meeting usage", async () => {
         for (const _id of [11, 12]) {
-            await meetingsCollection.insertOne(MockFactory.createStoredMeeting({ _id, liveKey: `key-${_id}`, installationId: "museum-oslo" }));
+            await meetingsCollection.insertOne(MockFactory.createStoredMeeting({ _id, liveKey: `key-${_id}`, venueId: "museum-oslo" }));
         }
-        await recordUsage(dialogue({ meetingId: 11, installationId: "museum-oslo" }));
-        await recordUsage(dialogue({ meetingId: 12, installationId: "museum-oslo" }));
-        await recordUsage(dialogue({ meetingId: 12, installationId: "museum-oslo", measures: { output_tokens: 10 } }));
+        await recordUsage(dialogue({ meetingId: 11, venueId: "museum-oslo" }));
+        await recordUsage(dialogue({ meetingId: 12, venueId: "museum-oslo" }));
+        await recordUsage(dialogue({ meetingId: 12, venueId: "museum-oslo", measures: { output_tokens: 10 } }));
         await recordUsage(dialogue({ meetingId: 99 }));
 
         const snapshot = await getMeterSnapshot("museum-oslo");
@@ -96,7 +96,8 @@ describe("meter", () => {
         });
         expect(snapshot).toEqual({
             global: [row(4, { input_tokens: 300, output_tokens: 130, request_seconds: 4.5 })],
-            installation: [row(3, { input_tokens: 200, output_tokens: 90, request_seconds: 3 })],
+            venue: [row(3, { input_tokens: 200, output_tokens: 90, request_seconds: 3 })],
+            venueName: "museum-oslo",
             meeting: { meetingId: 12, totals: [row(2, { input_tokens: 100, output_tokens: 50, request_seconds: 1.5 })] },
             room: [],
         });
@@ -126,12 +127,12 @@ describe("meter", () => {
         it("pushes each recorded usage to connected meters", async () => {
             const received = new Promise<MeterUsageEvent>((resolve) => socket.on(METER_USAGE_EVENT, resolve));
 
-            await recordUsage(dialogue({ installationId: "museum-oslo" }));
+            await recordUsage(dialogue({ venueId: "museum-oslo" }));
 
             expect(await received).toMatchObject({
                 provider: "inworld",
                 model: "mistral/mistral-large-3",
-                installationId: "museum-oslo",
+                venueId: "museum-oslo",
                 measures: { output_tokens: 40 },
                 ts: expect.any(String),
             });

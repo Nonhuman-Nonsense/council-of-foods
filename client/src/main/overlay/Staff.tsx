@@ -4,8 +4,8 @@ import {
   APP_MODES,
   DEV_LOG_CATEGORIES,
   useCouncilSettings,
-  getInstallationId,
-  setInstallationId,
+  getVenueId,
+  setVenueId,
 } from "@/settings/councilSettings";
 import type { LogCategory } from "@/logger";
 import {
@@ -26,11 +26,10 @@ import ProtocolDocument from "@council/protocol/ProtocolDocument";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 import { describePrinterReason } from "@shared/printerReasons";
+import { fetchVenues, type Venue } from "@api/venues";
 import {
   chooseAlertVenue,
-  fetchAlertVenues,
   sendTestAlert,
-  type AlertVenue,
 } from "@/museum/print/alertsClient";
 
 type StatusTone = "ok" | "warn" | "error" | "idle";
@@ -430,7 +429,7 @@ function Staff(): ReactElement {
   const alertsConfigured = alertsHealth?.configured === true;
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
-  const [installationId, setInstallationIdState] = useState(getInstallationId);
+  const [venueId, setVenueIdState] = useState(getVenueId);
 
   const testPageRef = useRef<HTMLDivElement>(null);
   const [testPage, setTestPage] = useState<"idle" | "sending" | TestPageOutcome>("idle");
@@ -446,8 +445,8 @@ function Staff(): ReactElement {
     }
   };
 
-  const [alertVenues, setAlertVenues] = useState<AlertVenue[] | null>(null);
-  const [alertVenuesError, setAlertVenuesError] = useState<string | null>(null);
+  const [venues, setVenues] = useState<Venue[] | null>(null);
+  const [venueError, setVenueError] = useState<string | null>(null);
   const [testAlert, setTestAlert] = useState<{ state: "idle" | "sending" | "sent" } | { state: "failed"; error: string }>({
     state: "idle",
   });
@@ -463,34 +462,53 @@ function Staff(): ReactElement {
     button.setArmed(true);
   }, [button.setArmed]);
 
-  // The venue list comes from the council server through the bridge, so only ask
-  // once the bridge says alerts are configured.
   useEffect(() => {
-    if (!printSummariesEnabled || !alertsConfigured) return;
     let cancelled = false;
-    fetchAlertVenues().then(
-      ({ venues }) => {
-        if (cancelled) return;
-        setAlertVenues(venues);
-        setAlertVenuesError(null);
+    fetchVenues().then(
+      (list) => {
+        if (!cancelled) setVenues(list);
       },
       (error: unknown) => {
-        if (!cancelled) setAlertVenuesError(error instanceof Error ? error.message : String(error));
+        if (!cancelled) setVenueError(error instanceof Error ? error.message : String(error));
       },
     );
     return () => {
       cancelled = true;
     };
-  }, [printSummariesEnabled, alertsConfigured]);
+  }, []);
 
-  const chooseVenue = async (venueId: string): Promise<void> => {
+  const tellBridgeVenue = async (id: string): Promise<void> => {
     try {
-      await chooseAlertVenue(venueId === "" ? null : venueId);
-      setAlertVenuesError(null);
+      await chooseAlertVenue(id === "" ? null : id);
+      setVenueError(null);
     } catch (error) {
-      setAlertVenuesError(error instanceof Error ? error.message : String(error));
+      setVenueError(error instanceof Error ? error.message : String(error));
     }
   };
+
+  const chooseVenue = (id: string): void => {
+    setVenueId(id);
+    setVenueIdState(getVenueId());
+    if (alertsConfigured) void tellBridgeVenue(id);
+  };
+
+  // One venue for the installation: the page's choice is the truth, and the bridge follows it.
+  // A bridge that already had a venue (set before the page stored one) hands it to the page, so
+  // nobody has to choose again. Once per difference, so a refusing bridge is not asked in a loop.
+  const bridgeVenueId = alertsHealth?.venue?.id ?? "";
+  const syncedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!alertsConfigured || bridgeVenueId === venueId) return;
+    if (!venueId && bridgeVenueId) {
+      setVenueId(bridgeVenueId);
+      setVenueIdState(bridgeVenueId);
+      return;
+    }
+    const attempt = `${venueId}←${bridgeVenueId}`;
+    if (syncedRef.current === attempt) return;
+    syncedRef.current = attempt;
+    void tellBridgeVenue(venueId);
+  }, [alertsConfigured, bridgeVenueId, venueId]);
 
   const sendAlertTest = async (): Promise<void> => {
     setTestAlert({ state: "sending" });
@@ -623,23 +641,32 @@ function Staff(): ReactElement {
           </div>
           <label
             style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
-            title={t("staff.installationId.hint")}
+            title={t("staff.venue.hint")}
           >
-            <span>{t("staff.installationId.label")}</span>
-            <input
-              type="text"
-              data-testid="staff-installation-id"
-              value={installationId}
-              maxLength={64}
-              placeholder={t("staff.installationId.placeholder")}
-              onChange={(e) => setInstallationIdState(e.target.value)}
-              onBlur={() => {
-                setInstallationId(installationId);
-                setInstallationIdState(getInstallationId());
-              }}
-              style={{ flex: 1, minWidth: 160, fontSize: 16, padding: "6px 10px" }}
-            />
+            <span>{t("staff.venue.label")}</span>
+            <select
+              data-testid="staff-venue"
+              value={venueId}
+              disabled={venues === null && venueError === null}
+              onChange={(event) => chooseVenue(event.target.value)}
+              style={{ flex: 1, minWidth: 160, fontSize: 16 }}
+            >
+              <option value="">{t("staff.venue.none")}</option>
+              {(venues ?? []).map((venue) => (
+                <option key={venue.id} value={venue.id}>
+                  {venue.name}
+                </option>
+              ))}
+              {venueId && venues && !venues.some((venue) => venue.id === venueId) ? (
+                <option value={venueId}>{t("staff.venue.unknown", { id: venueId })}</option>
+              ) : null}
+            </select>
           </label>
+          {venueError ? (
+            <p data-testid="staff-venue-error" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
+              {venueError}
+            </p>
+          ) : null}
         </StaffPanel>
 
         {showBridgePanel ? (
@@ -753,23 +780,6 @@ function Staff(): ReactElement {
 
             {printSummariesEnabled && alertsConfigured ? (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  {t("staff.alerts.venueLabel")}
-                  <select
-                    data-testid="staff-alerts-venue"
-                    value={alertsHealth?.venue?.id ?? ""}
-                    disabled={alertVenues === null}
-                    onChange={(event) => void chooseVenue(event.target.value)}
-                    style={{ fontSize: "16px" }}
-                  >
-                    <option value="">{t("staff.alerts.noVenue")}</option>
-                    {(alertVenues ?? []).map((venue) => (
-                      <option key={venue.id} value={venue.id}>
-                        {venue.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
                 <button
                   type="button"
                   data-testid="staff-alerts-test"
@@ -784,11 +794,6 @@ function Staff(): ReactElement {
                     {testAlert.state === "failed"
                       ? `${t("staff.alerts.testResult.failed")}: ${testAlert.error}`
                       : t(`staff.alerts.testResult.${testAlert.state}`)}
-                  </span>
-                ) : null}
-                {alertVenuesError ? (
-                  <span data-testid="staff-alerts-error" style={{ fontStyle: "italic" }}>
-                    {alertVenuesError}
                   </span>
                 ) : null}
               </div>

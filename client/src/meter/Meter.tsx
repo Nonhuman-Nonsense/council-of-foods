@@ -151,10 +151,10 @@ function Training(): ReactElement {
 
 export function Meter(): ReactElement {
   const params = new URLSearchParams(window.location.search);
-  const installationId = params.get("installation")?.trim() || undefined;
+  const venueId = params.get("venue")?.trim() || undefined;
   const demo = params.has("demo");
 
-  const state = useMeterFeed(installationId, demo);
+  const state = useMeterFeed(venueId, demo);
   const meetingRows = state.meeting?.totals ?? [];
 
   return (
@@ -162,9 +162,11 @@ export function Meter(): ReactElement {
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
       {state.meeting ? <Scope title="This meeting" footprint={footprintOf(meetingRows)} large /> : null}
       <Room readings={state.room} />
-      {installationId || demo ? <Scope title="This installation" footprint={footprintOf(state.installation)} /> : null}
+      {venueId || demo ? (
+        <Scope title={`At ${state.venueName ?? venueId ?? "this venue"}`} footprint={footprintOf(state.venue)} />
+      ) : null}
       <Scope title="All councils" footprint={footprintOf(state.global)} />
-      <Models rows={meetingRows.length > 0 ? meetingRows : state.installation} />
+      <Models rows={meetingRows.length > 0 ? meetingRows : state.venue} />
       <Training />
       <footer className="meter-footer">
         <div>

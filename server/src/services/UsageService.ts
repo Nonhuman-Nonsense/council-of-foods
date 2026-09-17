@@ -15,8 +15,8 @@ import { Logger } from "@utils/Logger.js";
 
 export const GLOBAL_USAGE_SCOPE = "global";
 
-export function installationUsageScope(installationId: string): string {
-    return `installation:${installationId}`;
+export function venueUsageScope(venueId: string): string {
+    return `venue:${venueId}`;
 }
 
 type UsageListener = (event: UsageEvent) => void;
@@ -29,10 +29,10 @@ export function onUsageRecorded(listener: UsageListener): () => void {
 }
 
 /** The meeting fields a usage record is tagged with. */
-export function usageTagsFor(meeting: Pick<StoredMeeting, "_id" | "installationId">): Pick<UsageRecord, "meetingId" | "installationId"> {
+export function usageTagsFor(meeting: Pick<StoredMeeting, "_id" | "venueId">): Pick<UsageRecord, "meetingId" | "venueId"> {
     return {
         meetingId: meeting._id,
-        ...(meeting.installationId ? { installationId: meeting.installationId } : {}),
+        ...(meeting.venueId ? { venueId: meeting.venueId } : {}),
     };
 }
 
@@ -66,8 +66,8 @@ export async function recordUsage(record: UsageRecord): Promise<void> {
         await events.insertOne({ ...event });
 
         const scopes = [GLOBAL_USAGE_SCOPE];
-        if (record.installationId) {
-            scopes.push(installationUsageScope(record.installationId));
+        if (record.venueId) {
+            scopes.push(venueUsageScope(record.venueId));
         }
         const increments: Record<string, number> = { requests: 1 };
         for (const [measure, value] of Object.entries(measures)) {
@@ -215,7 +215,7 @@ function toTotalsRow(doc: { provider: string; model: string; requests: number; m
     return { provider: doc.provider, model: doc.model, requests: doc.requests, measures: cleanMeasures(doc.measures) };
 }
 
-/** Summed usage per model for a scope (global or an installation). */
+/** Summed usage per model for a scope (global or a venue). */
 export async function getUsageTotals(scope: string): Promise<UsageTotalsRow[]> {
     const totals = usageTotalsCollection;
     if (!totals) return [];

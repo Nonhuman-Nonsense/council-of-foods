@@ -113,7 +113,7 @@ const ensureUsageIndexes = async (events: Collection<StoredUsageEvent>): Promise
   await events.createIndex({ ts: 1 }, { name: "usage_ts" });
   await events.createIndex({ meetingId: 1 }, { name: "usage_meetingId", sparse: true });
   await events.createIndex(
-    { installationId: 1, ts: 1 }, { name: "usage_installationId_ts", sparse: true }
+    { venueId: 1, ts: 1 }, { name: "usage_venueId_ts", sparse: true }
   );
 };
 

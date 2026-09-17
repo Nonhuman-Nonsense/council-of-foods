@@ -15,18 +15,18 @@ import { applyRoomPower, applyUsageEvent, EMPTY_METER_STATE, type MeterState } f
  * pushed usage event on top. Refetching on reconnect means a dropped connection costs at most
  * a moment of stale numbers, never a permanent gap.
  */
-export function useMeterFeed(installationId: string | undefined, demo: boolean): MeterState {
+export function useMeterFeed(venueId: string | undefined, demo: boolean): MeterState {
   const [state, setState] = useState<MeterState>(EMPTY_METER_STATE);
 
   useEffect(() => {
-    if (demo) return startDemoFeed(installationId ?? DEMO_INSTALLATION, setState);
+    if (demo) return startDemoFeed(venueId ?? DEMO_VENUE, setState);
 
     let cancelled = false;
     const socket = io(METER_NAMESPACE);
 
     const loadSnapshot = async () => {
       try {
-        const query = installationId ? `?installation=${encodeURIComponent(installationId)}` : "";
+        const query = venueId ? `?venue=${encodeURIComponent(venueId)}` : "";
         const res = await fetch(`/api/meter${query}`);
         if (!res.ok) return;
         const snapshot = (await res.json()) as MeterSnapshot;
@@ -38,17 +38,17 @@ export function useMeterFeed(installationId: string | undefined, demo: boolean):
 
     socket.on("connect", loadSnapshot);
     socket.on(METER_USAGE_EVENT, (event: MeterUsageEvent) => {
-      setState((current) => applyUsageEvent(current, event, installationId));
+      setState((current) => applyUsageEvent(current, event, venueId));
     });
     socket.on(METER_ROOM_POWER_EVENT, (reading: RoomPowerReading) => {
-      setState((current) => applyRoomPower(current, reading, installationId));
+      setState((current) => applyRoomPower(current, reading, venueId));
     });
 
     return () => {
       cancelled = true;
       socket.close();
     };
-  }, [installationId, demo]);
+  }, [venueId, demo]);
 
   return state;
 }
@@ -57,7 +57,7 @@ export function useMeterFeed(installationId: string | undefined, demo: boolean):
 // Fakes a meeting so the screen can be judged without a live council. Remove once the
 // meter has been tuned on the real display.
 
-const DEMO_INSTALLATION = "demo";
+const DEMO_VENUE = "demo";
 const DEMO_INTERVAL_MS = 2500;
 
 const DEMO_CALLS: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">[] = [
@@ -73,7 +73,7 @@ const DEMO_PLUGS = [
   { deviceId: "demo-sound", label: "Sound", watts: 22 },
 ];
 
-function startDemoFeed(installationId: string, setState: (update: (s: MeterState) => MeterState) => void): () => void {
+function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => MeterState) => void): () => void {
   let call = 0;
   const startedAt = Date.now();
   const timer = setInterval(() => {
@@ -81,22 +81,22 @@ function startDemoFeed(installationId: string, setState: (update: (s: MeterState
     for (const plug of DEMO_PLUGS) {
       const reading: RoomPowerReading = {
         ...plug,
-        installationId,
+        venueId,
         watts: plug.watts * (0.95 + Math.random() * 0.1),
         energyWh: plug.watts * hours,
         updatedAt: new Date().toISOString(),
       };
-      setState((current) => applyRoomPower(current, reading, installationId));
+      setState((current) => applyRoomPower(current, reading, venueId));
     }
     const event: MeterUsageEvent = {
       ...DEMO_CALLS[call % DEMO_CALLS.length],
       source: "server",
-      installationId,
+      venueId,
       meetingId: 1,
       ts: new Date().toISOString(),
     };
     call++;
-    setState((current) => applyUsageEvent(current, event, installationId));
+    setState((current) => applyUsageEvent(current, event, venueId));
   }, DEMO_INTERVAL_MS);
   return () => clearInterval(timer);
 }

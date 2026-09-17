@@ -9,7 +9,7 @@ import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
-import { getInstallationId } from "@/settings/councilSettings";
+import { getVenueId } from "@/settings/councilSettings";
 
 export interface MeetingSetupShellProps {
   topicSelection: Topic | null;
@@ -102,7 +102,7 @@ export default function MeetingSetupShell({
         characters,
         language: i18n.language,
         ...(visitorName.trim() ? { humanName: visitorName.trim() } : {}),
-        ...(getInstallationId() ? { installationId: getInstallationId() } : {}),
+        ...(getVenueId() ? { venueId: getVenueId() } : {}),
       });
       setMeetingliveKey(liveKey);
       navigate(meetingPath(Number(meetingId)));

@@ -35,7 +35,7 @@ export const PRINT_SUMMARIES_ENABLED_KEY = "councilPrintSummariesEnabled";
 
 export const PRINT_SUMMARIES_CHANGE_EVENT = "council-print-summaries-change";
 
-export const INSTALLATION_ID_KEY = "councilInstallationId";
+export const VENUE_ID_KEY = "councilVenueId";
 
 export const MODE_SWITCH_BUTTON_ENABLED_KEY = "councilModeSwitchButtonEnabled";
 
@@ -82,24 +82,25 @@ export function setAppMode(mode: AppMode): void {
 }
 
 /**
- * Staff-set name of this installation (e.g. "museum-oslo"). Tags the AI usage of meetings
- * and setup sessions run here, for the footprint meter. Empty when unset.
+ * The venue this installation runs at (an id from the server's `COUNCIL_VENUES`), chosen on
+ * #staff. Tags the AI usage of meetings and setup sessions for the footprint meter, and is the
+ * venue the bridge sends printer alerts for. Empty when unset.
  */
-export function getInstallationId(): string {
+export function getVenueId(): string {
   try {
-    return localStorage.getItem(INSTALLATION_ID_KEY)?.trim() ?? "";
+    return localStorage.getItem(VENUE_ID_KEY)?.trim() ?? "";
   } catch {
     return "";
   }
 }
 
-export function setInstallationId(installationId: string): void {
+export function setVenueId(venueId: string): void {
   try {
-    const trimmed = installationId.trim();
+    const trimmed = venueId.trim();
     if (trimmed) {
-      localStorage.setItem(INSTALLATION_ID_KEY, trimmed);
+      localStorage.setItem(VENUE_ID_KEY, trimmed);
     } else {
-      localStorage.removeItem(INSTALLATION_ID_KEY);
+      localStorage.removeItem(VENUE_ID_KEY);
     }
   } catch {
     // ignore storage errors (private mode, quota, etc.)

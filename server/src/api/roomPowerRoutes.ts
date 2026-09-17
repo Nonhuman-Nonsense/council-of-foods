@@ -5,9 +5,10 @@ import { z } from "zod";
 import { config } from "@root/src/config.js";
 import { recordRoomPower } from "@services/RoomPowerService.js";
 import { Logger } from "@utils/Logger.js";
+import { resolveVenueId } from "@utils/venues.js";
 
 /**
- * Smart plugs in an installation report the room's electricity here every few seconds
+ * Smart plugs at a venue report the room's electricity here every few seconds
  * (scripts/shelly/room-power.js). The key lives in each plug's script, readable by anyone on
  * the museum network, so it is separate from the bridge key and can only report power.
  */
@@ -17,7 +18,7 @@ export const ROOM_POWER_KEY_HEADER = "x-room-power-key";
 const Id = z.string().trim().min(1).max(64);
 
 export const RoomPowerReportBody = z.object({
-    installationId: Id,
+    venueId: Id,
     deviceId: Id,
     label: z.string().trim().min(1).max(64),
     watts: z.number().min(0).max(10_000),
@@ -47,8 +48,14 @@ export function registerRoomPowerRoutes(app: Express): void {
             return;
         }
 
+        const venueId = resolveVenueId(parsed.data.venueId);
+        if (!venueId) {
+            res.status(400).json({ message: `Unknown venue "${parsed.data.venueId}"` });
+            return;
+        }
+
         try {
-            await recordRoomPower(parsed.data);
+            await recordRoomPower({ ...parsed.data, venueId });
             res.status(204).end();
         } catch (error) {
             await Logger.error("api", "POST /api/room-power failed", { error });

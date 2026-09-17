@@ -51,8 +51,8 @@ export interface HumanInputRealtimeCallRequest {
 export interface SetupAgentRealtimeBootstrapRequest {
     feature: "setup-agent";
     language: string;
-    /** Staff-configured installation; tags the session's usage. Meetings carry their own. */
-    installationId?: string;
+    /** Venue chosen on #staff; tags the session's usage. Meetings carry their own. */
+    venueId?: string;
 }
 
 export interface SetupAgentRealtimeCallRequest {

@@ -98,8 +98,6 @@
     },
     "alerts": {
       "label": "Alert emails",
-      "venueLabel": "Venue",
-      "noVenue": "No venue (no emails)",
       "test": "Send test alert",
       "status": {
         "notConfigured": "Not set up on bridge",
@@ -113,10 +111,11 @@
         "failed": "Not sent"
       }
     },
-    "installationId": {
-      "label": "Installation ID",
-      "placeholder": "e.g. museum-oslo",
-      "hint": "Tags the AI usage of meetings run on this computer, for the footprint meter. Leave empty outside installations."
+    "venue": {
+      "label": "Venue",
+      "none": "No venue",
+      "unknown": "{{id}} (no longer on the server)",
+      "hint": "Where this installation runs. Tags its AI usage for the footprint meter and room power plugs, and decides who gets printer alert emails."
     },
     "print": {
       "toggle": "Print summaries",

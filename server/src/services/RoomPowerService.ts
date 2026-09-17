@@ -5,7 +5,7 @@ import { roomPowerCollection } from "@services/DbService.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
- * The installation room's electricity, measured by smart plugs (docs/ai-footprint-meter.md).
+ * The electricity of the room an installation runs in, measured by smart plugs (docs/ai-footprint-meter.md).
  * Keeps the latest reading per plug and accumulates energy from each plug's own counter.
  */
 
@@ -20,7 +20,7 @@ export function onRoomPowerRecorded(listener: RoomPowerListener): () => void {
 
 function toReading(doc: StoredRoomPower): RoomPowerReading {
     return {
-        installationId: doc.installationId,
+        venueId: doc.venueId,
         deviceId: doc.deviceId,
         label: doc.label,
         watts: doc.watts,
@@ -40,10 +40,10 @@ export async function recordRoomPower(report: RoomPowerReport, now: Date = new D
 
     const counter = report.energyCounterWh;
     const doc = await collection.findOneAndUpdate(
-        { _id: `${report.installationId}|${report.deviceId}` },
+        { _id: `${report.venueId}|${report.deviceId}` },
         [{
             $set: {
-                installationId: { $literal: report.installationId },
+                venueId: { $literal: report.venueId },
                 deviceId: { $literal: report.deviceId },
                 label: { $literal: report.label },
                 watts: { $literal: report.watts },
@@ -78,9 +78,9 @@ export async function recordRoomPower(report: RoomPowerReport, now: Date = new D
     return reading;
 }
 
-export async function getRoomPower(installationId: string): Promise<RoomPowerReading[]> {
+export async function getRoomPower(venueId: string): Promise<RoomPowerReading[]> {
     const collection = roomPowerCollection;
     if (!collection) return [];
-    const docs = await collection.find({ installationId }).sort({ label: 1 }).toArray();
+    const docs = await collection.find({ venueId }).sort({ label: 1 }).toArray();
     return docs.map(toReading);
 }

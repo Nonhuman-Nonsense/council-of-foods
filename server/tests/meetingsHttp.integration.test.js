@@ -89,13 +89,13 @@ describe('HTTP meetings API (integration)', () => {
         const res = await fetch(`${base()}/api/meetings`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ...validCreateBody(), installationId: ' museum-oslo ' }),
+            body: JSON.stringify({ ...validCreateBody(), venueId: ' museum-oslo ' }),
         });
         expect(res.status).toBe(201);
         const { meetingId } = await res.json();
 
         const stored = await meetingsCollection.findOne({ _id: Number(meetingId) });
-        expect(stored.installationId).toBe('museum-oslo');
+        expect(stored.venueId).toBe('museum-oslo');
     });
 
     it('POST /api/meetings returns 400 on invalid payload', async () => {

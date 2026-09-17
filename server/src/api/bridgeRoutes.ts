@@ -1,7 +1,8 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
 import { config } from "@root/src/config.js";
-import { maskEmail, type Venue } from "@models/Venues.js";
+import { maskEmail } from "@models/Venues.js";
+import { findVenue } from "@utils/venues.js";
 import { getSender, isMailConfigured, sendEmail } from "@services/MailService.js";
 import { sendReport } from "@utils/errorbot.js";
 import { describePrinterReason } from "@shared/printerReasons.js";
@@ -53,10 +54,6 @@ function requireBridge(req: Request, res: Response, next: NextFunction): void {
         return;
     }
     next();
-}
-
-function findVenue(id: string): Venue | undefined {
-    return config.COUNCIL_VENUES?.find((venue) => venue.id === id);
 }
 
 export function registerBridgeRoutes(app: Express): void {

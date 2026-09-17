@@ -1,6 +1,6 @@
 # AI footprint meter — vision and roadmap
 
-**Status:** Phases 1 (server usage), 2 (realtime usage + installation ID) and a first version of
+**Status:** Phases 1 (server usage), 2 (realtime usage + venue tagging) and a first version of
 4 (meter screen) implemented, plus the EcoLogits table from phase 3. Remaining: phase 3 (training,
 room, methodology page), tuning phase 4 on the real display, phase 5.
 
@@ -64,7 +64,7 @@ settings or in CSS — decide once the screen arrives.
    (tokens, characters, audio seconds). The footprint comes from a pinned EcoLogits version
    plus our own sourced table for what it lacks; changing either never needs a data migration.
 2. **Count everything, tag installations.** Every AI call from every client and meeting is
-   recorded. Installation ID is an optional tag, not a filter at write time.
+   recorded. The venue is an optional tag, not a filter at write time.
 3. **Record what we are billed for.** Only provider-reported usage (plus derivable units like
    audio duration). No speculative "mic was open" estimates. Failed/retried attempts that
    return no usage are not counted.
@@ -131,12 +131,12 @@ interface UsageEvent {
   measures: Partial<Record<UsageMeasure, number>>;
   region?: string;             // when the provider tells us
   meetingId?: number;
-  installationId?: string;
+  venueId?: string;             // venue from COUNCIL_VENUES, chosen on #staff
 }
 ```
 
 Collections:
-- `usage_events` — append-only log, indexed on `ts`, `installationId`, `meetingId`.
+- `usage_events` — append-only log, indexed on `ts`, `venueId`, `meetingId`.
 - `usage_totals` — one doc per scope × provider × model
   (`_id: "global|inworld|mistral/mistral-large-3"`, `installation:<id>|…`), raw measures and
   request count summed with `$inc`. Keeps the meter's initial load cheap.
@@ -292,15 +292,19 @@ providers directly — their answer (or refusal) is itself content.
 - `ConversationService` returns `usage` (provider, model, parsed tokens, request seconds);
   `DialogGenerator` records every attempt. Classifier records its own call. `AudioSystem`
   records each freshly generated TTS chunk and Whisper timing runs.
-- Meetings accept and store `installationId` (`POST /api/meetings`).
+- Meetings accept and store `venueId` (`POST /api/meetings`).
 - Tests: `tests/usage.integration.test.ts` (totals, empty usage, listeners, usage parser
   table), `ConversationService.test.ts` (usage per route), meetings HTTP (installation tag).
 
-### Phase 2 — Client-reported realtime usage + installation ID ✅
+### Phase 2 — Client-reported realtime usage + venue ✅
 
-- `#staff` → Installation panel: **Installation ID** field (`councilInstallationId` in
-  localStorage; a stored setting, not a mode capability). Sent on meeting creation and on
-  setup-agent bootstrap; meeting sessions (meta agent, human input) take it from the meeting.
+- **Venue = installation (merged 2026-09-17).** `#staff` → Installation panel → **Venue**, picked
+  from the public `GET /api/venues` (ids/names from `COUNCIL_VENUES`), stored as `councilVenueId`
+  in localStorage (a stored setting, not a mode capability). The same choice drives printer alerts:
+  the page hands it to the bridge, and a bridge that already had a venue passes it to the page.
+  Sent on meeting creation and setup-agent bootstrap; meeting sessions take it from the meeting.
+  The server keeps only venues in `COUNCIL_VENUES` (any well-formed id when none are configured);
+  usage totals are scoped `venue:<id>`.
 - `POST /api/realtime/bootstrap` returns a `usageToken` (`server/src/api/realtimeUsage.ts`):
   random, in memory, 4 h TTL, bound to the feature and the meeting/installation tags; the
   registry is capped at 10,000 grants.
@@ -343,7 +347,7 @@ providers directly — their answer (or refusal) is itself content.
 - Hardware: Shelly Plug S Gen3 ×3 (ordered 2026-09). Plug M Gen3 / Plug PM Gen3 / Power Strip 4 Gen4
   use the same API. Projector BenQ TH682ST ≈ 244 W typical, 320 W max.
 - Each plug runs `scripts/shelly/room-power.js`: every 5 s, `POST /api/room-power`
-  `{ installationId, deviceId, label, watts, energyCounterWh }` with `X-Room-Power-Key`
+  `{ venueId, deviceId, label, watts, energyCounterWh }` with `X-Room-Power-Key`
   (`COUNCIL_ROOM_POWER_KEY`; unset → 503). Separate from the bridge key: a plug's script is readable
   on the museum LAN.
 - Server (`RoomPowerService`): latest reading per plug in `room_power`; energy accumulated from the
@@ -364,7 +368,7 @@ providers directly — their answer (or refusal) is itself content.
 
 ### Phase 4 — Meter screen (first version ✅, to tune on the display)
 
-- **Server** (`server/src/api/meterRoutes.ts`): `GET /api/meter?installation=<id>` returns a
+- **Server** (`server/src/api/meterRoutes.ts`): `GET /api/meter?venue=<id>` returns a
   `MeterSnapshot` (`shared/MeterTypes.ts`) — raw totals for all councils, the installation, and
   the installation's latest meeting (aggregated from `usage_events`). The `/meter` socket.io
   namespace pushes every recorded usage to every meter. `/meter` serves `client/dist/meter.html`.
@@ -379,8 +383,8 @@ providers directly — their answer (or refusal) is itself content.
 - "This meeting" starts when the meeting is created; setup-agent usage before it counts toward
   the installation, not the meeting.
 - **Preview:** `cd client && npm run dev`, then open `/meter.html?demo` (TEMPORARY fake feed, marked
-  on screen) or `/meter.html?installation=<id>` against a dev server. Production:
-  `https://<host>/meter?installation=<id>`. `?rotate=90` / `?rotate=-90` rotates the page if
+  on screen) or `/meter.html?venue=<id>` against a dev server. Production:
+  `https://<host>/meter?venue=<id>`. `?rotate=90` / `?rotate=-90` rotates the page if
   macOS can't rotate the display.
 - Still to do: tune layout and copy on the VSDISPLAY; comparisons/scale; training block; room
   figure; methodology page + QR; kiosk instructions in MUSEUM.md (second Chrome instance with

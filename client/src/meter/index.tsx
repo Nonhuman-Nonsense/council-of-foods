@@ -9,7 +9,7 @@ import "./meter.css";
  * the council app, so the two can change independently.
  *
  * /meter/methodology  the page behind the QR code (in dev: /meter.html?page=methodology)
- * ?installation=<id>  scope to an installation (as set on #staff)
+ * ?venue=<id>         scope to a venue (as chosen on #staff)
  * ?rotate=90|-90      rotate the page for a display the OS cannot rotate
  * ?demo               TEMPORARY: fake data, to judge the screen without a live council
  */

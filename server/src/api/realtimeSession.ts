@@ -11,6 +11,7 @@ import {
     resolveChairRealtimeCallProvider,
 } from "./realtimeProviders.js";
 import { grantRealtimeUsageToken } from "./realtimeUsage.js";
+import { resolveVenueId } from "@utils/venues.js";
 import type {
     HumanInputRealtimeBootstrapRequest,
     HumanInputRealtimeCallRequest,
@@ -64,15 +65,6 @@ function parseRequiredBearerToken(req: Request): string | null {
     return match ? match[1].trim() : null;
 }
 
-const MAX_INSTALLATION_ID_LENGTH = 64;
-
-/** Same rule as meeting creation: a trimmed, bounded tag, or nothing. */
-function parseInstallationId(value: unknown): string | undefined {
-    if (typeof value !== "string") return undefined;
-    const trimmed = value.trim();
-    return trimmed.length > 0 && trimmed.length <= MAX_INSTALLATION_ID_LENGTH ? trimmed : undefined;
-}
-
 function parseCallLanguage(body: Record<string, unknown>): string | undefined {
     return typeof body.language === "string" ? body.language : undefined;
 }
@@ -92,7 +84,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
         try {
             if (feature === "setup-agent") {
-                const { language, installationId } = body as SetupAgentRealtimeBootstrapRequest;
+                const { language, venueId } = body as SetupAgentRealtimeBootstrapRequest;
                 if (typeof language !== "string" || language.trim().length === 0) {
                     res.status(400).json(new BadRequestError().toApiBody("api POST /api/realtime/bootstrap"));
                     return;
@@ -102,7 +94,7 @@ export function registerRealtimeRoutes(app: Express): void {
                 await Logger.info("api", `POST /api/realtime/bootstrap successful (${feature}:${data.provider})`);
                 res.status(200).json({
                     ...data,
-                    usageToken: grantRealtimeUsageToken({ feature, installationId: parseInstallationId(installationId) }),
+                    usageToken: grantRealtimeUsageToken({ feature, venueId: resolveVenueId(venueId) }),
                 });
                 return;
             }
@@ -116,7 +108,7 @@ export function registerRealtimeRoutes(app: Express): void {
 
             const meeting = await meetingsCollection.findOne(
                 { liveKey: bearer },
-                { projection: { _id: 1, installationId: 1 } },
+                { projection: { _id: 1, venueId: 1 } },
             );
             if (!meeting) {
                 res.status(403).json({ message: "Forbidden" });
@@ -125,7 +117,7 @@ export function registerRealtimeRoutes(app: Express): void {
             const usageToken = grantRealtimeUsageToken({
                 feature,
                 meetingId: meeting._id,
-                ...(meeting.installationId ? { installationId: meeting.installationId } : {}),
+                ...(meeting.venueId ? { venueId: meeting.venueId } : {}),
             });
 
             if (feature === "meta-agent") {

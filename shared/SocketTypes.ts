@@ -29,8 +29,8 @@ export interface CreateMeetingBody {
     language: string;
     /** Audience member name learned during voice setup (optional). */
     humanName?: string;
-    /** Staff-configured installation this meeting runs on; tags its AI usage. */
-    installationId?: string;
+    /** Venue chosen on #staff for this installation; tags the meeting's AI usage. */
+    venueId?: string;
 }
 
 export interface ResumeMeetingResponse {

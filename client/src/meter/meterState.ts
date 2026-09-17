@@ -15,7 +15,7 @@ import {
 
 export type MeterState = MeterSnapshot;
 
-export const EMPTY_METER_STATE: MeterState = { global: [], installation: [], meeting: null, room: [] };
+export const EMPTY_METER_STATE: MeterState = { global: [], venue: [], venueName: null, meeting: null, room: [] };
 
 function addToRows(rows: UsageTotalsRow[], event: MeterUsageEvent): UsageTotalsRow[] {
   const index = rows.findIndex((row) => row.provider === event.provider && row.model === event.model);
@@ -29,16 +29,16 @@ function addToRows(rows: UsageTotalsRow[], event: MeterUsageEvent): UsageTotalsR
 }
 
 /**
- * Adds one usage event. Everything counts globally; the installation and its current meeting
- * only count their own. A newer meeting at the installation replaces the current one.
+ * Adds one usage event. Everything counts globally; the venue and its current meeting only
+ * count their own. A newer meeting at the venue replaces the current one.
  */
-export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, installationId: string | undefined): MeterState {
+export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, venueId: string | undefined): MeterState {
   const global = addToRows(state.global, event);
-  if (!installationId || event.installationId !== installationId) {
+  if (!venueId || event.venueId !== venueId) {
     return { ...state, global };
   }
 
-  const installation = addToRows(state.installation, event);
+  const venue = addToRows(state.venue, event);
   let meeting = state.meeting;
   if (event.meetingId !== undefined) {
     if (!meeting || event.meetingId > meeting.meetingId) {
@@ -47,12 +47,12 @@ export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, insta
       meeting = { ...meeting, totals: addToRows(meeting.totals, event) };
     }
   }
-  return { ...state, global, installation, meeting };
+  return { ...state, global, venue, meeting };
 }
 
-/** Replaces a plug's reading, if the plug belongs to this installation. */
-export function applyRoomPower(state: MeterState, reading: RoomPowerReading, installationId: string | undefined): MeterState {
-  if (!installationId || reading.installationId !== installationId) return state;
+/** Replaces a plug's reading, if the plug is at this venue. */
+export function applyRoomPower(state: MeterState, reading: RoomPowerReading, venueId: string | undefined): MeterState {
+  if (!venueId || reading.venueId !== venueId) return state;
   const others = state.room.filter((r) => r.deviceId !== reading.deviceId);
   return { ...state, room: [...others, reading].sort((a, b) => a.label.localeCompare(b.label)) };
 }

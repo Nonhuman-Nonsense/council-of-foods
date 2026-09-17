@@ -7,15 +7,15 @@
 // Setup, once per plug, in the plug's own web page (http://<plug-ip>/) → Scripts:
 //   1. Create a script, paste this file, fill in CONFIG below.
 //   2. Save, Start, and switch "Run on startup" on.
-// Every plug in an installation uses the same installationId and key, with its own label.
+// Every plug at a venue uses the same venueId and key, with its own label.
 
 let CONFIG = {
   // Production server; for a local dev server use e.g. "http://192.168.1.20:3001/api/room-power".
   url: "https://council-of-forest.com/api/room-power",
   // COUNCIL_ROOM_POWER_KEY from the server environment.
   key: "PASTE-ROOM-POWER-KEY",
-  // Same as the Installation ID on the council's #staff page.
-  installationId: "PASTE-INSTALLATION-ID",
+  // The venue's id, as chosen on the council's #staff page (from COUNCIL_VENUES).
+  venueId: "PASTE-VENUE-ID",
   // What is plugged in, as shown on the meter.
   label: "Projector",
   intervalMs: 5000,
@@ -50,7 +50,7 @@ function report() {
       url: CONFIG.url,
       headers: { "Content-Type": "application/json", "X-Room-Power-Key": CONFIG.key },
       body: JSON.stringify({
-        installationId: CONFIG.installationId,
+        venueId: CONFIG.venueId,
         deviceId: deviceId,
         label: CONFIG.label,
         watts: status.apower,

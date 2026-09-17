@@ -13,12 +13,13 @@ import {
     getMeetingUsageTotals,
     getUsageTotals,
     GLOBAL_USAGE_SCOPE,
-    installationUsageScope,
+    venueUsageScope,
     onUsageRecorded,
 } from "@services/UsageService.js";
 import { getRoomPower, onRoomPowerRecorded } from "@services/RoomPowerService.js";
 import { InternalServerError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
+import { findVenue, resolveVenueId } from "@utils/venues.js";
 
 /**
  * The footprint meter screen (docs/ai-footprint-meter.md): a snapshot over HTTP, then every
@@ -26,30 +27,22 @@ import { Logger } from "@utils/Logger.js";
  * neither needs authentication.
  */
 
-const MAX_INSTALLATION_ID_LENGTH = 64;
-
-function installationFrom(req: Request): string | undefined {
-    const raw = req.query.installation;
-    if (typeof raw !== "string") return undefined;
-    const trimmed = raw.trim();
-    return trimmed.length > 0 && trimmed.length <= MAX_INSTALLATION_ID_LENGTH ? trimmed : undefined;
-}
-
-export async function getMeterSnapshot(installationId: string | undefined): Promise<MeterSnapshot> {
-    const latestMeeting = installationId
-        ? await meetingsCollection.findOne({ installationId }, { sort: { _id: -1 }, projection: { _id: 1 } })
+export async function getMeterSnapshot(venueId: string | undefined): Promise<MeterSnapshot> {
+    const latestMeeting = venueId
+        ? await meetingsCollection.findOne({ venueId }, { sort: { _id: -1 }, projection: { _id: 1 } })
         : null;
 
-    const [global, installation, meetingTotals, room] = await Promise.all([
+    const [global, venue, meetingTotals, room] = await Promise.all([
         getUsageTotals(GLOBAL_USAGE_SCOPE),
-        installationId ? getUsageTotals(installationUsageScope(installationId)) : Promise.resolve([]),
+        venueId ? getUsageTotals(venueUsageScope(venueId)) : Promise.resolve([]),
         latestMeeting ? getMeetingUsageTotals(latestMeeting._id) : Promise.resolve([]),
-        installationId ? getRoomPower(installationId) : Promise.resolve([]),
+        venueId ? getRoomPower(venueId) : Promise.resolve([]),
     ]);
 
     return {
         global,
-        installation,
+        venue,
+        venueName: venueId ? findVenue(venueId)?.name ?? venueId : null,
         meeting: latestMeeting ? { meetingId: latestMeeting._id, totals: meetingTotals } : null,
         room,
     };
@@ -58,7 +51,7 @@ export async function getMeterSnapshot(installationId: string | undefined): Prom
 export function registerMeterRoutes(app: Express): void {
     app.get("/api/meter", async (req: Request, res: Response) => {
         try {
-            res.status(200).json(await getMeterSnapshot(installationFrom(req)));
+            res.status(200).json(await getMeterSnapshot(resolveVenueId(req.query.venue)));
         } catch (error) {
             await Logger.error("api", "GET /api/meter failed", { error });
             res.status(500).json(new InternalServerError().toApiBody("api GET /api/meter"));
@@ -68,7 +61,7 @@ export function registerMeterRoutes(app: Express): void {
 
 /**
  * Every meter hears every usage (the global figure needs all of it) and every plug reading;
- * a meter keeps what concerns its installation.
+ * a meter keeps what concerns its venue.
  */
 export function registerMeterSocket(io: Server): () => void {
     const meters = io.of(METER_NAMESPACE);

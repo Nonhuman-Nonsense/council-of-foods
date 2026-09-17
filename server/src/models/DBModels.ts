@@ -8,16 +8,16 @@ import type { Document } from "mongodb";
 // Additional fields for the stored meeting, never sent to the client
 export interface StoredMeeting extends BaseMeeting, Document {
     liveKey: string;
-    /** Installation the meeting ran on, if staff configured one. Tags the meeting's AI usage. */
-    installationId?: string;
+    /** Venue the meeting ran at, if staff chose one. Tags the meeting's AI usage. */
+    venueId?: string;
 }
 
 export interface StoredUsageEvent extends UsageEvent, Document {}
 
-/** Latest reading of one room power plug; `_id` is `<installationId>|<deviceId>`. */
+/** Latest reading of one room power plug; `_id` is `<venueId>|<deviceId>`. */
 export interface StoredRoomPower extends Document {
     _id: string;
-    installationId: string;
+    venueId: string;
     deviceId: string;
     label: string;
     watts: number;
@@ -28,7 +28,7 @@ export interface StoredRoomPower extends Document {
     updatedAt: Date;
 }
 
-/** Running sum of raw usage for one scope ("global" or "installation:<id>") and model. */
+/** Running sum of raw usage for one scope ("global" or "venue:<id>") and model. */
 export interface UsageTotals extends Document {
     _id: string;
     scope: string;

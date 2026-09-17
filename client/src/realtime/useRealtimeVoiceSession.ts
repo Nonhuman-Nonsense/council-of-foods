@@ -29,7 +29,7 @@ import {
 } from "@realtime/inworldSubtitleTrack";
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
 import { log, summarizeLogPayload } from "@/logger";
-import { getInstallationId } from "@/settings/councilSettings";
+import { getVenueId } from "@/settings/councilSettings";
 import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
 
 function realtimeDebugLog(...args: unknown[]): void {
@@ -491,9 +491,9 @@ export function useRealtimeVoiceSession(
       // the success path. But await mic first: a mic failure is always fatal and
       // resolved instantly by the browser — there is no reason to block on the
       // bootstrap network round-trip (up to 15 s) before surfacing the error.
-      const installationId = getInstallationId();
+      const venueId = getVenueId();
       const bootstrapPromise = fetchRealtimeBootstrap(
-        { feature, language, ...(installationId ? { installationId } : {}) },
+        { feature, language, ...(venueId ? { venueId } : {}) },
         controller.signal,
         authHeaders,
       );

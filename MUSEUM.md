@@ -152,7 +152,8 @@ errorbot on Telegram:
   plus one when the venue opens.
 - **Working again** once it has stayed fixed for 2 minutes.
 
-**Who gets them:** the **venue** chosen on `#staff` (Bridge panel → Venue).
+**Who gets them:** the installation's **venue**, chosen on `#staff` (Installation panel →
+Venue). The page hands it to the bridge.
 Venues and their addresses are set on the council server, so staff can only choose
 among them, never type an address. The panel shows the masked addresses,
 **Alert emails: On / Choose a venue / Failing / Not set up on bridge**, and a
@@ -172,13 +173,17 @@ Holidays and closed weeks aren't modelled. The worst case is a reminder on a clo
 **Nothing is sent if the Mac, the bridge or the internet is down.** That needs a
 watchdog outside the Mac (see section 7).
 
-### Installation ID and footprint meter
+### Venue and footprint meter
 
-**Installation ID** (Installation panel) names this computer's installation, e.g.
-`museum-oslo`. It tags the AI usage of meetings run here, so a second screen can
-show what this installation costs:
+**Venue** (Installation panel) is where this installation runs, chosen from the
+server's `COUNCIL_VENUES`. One choice sets everything that belongs to the place:
+who gets printer alert emails, the tag on the AI usage of meetings run here, and
+which room power plugs belong to it. A bridge that already had a venue passes it
+to the page, so existing installations don't need to choose again.
 
-- **Meter:** `https://<host>/meter?installation=<id>`, full screen on the second
+The second screen shows what the installation costs:
+
+- **Meter:** `https://<host>/meter?venue=<id>`, full screen on the second
   display. `?rotate=90` or `?rotate=-90` if the OS cannot rotate that display.
 - **Methodology:** `/meter/methodology`, linked by the QR code on the meter.
 
@@ -198,7 +203,7 @@ screen / sound; any number works.
    off: a lamp projector must be able to cool down.
 3. Open the plug's web page (`http://<plug-ip>/`) → **Scripts** → create a script,
    paste [scripts/shelly/room-power.js](scripts/shelly/room-power.js), and fill in
-   the server URL, `COUNCIL_ROOM_POWER_KEY`, the installation ID and a label
+   the server URL, `COUNCIL_ROOM_POWER_KEY`, the venue id and a label
    ("Projector"). Save, **Start**, and enable **Run on startup**.
 4. Within a few seconds the plug appears on the meter. The script's console on the
    plug's web page shows any failed request.

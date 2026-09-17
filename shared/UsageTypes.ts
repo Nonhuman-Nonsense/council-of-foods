@@ -48,7 +48,7 @@ export interface UsageRecord {
     /** Data-centre region, when the provider tells us (e.g. ElevenLabs' `x-region` header). */
     region?: string;
     meetingId?: number;
-    installationId?: string;
+    venueId?: string;
 }
 
 export interface UsageEvent extends UsageRecord {

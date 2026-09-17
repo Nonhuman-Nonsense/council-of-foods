@@ -1,17 +1,10 @@
 import { getBridgeHttpBase } from "./printClient";
 
 /**
- * Staff page ↔ bridge, for printer alert emails. The bridge gets the venue
- * list from the council server; the page can only choose among those venues,
- * never enter an address.
+ * Staff page ↔ bridge, for printer alert emails. The venue is chosen on the
+ * staff page (see `getVenueId`) and handed to the bridge, which only accepts
+ * venues the council server lists — never an address.
  */
-
-export type AlertVenue = {
-  id: string;
-  name: string;
-  /** Masked, e.g. `s***@museum.org`. */
-  recipients: string[];
-};
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
@@ -30,14 +23,6 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   const json = (await response.json().catch(() => ({}))) as { error?: string } & T;
   if (!response.ok) throw new Error(json.error ?? `Bridge answered ${response.status}`);
   return json;
-}
-
-export async function fetchAlertVenues(): Promise<{ venues: AlertVenue[]; current: string | null }> {
-  const { venues, current } = await call<{ venues: AlertVenue[]; current: string | null }>(
-    "GET",
-    "/v1/alerts/venues",
-  );
-  return { venues, current };
 }
 
 export async function chooseAlertVenue(venueId: string | null): Promise<void> {

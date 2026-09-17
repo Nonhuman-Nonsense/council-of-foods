@@ -91,12 +91,15 @@ vi.mock('@council/protocol/ProtocolDocument', () => ({
   ),
 }));
 
-const mockFetchAlertVenues = vi.fn();
+const mockFetchVenues = vi.fn();
 const mockChooseAlertVenue = vi.fn();
 const mockSendTestAlert = vi.fn();
 
+vi.mock('@api/venues', () => ({
+  fetchVenues: (...args: unknown[]) => mockFetchVenues(...args),
+}));
+
 vi.mock('@/museum/print/alertsClient', () => ({
-  fetchAlertVenues: (...args: unknown[]) => mockFetchAlertVenues(...args),
   chooseAlertVenue: (...args: unknown[]) => mockChooseAlertVenue(...args),
   sendTestAlert: (...args: unknown[]) => mockSendTestAlert(...args),
 }));
@@ -119,8 +122,8 @@ describe('Staff overlay', () => {
     bridgeHealthState.scannedPorts = [];
     bridgeHealthState.print = null;
     bridgeHealthState.alerts = null;
-    mockFetchAlertVenues.mockReset();
-    mockChooseAlertVenue.mockReset();
+    mockFetchVenues.mockReset().mockResolvedValue([{ id: 'example-museum', name: 'Example Museum' }]);
+    mockChooseAlertVenue.mockReset().mockResolvedValue(undefined);
     mockSendTestAlert.mockReset();
   });
 
@@ -546,32 +549,53 @@ describe('Staff overlay', () => {
 
     beforeEach(() => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
-      mockFetchAlertVenues.mockResolvedValue({ venues: [venue], current: null });
-      mockChooseAlertVenue.mockResolvedValue(undefined);
     });
 
-    it('says alerts are not set up when the bridge has no server, and offers no venue picker', () => {
+    it('says alerts are not set up when the bridge has no server, and leaves the bridge alone', async () => {
       bridgeHealthState.alerts = alerts({ configured: false });
 
       render(<Staff />);
+      const picker = screen.getByTestId('staff-venue');
+      await waitFor(() => expect(picker).not.toBeDisabled());
+      fireEvent.change(picker, { target: { value: 'example-museum' } });
 
       expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.notConfigured');
-      expect(screen.queryByTestId('staff-alerts-venue')).not.toBeInTheDocument();
-      expect(mockFetchAlertVenues).not.toHaveBeenCalled();
+      expect(localStorage.getItem('councilVenueId')).toBe('example-museum');
+      expect(mockChooseAlertVenue).not.toHaveBeenCalled();
     });
 
-    it("lets staff choose a venue from the server's list, and only then send a test", async () => {
+    it('sends printer alerts for the venue chosen for the installation, and only then offers a test', async () => {
       bridgeHealthState.alerts = alerts();
 
       render(<Staff />);
 
       expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.chooseVenue');
       expect(screen.getByTestId('staff-alerts-test')).toBeDisabled();
-      const picker = screen.getByTestId('staff-alerts-venue');
+      const picker = screen.getByTestId('staff-venue');
       await waitFor(() => expect(picker).not.toBeDisabled());
 
       fireEvent.change(picker, { target: { value: 'example-museum' } });
       await waitFor(() => expect(mockChooseAlertVenue).toHaveBeenCalledWith('example-museum'));
+    });
+
+    it("adopts the bridge's venue when the installation has none yet", async () => {
+      bridgeHealthState.alerts = alerts({ venue });
+
+      render(<Staff />);
+
+      await waitFor(() => expect(screen.getByTestId('staff-venue')).toHaveValue('example-museum'));
+      expect(localStorage.getItem('councilVenueId')).toBe('example-museum');
+      expect(mockChooseAlertVenue).not.toHaveBeenCalled();
+    });
+
+    it("moves the bridge to the installation's venue when they differ", async () => {
+      localStorage.setItem('councilVenueId', 'example-museum');
+      bridgeHealthState.alerts = alerts({ venue: { ...venue, id: 'other-museum', name: 'Other Museum' } });
+
+      render(<Staff />);
+
+      await waitFor(() => expect(mockChooseAlertVenue).toHaveBeenCalledWith('example-museum'));
+      expect(mockChooseAlertVenue).toHaveBeenCalledTimes(1);
     });
 
     it('shows the chosen venue, who is emailed and why alerts are failing', () => {

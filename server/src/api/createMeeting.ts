@@ -4,6 +4,7 @@ import type { StoredMeeting } from "@models/DBModels.js";
 import { v4 as uuidv4 } from "uuid";
 import { InternalServerError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
+import { resolveVenueId } from "@utils/venues.js";
 
 /**
  * Create a new meeting record (DB only).
@@ -13,6 +14,10 @@ import { Logger } from "@utils/Logger.js";
  */
 export async function createMeeting(rawBody: unknown, _environment: string): Promise<{ meetingId: string, liveKey: string }> {
     const setup = CreateMeetingSchema.parse(rawBody);
+    const venueId = resolveVenueId(setup.venueId);
+    if (setup.venueId && !venueId) {
+        await Logger.warn("createMeeting", `Unknown venue "${setup.venueId}"; meeting created without one`);
+    }
 
     //Initial meeting record in DB
     const meeting: Omit<StoredMeeting, "_id"> = {
@@ -30,7 +35,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         maximumPlayedIndex: 0,
         conversationExtraSlots: 0,
         meetingComplete: false,
-        ...(setup.installationId ? { installationId: setup.installationId } : {}),
+        ...(venueId ? { venueId } : {}),
     };
 
     const result = await insertMeeting(meeting);

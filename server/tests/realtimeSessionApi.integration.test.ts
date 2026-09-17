@@ -424,8 +424,8 @@ describe("POST /api/realtime/* (integration)", () => {
             });
         }
 
-        it("records a setup-agent session's usage under the installation it names", async () => {
-            const usageToken = await bootstrap({ feature: "setup-agent", language: "en", installationId: "museum-oslo" });
+        it("records a setup-agent session's usage under the venue it names", async () => {
+            const usageToken = await bootstrap({ feature: "setup-agent", language: "en", venueId: "museum-oslo" });
 
             expect((await report(usageToken, [greetingUsage])).status).toBe(204);
 
@@ -436,7 +436,7 @@ describe("POST /api/realtime/* (integration)", () => {
                     provider: "inworld",
                     model: "google-ai-studio/gemini-2.5-flash",
                     measures: { input_tokens: 3142, output_tokens: 131, reasoning_tokens: 70 },
-                    installationId: "museum-oslo",
+                    venueId: "museum-oslo",
                 },
                 {
                     source: "client",
@@ -444,15 +444,15 @@ describe("POST /api/realtime/* (integration)", () => {
                     provider: "inworld",
                     model: "inworld-tts-1.5-max",
                     measures: { characters: 261, audio_seconds: 13.64 },
-                    installationId: "museum-oslo",
+                    venueId: "museum-oslo",
                 },
             ]));
         });
 
-        it("tags a meeting session's usage with that meeting and its installation", async () => {
+        it("tags a meeting session's usage with that meeting and its venue", async () => {
             const liveKey = await createMeetingAndKey();
             const meeting = await meetingsCollection.findOne({ liveKey });
-            await meetingsCollection.updateOne({ liveKey }, { $set: { installationId: "museum-oslo" } });
+            await meetingsCollection.updateOne({ liveKey }, { $set: { venueId: "museum-oslo" } });
             const usageToken = await bootstrap({ feature: "meta-agent", language: "en" }, liveKey);
 
             await report(usageToken, [{ stt: { model: "soniox/stt-rt-v4", audio_seconds: 2.879 } }]);
@@ -464,7 +464,7 @@ describe("POST /api/realtime/* (integration)", () => {
                 model: "soniox/stt-rt-v4",
                 measures: { audio_seconds: 2.879 },
                 meetingId: meeting!._id,
-                installationId: "museum-oslo",
+                venueId: "museum-oslo",
             }]);
         });
 

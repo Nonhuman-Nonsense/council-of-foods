@@ -24,7 +24,7 @@ const MAX_GRANTS = 10_000;
 interface UsageGrant {
     feature: RealtimeFeature;
     meetingId?: number;
-    installationId?: string;
+    venueId?: string;
     expiresAt: number;
     responses: number;
 }
@@ -32,7 +32,7 @@ interface UsageGrant {
 const grants = new Map<string, UsageGrant>();
 
 export function grantRealtimeUsageToken(
-    grant: Pick<UsageGrant, "feature" | "meetingId" | "installationId">,
+    grant: Pick<UsageGrant, "feature" | "meetingId" | "venueId">,
     now: number = Date.now(),
 ): string {
     for (const [token, existing] of grants) {
@@ -82,7 +82,7 @@ export function registerRealtimeUsageRoutes(app: Express): void {
                     feature: grant.feature,
                     ...part,
                     ...(grant.meetingId !== undefined ? { meetingId: grant.meetingId } : {}),
-                    ...(grant.installationId ? { installationId: grant.installationId } : {}),
+                    ...(grant.venueId ? { venueId: grant.venueId } : {}),
                 });
             }
         }

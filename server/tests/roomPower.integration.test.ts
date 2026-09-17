@@ -22,7 +22,7 @@ vi.mock("@root/src/config.js", async (importOriginal) => {
 
 function projector(overrides: Partial<RoomPowerReport> = {}): RoomPowerReport {
     return {
-        installationId: "museum-oslo",
+        venueId: "museum-oslo",
         deviceId: "shellyplugsg3-aabbcc",
         label: "Projector",
         watts: 244,
@@ -84,10 +84,10 @@ describe("POST /api/room-power (integration)", () => {
         expect(reading).toMatchObject({ label: "Projector", watts: 244, energyWh: 33 });
     });
 
-    it("keeps one reading per plug and only the installation's own", async () => {
+    it("keeps one reading per plug and only the venue's own", async () => {
         await report(projector());
         await report(projector({ deviceId: "shellyplugsg3-ddeeff", label: "Sound", watts: 20 }));
-        await report(projector({ installationId: "elsewhere", deviceId: "shellyplugsg3-000000" }));
+        await report(projector({ venueId: "elsewhere", deviceId: "shellyplugsg3-000000" }));
 
         const room = (await getMeterSnapshot("museum-oslo")).room;
 

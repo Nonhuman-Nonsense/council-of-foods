@@ -20,24 +20,26 @@ export interface UsageTotalsRow {
     measures: UsageMeasures;
 }
 
-/** `GET /api/meter?installation=<id>` */
+/** `GET /api/meter?venue=<id>` */
 export interface MeterSnapshot {
     /** Every council, everywhere. */
     global: UsageTotalsRow[];
-    /** The requested installation, empty without one. */
-    installation: UsageTotalsRow[];
-    /** The installation's most recent meeting, if it has had one. */
+    /** The requested venue, empty without one. */
+    venue: UsageTotalsRow[];
+    /** The venue's display name, if one was requested. */
+    venueName: string | null;
+    /** The venue's most recent meeting, if it has had one. */
     meeting: { meetingId: number; totals: UsageTotalsRow[] } | null;
-    /** The installation's room electricity, one entry per plug. */
+    /** The venue's room electricity, one entry per plug. */
     room: RoomPowerReading[];
 }
 
 /**
- * `POST /api/room-power`, sent every few seconds by each smart plug in an installation
+ * `POST /api/room-power`, sent every few seconds by each smart plug at a venue
  * (scripts/shelly/room-power.js), authorised by `X-Room-Power-Key`.
  */
 export interface RoomPowerReport {
-    installationId: string;
+    venueId: string;
     /** Stable per plug, e.g. the Shelly device id. */
     deviceId: string;
     /** What is plugged in, as shown on the meter: "Projector". */
@@ -50,7 +52,7 @@ export interface RoomPowerReport {
 
 /** The latest state of one plug. Also pushed on `room-power`. */
 export interface RoomPowerReading {
-    installationId: string;
+    venueId: string;
     deviceId: string;
     label: string;
     watts: number;

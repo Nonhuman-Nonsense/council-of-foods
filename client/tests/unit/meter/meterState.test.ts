@@ -35,31 +35,32 @@ const row = (requests: number, output_tokens: number) => ({
 describe("meter state", () => {
   const atMeeting5: MeterState = {
     global: [row(1, 100)],
-    installation: [row(1, 100)],
+    venue: [row(1, 100)],
+    venueName: "Museum Oslo",
     meeting: { meetingId: 5, totals: [row(1, 100)] },
     room: [],
   };
 
   it.each([
     {
-      name: "counts another installation's usage only globally",
-      event: usage({ installationId: "elsewhere", meetingId: 9 }),
+      name: "counts another venue's usage only globally",
+      event: usage({ venueId: "elsewhere", meetingId: 9 }),
       expected: { ...atMeeting5, global: [row(2, 200)] },
     },
     {
       name: "adds usage of the current meeting to every scope",
-      event: usage({ installationId: "museum-oslo", meetingId: 5 }),
-      expected: { global: [row(2, 200)], installation: [row(2, 200)], meeting: { meetingId: 5, totals: [row(2, 200)] }, room: [] },
+      event: usage({ venueId: "museum-oslo", meetingId: 5 }),
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 5, totals: [row(2, 200)] } },
     },
     {
-      name: "starts over when the installation begins a newer meeting",
-      event: usage({ installationId: "museum-oslo", meetingId: 6 }),
-      expected: { global: [row(2, 200)], installation: [row(2, 200)], meeting: { meetingId: 6, totals: [row(1, 100)] }, room: [] },
+      name: "starts over when the venue begins a newer meeting",
+      event: usage({ venueId: "museum-oslo", meetingId: 6 }),
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 6, totals: [row(1, 100)] } },
     },
     {
       name: "keeps setup usage without a meeting out of the meeting",
-      event: usage({ installationId: "museum-oslo", feature: "setup-agent" }),
-      expected: { ...atMeeting5, global: [row(2, 200)], installation: [row(2, 200)] },
+      event: usage({ venueId: "museum-oslo", feature: "setup-agent" }),
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)] },
     },
   ])("$name", ({ event, expected }) => {
     expect(applyUsageEvent(atMeeting5, event, "museum-oslo")).toEqual(expected);
@@ -101,7 +102,7 @@ describe("room power", () => {
 
   function plug(overrides: Partial<RoomPowerReading> = {}): RoomPowerReading {
     return {
-      installationId: "museum-oslo",
+      venueId: "museum-oslo",
       deviceId: "projector",
       label: "Projector",
       watts: 244,
@@ -111,11 +112,11 @@ describe("room power", () => {
     };
   }
 
-  it("keeps the latest reading per plug of this installation only", () => {
+  it("keeps the latest reading per plug at this venue only", () => {
     let state = applyRoomPower(EMPTY_METER_STATE, plug(), "museum-oslo");
     state = applyRoomPower(state, plug({ watts: 250 }), "museum-oslo");
     state = applyRoomPower(state, plug({ deviceId: "sound", label: "Sound", watts: 20 }), "museum-oslo");
-    state = applyRoomPower(state, plug({ installationId: "elsewhere", deviceId: "other" }), "museum-oslo");
+    state = applyRoomPower(state, plug({ venueId: "elsewhere", deviceId: "other" }), "museum-oslo");
 
     expect(state.room.map((r) => [r.label, r.watts])).toEqual([["Projector", 250], ["Sound", 20]]);
   });
