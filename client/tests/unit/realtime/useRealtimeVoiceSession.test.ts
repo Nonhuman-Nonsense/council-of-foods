@@ -868,8 +868,29 @@ describe("useRealtimeVoiceSession", () => {
 
       await waitFor(() => expect(onExhausted).toHaveBeenCalledOnce());
       expect(result.current.connectionState).toBe("idle");
+      // One report for the whole episode: the attempts are summarised by the
+      // giving-up report rather than each sending its own warning.
+      expect(reportRealtimeIssue).toHaveBeenCalledOnce();
       expect(reportRealtimeIssue).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "retry-exhausted" })
+      );
+    });
+
+    it("keeps its heartbeat when retries are unlimited, since no summary is coming", async () => {
+      const getClose = connectionThatNeverOpens();
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: Infinity, giveUpSilently: false },
+        })
+      );
+
+      await waitFor(() => expect(getClose()).toBeDefined());
+      act(() => getClose()!("pc_failed"));
+
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "connection-lost" })
       );
     });
 
@@ -907,6 +928,11 @@ describe("useRealtimeVoiceSession", () => {
 
       await waitFor(() => expect(closeConnection).toBeDefined());
       expect(onExhausted).not.toHaveBeenCalled();
+      // A session that worked and then dropped is a real visitor losing a live
+      // agent — still worth reporting, on the usual thinning schedule.
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "connection-lost" })
+      );
     });
   });
 

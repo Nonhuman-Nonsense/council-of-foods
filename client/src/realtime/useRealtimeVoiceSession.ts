@@ -456,7 +456,7 @@ export function useRealtimeVoiceSession(
         feature,
         kind: "retry-exhausted",
         message: `Realtime agent gave up after ${attempt} reconnect attempts${policy?.giveUpSilently ? ", switched off" : ""}`,
-        detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false },
+        detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false, everOpened: dcOpenedRef.current },
       });
       if (policy?.giveUpSilently) {
         setConnectionState("idle");
@@ -876,15 +876,24 @@ export function useRealtimeVoiceSession(
           log.event("REALTIME", "connection closed", { feature, reason });
           if (reason === "pc_failed" || reason === "dc_error") {
             log.event("ERROR", "realtime connection lost", { feature, reason });
-            reportRealtimeIssue({
-              feature,
-              kind: "connection-lost",
-              message: dcOpenedRef.current
-                ? `Realtime connection lost (${reason}), reconnecting`
-                : `Realtime connection failed before media started (${reason}), retrying`,
-              code: reason,
-              detail: { everOpened: dcOpenedRef.current },
-            });
+            // Don't report an attempt a summary is already coming for: a
+            // bounded budget ends in one `retry-exhausted` report, so a visitor
+            // whose network blocks WebRTC costs one message instead of four.
+            // An installation retries forever — no summary ever comes, so its
+            // heartbeat is the only sign the kiosk is wedged.
+            const summaryComing =
+              !dcOpenedRef.current && retryPolicyRef.current?.maxRetries !== Infinity;
+            if (!summaryComing) {
+              reportRealtimeIssue({
+                feature,
+                kind: "connection-lost",
+                message: dcOpenedRef.current
+                  ? `Realtime connection lost (${reason}), reconnecting`
+                  : `Realtime connection failed before media started (${reason}), retrying`,
+                code: reason,
+                detail: { everOpened: dcOpenedRef.current },
+              });
+            }
             // A session that really worked gets a fresh retry budget; one that
             // never carried media spends the budget it started with, so a
             // visitor whose network blocks WebRTC stops rather than looping.
