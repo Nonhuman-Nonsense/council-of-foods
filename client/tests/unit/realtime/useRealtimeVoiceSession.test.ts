@@ -804,6 +804,112 @@ describe("useRealtimeVoiceSession", () => {
     expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
   });
 
+  /**
+   * A network that blocks WebRTC still completes the SDP exchange — ICE fails
+   * ~20s later. Counting that as a working session reset the retry budget every
+   * time round, so the visitor reconnected forever into a silent agent.
+   */
+  describe("a session whose media never starts", () => {
+    /** Connection mock that never opens its data channel, and hands back its onClose. */
+    function connectionThatNeverOpens() {
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onClose }: { onClose: (reason: string) => void }) => {
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "connecting", send: vi.fn() },
+          };
+        },
+      );
+      return () => closeConnection;
+    }
+
+    it("stays connecting until the data channel opens", async () => {
+      let openChannel: (() => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
+        openChannel = onOpen;
+        return {
+          close: vi.fn(),
+          micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+          dc: { readyState: "connecting", send: vi.fn() },
+        };
+      });
+
+      const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+      await waitFor(() => expect(openChannel).toBeDefined());
+      expect(result.current.connectionState).toBe("connecting");
+
+      act(() => openChannel?.());
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    it("spends the retry budget and switches off instead of reconnecting forever", async () => {
+      const getClose = connectionThatNeverOpens();
+      const onExhausted = vi.fn();
+
+      const { result } = renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+          onExhausted,
+        })
+      );
+
+      for (let i = 0; i < 4; i++) {
+        await waitFor(() => expect(getClose()).toBeDefined());
+        const close = getClose()!;
+        mockCreateRealtimeConnection.mockClear();
+        act(() => close("pc_failed"));
+        if (i < 3) await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+      }
+
+      await waitFor(() => expect(onExhausted).toHaveBeenCalledOnce());
+      expect(result.current.connectionState).toBe("idle");
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "retry-exhausted" })
+      );
+    });
+
+    it("keeps reconnecting past the budget once a session has really worked", async () => {
+      // The mock in beforeEach opens the channel, so every attempt counts as a
+      // working session — a mid-session drop must still get a fresh budget.
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onOpen, onClose }: { onOpen: () => void; onClose: (reason: string) => void }) => {
+          onOpen();
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "open", send: vi.fn() },
+          };
+        },
+      );
+      const onExhausted = vi.fn();
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+          onExhausted,
+        })
+      );
+
+      for (let i = 0; i < 5; i++) {
+        await waitFor(() => expect(closeConnection).toBeDefined());
+        const close = closeConnection!;
+        closeConnection = undefined;
+        act(() => close("pc_failed"));
+      }
+
+      await waitFor(() => expect(closeConnection).toBeDefined());
+      expect(onExhausted).not.toHaveBeenCalled();
+    });
+  });
+
   it("gives up quietly without retrying when the session is refused", async () => {
     mockClassifyRealtimeError.mockReturnValue("refused");
     mockFetchRealtimeBootstrap.mockRejectedValue(
