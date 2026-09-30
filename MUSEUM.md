@@ -177,8 +177,8 @@ watchdog outside the Mac (see section 7).
 
 **Venue** (Installation panel) is where this installation runs, chosen from the
 server's `COUNCIL_VENUES`. One choice sets everything that belongs to the place:
-who gets printer alert emails, the tag on the AI usage of meetings run here, and
-which room power plugs belong to it. A bridge that already had a venue passes it
+who gets printer alert emails and the tag on the AI usage of meetings run here.
+(Room power plugs are placed at a venue in `COUNCIL_VENUES` itself, not here.) A bridge that already had a venue passes it
 to the page, so existing installations don't need to choose again.
 
 The second screen shows what the installation costs:
@@ -233,20 +233,39 @@ power metering) measure the room's electricity for the meter's **In this room**
 section. Use one plug per group of devices, e.g. projector / computer and meter
 screen / sound; any number works.
 
+Each plug has a **number**, marked on it. The plug only knows its number; which venue
+it is at and what it powers there is set on the server, so a plug is set up once and
+never touched again when the installation moves.
+
+**Setting up a plug (once):**
+
 1. Plug in, add it to the installation router's Wi-Fi with the Shelly app or its own
    access point. A Shelly cloud account is not needed.
 2. In the plug's settings, set it to **turn on after power loss** and never switch it
-   off: a lamp projector must be able to cool down.
+   off: a lamp projector must be able to cool down. Set **Device name** to end in its
+   number, e.g. `CouncilPlug-2` (numbers unique across all installations using the same
+   server), and mark the number on the plug.
 3. Open the plug's web page (`http://<plug-ip>/`) → **Scripts** → create a script,
    paste [scripts/shelly/room-power.js](scripts/shelly/room-power.js), and fill in
-   the server URL, `COUNCIL_ROOM_POWER_KEY`, the venue id and a label
-   ("Projector"). Save, **Start**, and enable **Run on startup**.
-4. Within a few seconds the plug appears on the meter. The script's console on the
-   plug's web page shows any failed request.
+   the server URL and `COUNCIL_ROOM_POWER_KEY`; every plug runs the same script.
+   Save, **Start**, and enable **Run on startup**.
+4. The script's console on the plug's web page shows any failed request, e.g. a plug
+   not yet at any venue.
+
+**Placing plugs at a venue:** list them in the venue's entry in `COUNCIL_VENUES`,
+`"plugs": [{ "plug": 1, "label": "Projector" }, { "plug": 2, "label": "Computer" }]`,
+and restart the server. Within a few seconds they appear on that venue's meter.
+
+**Moving the installation:** move its plugs to the new venue's entry *before* plugging
+in there, and restart the server. What they measured stays with the old venue; the new
+venue counts from zero. **Replacing a broken plug:** give the new one the same number;
+it takes over once the old one has been silent for 20 seconds. Two plugs reporting the
+same number at once are refused ("already reporting from …" in the newer one's console).
 
 The server needs `COUNCIL_ROOM_POWER_KEY` (16+ characters) in its environment;
-without it, plug reports are refused. A plug that stops reporting shows **no signal**
-after a minute, and its energy so far is kept.
+without it, plug reports are refused. A plug that stops reporting drops off the meter
+after 20 seconds, and its energy so far stays in the total. Each plug's energy is also
+kept per hour, for later questions (from a date, per day, open hours versus night).
 
 ### Mode switch button (staff escape)
 

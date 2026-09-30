@@ -4,23 +4,21 @@ import { z } from "zod";
 import { config } from "@root/src/config.js";
 import { recordRoomPower } from "@services/RoomPowerService.js";
 import { Logger } from "@utils/Logger.js";
-import { resolveVenueId } from "@utils/venues.js";
+import { findPlug } from "@utils/venues.js";
 import { keyMatches } from "@utils/sharedKey.js";
 
 /**
- * Smart plugs at a venue report the room's electricity here every few seconds
- * (scripts/shelly/room-power.js). The key lives in each plug's script, readable by anyone on
+ * Smart plugs report the room's electricity here every few seconds
+ * (scripts/shelly/room-power.js). A plug sends only its number; `COUNCIL_VENUES` says which
+ * venue it is at and what it powers. The key lives in each plug's script, readable by anyone on
  * the museum network, so it is separate from the bridge key and can only report power.
  */
 
 export const ROOM_POWER_KEY_HEADER = "x-room-power-key";
 
-const Id = z.string().trim().min(1).max(64);
-
 export const RoomPowerReportBody = z.object({
-    venueId: Id,
-    deviceId: Id,
-    label: z.string().trim().min(1).max(64),
+    plug: z.number().int().positive(),
+    deviceId: z.string().trim().min(1).max(64),
     watts: z.number().min(0).max(10_000),
     energyCounterWh: z.number().min(0).max(1e9),
 });
@@ -43,14 +41,19 @@ export function registerRoomPowerRoutes(app: Express): void {
             return;
         }
 
-        const venueId = resolveVenueId(parsed.data.venueId);
-        if (!venueId) {
-            res.status(400).json({ message: `Unknown venue "${parsed.data.venueId}"` });
+        // The plug's script prints these messages: they are what whoever sets it up reads.
+        const placed = findPlug(parsed.data.plug);
+        if (!placed) {
+            res.status(404).json({ message: `Plug ${parsed.data.plug} is not at any venue in COUNCIL_VENUES` });
             return;
         }
 
         try {
-            await recordRoomPower({ ...parsed.data, venueId });
+            const result = await recordRoomPower({ ...parsed.data, ...placed });
+            if (result && "numberTakenBy" in result) {
+                res.status(409).json({ message: `Plug ${parsed.data.plug} is already reporting from ${result.numberTakenBy}` });
+                return;
+            }
             res.status(204).end();
         } catch (error) {
             await Logger.error("api", "POST /api/room-power failed", { error });

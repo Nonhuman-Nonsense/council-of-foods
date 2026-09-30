@@ -31,14 +31,29 @@ export const VenueSchema = z.object({
         from: TimeOfDay,
         to: TimeOfDay,
     }).refine((hours) => hours.from < hours.to, "from must be before to"),
+    /**
+     * The room power plugs here now, by the number marked on each. Moving an installation is
+     * moving its plugs to the new venue here; what they measured before stays with the old one.
+     */
+    plugs: z.array(z.object({
+        plug: z.number().int().positive(),
+        /** What it powers, as shown on the meter: "Projector". */
+        label: z.string().trim().min(1).max(64),
+    })).optional(),
 });
 
 export type Venue = z.infer<typeof VenueSchema>;
 
-export const VenueListSchema = z.array(VenueSchema).refine(
-    (venues) => new Set(venues.map((venue) => venue.id)).size === venues.length,
-    "venue ids must be unique",
-);
+function allUnique(values: unknown[]): boolean {
+    return new Set(values).size === values.length;
+}
+
+export const VenueListSchema = z.array(VenueSchema)
+    .refine((venues) => allUnique(venues.map((venue) => venue.id)), "venue ids must be unique")
+    .refine(
+        (venues) => allUnique(venues.flatMap((venue) => (venue.plugs ?? []).map((p) => p.plug))),
+        "a plug number can only be at one venue, once",
+    );
 
 /** `COUNCIL_VENUES`: a JSON array of venues. */
 export const VenuesEnv = z.string().transform((raw, ctx) => {

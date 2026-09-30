@@ -135,12 +135,23 @@ ranges. Its Python library is used at dev time only; the Node app never runs Pyt
 
 ### Room electricity
 
-Shelly plugs (`scripts/shelly/room-power.js`) post `{ venueId, deviceId, label, watts,
-energyCounterWh }` every 5 s to `POST /api/room-power` with `X-Room-Power-Key`
-(`COUNCIL_ROOM_POWER_KEY`; unset → 503; separate from the bridge key because a plug's script is
-readable on its network). `RoomPowerService` keeps the latest reading per plug in `room_power`
-and accumulates energy in one atomic update that survives the plug's counter resetting. Any
-number of plugs; they join the installation's own router. Hardware: Shelly Plug S Gen3 ×3; the
+Shelly plugs (`scripts/shelly/room-power.js`) post `{ plug, deviceId, watts, energyCounterWh }`
+every 5 s to `POST /api/room-power` with `X-Room-Power-Key` (`COUNCIL_ROOM_POWER_KEY`; unset →
+503; separate from the bridge key because a plug's script is readable on its network). `plug` is
+the number marked on the plug, which its Shelly device name ends in (`CouncilPlug-2`); `deviceId` the Shelly's own id.
+The plug knows nothing else: each venue in `COUNCIL_VENUES` lists its `plugs` with a label, and
+a report is stored under the venue that lists the plug *when it arrives* (unlisted → 404). So
+moving an installation is moving its plug numbers to the new venue; nothing is dated, and what a
+plug measured stays with the venue it was at. A number belongs to the Shelly that last reported
+as it until that one is silent for 20 s: a replacement takes over by itself, starting from its own
+counter, and a second Shelly with the same number is refused (409).
+
+`RoomPowerService` keeps the latest reading per venue and plug in `room_power` and accumulates
+energy in one atomic update that survives the plug's counter resetting. What each report adds
+also goes into `room_power_hours`, one document per venue, plug and UTC hour (`energyWh`,
+`maxWatts`, `reports`, latest `label` and `deviceId`): the history for questions the running total
+cannot answer, such as energy from a date or per day. About 3 MB for three plugs over six
+months, so it is kept forever. Any number of plugs; they join the installation's own router. Hardware: Shelly Plug S Gen3 ×3; the
 projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
 
 ### Meter screen and methodology page
@@ -153,7 +164,8 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
   usage totals for all councils, the venue and its latest meeting, plus the room's plugs.
   `useMeterFeed` refetches it on every socket (re)connect and folds pushed events in.
 - **Screen:** "This meeting" (large), "In this room, measured" (power now, electricity so far,
-  one line per plug; silent after 60 s), "At <venue>", "All councils" — energy, water, carbon,
+  one line per reporting plug; a plug silent for 20 s drops off, its energy stays in the
+  total; power now shows – when no plug reports), "At <venue>", "All councils" — energy, water, carbon,
   minerals as midpoint + low–high range — the models answering and their assumed countries,
   "Before it could speak" (training), and a QR code to the methodology page. Sized in container
   units (`cqw`), so it scales with the display and rotates without a second set of sizes.

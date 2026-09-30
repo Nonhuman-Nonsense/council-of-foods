@@ -14,10 +14,12 @@ export interface StoredMeeting extends BaseMeeting, Document {
 
 export interface StoredUsageEvent extends UsageEvent, Document {}
 
-/** Latest reading of one room power plug; `_id` is `<venueId>|<deviceId>`. */
+/** Latest reading of one room power plug at one venue; `_id` is `<venueId>|<plug>`. */
 export interface StoredRoomPower extends Document {
     _id: string;
     venueId: string;
+    plug: number;
+    /** The Shelly reporting as this plug number. */
     deviceId: string;
     label: string;
     watts: number;
@@ -25,7 +27,27 @@ export interface StoredRoomPower extends Document {
     energyWh: number;
     /** The plug's counter at the last report, to accumulate deltas across its resets. */
     lastCounterWh: number;
+    /** Energy the last report added, Wh; what that report adds to its hour. */
+    lastDeltaWh: number;
     updatedAt: Date;
+}
+
+/** One plug's electricity at a venue in one hour (UTC); `_id` is `<venueId>|<plug>|<hour ISO>`. */
+export interface StoredRoomPowerHour extends Document {
+    _id: string;
+    venueId: string;
+    plug: number;
+    /** The Shelly reporting as this plug number at its latest report in this hour. */
+    deviceId: string;
+    /** The plug's label at its latest report in this hour. */
+    label: string;
+    /** Start of the hour. */
+    hour: Date;
+    /** Energy used in this hour, Wh. */
+    energyWh: number;
+    maxWatts: number;
+    /** Reports received in this hour; few or none means the plug was offline. */
+    reports: number;
 }
 
 export type SubtitleTimingType = 'whisper' | 'inworld' | 'elevenlabs' | 'estimated' | undefined;

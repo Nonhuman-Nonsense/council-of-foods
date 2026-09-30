@@ -23,6 +23,12 @@ describe('COUNCIL_VENUES', () => {
         ['closing before opening', JSON.stringify([{ ...exampleMuseum, openingHours: { ...exampleMuseum.openingHours, from: '17:00', to: '10:00' } }])],
         ['an unknown weekday', JSON.stringify([{ ...exampleMuseum, openingHours: { ...exampleMuseum.openingHours, days: ['someday'] } }])],
         ['duplicate ids', JSON.stringify([exampleMuseum, exampleMuseum])],
+        ['a plug number that is not a whole number', JSON.stringify([{ ...exampleMuseum, plugs: [{ plug: 1.5, label: 'Projector' }] }])],
+        ['a plug number twice at one venue', JSON.stringify([{ ...exampleMuseum, plugs: [{ plug: 1, label: 'Projector' }, { plug: 1, label: 'Sound' }] }])],
+        ['a plug number at two venues', JSON.stringify([
+            { ...exampleMuseum, plugs: [{ plug: 1, label: 'Projector' }] },
+            { ...exampleMuseum, id: 'other-museum', plugs: [{ plug: 1, label: 'Projector' }] },
+        ])],
     ])('rejects %s', (_name, raw) => {
         expect(VenuesEnv.safeParse(raw).success).toBe(false);
     });

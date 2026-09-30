@@ -3,32 +3,55 @@ import express from "express";
 import http from "http";
 import { registerRoomPowerRoutes, ROOM_POWER_KEY_HEADER } from "@api/roomPowerRoutes.js";
 import { getMeterSnapshot } from "@api/meterRoutes.js";
-import { roomPowerCollection } from "@services/DbService.js";
+import type { Venue } from "@models/Venues.js";
+import { roomPowerCollection, roomPowerHoursCollection } from "@services/DbService.js";
 import { meterEvents } from "@services/meterEvents.js";
+import { recordRoomPower, type PlacedRoomPowerReport } from "@services/RoomPowerService.js";
 import type { RoomPowerReading, RoomPowerReport } from "@shared/MeterTypes.js";
 
 const KEY = "room-power-key-for-tests-0123";
 
-const mockKey = vi.hoisted(() => ({ value: "room-power-key-for-tests-0123" as string | undefined }));
+function venue(id: string, plugs: Venue["plugs"]): Venue {
+    return {
+        id,
+        name: id,
+        alertEmails: ["staff@example.org"],
+        timezone: "Europe/Stockholm",
+        openingHours: { days: ["wed"], from: "12:00", to: "16:00" },
+        plugs,
+    };
+}
+
+const OSLO_PLUGS = [{ plug: 1, label: "Projector" }, { plug: 2, label: "Sound" }];
+const VENUES = [venue("museum-oslo", OSLO_PLUGS), venue("elsewhere", [{ plug: 3, label: "Projector" }])];
+
+const mockConfig = vi.hoisted(() => ({ key: undefined as string | undefined, venues: undefined as unknown }));
 
 vi.mock("@root/src/config.js", async (importOriginal) => {
     const actual = await importOriginal<typeof import("@root/src/config.js")>();
     return {
         config: new Proxy(actual.config, {
-            get: (target, prop) => (prop === "COUNCIL_ROOM_POWER_KEY" ? mockKey.value : Reflect.get(target, prop)),
+            get: (target, prop) => {
+                if (prop === "COUNCIL_ROOM_POWER_KEY") return mockConfig.key;
+                if (prop === "COUNCIL_VENUES") return mockConfig.venues;
+                return Reflect.get(target, prop);
+            },
         }),
     };
 });
 
-function projector(overrides: Partial<RoomPowerReport> = {}): RoomPowerReport {
+function plugOne(overrides: Partial<RoomPowerReport> = {}): RoomPowerReport {
     return {
-        venueId: "museum-oslo",
+        plug: 1,
         deviceId: "shellyplugsg3-aabbcc",
-        label: "Projector",
         watts: 244,
         energyCounterWh: 1000,
         ...overrides,
     };
+}
+
+function placed(overrides: Partial<PlacedRoomPowerReport> = {}): PlacedRoomPowerReport {
+    return { ...plugOne(), venueId: "museum-oslo", label: "Projector", ...overrides };
 }
 
 describe("POST /api/room-power (integration)", () => {
@@ -47,8 +70,10 @@ describe("POST /api/room-power (integration)", () => {
     afterAll(() => new Promise<void>((resolve) => httpServer.close(() => resolve())));
 
     beforeEach(async () => {
-        mockKey.value = KEY;
+        mockConfig.key = KEY;
+        mockConfig.venues = VENUES;
         await roomPowerCollection?.deleteMany({});
+        await roomPowerHoursCollection?.deleteMany({});
     });
 
     function report(body: unknown, key: string | null = KEY) {
@@ -60,38 +85,90 @@ describe("POST /api/room-power (integration)", () => {
     }
 
     it.each([
-        { name: "no key is configured", configured: undefined, key: KEY, status: 503 },
-        { name: "the key is missing", configured: KEY, key: null, status: 401 },
-        { name: "the key is wrong", configured: KEY, key: "not-the-key-at-all-000000", status: 401 },
-    ])("refuses a report when $name", async ({ configured, key, status }) => {
-        mockKey.value = configured;
+        { name: "no key is configured", configured: undefined, key: KEY, body: plugOne(), status: 503 },
+        { name: "the key is missing", configured: KEY, key: null, body: plugOne(), status: 401 },
+        { name: "the key is wrong", configured: KEY, key: "not-the-key-at-all-000000", body: plugOne(), status: 401 },
+        { name: "the reading is implausible", configured: KEY, key: KEY, body: plugOne({ watts: 50_000 }), status: 400 },
+        { name: "the plug is at no venue", configured: KEY, key: KEY, body: plugOne({ plug: 9 }), status: 404 },
+    ])("refuses a report when $name", async ({ configured, key, body, status }) => {
+        mockConfig.key = configured;
 
-        expect((await report(projector(), key)).status).toBe(status);
+        expect((await report(body, key)).status).toBe(status);
         expect(await roomPowerCollection!.countDocuments()).toBe(0);
-    });
-
-    it("rejects an implausible reading", async () => {
-        expect((await report(projector({ watts: 50_000 }))).status).toBe(400);
     });
 
     it("accumulates energy from the plug's counter, across a counter reset", async () => {
         for (const energyCounterWh of [1000, 1010, 1025, 3, 8]) {
-            expect((await report(projector({ energyCounterWh }))).status).toBe(204);
+            expect((await report(plugOne({ energyCounterWh }))).status).toBe(204);
         }
 
         const [reading] = (await getMeterSnapshot("museum-oslo")).room;
         // 0 at first sight, +10, +15, reset (+3), +5
-        expect(reading).toMatchObject({ label: "Projector", watts: 244, energyWh: 33 });
+        expect(reading).toMatchObject({ plug: 1, label: "Projector", watts: 244, energyWh: 33 });
     });
 
-    it("keeps one reading per plug and only the venue's own", async () => {
-        await report(projector());
-        await report(projector({ deviceId: "shellyplugsg3-ddeeff", label: "Sound", watts: 20 }));
-        await report(projector({ venueId: "elsewhere", deviceId: "shellyplugsg3-000000" }));
+    it("keeps each plug's energy per hour, from the same counter deltas", async () => {
+        const reports: [string, number, number][] = [
+            ["10:00:00", 1000, 244],
+            ["10:30:00", 1010, 300],
+            ["10:59:59", 1025, 250],
+            ["11:00:00", 3, 5],
+            ["11:20:00", 8, 5],
+        ];
+        for (const [time, energyCounterWh, watts] of reports) {
+            await recordRoomPower(placed({ energyCounterWh, watts }), new Date(`2026-10-01T${time}Z`));
+        }
+
+        const hours = await roomPowerHoursCollection!.find().sort({ hour: 1 }).toArray();
+
+        // 10h: 0 at first sight, +10, +15. 11h: reset (+3), +5.
+        expect(hours.map((h) => [h.hour.toISOString(), h.energyWh, h.maxWatts, h.reports])).toEqual([
+            ["2026-10-01T10:00:00.000Z", 25, 300, 3],
+            ["2026-10-01T11:00:00.000Z", 8, 5, 2],
+        ]);
+    });
+
+    it("places plugs by the venue list, each venue seeing only its own", async () => {
+        await report(plugOne());
+        await report(plugOne({ plug: 2, deviceId: "shellyplugsg3-ddeeff", watts: 20 }));
+        await report(plugOne({ plug: 3, deviceId: "shellyplugsg3-000000" }));
 
         const room = (await getMeterSnapshot("museum-oslo")).room;
 
-        expect(room.map((r) => [r.label, r.watts])).toEqual([["Projector", 244], ["Sound", 20]]);
+        expect(room.map((r) => [r.plug, r.label, r.watts])).toEqual([[1, "Projector", 244], [2, "Sound", 20]]);
+    });
+
+    it("counts a moved plug at its new venue from zero, leaving its energy with the old one", async () => {
+        await report(plugOne({ energyCounterWh: 1000 }));
+        await report(plugOne({ energyCounterWh: 1010 }));
+        mockConfig.venues = [venue("museum-oslo", []), venue("elsewhere", [{ plug: 1, label: "Television" }])];
+        await report(plugOne({ energyCounterWh: 1030 }));
+        await report(plugOne({ energyCounterWh: 1035 }));
+
+        const [oslo] = (await getMeterSnapshot("museum-oslo")).room;
+        const [elsewhere] = (await getMeterSnapshot("elsewhere")).room;
+
+        expect(oslo).toMatchObject({ plug: 1, label: "Projector", energyWh: 10 });
+        expect(elsewhere).toMatchObject({ plug: 1, label: "Television", energyWh: 5 });
+    });
+
+    it.each([
+        { name: "refuses a second Shelly with the same number while the first still reports", gapMs: 5_000, takenOver: false },
+        { name: "lets another Shelly take a number over once the first has fallen silent", gapMs: 25_000, takenOver: true },
+    ])("$name", async ({ gapMs, takenOver }) => {
+        const first = new Date("2026-10-01T10:00:00Z");
+        await recordRoomPower(placed({ energyCounterWh: 1000 }), first);
+        await recordRoomPower(placed({ energyCounterWh: 1010 }), first);
+
+        // The other Shelly's own counter is far ahead: only a baseline, never energy used here.
+        const result = await recordRoomPower(
+            placed({ deviceId: "shellyplugsg3-replacement", energyCounterWh: 5000 }),
+            new Date(first.getTime() + gapMs),
+        );
+
+        expect(result).toEqual(takenOver
+            ? { reading: expect.objectContaining({ plug: 1, energyWh: 10 }) }
+            : { numberTakenBy: "shellyplugsg3-aabbcc" });
     });
 
     it("tells live subscribers about each reading", async () => {
@@ -99,9 +176,9 @@ describe("POST /api/room-power (integration)", () => {
         const listener = (reading: RoomPowerReading) => seen.push(reading);
         meterEvents.on("roomPower", listener);
 
-        await report(projector());
+        await report(plugOne());
         meterEvents.off("roomPower", listener);
 
-        expect(seen).toEqual([expect.objectContaining({ deviceId: "shellyplugsg3-aabbcc", watts: 244, energyWh: 0 })]);
+        expect(seen).toEqual([expect.objectContaining({ plug: 1, label: "Projector", watts: 244, energyWh: 0 })]);
     });
 });

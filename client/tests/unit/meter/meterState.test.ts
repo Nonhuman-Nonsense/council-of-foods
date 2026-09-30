@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { MeterUsageEvent } from "@shared/MeterTypes";
 import { estimateImpacts, findEcologitsModel } from "@shared/footprint/ecologits";
-import type { RoomPowerReading } from "@shared/MeterTypes";
+import { ROOM_POWER_SILENT_MS, type RoomPowerReading } from "@shared/MeterTypes";
 import {
   applyRoomPower,
   applyUsageEvent,
   EMPTY_METER_STATE,
   footprintOf,
-  ROOM_POWER_STALE_MS,
   roomFootprintOf,
   toDisplayRange,
   type MeterState,
@@ -100,7 +99,7 @@ describe("room power", () => {
   function plug(overrides: Partial<RoomPowerReading> = {}): RoomPowerReading {
     return {
       venueId: "museum-oslo",
-      deviceId: "projector",
+      plug: 1,
       label: "Projector",
       watts: 244,
       energyWh: 500,
@@ -112,19 +111,19 @@ describe("room power", () => {
   it("keeps the latest reading per plug at this venue only", () => {
     let state = applyRoomPower(EMPTY_METER_STATE, plug(), "museum-oslo");
     state = applyRoomPower(state, plug({ watts: 250 }), "museum-oslo");
-    state = applyRoomPower(state, plug({ deviceId: "sound", label: "Sound", watts: 20 }), "museum-oslo");
-    state = applyRoomPower(state, plug({ venueId: "elsewhere", deviceId: "other" }), "museum-oslo");
+    state = applyRoomPower(state, plug({ plug: 2, label: "Sound", watts: 20 }), "museum-oslo");
+    state = applyRoomPower(state, plug({ venueId: "elsewhere", plug: 3 }), "museum-oslo");
 
     expect(state.room.map((r) => [r.label, r.watts])).toEqual([["Projector", 250], ["Sound", 20]]);
   });
 
-  it("sums the room, leaving a silent plug's watts out but keeping its energy", () => {
-    const silentSince = new Date(NOW - ROOM_POWER_STALE_MS - 1).toISOString();
+  it("sums the room, leaving a silent plug off the list and out of the watts but keeping its energy", () => {
+    const silentSince = new Date(NOW - ROOM_POWER_SILENT_MS - 1).toISOString();
 
-    const room = roomFootprintOf([plug(), plug({ deviceId: "sound", watts: 20, energyWh: 40, updatedAt: silentSince })], NOW);
+    const room = roomFootprintOf([plug(), plug({ plug: 2, watts: 20, energyWh: 40, updatedAt: silentSince })], NOW);
 
     expect(room.watts).toBe(244);
     expect(room.energyWh).toBe(540);
-    expect(room.plugs.map((p) => p.silent)).toEqual([false, true]);
+    expect(room.plugs.map((p) => p.plug)).toEqual([1]);
   });
 });

@@ -80,10 +80,10 @@ function useNow(intervalMs: number): number {
 
 /** The visible part: this room's electricity, measured rather than estimated. */
 function Room({ readings }: { readings: RoomPowerReading[] }): ReactElement | null {
-  const now = useNow(10_000);
-  if (readings.length === 0) return null;
-
+  const now = useNow(1_000);
   const room = roomFootprintOf(readings, now);
+  if (room.plugs.length === 0 && room.energyWh === 0) return null;
+
   const energy = toDisplayRange("energy", { low: room.energyWh / 1000, high: room.energyWh / 1000 });
   return (
     <section className="meter-scope meter-room">
@@ -91,8 +91,14 @@ function Room({ readings }: { readings: RoomPowerReading[] }): ReactElement | nu
       <div className="meter-metric">
         <div className="meter-label">Power now</div>
         <div className="meter-value">
-          <NumberFlow value={Math.round(room.watts)} />
-          <span className="meter-unit">W</span>
+          {room.plugs.length > 0 ? (
+            <>
+              <NumberFlow value={Math.round(room.watts)} />
+              <span className="meter-unit">W</span>
+            </>
+          ) : (
+            "–"
+          )}
         </div>
       </div>
       <div className="meter-metric">
@@ -102,14 +108,16 @@ function Room({ readings }: { readings: RoomPowerReading[] }): ReactElement | nu
           <span className="meter-unit">{energy.unit}</span>
         </div>
       </div>
-      <ul className="meter-plugs">
-        {room.plugs.map((plug) => (
-          <li key={plug.deviceId}>
-            <span>{plug.label}</span>
-            <span className="meter-place">{plug.silent ? "no signal" : `${Math.round(plug.watts)} W`}</span>
-          </li>
-        ))}
-      </ul>
+      {room.plugs.length > 0 ? (
+        <ul className="meter-plugs">
+          {room.plugs.map((plug) => (
+            <li key={plug.plug}>
+              <span>{plug.label}</span>
+              <span className="meter-place">{Math.round(plug.watts)} W</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }

@@ -42,8 +42,9 @@ Museum installation bridges call `/api/bridge/*` with the shared `X-Bridge-Key` 
 
 Venues are also what installations are tagged with: the staff page picks one from the public
 `GET /api/venues` (ids and names only), and meetings, realtime sessions, the footprint meter
-(`?venue=`) and room power plugs use its id. Unknown venue ids are dropped from meetings and
-refused from plugs; without `COUNCIL_VENUES` (local development) any well-formed id is accepted.
+(`?venue=`) use its id. Unknown venue ids are dropped from meetings; without `COUNCIL_VENUES`
+(local development) any well-formed id is accepted. A venue's `plugs` list the room power plugs
+there now, by number; a plug at no venue is refused.
 - `POST /api/bridge/printer-alerts` emails a printer problem, reminder, recovery or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. It's rate-limited to 12 per venue per hour.
 
 Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to email anyone else. Venues are a JSON array (see `example.env`) and are validated at startup.

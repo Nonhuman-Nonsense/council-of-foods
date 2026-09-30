@@ -28,6 +28,15 @@ export function resolveVenueId(value: unknown): string | undefined {
     return id;
 }
 
+/** The venue a room power plug is at now, and what it powers there. */
+export function findPlug(plug: number): { venueId: string; label: string } | undefined {
+    for (const venue of config.COUNCIL_VENUES ?? []) {
+        const found = venue.plugs?.find((p) => p.plug === plug);
+        if (found) return { venueId: venue.id, label: found.label };
+    }
+    return undefined;
+}
+
 /** What may be shown publicly about venues: no addresses. */
 export function publicVenues(): { id: string; name: string }[] {
     return (config.COUNCIL_VENUES ?? []).map(({ id, name }) => ({ id, name }));

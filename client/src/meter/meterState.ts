@@ -1,4 +1,4 @@
-import type { MeterSnapshot, MeterUsageEvent, RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
+import { ROOM_POWER_SILENT_MS, type MeterSnapshot, type MeterUsageEvent, type RoomPowerReading, type UsageTotalsRow } from "@shared/MeterTypes";
 import type { UsageMeasures } from "@shared/UsageTypes";
 import {
   estimateImpacts,
@@ -53,26 +53,24 @@ export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, venue
 /** Replaces a plug's reading, if the plug is at this venue. */
 export function applyRoomPower(state: MeterState, reading: RoomPowerReading, venueId: string | undefined): MeterState {
   if (!venueId || reading.venueId !== venueId) return state;
-  const others = state.room.filter((r) => r.deviceId !== reading.deviceId);
-  return { ...state, room: [...others, reading].sort((a, b) => a.label.localeCompare(b.label)) };
+  const others = state.room.filter((r) => r.plug !== reading.plug);
+  return { ...state, room: [...others, reading].sort((a, b) => a.plug - b.plug) };
 }
 
-/** A plug that has not reported for this long is shown as silent, and its watts not counted. */
-export const ROOM_POWER_STALE_MS = 60_000;
-
 export interface RoomFootprint {
-  /** Watts now, from plugs that are reporting. */
+  /** Watts now, from the plugs that are reporting. */
   watts: number;
-  /** Energy since each plug was first heard, Wh. */
+  /** Energy since each plug was first heard, Wh, silent plugs included: it was used. */
   energyWh: number;
-  plugs: (RoomPowerReading & { silent: boolean })[];
+  /** The plugs that are reporting, not silent for `ROOM_POWER_SILENT_MS`. */
+  plugs: RoomPowerReading[];
 }
 
 export function roomFootprintOf(readings: RoomPowerReading[], now: number): RoomFootprint {
-  const plugs = readings.map((r) => ({ ...r, silent: now - Date.parse(r.updatedAt) > ROOM_POWER_STALE_MS }));
+  const plugs = readings.filter((r) => now - Date.parse(r.updatedAt) <= ROOM_POWER_SILENT_MS);
   return {
-    watts: plugs.reduce((sum, p) => sum + (p.silent ? 0 : p.watts), 0),
-    energyWh: plugs.reduce((sum, p) => sum + p.energyWh, 0),
+    watts: plugs.reduce((sum, p) => sum + p.watts, 0),
+    energyWh: readings.reduce((sum, r) => sum + r.energyWh, 0),
     plugs,
   };
 }

@@ -68,9 +68,9 @@ const DEMO_CALLS: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "meas
 ];
 
 const DEMO_PLUGS = [
-  { deviceId: "demo-projector", label: "Projector", watts: 244 },
-  { deviceId: "demo-computer", label: "Computer & meter screen", watts: 38 },
-  { deviceId: "demo-sound", label: "Sound", watts: 22 },
+  { plug: 1, label: "Projector", watts: 244 },
+  { plug: 2, label: "Computer & meter screen", watts: 38 },
+  { plug: 3, label: "Sound", watts: 22 },
 ];
 
 function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => MeterState) => void): () => void {
