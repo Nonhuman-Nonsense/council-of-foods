@@ -29,10 +29,10 @@ export interface HumanInputRealtimeBootstrapRequest {
     language: string;
 }
 
-/** `POST /api/usage/realtime`: raw `response.usage` objects from one realtime session. */
+/** `POST /api/usage/realtime`: the raw `response.usage` of one completed realtime response. */
 export interface RealtimeUsageReport {
     usageToken: string;
-    responses: unknown[];
+    usage: unknown;
 }
 
 export interface RealtimeCallResponse {

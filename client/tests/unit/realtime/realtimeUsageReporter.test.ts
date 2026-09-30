@@ -24,7 +24,7 @@ describe("realtime usage reporter", () => {
     expect(councilFetch).toHaveBeenCalledTimes(1);
     const [path, init] = vi.mocked(councilFetch).mock.calls[0];
     expect(path).toBe("/api/usage/realtime");
-    expect(JSON.parse(String(init?.body))).toEqual({ usageToken: "token-1", responses: [greeting] });
+    expect(JSON.parse(String(init?.body))).toEqual({ usageToken: "token-1", usage: greeting });
     expect(init?.keepalive).toBe(true);
   });
 

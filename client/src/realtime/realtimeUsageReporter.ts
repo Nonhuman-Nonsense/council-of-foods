@@ -27,7 +27,7 @@ export function createRealtimeUsageReporter(usageToken: string | undefined): Rea
         // Without a token (an older server) there is nowhere to report to.
         if (!usageToken || !hasBillableParts(usage)) return;
 
-        const body: RealtimeUsageReport = { usageToken, responses: [usage] };
+        const body: RealtimeUsageReport = { usageToken, usage };
         councilFetch("/api/usage/realtime", {
             method: "POST",
             headers: { "Content-Type": "application/json" },

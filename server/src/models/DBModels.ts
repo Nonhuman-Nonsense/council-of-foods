@@ -1,5 +1,5 @@
 import type { Audio, BaseMeeting } from '@shared/ModelTypes.js';
-import type { UsageEvent, UsageMeasures } from '@shared/UsageTypes.js';
+import type { UsageEvent } from '@shared/UsageTypes.js';
 import type { Document } from "mongodb";
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
@@ -26,16 +26,6 @@ export interface StoredRoomPower extends Document {
     /** The plug's counter at the last report, to accumulate deltas across its resets. */
     lastCounterWh: number;
     updatedAt: Date;
-}
-
-/** Running sum of raw usage for one scope ("global" or "venue:<id>") and model. */
-export interface UsageTotals extends Document {
-    _id: string;
-    scope: string;
-    provider: string;
-    model: string;
-    requests: number;
-    measures: UsageMeasures;
 }
 
 export type SubtitleTimingType = 'whisper' | 'inworld' | 'elevenlabs' | 'estimated' | undefined;

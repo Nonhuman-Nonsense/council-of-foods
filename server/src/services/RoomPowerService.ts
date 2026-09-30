@@ -2,21 +2,12 @@ import type { StoredRoomPower } from "@models/DBModels.js";
 import type { RoomPowerReading, RoomPowerReport } from "@shared/MeterTypes.js";
 
 import { roomPowerCollection } from "@services/DbService.js";
-import { Logger } from "@utils/Logger.js";
+import { meterEvents } from "@services/meterEvents.js";
 
 /**
  * The electricity of the room an installation runs in, measured by smart plugs (docs/ai-footprint-meter.md).
  * Keeps the latest reading per plug and accumulates energy from each plug's own counter.
  */
-
-type RoomPowerListener = (reading: RoomPowerReading) => void;
-const listeners = new Set<RoomPowerListener>();
-
-/** Subscribe to new plug readings (the live meter). Returns an unsubscribe function. */
-export function onRoomPowerRecorded(listener: RoomPowerListener): () => void {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-}
 
 function toReading(doc: StoredRoomPower): RoomPowerReading {
     return {
@@ -68,13 +59,7 @@ export async function recordRoomPower(report: RoomPowerReport, now: Date = new D
     if (!doc) return null;
 
     const reading = toReading(doc);
-    for (const listener of listeners) {
-        try {
-            listener(reading);
-        } catch (error) {
-            void Logger.warn("room-power", "Room power listener failed", { error });
-        }
-    }
+    meterEvents.emit("roomPower", reading);
     return reading;
 }
 

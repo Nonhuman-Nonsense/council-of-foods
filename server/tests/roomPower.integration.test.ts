@@ -4,7 +4,7 @@ import http from "http";
 import { registerRoomPowerRoutes, ROOM_POWER_KEY_HEADER } from "@api/roomPowerRoutes.js";
 import { getMeterSnapshot } from "@api/meterRoutes.js";
 import { roomPowerCollection } from "@services/DbService.js";
-import { onRoomPowerRecorded } from "@services/RoomPowerService.js";
+import { meterEvents } from "@services/meterEvents.js";
 import type { RoomPowerReading, RoomPowerReport } from "@shared/MeterTypes.js";
 
 const KEY = "room-power-key-for-tests-0123";
@@ -96,10 +96,11 @@ describe("POST /api/room-power (integration)", () => {
 
     it("tells live subscribers about each reading", async () => {
         const seen: RoomPowerReading[] = [];
-        const unsubscribe = onRoomPowerRecorded((reading) => seen.push(reading));
+        const listener = (reading: RoomPowerReading) => seen.push(reading);
+        meterEvents.on("roomPower", listener);
 
         await report(projector());
-        unsubscribe();
+        meterEvents.off("roomPower", listener);
 
         expect(seen).toEqual([expect.objectContaining({ deviceId: "shellyplugsg3-aabbcc", watts: 244, energyWh: 0 })]);
     });

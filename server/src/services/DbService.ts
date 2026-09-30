@@ -1,4 +1,4 @@
-import type { StoredMeeting, StoredAudio, Counter, StoredRoomPower, StoredUsageEvent, UsageTotals } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio, Counter, StoredRoomPower, StoredUsageEvent } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
@@ -17,7 +17,6 @@ export let meetingsCollection: Collection<StoredMeeting>;
 export let audioCollection: Collection<StoredAudio>;
 export let counters: Collection<Counter>;
 export let usageEventsCollection: Collection<StoredUsageEvent> | undefined;
-export let usageTotalsCollection: Collection<UsageTotals> | undefined;
 export let roomPowerCollection: Collection<StoredRoomPower> | undefined;
 
 export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
@@ -45,7 +44,6 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   counters = db.collection<Counter>("counters");
   const usageEvents = db.collection<StoredUsageEvent>("usage_events");
   usageEventsCollection = usageEvents;
-  usageTotalsCollection = db.collection<UsageTotals>("usage_totals");
   roomPowerCollection = db.collection<StoredRoomPower>("room_power");
   activeConnectionKey = connectionKey;
 
@@ -126,7 +124,6 @@ export const closeDb = async (): Promise<void> => {
   mongoClient = null;
   activeConnectionKey = null;
   usageEventsCollection = undefined;
-  usageTotalsCollection = undefined;
   roomPowerCollection = undefined;
 };
 

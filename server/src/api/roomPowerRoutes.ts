@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 
@@ -6,6 +5,7 @@ import { config } from "@root/src/config.js";
 import { recordRoomPower } from "@services/RoomPowerService.js";
 import { Logger } from "@utils/Logger.js";
 import { resolveVenueId } from "@utils/venues.js";
+import { keyMatches } from "@utils/sharedKey.js";
 
 /**
  * Smart plugs at a venue report the room's electricity here every few seconds
@@ -25,10 +25,6 @@ export const RoomPowerReportBody = z.object({
     energyCounterWh: z.number().min(0).max(1e9),
 });
 
-function digest(value: string): Buffer {
-    return createHash("sha256").update(value).digest();
-}
-
 export function registerRoomPowerRoutes(app: Express): void {
     app.post("/api/room-power", async (req: Request, res: Response) => {
         const expected = config.COUNCIL_ROOM_POWER_KEY;
@@ -36,8 +32,7 @@ export function registerRoomPowerRoutes(app: Express): void {
             res.status(503).json({ message: "Room power is not configured" });
             return;
         }
-        // Hashing first gives equal-length buffers, so the comparison leaks nothing about length.
-        if (!timingSafeEqual(digest(req.get(ROOM_POWER_KEY_HEADER) ?? ""), digest(expected))) {
+        if (!keyMatches(req.get(ROOM_POWER_KEY_HEADER), expected)) {
             res.status(401).json({ message: "Invalid room power key" });
             return;
         }

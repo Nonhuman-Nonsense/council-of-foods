@@ -4,10 +4,11 @@ import { Server } from "socket.io";
 import { io as connect, type Socket } from "socket.io-client";
 import type { UsageEvent, UsageRecord } from "@shared/UsageTypes.js";
 import { METER_NAMESPACE, METER_USAGE_EVENT, type MeterUsageEvent } from "@shared/MeterTypes.js";
-import { meetingsCollection, usageEventsCollection, usageTotalsCollection } from "@services/DbService.js";
+import { meetingsCollection, usageEventsCollection } from "@services/DbService.js";
 import { getMeterSnapshot, registerMeterSocket } from "@api/meterRoutes.js";
 import { MockFactory } from "./factories/MockFactory.js";
-import { onUsageRecorded, parseChatCompletionUsage, recordUsage } from "@services/UsageService.js";
+import { parseChatCompletionUsage, recordUsage } from "@services/UsageService.js";
+import { meterEvents } from "@services/meterEvents.js";
 
 function dialogue(overrides: Partial<UsageRecord> = {}): UsageRecord {
     return {
@@ -23,49 +24,21 @@ function dialogue(overrides: Partial<UsageRecord> = {}): UsageRecord {
 describe("usage recording", () => {
     beforeEach(async () => {
         await usageEventsCollection?.deleteMany({});
-        await usageTotalsCollection?.deleteMany({});
-    });
-
-    it("sums raw measures per model into the global and venue totals", async () => {
-        await recordUsage(dialogue({ venueId: "museum-oslo" }));
-        await recordUsage(dialogue({ venueId: "museum-oslo" }));
-        await recordUsage(dialogue());
-
-        const totals = await usageTotalsCollection?.find({}).sort({ _id: 1 }).toArray();
-        expect(totals).toEqual([
-            {
-                _id: "global|inworld|mistral/mistral-large-3",
-                scope: "global",
-                provider: "inworld",
-                model: "mistral/mistral-large-3",
-                requests: 3,
-                measures: { input_tokens: 300, output_tokens: 120 },
-            },
-            {
-                _id: "venue:museum-oslo|inworld|mistral/mistral-large-3",
-                scope: "venue:museum-oslo",
-                provider: "inworld",
-                model: "mistral/mistral-large-3",
-                requests: 2,
-                measures: { input_tokens: 200, output_tokens: 80 },
-            },
-        ]);
-        expect(await usageEventsCollection?.countDocuments()).toBe(3);
     });
 
     it("stores nothing when a call reports no positive usage", async () => {
         await recordUsage(dialogue({ measures: { output_tokens: 0, input_tokens: Number.NaN } }));
 
         expect(await usageEventsCollection?.countDocuments()).toBe(0);
-        expect(await usageTotalsCollection?.countDocuments()).toBe(0);
     });
 
     it("notifies live subscribers once the usage is stored", async () => {
         const seen: UsageEvent[] = [];
-        const unsubscribe = onUsageRecorded((event) => seen.push(event));
+        const listener = (event: UsageEvent) => seen.push(event);
+        meterEvents.on("usage", listener);
 
         await recordUsage(dialogue({ venueId: "museum-oslo" }));
-        unsubscribe();
+        meterEvents.off("usage", listener);
         await recordUsage(dialogue());
 
         expect(seen).toHaveLength(1);
@@ -76,7 +49,6 @@ describe("usage recording", () => {
 describe("meter", () => {
     beforeEach(async () => {
         await usageEventsCollection?.deleteMany({});
-        await usageTotalsCollection?.deleteMany({});
     });
 
     it("snapshots global, venue and latest-meeting usage", async () => {

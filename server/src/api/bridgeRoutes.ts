@@ -1,8 +1,8 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
 import { config } from "@root/src/config.js";
 import { maskEmail } from "@models/Venues.js";
 import { findVenue } from "@utils/venues.js";
+import { keyMatches } from "@utils/sharedKey.js";
 import { getSender, isMailConfigured, sendEmail } from "@services/MailService.js";
 import { sendReport } from "@utils/errorbot.js";
 import { describePrinterReason } from "@shared/printerReasons.js";
@@ -37,19 +37,13 @@ function takeRateLimitSlot(venueId: string, now = Date.now()): boolean {
     return true;
 }
 
-function digest(value: string): Buffer {
-    return createHash("sha256").update(value).digest();
-}
-
 function requireBridge(req: Request, res: Response, next: NextFunction): void {
     const expected = config.COUNCIL_BRIDGE_KEY;
     if (!expected || !config.COUNCIL_VENUES?.length) {
         res.status(503).json({ message: "Bridge endpoints are not configured" });
         return;
     }
-    const provided = req.get(BRIDGE_KEY_HEADER) ?? "";
-    // Hashing first gives equal-length buffers, so the comparison leaks nothing about length.
-    if (!timingSafeEqual(digest(provided), digest(expected))) {
+    if (!keyMatches(req.get(BRIDGE_KEY_HEADER), expected)) {
         res.status(401).json({ message: "Invalid bridge key" });
         return;
     }

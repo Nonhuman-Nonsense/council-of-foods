@@ -9,15 +9,15 @@ import { parseRealtimeUsage, recordUsage } from "@services/UsageService.js";
 /**
  * Realtime sessions run browser ↔ Inworld, so only the client sees their usage. The
  * bootstrap hands out a usage token naming the session's feature and tags; reports are
- * accepted only against a live token, per report and per token capped, and clamped per
- * response by {@link parseRealtimeUsage}. That bounds what a forged report can add to the
+ * accepted only against a live token, capped per token, and clamped by
+ * {@link parseRealtimeUsage}. That bounds what a forged report can add to the
  * meter without accounts or signatures.
  */
 
 /** Longer than any museum session; a token is minted per connection, so reconnects get fresh ones. */
 const USAGE_TOKEN_TTL_MS = 4 * 60 * 60 * 1000;
-const MAX_RESPONSES_PER_TOKEN = 2_000;
-const MAX_RESPONSES_PER_REPORT = 50;
+/** Reports (one per completed response) a session may send. */
+const MAX_REPORTS_PER_TOKEN = 2_000;
 /** Setup-agent bootstrap is unauthenticated, so the registry is bounded; the oldest grants go first. */
 const MAX_GRANTS = 10_000;
 
@@ -26,7 +26,7 @@ interface UsageGrant {
     meetingId?: number;
     venueId?: string;
     expiresAt: number;
-    responses: number;
+    reports: number;
 }
 
 const grants = new Map<string, UsageGrant>();
@@ -43,7 +43,7 @@ export function grantRealtimeUsageToken(
         }
     }
     const token = randomUUID();
-    grants.set(token, { ...grant, expiresAt: now + USAGE_TOKEN_TTL_MS, responses: 0 });
+    grants.set(token, { ...grant, expiresAt: now + USAGE_TOKEN_TTL_MS, reports: 0 });
     return token;
 }
 
@@ -53,7 +53,7 @@ export function clearRealtimeUsageGrantsForTests(): void {
 
 export const RealtimeUsageReportBody = z.object({
     usageToken: z.string().min(1).max(100),
-    responses: z.array(z.unknown()).min(1).max(MAX_RESPONSES_PER_REPORT),
+    usage: z.unknown(),
 });
 
 export function registerRealtimeUsageRoutes(app: Express): void {
@@ -65,17 +65,15 @@ export function registerRealtimeUsageRoutes(app: Express): void {
             return;
         }
 
-        const { usageToken, responses } = parsed.data;
+        const { usageToken, usage } = parsed.data;
         const grant = grants.get(usageToken);
         if (!grant || grant.expiresAt <= Date.now()) {
             res.status(403).json(new ForbiddenError().toApiBody(context));
             return;
         }
 
-        const accepted = responses.slice(0, Math.max(0, MAX_RESPONSES_PER_TOKEN - grant.responses));
-        grant.responses += accepted.length;
-
-        for (const usage of accepted) {
+        if (grant.reports < MAX_REPORTS_PER_TOKEN) {
+            grant.reports++;
             for (const part of parseRealtimeUsage(usage)) {
                 void recordUsage({
                     feature: grant.feature,
