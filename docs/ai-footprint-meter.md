@@ -349,14 +349,14 @@ providers directly — their answer (or refusal) is itself content.
 - Each plug runs `scripts/shelly/room-power.js`: every 5 s, `POST /api/room-power`
   `{ venueId, deviceId, label, watts, energyCounterWh }` with `X-Room-Power-Key`
   (`COUNCIL_ROOM_POWER_KEY`; unset → 503). Separate from the bridge key: a plug's script is readable
-  on the museum LAN.
+  on the installation's network.
 - Server (`RoomPowerService`): latest reading per plug in `room_power`; energy accumulated from the
   plug's counter in one atomic update, surviving counter resets. Pushed as `room-power` on `/meter`;
   part of the meter snapshot.
 - Meter: **In this room, measured** — power now (W), electricity so far, one line per plug; a plug
   silent for 60 s shows "no signal" and its watts drop out. Demo mode fakes three plugs.
-- Setup steps: MUSEUM.md → "Room power plugs". Needs museum Wi-Fi without a login page; fallback if
-  not: the button bridge polls plugs on the LAN (not built).
+- Setup steps: MUSEUM.md → "Room power plugs". Plugs join the installation's own router, so there
+  is never a login page between them and the server.
 - Our own table only for what EcoLogits lacks: Inworld TTS (via its SpeechLM size and 50
   tokens/s), ElevenLabs, Soniox, training. Each entry has a source and a range; unknown models
   fall back to the widest range rather than failing.

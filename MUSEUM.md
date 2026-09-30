@@ -233,9 +233,8 @@ power metering) measure the room's electricity for the meter's **In this room**
 section. Use one plug per group of devices, e.g. projector / computer and meter
 screen / sound; any number works.
 
-1. Plug in, add it to the museum Wi-Fi with the Shelly app or its own access point.
-   A Shelly cloud account is not needed. The Wi-Fi must reach the internet without a
-   login page.
+1. Plug in, add it to the installation router's Wi-Fi with the Shelly app or its own
+   access point. A Shelly cloud account is not needed.
 2. In the plug's settings, set it to **turn on after power loss** and never switch it
    off: a lamp projector must be able to cool down.
 3. Open the plug's web page (`http://<plug-ip>/`) → **Scripts** → create a script,
