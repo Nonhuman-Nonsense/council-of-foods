@@ -168,9 +168,7 @@ async function requestChatCompletion(
         requestParams.reasoning_effort = params.reasoning;
     }
 
-    const startedAt = Date.now();
     const completion = await client.chat.completions.create(requestParams);
-    const requestSeconds = (Date.now() - startedAt) / 1000;
 
     return {
         id: completion.id ?? null,
@@ -179,7 +177,7 @@ async function requestChatCompletion(
         usage: {
             provider: provider === "openai-direct" ? "openai" : provider,
             model,
-            measures: { ...parseChatCompletionUsage(completion.usage), request_seconds: requestSeconds },
+            measures: parseChatCompletionUsage(completion.usage),
         },
     };
 }

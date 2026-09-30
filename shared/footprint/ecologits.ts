@@ -5,18 +5,17 @@ import table from "./ecologits.json" with { type: "json" };
  * Environmental impacts of AI usage, from EcoLogits coefficients exported into
  * ecologits.json by scripts/ecologits/export.py (see docs/ai-footprint-meter.md).
  *
- * EcoLogits models one request as linear in output tokens and generation time, and
- * generation time is capped by what was actually measured:
+ * EcoLogits models one request as linear in output tokens and generation time:
  *
- *   generation = min(request seconds, tokens × seconds per token + requests × first-token seconds)
+ *   generation = min(cap, tokens × seconds per token + requests × first-token seconds)
  *   impact     = per token × tokens + per generation second × generation
+ *
+ * The cap is the measured request time in EcoLogits itself; see estimateImpacts for ours.
  */
 
-export const IMPACTS = ["energy", "gwp", "adpe", "pe", "wcf"] as const;
+/** Energy (kWh), carbon (kgCO2eq), minerals (kgSbeq) and water (L), in EcoLogits' own units. */
+export const IMPACTS = ["energy", "gwp", "adpe", "wcf"] as const;
 export type Impact = typeof IMPACTS[number];
-
-/** kWh, kgCO2eq, kgSbeq, MJ, L — EcoLogits' own units. */
-export const IMPACT_UNITS: Record<Impact, string> = table.units;
 
 export interface ImpactRange {
     low: number;
@@ -33,15 +32,12 @@ interface RangeEnd {
 }
 
 export interface EcologitsModel {
-    ecologitsModel: string | null;
     usageMeasure: "output_tokens" | "audio_seconds";
     tokensPerUnit: number;
     datacenterZone: string;
     /** Billions, [low, high]. */
     activeParameters: [number, number];
     totalParameters: [number, number];
-    /** Bits per weight EcoLogits sizes the GPU fleet with, [low, high]. */
-    quantizationBits: [number, number];
     low: RangeEnd;
     high: RangeEnd;
     assumptions: string[];

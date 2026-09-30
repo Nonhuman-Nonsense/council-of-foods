@@ -11,11 +11,10 @@ import { onUsageRecorded, parseChatCompletionUsage, recordUsage } from "@service
 
 function dialogue(overrides: Partial<UsageRecord> = {}): UsageRecord {
     return {
-        source: "server",
         feature: "dialogue",
         provider: "inworld",
         model: "mistral/mistral-large-3",
-        measures: { input_tokens: 100, output_tokens: 40, request_seconds: 1.5 },
+        measures: { input_tokens: 100, output_tokens: 40 },
         meetingId: 7,
         ...overrides,
     };
@@ -40,7 +39,7 @@ describe("usage recording", () => {
                 provider: "inworld",
                 model: "mistral/mistral-large-3",
                 requests: 3,
-                measures: { input_tokens: 300, output_tokens: 120, request_seconds: 4.5 },
+                measures: { input_tokens: 300, output_tokens: 120 },
             },
             {
                 _id: "venue:museum-oslo|inworld|mistral/mistral-large-3",
@@ -48,7 +47,7 @@ describe("usage recording", () => {
                 provider: "inworld",
                 model: "mistral/mistral-large-3",
                 requests: 2,
-                measures: { input_tokens: 200, output_tokens: 80, request_seconds: 3 },
+                measures: { input_tokens: 200, output_tokens: 80 },
             },
         ]);
         expect(await usageEventsCollection?.countDocuments()).toBe(3);
@@ -95,10 +94,10 @@ describe("meter", () => {
             provider: "inworld", model: "mistral/mistral-large-3", requests, measures,
         });
         expect(snapshot).toEqual({
-            global: [row(4, { input_tokens: 300, output_tokens: 130, request_seconds: 4.5 })],
-            venue: [row(3, { input_tokens: 200, output_tokens: 90, request_seconds: 3 })],
+            global: [row(4, { input_tokens: 300, output_tokens: 130 })],
+            venue: [row(3, { input_tokens: 200, output_tokens: 90 })],
             venueName: "museum-oslo",
-            meeting: { meetingId: 12, totals: [row(2, { input_tokens: 100, output_tokens: 50, request_seconds: 1.5 })] },
+            meeting: { meetingId: 12, totals: [row(2, { input_tokens: 100, output_tokens: 50 })] },
             room: [],
         });
     });

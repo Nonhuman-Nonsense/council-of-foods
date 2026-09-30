@@ -130,7 +130,7 @@ export class DialogGenerator {
 
             // Every attempt is paid for, including the empty ones.
             if (completion.usage) {
-                void recordUsage({ source: "server", feature, ...completion.usage, ...usageTagsFor(meeting) });
+                void recordUsage({ feature, ...completion.usage, ...usageTagsFor(meeting) });
             }
 
             if (completion.content) {

@@ -90,7 +90,6 @@ function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => Me
     }
     const event: MeterUsageEvent = {
       ...DEMO_CALLS[call % DEMO_CALLS.length],
-      source: "server",
       venueId,
       meetingId: 1,
       ts: new Date().toISOString(),

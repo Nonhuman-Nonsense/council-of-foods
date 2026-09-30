@@ -2,9 +2,9 @@ import NumberFlow from "@number-flow/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ReactElement } from "react";
 import type { RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
-import { ECOLOGITS_VERSION, findEcologitsModel } from "@shared/footprint/ecologits";
+import { ECOLOGITS_VERSION, findEcologitsModel, type Impacts } from "@shared/footprint/ecologits";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
-import { footprintOf, roomFootprintOf, toDisplayRange, type ScopeFootprint } from "./meterState";
+import { footprintOf, roomFootprintOf, toDisplayRange } from "./meterState";
 import { methodologyUrl, zoneName } from "./modelInfo";
 import { useMeterFeed } from "./useMeterFeed";
 
@@ -21,12 +21,12 @@ const METRICS = [
   { impact: "adpe", label: "Minerals" },
 ] as const;
 
-function Scope({ title, footprint, large }: { title: string; footprint: ScopeFootprint; large?: boolean }): ReactElement {
+function Scope({ title, impacts, large }: { title: string; impacts: Impacts; large?: boolean }): ReactElement {
   return (
     <section className={`meter-scope${large ? " meter-scope--large" : ""}`}>
       <h2>{title}</h2>
       {METRICS.map(({ impact, label }) => {
-        const range = toDisplayRange(impact, footprint.impacts[impact]);
+        const range = toDisplayRange(impact, impacts[impact]);
         const digits = range.central < 10 ? 2 : range.central < 100 ? 1 : 0;
         return (
           <div className="meter-metric" key={impact}>
@@ -160,12 +160,12 @@ export function Meter(): ReactElement {
   return (
     <main className="meter">
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
-      {state.meeting ? <Scope title="This meeting" footprint={footprintOf(meetingRows)} large /> : null}
+      {state.meeting ? <Scope title="This meeting" impacts={footprintOf(meetingRows)} large /> : null}
       <Room readings={state.room} />
       {venueId || demo ? (
-        <Scope title={`At ${state.venueName ?? venueId ?? "this venue"}`} footprint={footprintOf(state.venue)} />
+        <Scope title={`At ${state.venueName ?? venueId ?? "this venue"}`} impacts={footprintOf(state.venue)} />
       ) : null}
-      <Scope title="All councils" footprint={footprintOf(state.global)} />
+      <Scope title="All councils" impacts={footprintOf(state.global)} />
       <Models rows={meetingRows.length > 0 ? meetingRows : state.venue} />
       <Training />
       <footer className="meter-footer">

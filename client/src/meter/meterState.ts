@@ -77,32 +77,19 @@ export function roomFootprintOf(readings: RoomPowerReading[], now: number): Room
   };
 }
 
-export interface ScopeFootprint {
-  impacts: Impacts;
-  requests: number;
-  /** Models used in this scope that the footprint table has no estimate for. */
-  unestimatedModels: string[];
-}
-
-export function footprintOf(rows: UsageTotalsRow[]): ScopeFootprint {
+/** The estimated footprint of a scope's usage. Models without an estimate count as nothing. */
+export function footprintOf(rows: UsageTotalsRow[]): Impacts {
   const impacts = Object.fromEntries(IMPACTS.map((impact) => [impact, { low: 0, high: 0 }])) as Impacts;
-  const unestimatedModels: string[] = [];
-  let requests = 0;
-
   for (const row of rows) {
-    requests += row.requests;
     const model = findEcologitsModel(row.provider, row.model);
-    if (!model) {
-      unestimatedModels.push(row.model);
-      continue;
-    }
+    if (!model) continue;
     const rowImpacts = estimateImpacts(model, { measures: row.measures, requests: row.requests });
     for (const impact of IMPACTS) {
       impacts[impact].low += rowImpacts[impact].low;
       impacts[impact].high += rowImpacts[impact].high;
     }
   }
-  return { impacts, requests, unestimatedModels };
+  return impacts;
 }
 
 interface UnitStep {
@@ -112,7 +99,7 @@ interface UnitStep {
 }
 
 /** From smallest to largest; EcoLogits' units are kWh, kgCO2eq, kgSbeq and L. */
-const UNIT_LADDERS: Record<Exclude<Impact, "pe">, UnitStep[]> = {
+const UNIT_LADDERS: Record<Impact, UnitStep[]> = {
   energy: [{ unit: "Wh", factor: 1e3 }, { unit: "kWh", factor: 1 }, { unit: "MWh", factor: 1e-3 }],
   wcf: [{ unit: "mL", factor: 1e3 }, { unit: "L", factor: 1 }, { unit: "m³", factor: 1e-3 }],
   gwp: [{ unit: "mg CO₂e", factor: 1e6 }, { unit: "g CO₂e", factor: 1e3 }, { unit: "kg CO₂e", factor: 1 }, { unit: "t CO₂e", factor: 1e-3 }],
@@ -128,7 +115,7 @@ export interface DisplayRange {
 }
 
 /** Picks the largest unit in which the midpoint is at least 1, so numbers stay readable as they grow. */
-export function toDisplayRange(impact: Exclude<Impact, "pe">, range: { low: number; high: number }): DisplayRange {
+export function toDisplayRange(impact: Impact, range: { low: number; high: number }): DisplayRange {
   const central = (range.low + range.high) / 2;
   const ladder = UNIT_LADDERS[impact];
   const step = [...ladder].reverse().find((s) => central * s.factor >= 1) ?? ladder[0];

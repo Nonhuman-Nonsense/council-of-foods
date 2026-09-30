@@ -97,7 +97,6 @@ export async function requestSpeakerClassifierCompletion(
     const timeout = setTimeout(() => controller.abort(), OUTBOUND_HTTP_TIMEOUT_MS);
 
     try {
-        const startedAt = Date.now();
         const response = await withNetworkRetry(
             () =>
                 fetch(INWORLD_CHAT_COMPLETIONS_URL, {
@@ -125,14 +124,10 @@ export async function requestSpeakerClassifierCompletion(
 
         const data = (await response.json()) as RouterChatCompletionResponse;
         void recordUsage({
-            source: "server",
             feature: "classifier",
             provider: "inworld",
             model: serverOptions.speakerClassifierModel,
-            measures: {
-                ...parseChatCompletionUsage(data.usage),
-                request_seconds: (Date.now() - startedAt) / 1000,
-            },
+            measures: parseChatCompletionUsage(data.usage),
             ...usageTagsFor(meeting),
         });
         const content = data.choices?.[0]?.message?.content;

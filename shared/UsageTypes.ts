@@ -18,8 +18,6 @@ export const USAGE_MEASURES = [
     "characters",
     /** Seconds of audio produced (TTS) or processed (transcription). */
     "audio_seconds",
-    /** Wall-clock time of the request, which footprint models such as EcoLogits use. */
-    "request_seconds",
 ] as const;
 
 export type UsageMeasure = typeof USAGE_MEASURES[number];
@@ -37,8 +35,6 @@ export type UsageFeature =
     | "human-input";
 
 export interface UsageRecord {
-    /** Server-side calls are recorded by the server; realtime calls are reported by the client. */
-    source: "server" | "client";
     feature: UsageFeature;
     /** Who we called, e.g. "inworld". */
     provider: string;

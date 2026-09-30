@@ -36,7 +36,7 @@ describe("EcoLogits footprint table", () => {
 
     it.each([
         { key: "inworld|inworld-tts-1.5-max", measures: { audio_seconds: 30 }, units: 30, cap: 30 },
-        { key: "inworld|mistral/mistral-large-3", measures: { output_tokens: 400, request_seconds: 0.1 }, units: 400, cap: Infinity },
+        { key: "inworld|mistral/mistral-large-3", measures: { output_tokens: 400 }, units: 400, cap: Infinity },
     ])("estimates $key with generation time capped at $cap s", ({ key, measures, units, cap }) => {
         const [provider, model] = key.split("|");
         const entry = findEcologitsModel(provider, model)!;

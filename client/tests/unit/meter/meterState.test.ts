@@ -15,7 +15,6 @@ import {
 
 function usage(overrides: Partial<MeterUsageEvent> = {}): MeterUsageEvent {
   return {
-    source: "server",
     feature: "dialogue",
     provider: "inworld",
     model: "mistral/mistral-large-3",
@@ -72,14 +71,12 @@ describe("meter state", () => {
     expect(state.global).toEqual([{ provider: "inworld", model: "inworld-tts-1.5-max", requests: 1, measures: { audio_seconds: 3 } }]);
   });
 
-  it("sums the footprint of estimated models and names the rest", () => {
+  it("sums the footprint of estimated models and leaves unknown ones out", () => {
     const mistral = findEcologitsModel("inworld", "mistral/mistral-large-3")!;
 
-    const footprint = footprintOf([row(2, 400), { provider: "acme", model: "mystery-1", requests: 1, measures: { output_tokens: 5 } }]);
+    const impacts = footprintOf([row(2, 400), { provider: "acme", model: "mystery-1", requests: 1, measures: { output_tokens: 5 } }]);
 
-    expect(footprint.impacts).toEqual(estimateImpacts(mistral, { measures: { output_tokens: 400 }, requests: 2 }));
-    expect(footprint.requests).toBe(3);
-    expect(footprint.unestimatedModels).toEqual(["mystery-1"]);
+    expect(impacts).toEqual(estimateImpacts(mistral, { measures: { output_tokens: 400 }, requests: 2 }));
   });
 });
 

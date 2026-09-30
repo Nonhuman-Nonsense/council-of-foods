@@ -30,10 +30,9 @@ IMPACTS = {
     "energy": ("request_energy", None, "energy"),
     "gwp": ("request_usage_gwp", "request_embodied_gwp", "gwp"),
     "adpe": ("request_usage_adpe", "request_embodied_adpe", "adpe"),
-    "pe": ("request_usage_pe", "request_embodied_pe", "pe"),
     "wcf": ("request_usage_wcf", None, "wcf"),
 }
-UNITS = {"energy": "kWh", "gwp": "kgCO2eq", "adpe": "kgSbeq", "pe": "MJ", "wcf": "L"}
+UNITS = {"energy": "kWh", "gwp": "kgCO2eq", "adpe": "kgSbeq", "wcf": "L"}
 
 INWORLD_TTS_SOURCES = [
     "https://arxiv.org/abs/2507.21138",

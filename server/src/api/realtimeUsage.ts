@@ -78,7 +78,6 @@ export function registerRealtimeUsageRoutes(app: Express): void {
         for (const usage of accepted) {
             for (const part of parseRealtimeUsage(usage)) {
                 void recordUsage({
-                    source: "client",
                     feature: grant.feature,
                     ...part,
                     ...(grant.meetingId !== undefined ? { meetingId: grant.meetingId } : {}),

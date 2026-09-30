@@ -431,7 +431,6 @@ describe("POST /api/realtime/* (integration)", () => {
 
             expect(await storedEvents(2)).toEqual(expect.arrayContaining([
                 {
-                    source: "client",
                     feature: "setup-agent",
                     provider: "inworld",
                     model: "google-ai-studio/gemini-2.5-flash",
@@ -439,7 +438,6 @@ describe("POST /api/realtime/* (integration)", () => {
                     venueId: "museum-oslo",
                 },
                 {
-                    source: "client",
                     feature: "setup-agent",
                     provider: "inworld",
                     model: "inworld-tts-1.5-max",
@@ -458,7 +456,6 @@ describe("POST /api/realtime/* (integration)", () => {
             await report(usageToken, [{ stt: { model: "soniox/stt-rt-v4", audio_seconds: 2.879 } }]);
 
             expect(await storedEvents(1)).toEqual([{
-                source: "client",
                 feature: "meta-agent",
                 provider: "inworld",
                 model: "soniox/stt-rt-v4",

@@ -103,7 +103,7 @@ describe("ConversationService", () => {
     it.each([
         { model: "openai-direct/gpt-5.2", provider: "openai", reportedModel: "gpt-5.2" },
         { model: "mistral/mistral-large-3", provider: "inworld", reportedModel: "mistral/mistral-large-3" },
-    ])("reports token usage and request time for $model", async ({ model, provider, reportedModel }) => {
+    ])("reports token usage for $model", async ({ model, provider, reportedModel }) => {
         const usage = { prompt_tokens: 9, completion_tokens: 12, prompt_tokens_details: { cached_tokens: 0 } };
         const direct = createMockClient({ usage });
         const inworld = createMockClient({ usage });
@@ -114,7 +114,7 @@ describe("ConversationService", () => {
         expect(result.usage).toEqual({
             provider,
             model: reportedModel,
-            measures: { input_tokens: 9, output_tokens: 12, request_seconds: expect.any(Number) },
+            measures: { input_tokens: 9, output_tokens: 12 },
         });
     });
 
