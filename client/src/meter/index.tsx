@@ -10,16 +10,15 @@ import "./meter.css";
  *
  * /meter/methodology  the page behind the QR code (in dev: /meter.html?page=methodology)
  * ?venue=<id>         scope to a venue (as chosen on #staff)
- * ?rotate=90|-90      rotate the page for a display the OS cannot rotate
+ * ?rotate=90|-90      turn the meter a quarter clockwise / anticlockwise, for a display
+ *                     the OS cannot rotate (the methodology page never rotates)
  * ?demo               TEMPORARY: fake data, to judge the screen without a live council
  */
 const params = new URLSearchParams(window.location.search);
 const isMethodology = window.location.pathname.endsWith("/methodology") || params.get("page") === "methodology";
-if (isMethodology) {
-  document.documentElement.dataset.page = "methodology";
-}
+document.documentElement.dataset.page = isMethodology ? "methodology" : "meter";
 const rotate = params.get("rotate");
-if (rotate === "90" || rotate === "-90") {
+if (!isMethodology && (rotate === "90" || rotate === "-90")) {
   document.documentElement.dataset.rotate = rotate;
 }
 

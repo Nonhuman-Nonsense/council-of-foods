@@ -184,10 +184,47 @@ to the page, so existing installations don't need to choose again.
 The second screen shows what the installation costs:
 
 - **Meter:** `https://<host>/meter?venue=<id>`, full screen on the second
-  display. `?rotate=90` or `?rotate=-90` if the OS cannot rotate that display.
+  display (setup below).
 - **Methodology:** `/meter/methodology`, linked by the QR code on the meter.
 
 Design and estimation method: [docs/ai-footprint-meter.md](docs/ai-footprint-meter.md).
+
+### Meter screen (second display)
+
+The meter is a tall strip: it expects a portrait window (e.g. 864×2880). It runs in
+its own Chrome instance, so it never shares full screen, zoom or tabs with the
+council.
+
+1. **Rotate the display in macOS:** System Settings → Displays → select the meter
+   screen → **Rotation** 90° (or 270°, whichever puts the image upright on how it
+   hangs). Under **Arrange**, note where the meter screen sits relative to the main
+   display.
+2. **Keep both screens awake:** System Settings → Lock Screen → turn display off
+   **Never**; Energy → prevent automatic sleeping when the display is off.
+3. **Start the meter window.** A separate `--user-data-dir` makes it a second Chrome
+   instance, so its flags aren't swallowed by the council's window:
+
+   ```bash
+   open -na "Google Chrome" --args \
+     --user-data-dir="$HOME/Library/Application Support/council-meter-chrome" \
+     --kiosk --noerrdialogs --disable-session-crashed-bubble \
+     --window-position=1920,0 \
+     "https://<host>/meter?venue=<venue-id>"
+   ```
+
+   `--window-position` must land on the meter screen: its top-left corner in the
+   **Arrange** layout, in points. For a meter screen placed right of a main display
+   1920 points wide, that is `1920,0`. `--kiosk` then fills that screen.
+4. **Start it at login:** save the command in `~/council-meter.command`, make it
+   executable (`chmod +x ~/council-meter.command`), and add it under System Settings
+   → General → Login Items → **Open at Login**.
+5. **Check:** numbers move during a meeting (or plugs report), the QR code opens the
+   methodology page on a phone, and the pointer is hidden on the meter.
+
+The meter reconnects and reloads its numbers by itself after a network drop, so it
+needs no restart. If macOS cannot rotate the screen (some USB-C displays refuse),
+leave it landscape and add `&rotate=90` (quarter turn clockwise) or `&rotate=-90`
+(anticlockwise) to the URL instead; the layout is the same.
 
 ### Room power plugs
 
@@ -283,6 +320,7 @@ Use the hardware checklist in
 4. App `/#staff` → **Hardware button** → **Connected**  
 5. Press button → LED and talk path work in a meeting  
 6. Unplug/replug USB → recovers without staff action  
+7. Meter screen upright, full screen, numbers moving; room plugs listed if installed  
 
 Bridge logs: `/var/log/council-button-bridge.log`
 
