@@ -336,7 +336,7 @@ providers directly — their answer (or refusal) is itself content.
   per request. Mistral Large 2 LCA (training + 18 months: 20.4 kt CO₂e, 281,000 m³, 660 kg Sb eq)
   as the closest figure for Large 3 (no Large 3 LCA; trained on 3,000 H200s, 5.5× the parameters).
   Google, Inworld, ElevenLabs, Soniox: "not disclosed" — named on screen.
-- ✅ Methodology page: `/meter/methodology` (dev: `/meter.html?page=methodology`), reached by a QR
+- ✅ Methodology page: `/meter/methodology`, reached by a QR
   code in the meter footer. Generated from `ecologits.json` and `training.ts`: what is counted,
   how EcoLogits works, per model role/location/size/impacts per 400 tokens or per minute of audio
   with assumptions, warnings and sources; training; what is left out; Mistral's and Google's own
@@ -371,7 +371,8 @@ providers directly — their answer (or refusal) is itself content.
 - **Server** (`server/src/api/meterRoutes.ts`): `GET /api/meter?venue=<id>` returns a
   `MeterSnapshot` (`shared/MeterTypes.ts`) — raw totals for all councils, the installation, and
   the installation's latest meeting (aggregated from `usage_events`). The `/meter` socket.io
-  namespace pushes every recorded usage to every meter. `/meter` serves `client/dist/meter.html`.
+  namespace pushes every recorded usage to every meter. `/meter` and `/meter/methodology` serve `client/dist/meter.html` (in dev, a Vite plugin in
+  `client/vite.config.mts` does the same).
 - **Client** (`client/meter.html` → `client/src/meter/`): its own Vite entry and bundle (~44 kB),
   no council imports. `useMeterFeed` refetches the snapshot on every socket (re)connect, then
   folds pushed events in with `applyUsageEvent`; `footprintOf` sums EcoLogits estimates per
@@ -382,8 +383,8 @@ providers directly — their answer (or refusal) is itself content.
   answering and their assumed data-centre countries; EcoLogits version in the footer.
 - "This meeting" starts when the meeting is created; setup-agent usage before it counts toward
   the installation, not the meeting.
-- **Preview:** `cd client && npm run dev`, then open `/meter.html?demo` (TEMPORARY fake feed, marked
-  on screen) or `/meter.html?venue=<id>` against a dev server. Production:
+- **Preview:** `cd client && npm run dev`, then open `/meter?demo` (TEMPORARY fake feed, marked
+  on screen) or `/meter?venue=<id>` against a dev server — the same URLs as production. Production:
   `https://<host>/meter?venue=<id>`. `?rotate=90` / `?rotate=-90` rotates the page if
   macOS can't rotate the display.
 - Still to do: tune layout and copy on the VSDISPLAY; comparisons/scale; training block; room

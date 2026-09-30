@@ -8,6 +8,11 @@ import type { UsageEvent, UsageMeasures } from "./UsageTypes.js";
  * raw usage (shared/footprint/ecologits.ts), never sent.
  */
 
+/** Page URLs, served by the meter bundle (client/meter.html) in production and in dev. */
+export const METER_PAGE_PATH = "/meter";
+export const METER_METHODOLOGY_PATH = "/meter/methodology";
+export const METER_PAGE_PATHS = [METER_PAGE_PATH, METER_METHODOLOGY_PATH];
+
 export const METER_NAMESPACE = "/meter";
 export const METER_USAGE_EVENT = "usage";
 export const METER_ROOM_POWER_EVENT = "room-power";

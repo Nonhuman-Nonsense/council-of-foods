@@ -31,7 +31,7 @@ import {
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
 import { registerRealtimeUsageRoutes } from '@api/realtimeUsage.js';
-import { registerMeterRoutes, registerMeterSocket } from '@api/meterRoutes.js';
+import { registerMeterPage, registerMeterRoutes, registerMeterSocket } from '@api/meterRoutes.js';
 import { registerRoomPowerRoutes } from '@api/roomPowerRoutes.js';
 import { registerVenueRoutes } from '@api/venueRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
@@ -108,11 +108,7 @@ if (environment === "prototype") {
 
   app.get("/index.html", (req, res) => sendSpaShell(res, spaShellTemplate, preferredLangFromRequest(req)));
 
-  // Footprint meter: its own page and bundle, no language routing (docs/ai-footprint-meter.md).
-  app.get(["/meter", "/meter/methodology"], (_req: Request, res: Response) => {
-    res.setHeader('Cache-Control', CACHE_CONTROL_NO_STORE);
-    res.sendFile(path.join(clientDistPath, "meter.html"));
-  });
+  registerMeterPage(app, clientDistPath);
 
   app.use(express.static(clientDistPath, {
     maxAge: ONE_YEAR_MS,

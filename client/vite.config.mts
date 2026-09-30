@@ -1,9 +1,29 @@
 /// <reference types="vitest" />
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig, loadEnv, type Connect, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 import path from 'path'
 import { readServerPort, resolveDevPorts } from '../shared/devPorts.ts'
+import { METER_PAGE_PATHS } from '../shared/MeterTypes.ts'
+
+/**
+ * Serves the footprint meter's own page (meter.html) at its production URLs, /meter and
+ * /meter/methodology, so dev and preview use the same links as the deployed server.
+ */
+function meterPages(): Plugin {
+  const rewrite: Connect.NextHandleFunction = (req, _res, next) => {
+    const [pathname, query] = (req.url ?? '').split('?')
+    if (METER_PAGE_PATHS.includes(pathname.replace(/\/$/, ''))) {
+      req.url = `/meter.html${query ? `?${query}` : ''}`
+    }
+    next()
+  }
+  return {
+    name: 'meter-pages',
+    configureServer: (server) => { server.middlewares.use(rewrite) },
+    configurePreviewServer: (server) => { server.middlewares.use(rewrite) },
+  }
+}
 
 /** Checker is dev-only (vite-plugin-checker is a devDependency); production/docker runs `tsc` before `vite build`. */
 async function devPlugins(command: string) {
@@ -30,6 +50,7 @@ export default defineConfig(async ({ command, mode }) => {
     plugins: [
       react(),
       svgr(),
+      meterPages(),
       ...(await devPlugins(command)),
     ],
     server: command === 'serve' ? {

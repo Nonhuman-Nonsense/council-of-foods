@@ -1,3 +1,5 @@
+import { METER_METHODOLOGY_PATH } from "@shared/MeterTypes";
+
 /** What each model does in the council, and readable names for EcoLogits' data-centre zones. */
 
 export const MODEL_ROLES: Record<string, string> = {
@@ -23,7 +25,5 @@ export function zoneName(zone: string): string {
 
 /** Where the methodology page lives, for the QR code. */
 export function methodologyUrl(): string {
-  return import.meta.env.DEV
-    ? `${window.location.origin}/meter.html?page=methodology`
-    : `${window.location.origin}/meter/methodology`;
+  return `${window.location.origin}${METER_METHODOLOGY_PATH}`;
 }
