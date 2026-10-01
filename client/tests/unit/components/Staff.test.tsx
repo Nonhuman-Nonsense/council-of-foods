@@ -135,9 +135,10 @@ describe('Staff overlay', () => {
     museumButtonState.bridgeError = null;
   });
 
-  it('renders the installation panel: mode row plus the independent staff aids', () => {
+  it('renders the mode panel with its screen aids, and the installation panel with its features', () => {
     render(<Staff />);
     expect(screen.getByText('staff.title')).toBeInTheDocument();
+    expect(screen.getByText('staff.panels.mode')).toBeInTheDocument();
     expect(screen.getByText('staff.panels.installation')).toBeInTheDocument();
     expect(screen.getByText('staff.web')).toBeInTheDocument();
     expect(screen.getByText('staff.museum')).toBeInTheDocument();
@@ -302,7 +303,7 @@ describe('Staff overlay', () => {
 
     const toggle = screen.getByTestId('staff-ptt-hardware-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByTestId('staff-bridge-panel')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('staff-bridge-daemon-status')).not.toBeInTheDocument();
   });
 
   it('persists hardware enablement and shows button status panel', () => {
@@ -311,7 +312,7 @@ describe('Staff overlay', () => {
 
     fireEvent.click(screen.getByTestId('staff-ptt-hardware-toggle'));
     expect(localStorage.getItem('councilPttHardwareEnabled')).toBe('true');
-    expect(screen.getByTestId('staff-bridge-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-bridge-daemon-status')).toBeInTheDocument();
   });
 
   it('shows button status panel in web mode when hardware is enabled', () => {
@@ -321,7 +322,7 @@ describe('Staff overlay', () => {
 
     render(<Staff />);
 
-    expect(screen.getByTestId('staff-bridge-panel')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-bridge-daemon-status')).toBeInTheDocument();
     expect(screen.getByTestId('staff-bridge-app-status')).toHaveTextContent(
       'staff.button.app.connected',
     );
@@ -400,10 +401,10 @@ describe('Staff overlay', () => {
       lastPrintedAt: null,
     };
 
-    it('persists the print summaries toggle and shows the printer panel only while on', () => {
+    it('persists the print summaries toggle and shows the printer status only while on', () => {
       bridgeHealthState.print = readyPrint;
       render(<Staff />);
-      expect(screen.queryByTestId('staff-bridge-panel')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('staff-print-printer-status')).not.toBeInTheDocument();
 
       const toggle = screen.getByTestId('staff-print-summaries-toggle');
       fireEvent.click(toggle);
@@ -416,17 +417,16 @@ describe('Staff overlay', () => {
       expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('0');
 
       fireEvent.click(toggle);
-      expect(screen.queryByTestId('staff-bridge-panel')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('staff-print-printer-status')).not.toBeInTheDocument();
     });
 
-    it('shares one bridge panel and one bridge status with the hardware button', () => {
+    it('shares one bridge status with the hardware button', () => {
       localStorage.setItem('councilPttHardwareEnabled', 'true');
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
       bridgeHealthState.print = readyPrint;
 
       render(<Staff />);
 
-      expect(screen.getAllByTestId('staff-bridge-panel')).toHaveLength(1);
       expect(screen.getAllByTestId('staff-bridge-daemon-status')).toHaveLength(1);
       expect(screen.getByTestId('staff-button-usb-status')).toBeInTheDocument();
       expect(screen.getByTestId('staff-print-printer-status')).toBeInTheDocument();
@@ -583,6 +583,8 @@ describe('Staff overlay', () => {
         status: 'staff.installationKey.notSaved: the server did not accept this installation key',
       },
     ])('hands the key to the bridge and reports it $name', async ({ outcome, fieldAfter, status }) => {
+      const reported = () =>
+        screen.queryByTestId('staff-installation-key-error') ?? screen.getByTestId('staff-installation-key-status');
       outcome();
       bridgeHealthState.alerts = alerts({ server: null });
 
@@ -591,9 +593,25 @@ describe('Staff overlay', () => {
       fireEvent.change(input, { target: { value: ' the-key ' } });
       fireEvent.click(screen.getByTestId('staff-installation-key-save'));
 
-      await waitFor(() => expect(screen.getByTestId('staff-installation-key-status')).toHaveTextContent(status));
+      await waitFor(() => expect(reported()).toHaveTextContent(status));
       expect(mockSaveInstallationKey).toHaveBeenCalledWith('the-key');
-      expect(input).toHaveValue(fieldAfter);
+      if (fieldAfter) expect(input).toHaveValue(fieldAfter);
+      else expect(screen.queryByTestId('staff-installation-key')).not.toBeInTheDocument();
+    });
+
+    it('hides a saved key behind Change, and Cancel puts it back', () => {
+      bridgeHealthState.alerts = alerts();
+
+      render(<Staff />);
+      expect(screen.getByTestId('staff-installation-key-status')).toHaveTextContent('staff.installationKey.status.saved');
+      expect(screen.queryByTestId('staff-installation-key')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('staff-installation-key-change'));
+      expect(screen.getByTestId('staff-installation-key')).toBeInTheDocument();
+      expect(screen.queryByTestId('staff-installation-key-change')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('staff-installation-key-cancel'));
+      expect(screen.queryByTestId('staff-installation-key')).not.toBeInTheDocument();
     });
 
     it('sends printer alerts for the venue chosen for the installation, and only then offers a test', async () => {

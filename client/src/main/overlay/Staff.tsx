@@ -268,6 +268,46 @@ const staffCompactButton: CSSProperties = {
   padding: "2px 12px",
 };
 
+/** Text fields and pickers, drawn like the outlined buttons beside them. */
+const staffFieldStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  fontFamily: "inherit",
+  fontSize: "17px",
+  lineHeight: 1.4,
+  color: "white",
+  background: "rgba(255, 255, 255, 0.06)",
+  border: "1.5px solid rgba(255, 255, 255, 0.55)",
+  borderRadius: 19,
+  padding: "2px 14px",
+  outline: "none",
+};
+
+const staffSelectStyle: CSSProperties = {
+  ...staffFieldStyle,
+  appearance: "none",
+  cursor: "pointer",
+  paddingRight: 36,
+  backgroundImage:
+    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='white' stroke-width='1.6'/%3E%3C/svg%3E\")",
+  backgroundRepeat: "no-repeat",
+  backgroundPosition: "right 14px center",
+};
+
+/** The open list is drawn by the system, often on white. */
+const staffOptionStyle: CSSProperties = { color: "black" };
+
+const STAFF_ROW_LABEL_WIDTH = 130;
+const STAFF_ROW_GAP = 12;
+
+const staffLabelStyle: CSSProperties = { opacity: 0.75, whiteSpace: "nowrap" };
+
+/** A label with its control, kept together when a line wraps. */
+const staffFieldGroupStyle: CSSProperties = { display: "flex", alignItems: "center", gap: 10, minWidth: 0 };
+
+/** The outcome of a test, beside its button. */
+const staffResultStyle: CSSProperties = { fontSize: "0.92rem", fontStyle: "italic", opacity: 0.85 };
+
 function ledPreviewToggleStyle(active: boolean): CSSProperties {
   if (!active) {
     return staffCompactButton;
@@ -302,19 +342,40 @@ function logCategoryPillStyle(
 function StaffPanel(props: {
   title: string;
   fullWidth?: boolean;
+  /** Rows closer together, for panels that are lists of statuses. */
+  compact?: boolean;
+  /** Shown on the right of the title, e.g. a status that belongs to the whole panel. */
+  titleAside?: ReactNode;
   children: ReactNode;
   testId?: string;
 }): ReactElement {
-  const { title, fullWidth = false, children, testId } = props;
+  const { title, fullWidth = false, compact = false, titleAside, children, testId } = props;
   return (
     <section
       style={{
         ...panelStyle,
         ...(fullWidth ? { gridColumn: "1 / -1" } : {}),
+        ...(compact ? { gap: 6 } : {}),
       }}
       data-testid={testId}
     >
-      <h3 style={panelTitleStyle}>{title}</h3>
+      {titleAside ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            gap: "4px 12px",
+            marginBottom: compact ? 2 : 0,
+          }}
+        >
+          <h3 style={panelTitleStyle}>{title}</h3>
+          {titleAside}
+        </div>
+      ) : (
+        <h3 style={panelTitleStyle}>{title}</h3>
+      )}
       {children}
     </section>
   );
@@ -342,7 +403,8 @@ function StaffSegmented(props: {
 }
 
 function StaffStatusChip(props: {
-  label: string;
+  /** Left out when the row's own label says what this is. */
+  label?: string;
   value: string;
   tone?: StatusTone;
   testId?: string;
@@ -368,10 +430,80 @@ function StaffStatusChip(props: {
           flexShrink: 0,
         }}
       />
-      <span>
-        {props.label}: {props.value}
-      </span>
+      <span>{props.label ? `${props.label}: ${props.value}` : props.value}</span>
     </span>
+  );
+}
+
+/** One line of the Installation panel: what it is, its status, and an action on the right. */
+function StaffRow(props: {
+  label: string;
+  title?: string;
+  children: ReactNode;
+  action?: ReactNode;
+}): ReactElement {
+  return (
+    <div
+      style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: `4px ${STAFF_ROW_GAP}px` }}
+      title={props.title}
+    >
+      <span style={{ ...staffLabelStyle, flex: "0 0 auto", minWidth: STAFF_ROW_LABEL_WIDTH }}>{props.label}</span>
+      <div
+        style={{
+          flex: "1 1 240px",
+          display: "flex",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "6px 14px",
+          minWidth: 0,
+        }}
+      >
+        {props.children}
+      </div>
+      {props.action ? (
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>{props.action}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A result or explanation under a row, lined up with its status unless `indent` is false. */
+function StaffRowNote(props: { children: ReactNode; tone?: "error"; indent?: boolean; testId?: string }): ReactElement {
+  return (
+    <p
+      data-testid={props.testId}
+      style={{
+        margin: "-2px 0 0",
+        paddingLeft: props.indent === false ? 0 : STAFF_ROW_LABEL_WIDTH + STAFF_ROW_GAP,
+        fontSize: "0.92rem",
+        fontStyle: "italic",
+        color: props.tone === "error" ? CHIP_DOT_COLOR.error : undefined,
+        opacity: props.tone === "error" ? 1 : 0.8,
+      }}
+    >
+      {props.children}
+    </p>
+  );
+}
+
+function StaffDivider(): ReactElement {
+  return <hr style={{ width: "100%", margin: "2px 0", border: 0, borderTop: "1px solid rgba(255, 255, 255, 0.14)" }} />;
+}
+
+/** On/off for a feature, lit like the other staff toggles while on. */
+function StaffToggle(props: { on: boolean; onChange: (on: boolean) => void; testId: string }): ReactElement {
+  const { t } = useTranslation();
+  return (
+    <button
+      type="button"
+      data-testid={props.testId}
+      className={props.on ? "control" : ""}
+      aria-pressed={props.on}
+      onClick={() => props.onChange(!props.on)}
+      style={{ ...ledPreviewToggleStyle(props.on), minWidth: 64 }}
+    >
+      {props.on ? t("staff.toggle.on") : t("staff.toggle.off")}
+    </button>
   );
 }
 
@@ -469,6 +601,8 @@ function Staff(): ReactElement {
     state: "idle",
   });
   const [keyDraft, setKeyDraft] = useState("");
+  /** Staff pressed Change on a saved key. */
+  const [keyEditing, setKeyEditing] = useState(false);
   const [keySave, setKeySave] = useState<{ state: "idle" | "saving" | "saved" } | { state: "failed"; error: string }>({
     state: "idle",
   });
@@ -478,11 +612,16 @@ function Staff(): ReactElement {
     try {
       await saveInstallationKey(keyDraft.trim());
       setKeyDraft("");
+      setKeyEditing(false);
       setKeySave({ state: "saved" });
     } catch (error) {
       setKeySave({ state: "failed", error: error instanceof Error ? error.message : String(error) });
     }
   };
+  // The field shows while there is no usable key, after a refusal, or once staff press Change.
+  const editingKey =
+    keySave.state !== "saved" &&
+    (keyStatus === "missing" || keyStatus === "otherServer" || keySave.state === "failed" || keyEditing);
 
   const button = useButton("staff");
 
@@ -568,9 +707,8 @@ function Staff(): ReactElement {
   // Protocols not yet on paper: still in the bridge's folder, or accepted by the printer.
   const printWaiting = printHealth ? printHealth.pending + (printHealth.printer?.queuedJobs ?? 0) : 0;
 
-  // One panel for everything that goes through the bridge: the hardware button
-  // and the printer each add their chips and hints when staff switch them on.
-  const showBridgePanel = pttHardwareEnabled || printSummariesEnabled;
+  // The bridge only matters once the hardware button or printing is on.
+  const showBridge = pttHardwareEnabled || printSummariesEnabled;
   const showUsbHint =
     pttHardwareEnabled && daemonStatus === "running" && usbStatus === "notDetected";
   const showWrongDeviceHint =
@@ -591,6 +729,11 @@ function Staff(): ReactElement {
         display: "flex",
         flexDirection: "column",
         gap: 12,
+        // Taller than the window: the staff page scrolls on its own, inside the overlay.
+        minHeight: 0,
+        maxHeight: "100%",
+        overflowY: "auto",
+        overscrollBehavior: "contain",
       }}
     >
       <h1 style={{ margin: "0 0 4px", textAlign: "center" }}>{t("staff.title")}</h1>
@@ -603,7 +746,7 @@ function Staff(): ReactElement {
           width: "100%",
         }}
       >
-        <StaffPanel title={t("staff.panels.installation")} fullWidth>
+        <StaffPanel title={t("staff.panels.mode")} fullWidth>
           <StaffSegmented columns={APP_MODES.length}>
             {APP_MODES.map((mode) => (
               <button
@@ -618,16 +761,8 @@ function Staff(): ReactElement {
               </button>
             ))}
           </StaffSegmented>
-          {/* Second row: independent of the mode — each is a staff aid that can
-              be wanted in either install (a laptop can drive a real button). */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",
-              gap: 8,
-            }}
-          >
+          {/* Screen aids, independent of the mode. */}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <button
               type="button"
               data-testid="staff-mode-switch-button-toggle"
@@ -643,26 +778,6 @@ function Staff(): ReactElement {
             </button>
             <button
               type="button"
-              data-testid="staff-ptt-hardware-toggle"
-              className={pttHardwareEnabled ? "control" : ""}
-              aria-pressed={pttHardwareEnabled}
-              onClick={() => setPttHardwareEnabled(!pttHardwareEnabled)}
-              style={{ ...ledPreviewToggleStyle(pttHardwareEnabled), flex: 1 }}
-            >
-              {t("staff.button.hardwareButton")}
-            </button>
-            <button
-              type="button"
-              data-testid="staff-print-summaries-toggle"
-              className={printSummariesEnabled ? "control" : ""}
-              aria-pressed={printSummariesEnabled}
-              onClick={() => setPrintSummariesEnabled(!printSummariesEnabled)}
-              style={{ ...ledPreviewToggleStyle(printSummariesEnabled), flex: 1 }}
-            >
-              {t("staff.print.toggle")}
-            </button>
-            <button
-              type="button"
               data-testid="staff-led-debug-toggle"
               className={ledDebugOverlay ? "control" : ""}
               aria-pressed={ledDebugOverlay}
@@ -672,230 +787,281 @@ function Staff(): ReactElement {
               {t("staff.button.ledDebugOverlay")}
             </button>
           </div>
-          <label
-            style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
-            title={t("staff.venue.hint")}
-          >
-            <span>{t("staff.venue.label")}</span>
-            <select
-              data-testid="staff-venue"
-              value={venueId}
-              disabled={venues === null && venueError === null}
-              onChange={(event) => chooseVenue(event.target.value)}
-              style={{ flex: 1, minWidth: 160, fontSize: 16 }}
-            >
-              <option value="">{t("staff.venue.none")}</option>
-              {(venues ?? []).map((venue) => (
-                <option key={venue.id} value={venue.id}>
-                  {venue.name}
-                </option>
-              ))}
-              {venueId && venues && !venues.some((venue) => venue.id === venueId) ? (
-                <option value={venueId}>{t("staff.venue.unknown", { id: venueId })}</option>
-              ) : null}
-            </select>
-          </label>
-          {venueError ? (
-            <p data-testid="staff-venue-error" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
-              {venueError}
-            </p>
-          ) : null}
-          {alertsHealth && keyStatus ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void saveKey();
-              }}
-              style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
-              title={t("staff.installationKey.hint")}
-            >
-              <StaffStatusChip
-                label={t("staff.installationKey.label")}
-                value={
-                  keySave.state === "failed"
-                    ? `${t("staff.installationKey.notSaved")}: ${keySave.error}`
-                    : keySave.state === "saved"
-                      ? t("staff.installationKey.status.saved")
-                      : t(`staff.installationKey.status.${keyStatus}`, { server: alertsHealth.server ?? "" })
-                }
-                tone={
-                  keySave.state === "failed"
-                    ? "error"
-                    : keySave.state === "saved"
-                      ? "ok"
-                      : INSTALLATION_KEY_STATUS_TONE[keyStatus]
-                }
-                testId="staff-installation-key-status"
-              />
-              {keyStatus !== "outdated" ? (
-                <>
-                  <input
-                    type="password"
-                    data-testid="staff-installation-key"
-                    value={keyDraft}
-                    autoComplete="off"
-                    placeholder={t("staff.installationKey.placeholder")}
-                    onChange={(event) => {
-                      setKeyDraft(event.target.value);
-                      if (keySave.state !== "saving") setKeySave({ state: "idle" });
-                    }}
-                    style={{ flex: 1, minWidth: 160, fontSize: 16 }}
-                  />
-                  <button
-                    type="submit"
-                    data-testid="staff-installation-key-save"
-                    disabled={keyDraft.trim() === "" || keySave.state === "saving"}
-                    style={staffCompactButton}
-                  >
-                    {t("staff.installationKey.save")}
-                  </button>
-                </>
-              ) : null}
-            </form>
-          ) : null}
         </StaffPanel>
 
-        {showBridgePanel ? (
-          <StaffPanel title={t("staff.bridge.title")} fullWidth testId="staff-bridge-panel">
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px 14px",
-                justifyContent: "center",
-              }}
-            >
+        {/* Where the installation runs, and everything that goes through the bridge: the
+            hardware button and the printer each add their status when staff switch them on. */}
+        <StaffPanel
+          title={t("staff.panels.installation")}
+          fullWidth
+          compact
+          testId="staff-installation-panel"
+          titleAside={
+            showBridge ? (
               <StaffStatusChip
                 label={t("staff.button.bridgeLabel")}
-                value={t(`staff.button.bridge.${daemonStatus}`)}
+                value={
+                  bridgeHealth.status === "running"
+                    ? `${t(`staff.button.bridge.${daemonStatus}`)} · v${bridgeHealth.version}`
+                    : t(`staff.button.bridge.${daemonStatus}`)
+                }
                 tone={statusTone(daemonStatus)}
                 testId="staff-bridge-daemon-status"
               />
-              {pttHardwareEnabled ? (
-                <>
-                  <StaffStatusChip
-                    label={t("staff.button.appLabel")}
-                    value={
-                      appStatus === "error" && bridgeError
-                        ? `${t(`staff.button.app.${appStatus}`)} — ${bridgeError}`
-                        : t(`staff.button.app.${appStatus}`)
-                    }
-                    tone={statusTone(appStatus)}
-                    testId="staff-bridge-app-status"
-                  />
-                  <StaffStatusChip
-                    label={t("staff.button.usbLabel")}
-                    value={t(`staff.button.usb.${usbStatus}`)}
-                    tone={statusTone(usbStatus)}
-                    testId="staff-button-usb-status"
-                  />
-                </>
-              ) : null}
-              {printSummariesEnabled ? (
-                <>
-                  <StaffStatusChip
-                    label={t("staff.print.printerLabel")}
-                    value={
-                      printHealth?.printer?.name
-                        ? `${printHealth.printer.name} — ${t(`staff.print.printer.${printerStatus}`)}`
-                        : t(`staff.print.printer.${printerStatus}`)
-                    }
-                    tone={printerStatusTone(printerStatus)}
-                    testId="staff-print-printer-status"
-                  />
-                  {printHealth ? (
-                    <StaffStatusChip
-                      label={t("staff.print.pendingLabel")}
-                      value={String(printWaiting)}
-                      tone={printWaiting > 0 ? "warn" : "ok"}
-                      testId="staff-print-pending"
-                    />
-                  ) : null}
-                  {printHealth?.attention ? (
-                    <StaffStatusChip
-                      label={t("staff.print.attentionLabel")}
-                      value={`${describePrinterReason(printHealth.attention.reason)} (${t("staff.print.since", {
-                        time: new Date(printHealth.attention.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                      })})`}
-                      tone="error"
-                      testId="staff-print-attention"
-                    />
-                  ) : null}
-                  {alertsHealth && alertsStatus ? (
-                    <StaffStatusChip
-                      label={t("staff.alerts.label")}
-                      value={
-                        alertsStatus === "on" && alertsHealth.venue
-                          ? `${t("staff.alerts.status.on")} — ${alertsHealth.venue.name}`
-                          : t(`staff.alerts.status.${alertsStatus}`)
-                      }
-                      tone={ALERTS_STATUS_TONE[alertsStatus]}
-                      testId="staff-alerts-status"
-                    />
-                  ) : null}
-                </>
-              ) : null}
-            </div>
-
-            {printSummariesEnabled ? (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12 }}>
-                <button
-                  type="button"
-                  data-testid="staff-print-test-page"
-                  disabled={testPage === "sending"}
-                  onClick={() => void printTestPage()}
-                  style={staffCompactButton}
-                >
-                  {t("staff.print.testPage")}
-                </button>
-                {testPage !== "idle" ? (
-                  <span data-testid="staff-print-test-page-result">
-                    {t(`staff.print.testPageResult.${testPage}`)}
-                  </span>
-                ) : null}
-                {/* The test page is a real protocol, so it exercises the same PDF path. */}
-                <div style={{ position: "absolute", top: 0, display: "none" }}>
-                  <ProtocolDocument
-                    ref={testPageRef}
-                    summaryText={t("staff.print.testPageText")}
-                    meetingId="TEST"
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {printSummariesEnabled && keySaved ? (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
-                <button
-                  type="button"
-                  data-testid="staff-alerts-test"
-                  disabled={!alertsHealth?.venue || testAlert.state === "sending"}
-                  onClick={() => void sendAlertTest()}
-                  style={staffCompactButton}
-                >
-                  {t("staff.alerts.test")}
-                </button>
-                {testAlert.state !== "idle" ? (
-                  <span data-testid="staff-alerts-test-result">
-                    {testAlert.state === "failed"
-                      ? `${t("staff.alerts.testResult.failed")}: ${testAlert.error}`
-                      : t(`staff.alerts.testResult.${testAlert.state}`)}
-                  </span>
-                ) : null}
-              </div>
-            ) : null}
-
-            {printSummariesEnabled && !capabilities.printSummary ? (
-              <p data-testid="staff-print-mode-hint" style={{ margin: 0, textAlign: "center", fontStyle: "italic" }}>
-                {t("staff.print.modeHint")}
-              </p>
-            ) : null}
-
-            {showBridgeDetails ? (
-              <StaffCollapsible
-                label={t("staff.panels.details")}
-                testId="staff-bridge-details"
+            ) : null
+          }
+        >
+          {/* Where it runs, and the key the bridge needs there: one line, wrapping on narrow screens. */}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "6px 28px" }}>
+            <label style={staffFieldGroupStyle} title={t("staff.venue.hint")}>
+              <span style={staffLabelStyle}>{t("staff.venue.label")}</span>
+              <select
+                data-testid="staff-venue"
+                value={venueId}
+                disabled={venues === null && venueError === null}
+                onChange={(event) => chooseVenue(event.target.value)}
+                style={{ ...staffSelectStyle, flex: "0 1 auto", maxWidth: 260 }}
               >
+                <option value="" style={staffOptionStyle}>{t("staff.venue.none")}</option>
+                {(venues ?? []).map((venue) => (
+                  <option key={venue.id} value={venue.id} style={staffOptionStyle}>
+                    {venue.name}
+                  </option>
+                ))}
+                {venueId && venues && !venues.some((venue) => venue.id === venueId) ? (
+                  <option value={venueId} style={staffOptionStyle}>
+                    {t("staff.venue.unknown", { id: venueId })}
+                  </option>
+                ) : null}
+              </select>
+            </label>
+
+            {printSummariesEnabled && alertsHealth && keyStatus ? (
+              <div style={{ ...staffFieldGroupStyle, flex: "1 1 340px" }} title={t("staff.installationKey.hint")}>
+                <span style={staffLabelStyle}>{t("staff.installationKey.label")}</span>
+                <StaffStatusChip
+                  value={
+                    keySave.state === "saved"
+                      ? t("staff.installationKey.status.saved")
+                      : t(`staff.installationKey.status.${keyStatus}`, { server: alertsHealth.server ?? "" })
+                  }
+                  tone={keySave.state === "saved" ? "ok" : INSTALLATION_KEY_STATUS_TONE[keyStatus]}
+                  testId="staff-installation-key-status"
+                />
+                {editingKey ? (
+                  <form
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      void saveKey();
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, flex: "1 1 220px", minWidth: 0 }}
+                  >
+                    <input
+                      type="password"
+                      data-testid="staff-installation-key"
+                      value={keyDraft}
+                      autoComplete="off"
+                      autoFocus={keyEditing}
+                      placeholder={t("staff.installationKey.placeholder")}
+                      onChange={(event) => {
+                        setKeyDraft(event.target.value);
+                        if (keySave.state !== "saving") setKeySave({ state: "idle" });
+                      }}
+                      style={staffFieldStyle}
+                    />
+                    <button
+                      type="submit"
+                      data-testid="staff-installation-key-save"
+                      disabled={keyDraft.trim() === "" || keySave.state === "saving"}
+                      style={staffCompactButton}
+                    >
+                      {t("staff.installationKey.save")}
+                    </button>
+                    {keyEditing ? (
+                      <button
+                        type="button"
+                        data-testid="staff-installation-key-cancel"
+                        onClick={() => {
+                          setKeyEditing(false);
+                          setKeyDraft("");
+                          setKeySave({ state: "idle" });
+                        }}
+                        style={staffCompactButton}
+                      >
+                        {t("staff.installationKey.cancel")}
+                      </button>
+                    ) : null}
+                  </form>
+                ) : keyStatus === "saved" ? (
+                  <button
+                    type="button"
+                    data-testid="staff-installation-key-change"
+                    onClick={() => setKeyEditing(true)}
+                    style={staffCompactButton}
+                  >
+                    {t("staff.installationKey.change")}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          {venueError ? (
+            <StaffRowNote testId="staff-venue-error" tone="error" indent={false}>
+              {venueError}
+            </StaffRowNote>
+          ) : null}
+          {keySave.state === "failed" ? (
+            <StaffRowNote testId="staff-installation-key-error" tone="error" indent={false}>
+              {`${t("staff.installationKey.notSaved")}: ${keySave.error}`}
+            </StaffRowNote>
+          ) : null}
+
+          <StaffDivider />
+
+          <StaffRow label={t("staff.button.hardwareButton")}>
+            <StaffToggle
+              on={pttHardwareEnabled}
+              onChange={setPttHardwareEnabled}
+              testId="staff-ptt-hardware-toggle"
+            />
+            {pttHardwareEnabled ? (
+              <>
+                <StaffStatusChip
+                  label={t("staff.button.appLabel")}
+                  value={
+                    appStatus === "error" && bridgeError
+                      ? `${t(`staff.button.app.${appStatus}`)} — ${bridgeError}`
+                      : t(`staff.button.app.${appStatus}`)
+                  }
+                  tone={statusTone(appStatus)}
+                  testId="staff-bridge-app-status"
+                />
+                <StaffStatusChip
+                  label={t("staff.button.usbLabel")}
+                  value={t(`staff.button.usb.${usbStatus}`)}
+                  tone={statusTone(usbStatus)}
+                  testId="staff-button-usb-status"
+                />
+              </>
+            ) : null}
+          </StaffRow>
+
+          <StaffRow
+            label={t("staff.print.toggle")}
+            action={
+              printSummariesEnabled ? (
+                <>
+                  {testPage !== "idle" ? (
+                    <span data-testid="staff-print-test-page-result" style={staffResultStyle}>
+                      {t(`staff.print.testPageResult.${testPage}`)}
+                    </span>
+                  ) : null}
+                  <button
+                    type="button"
+                    data-testid="staff-print-test-page"
+                    disabled={testPage === "sending"}
+                    onClick={() => void printTestPage()}
+                    style={staffCompactButton}
+                  >
+                    {t("staff.print.testPage")}
+                  </button>
+                </>
+              ) : null
+            }
+          >
+            <StaffToggle
+              on={printSummariesEnabled}
+              onChange={setPrintSummariesEnabled}
+              testId="staff-print-summaries-toggle"
+            />
+            {printSummariesEnabled ? (
+              <>
+                <StaffStatusChip
+                  value={
+                    printHealth?.printer?.name
+                      ? `${printHealth.printer.name} — ${t(`staff.print.printer.${printerStatus}`)}`
+                      : t(`staff.print.printer.${printerStatus}`)
+                  }
+                  tone={printerStatusTone(printerStatus)}
+                  testId="staff-print-printer-status"
+                />
+                {printHealth ? (
+                  <StaffStatusChip
+                    label={t("staff.print.pendingLabel")}
+                    value={String(printWaiting)}
+                    tone={printWaiting > 0 ? "warn" : "ok"}
+                    testId="staff-print-pending"
+                  />
+                ) : null}
+                {printHealth?.attention ? (
+                  <StaffStatusChip
+                    label={t("staff.print.attentionLabel")}
+                    value={`${describePrinterReason(printHealth.attention.reason)} (${t("staff.print.since", {
+                      time: new Date(printHealth.attention.since).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                    })})`}
+                    tone="error"
+                    testId="staff-print-attention"
+                  />
+                ) : null}
+              </>
+            ) : null}
+          </StaffRow>
+          {printSummariesEnabled && !capabilities.printSummary ? (
+            <StaffRowNote testId="staff-print-mode-hint">{t("staff.print.modeHint")}</StaffRowNote>
+          ) : null}
+          {printSummariesEnabled ? (
+            /* The test page is a real protocol, so it exercises the same PDF path. */
+            <div style={{ position: "absolute", top: 0, display: "none" }}>
+              <ProtocolDocument ref={testPageRef} summaryText={t("staff.print.testPageText")} meetingId="TEST" />
+            </div>
+          ) : null}
+
+          {printSummariesEnabled && alertsHealth && alertsStatus ? (
+            <>
+              <StaffRow
+                label={t("staff.alerts.label")}
+                action={
+                  keySaved ? (
+                    <>
+                      {testAlert.state === "sending" || testAlert.state === "sent" ? (
+                        <span data-testid="staff-alerts-test-result" style={staffResultStyle}>
+                          {t(`staff.alerts.testResult.${testAlert.state}`)}
+                        </span>
+                      ) : null}
+                      <button
+                        type="button"
+                        data-testid="staff-alerts-test"
+                        disabled={!alertsHealth.venue || testAlert.state === "sending"}
+                        onClick={() => void sendAlertTest()}
+                        style={staffCompactButton}
+                      >
+                        {t("staff.alerts.test")}
+                      </button>
+                    </>
+                  ) : null
+                }
+              >
+                <StaffStatusChip
+                  value={
+                    alertsStatus === "on" && alertsHealth.venue
+                      ? `${t("staff.alerts.status.on")} — ${alertsHealth.venue.name}`
+                      : t(`staff.alerts.status.${alertsStatus}`)
+                  }
+                  tone={ALERTS_STATUS_TONE[alertsStatus]}
+                  testId="staff-alerts-status"
+                />
+              </StaffRow>
+              {testAlert.state === "failed" ? (
+                <StaffRowNote testId="staff-alerts-test-result" tone="error">
+                  {`${t("staff.alerts.testResult.failed")}: ${testAlert.error}`}
+                </StaffRowNote>
+              ) : null}
+            </>
+          ) : null}
+
+          {showBridgeDetails ? (
+            <>
+              <StaffCollapsible label={t("staff.panels.details")} testId="staff-bridge-details">
                 {buttonDetailLines.map((line) => (
                   <p key={line} data-testid="staff-bridge-detail-line" style={{ margin: 0, textAlign: "center" }}>
                     {line}
@@ -927,9 +1093,9 @@ function Staff(): ReactElement {
                   </p>
                 ) : null}
               </StaffCollapsible>
-            ) : null}
-          </StaffPanel>
-        ) : null}
+            </>
+          ) : null}
+        </StaffPanel>
 
         <StaffPanel title={t("staff.panels.logging")} testId="staff-logging-panel">
             <StaffSegmented testId="staff-logging-master">
