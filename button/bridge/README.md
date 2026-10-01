@@ -239,7 +239,7 @@ Jobs go through a folder spool, so printing survives crashes, reboots and a prin
 - The PDF is written to `pending/<host>_<meetingId>.pdf`, where `<host>` is the page's host.
 - A worker prints one job at a time with `lp -o media=A4` and moves it to `done/` (kept forever).
 - A job `lp` refuses stays in `pending/` and is retried with backoff (5 s up to 5 min) until it prints.
-- Anything in `pending/` is printed when the bridge starts, or within 30 s of being copied
+- Anything in `pending/` is printed when the bridge starts, or within 5 s of being copied
   there. To reprint a protocol, copy it from `done/` back into `pending/`.
 - A key already in `pending/` or `done/` is never printed again, so client retries are safe.
 
@@ -248,7 +248,7 @@ still in its queue, `queuedJobs`/`oldestJobAt`), the `pending` count, `lastError
 `lastPrintedAt`, and `attention`.
 
 `attention` (`{ reason, since }` or `null`) says the printer needs someone to look at it. It
-comes from `src/printAttention.ts` and is re-checked every 30 s:
+comes from `src/printAttention.ts` and is re-checked every 5 s:
 
 - A CUPS error the printer reports (`media-empty`, `media-jam`, `door-open`…), with the
   `-error`/`-report` suffix removed. Warnings such as low toner don't count. `offline`

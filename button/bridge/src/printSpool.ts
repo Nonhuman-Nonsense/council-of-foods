@@ -59,6 +59,9 @@ export class PrintSpool {
   private retryTimer: NodeJS.Timeout | null = null;
   private statusTimer: NodeJS.Timeout | null = null;
   private printerStatus: PrinterStatus | null = null;
+  private statusInFlight = false;
+  /** A status check was asked for while one was running; run another once it is done. */
+  private statusAgain = false;
   private lastError: string | null = null;
   private lastPrintedAt: string | null = null;
   private oldestPendingAt: number | null = null;
@@ -260,10 +263,26 @@ export class PrintSpool {
   }
 
   private refreshStatus(): void {
-    void this.options.printer.status().then((status) => {
-      this.printerStatus = status;
-      this.updateAttention(Date.now());
-    });
+    // `lpstat` can take longer than the status interval when CUPS is slow: one check
+    // at a time, and a request arriving meanwhile gets a fresh check right after.
+    if (this.statusInFlight) {
+      this.statusAgain = true;
+      return;
+    }
+    this.statusInFlight = true;
+    void this.options.printer
+      .status()
+      .then((status) => {
+        this.printerStatus = status;
+        this.updateAttention(Date.now());
+      })
+      .finally(() => {
+        this.statusInFlight = false;
+        if (this.statusAgain && !this.stopped) {
+          this.statusAgain = false;
+          this.refreshStatus();
+        }
+      });
   }
 
   private updateAttention(now: number): void {

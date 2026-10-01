@@ -88,7 +88,7 @@ export function loadConfig(): BridgeConfig {
     printMaxBytes: 20 * 1024 * 1024,
     printRetryBaseMs: 5_000,
     printRetryMaxMs: 5 * 60_000,
-    printStatusIntervalMs: 30_000,
+    printStatusIntervalMs: 5_000,
     printNotPrintingAfterMs: 10 * 60_000,
     serverUrl: readOptionalString(process.env.BRIDGE_SERVER_URL),
     serverKey: readOptionalString(process.env.BRIDGE_SERVER_KEY),
