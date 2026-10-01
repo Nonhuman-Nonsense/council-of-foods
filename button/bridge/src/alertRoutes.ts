@@ -4,10 +4,11 @@ import { isAllowedOrigin } from "./cors.js";
 import { ServerError } from "./serverClient.js";
 import { readJsonBody } from "./testApi.js";
 
-export const ALERT_VENUES_PATH = "/v1/alerts/venues";
-export const ALERT_VENUE_PATH = "/v1/alerts/venue";
+export const INSTALLATION_KEY_PATH = "/v1/installation/key";
+export const INSTALLATION_VENUES_PATH = "/v1/installation/venues";
+export const INSTALLATION_VENUE_PATH = "/v1/installation/venue";
 export const ALERT_TEST_PATH = "/v1/alerts/test";
-export const ALERT_PATHS = [ALERT_VENUES_PATH, ALERT_VENUE_PATH, ALERT_TEST_PATH];
+export const ALERT_PATHS = [INSTALLATION_KEY_PATH, INSTALLATION_VENUES_PATH, INSTALLATION_VENUE_PATH, ALERT_TEST_PATH];
 
 function sendJson(res: http.ServerResponse, status: number, body: unknown, cors: Record<string, string>): void {
   res.writeHead(status, { "Content-Type": "application/json", ...cors });
@@ -15,12 +16,14 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown, cors:
 }
 
 /**
- * Staff page ↔ bridge, for printer alerts:
- * - `GET  /v1/alerts/venues` → `{ venues, current }` (from the council server; addresses masked)
- * - `PUT  /v1/alerts/venue {venueId|null}` → choose where alerts go; only listed venues
+ * Staff page ↔ bridge, setting up the installation:
+ * - `PUT  /v1/installation/key {key|null}` → the installation key for the page's own server
+ *   (its origin), saved once that server accepts it; null forgets it. Never read back.
+ * - `GET  /v1/installation/venues` → `{ venues, current }` (from the council server; addresses masked)
+ * - `PUT  /v1/installation/venue {venueId|null}` → choose where alerts go; only listed venues
  * - `POST /v1/alerts/test` → send a test alert to the chosen venue
  *
- * None of these can set an address or a key: recipients only come from the server.
+ * None of these can set an address: recipients only come from the server.
  */
 export async function handleAlerts(
   req: http.IncomingMessage,
@@ -46,18 +49,32 @@ export async function handleAlerts(
   }
 
   try {
-    if (pathname === ALERT_VENUES_PATH && req.method === "GET") {
-      sendJson(res, 200, { ok: true, ...(await alerts.listVenues()) }, cors);
-    } else if (pathname === ALERT_VENUE_PATH && req.method === "PUT") {
+    if (pathname === INSTALLATION_KEY_PATH && req.method === "PUT") {
+      // The key belongs to the server that served the page, so only a page can set it.
+      if (origin === undefined) {
+        sendJson(res, 400, { ok: false, error: "set the installation key from #staff" }, cors);
+        return;
+      }
+      const body = (await readJsonBody(req).catch(() => ({}))) as { key?: unknown };
+      const key = typeof body.key === "string" ? body.key.trim() : body.key;
+      if (key !== null && (typeof key !== "string" || key === "")) {
+        sendJson(res, 400, { ok: false, error: "expected { key: string | null }" }, cors);
+        return;
+      }
+      await alerts.setInstallationKey(origin, key);
+      sendJson(res, 200, { ok: true }, cors);
+    } else if (pathname === INSTALLATION_VENUES_PATH && req.method === "GET") {
+      sendJson(res, 200, { ok: true, ...(await alerts.listVenues(origin)) }, cors);
+    } else if (pathname === INSTALLATION_VENUE_PATH && req.method === "PUT") {
       const body = (await readJsonBody(req).catch(() => ({}))) as { venueId?: unknown };
       if (body.venueId !== null && typeof body.venueId !== "string") {
         sendJson(res, 400, { ok: false, error: "expected { venueId: string | null }" }, cors);
         return;
       }
-      const venue = await alerts.setVenue(body.venueId);
+      const venue = await alerts.setVenue(body.venueId, origin);
       sendJson(res, 200, { ok: true, venue }, cors);
     } else if (pathname === ALERT_TEST_PATH && req.method === "POST") {
-      await alerts.sendTest();
+      await alerts.sendTest(origin);
       sendJson(res, 200, { ok: true }, cors);
     } else {
       sendJson(res, 405, { ok: false, error: "method not allowed" }, cors);

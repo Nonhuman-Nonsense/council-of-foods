@@ -34,29 +34,29 @@ npm run test:full
 End-to-End tests are located in the client directory but rely on the server running in test mode.
 The `npm run e2e-server` script launches the server using `test-options.json`.
 
-## Email and installation bridges
+## Email and installations
 Email goes through Brevo's transactional API (`MailService`), from `COUNCIL_MAIL_FROM`. The sender name ("Council of Foods") also titles the emails. Without `COUNCIL_BREVO_API_KEY` and `COUNCIL_MAIL_FROM`, nothing is emailed.
 
-Museum installation bridges call `/api/bridge/*` with the shared `X-Bridge-Key` (`COUNCIL_BRIDGE_KEY`):
-- `GET /api/bridge/venues` lists `COUNCIL_VENUES`, with addresses masked, so the bridge can check a venue the staff page hands it.
+An installation's devices — the bridge on the museum Mac and the room power plugs — call `/api/installation/*` with one shared key, `X-Installation-Key` (`COUNCIL_INSTALLATION_KEY`, 16+ characters; unset → 503). Staff paste it on `#staff`, which hands it to the bridge, and into each plug's script.
+- `GET /api/installation/venues` lists `COUNCIL_VENUES`, with addresses masked, so the bridge can check a venue the staff page hands it.
+- `POST /api/installation/printer-alerts` emails a printer problem, reminder, recovery or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. It's rate-limited to 12 per venue per hour.
+- `POST /api/installation/room-power`: see [Footprint meter](#footprint-meter).
+
+Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to email anyone else. Venues are a JSON array (see `example.env`) and are validated at startup.
 
 Venues are also what installations are tagged with: the staff page picks one from the public
 `GET /api/venues` (ids and names only), and meetings, realtime sessions, the footprint meter
 (`?venue=`) use its id. Unknown venue ids are dropped from meetings; without `COUNCIL_VENUES`
 (local development) any well-formed id is accepted. A venue's `plugs` list the room power plugs
 there now, by number; a plug at no venue is refused.
-- `POST /api/bridge/printer-alerts` emails a printer problem, reminder, recovery or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. It's rate-limited to 12 per venue per hour.
 
-Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to email anyone else. Venues are a JSON array (see `example.env`) and are validated at startup.
-
-To try it locally without Brevo, leave the key unset: the alert endpoint answers 503. To send a real email to yourself, set a Brevo key and add a venue with your own address.
+To try alerts locally without Brevo, leave the Brevo key unset: the alert endpoint answers 503. To send a real email to yourself, set a Brevo key and add a venue with your own address.
 
 ## Footprint meter
 
 AI usage is recorded for the footprint meter (`/meter`); see
 [docs/ai-footprint-meter.md](../docs/ai-footprint-meter.md). Room electricity comes from smart
-plugs posting `POST /api/room-power` with `X-Room-Power-Key` (`COUNCIL_ROOM_POWER_KEY`); without
-the key the endpoint answers 503. Plug setup: [MUSEUM.md](../MUSEUM.md#room-power-plugs).
+plugs posting `POST /api/installation/room-power` with the installation key. Plug setup: [MUSEUM.md](../MUSEUM.md#room-power-plugs).
 `npm run footprint:check` / `footprint:update` keep the EcoLogits table current (needs uv).
 
 ## Key Components

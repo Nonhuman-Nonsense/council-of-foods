@@ -37,7 +37,7 @@ import { registerVenueRoutes } from '@api/venueRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
-import { registerBridgeRoutes } from '@api/bridgeRoutes.js';
+import { registerInstallationRoutes } from '@api/installationRoutes.js';
 
 const environment: string = config.NODE_ENV;
 
@@ -76,7 +76,7 @@ registerVenueRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);
-registerBridgeRoutes(app);
+registerInstallationRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {

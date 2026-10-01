@@ -134,7 +134,6 @@ echo "Setting up printing..."
 setup_print_spool
 link_print_spool_on_desktop
 configure_default_printer
-configure_alerts
 
 write_launchd_plist "$PLIST_SRC" "$NODE_BIN" "$INSTALL_DIR"
 
@@ -147,6 +146,7 @@ fi
 echo "Waiting for bridge health check..."
 if wait_for_health; then
   echo "Bridge installed and running."
+  echo "Next, on the #staff page: choose the venue and enter the installation key."
 else
   print_launchd_failure
   exit 1

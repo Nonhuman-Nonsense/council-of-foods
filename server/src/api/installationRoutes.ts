@@ -1,20 +1,17 @@
-import type { Express, NextFunction, Request, Response } from "express";
+import type { Express, Request, Response } from "express";
 import { config } from "@root/src/config.js";
 import { maskEmail } from "@models/Venues.js";
 import { findVenue } from "@utils/venues.js";
-import { keyMatches } from "@utils/sharedKey.js";
 import { getSender, isMailConfigured, sendEmail } from "@services/MailService.js";
 import { sendReport } from "@utils/errorbot.js";
 import { describePrinterReason } from "@shared/printerReasons.js";
+import { requireInstallationKey } from "./installationKey.js";
 import { PrinterAlertBody, buildPrinterAlertEmail } from "./printerAlerts.js";
 
 /**
- * Endpoints for installation bridges (the local daemon on a museum Mac). Only
- * bridges holding COUNCIL_BRIDGE_KEY may call them, and alerts only ever go to
- * the addresses configured for a venue.
+ * Endpoints for an installation's bridge (the local daemon on a museum Mac), behind the
+ * installation key. Alerts only ever go to the addresses configured for a venue.
  */
-
-export const BRIDGE_KEY_HEADER = "x-bridge-key";
 
 /** Per venue. Bridges send a handful a day; this only stops a runaway loop. */
 const ALERTS_PER_HOUR = 12;
@@ -22,7 +19,7 @@ const HOUR_MS = 60 * 60 * 1000;
 const sentAt = new Map<string, number[]>();
 
 /** Test hook. */
-export function _resetBridgeRateLimitsForTests(): void {
+export function _resetPrinterAlertRateLimitsForTests(): void {
     sentAt.clear();
 }
 
@@ -37,21 +34,8 @@ function takeRateLimitSlot(venueId: string, now = Date.now()): boolean {
     return true;
 }
 
-function requireBridge(req: Request, res: Response, next: NextFunction): void {
-    const expected = config.COUNCIL_BRIDGE_KEY;
-    if (!expected || !config.COUNCIL_VENUES?.length) {
-        res.status(503).json({ message: "Bridge endpoints are not configured" });
-        return;
-    }
-    if (!keyMatches(req.get(BRIDGE_KEY_HEADER), expected)) {
-        res.status(401).json({ message: "Invalid bridge key" });
-        return;
-    }
-    next();
-}
-
-export function registerBridgeRoutes(app: Express): void {
-    app.get("/api/bridge/venues", requireBridge, (_req: Request, res: Response) => {
+export function registerInstallationRoutes(app: Express): void {
+    app.get("/api/installation/venues", requireInstallationKey, (_req: Request, res: Response) => {
         res.json({
             venues: (config.COUNCIL_VENUES ?? []).map((venue) => ({
                 id: venue.id,
@@ -63,7 +47,7 @@ export function registerBridgeRoutes(app: Express): void {
         });
     });
 
-    app.post("/api/bridge/printer-alerts", requireBridge, async (req: Request, res: Response) => {
+    app.post("/api/installation/printer-alerts", requireInstallationKey, async (req: Request, res: Response) => {
         const parsed = PrinterAlertBody.safeParse(req.body);
         if (!parsed.success) {
             res.status(400).json({ message: "Invalid printer alert" });

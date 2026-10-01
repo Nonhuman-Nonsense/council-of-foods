@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from 'vitest';
 import express from 'express';
 import http from 'http';
-import { registerBridgeRoutes, _resetBridgeRateLimitsForTests } from '@api/bridgeRoutes.js';
+import { registerInstallationRoutes, _resetPrinterAlertRateLimitsForTests } from '@api/installationRoutes.js';
 
-const BRIDGE_KEY = 'bridge-key-for-tests-0123456789';
+const INSTALLATION_KEY = 'installation-key-for-tests-0123';
 
 const mockConfig = vi.hoisted(() => ({
-    COUNCIL_BRIDGE_KEY: 'bridge-key-for-tests-0123456789' as string | undefined,
+    COUNCIL_INSTALLATION_KEY: 'installation-key-for-tests-0123' as string | undefined,
     COUNCIL_BREVO_API_KEY: 'brevo-key' as string | undefined,
     COUNCIL_MAIL_FROM: 'Council of Foods <council@council-of-foods.com>' as string | undefined,
     COUNCIL_ERRORBOT: 'http://errorbot.test/ingest',
@@ -35,14 +35,14 @@ vi.mock('@root/src/config.js', () => ({ config: mockConfig }));
 const realFetch = globalThis.fetch;
 const outbound = vi.fn();
 
-describe('bridge endpoints', () => {
+describe('installation endpoints', () => {
     let httpServer: http.Server;
     let base: string;
 
     beforeAll(async () => {
         const app = express();
         app.use(express.json());
-        registerBridgeRoutes(app);
+        registerInstallationRoutes(app);
         httpServer = http.createServer(app);
         await new Promise<void>((resolve) => httpServer.listen(0, '127.0.0.1', resolve));
         const address = httpServer.address();
@@ -52,8 +52,8 @@ describe('bridge endpoints', () => {
     afterAll(() => new Promise<void>((resolve) => httpServer.close(() => resolve())));
 
     beforeEach(() => {
-        _resetBridgeRateLimitsForTests();
-        mockConfig.COUNCIL_BRIDGE_KEY = BRIDGE_KEY;
+        _resetPrinterAlertRateLimitsForTests();
+        mockConfig.COUNCIL_INSTALLATION_KEY = INSTALLATION_KEY;
         mockConfig.COUNCIL_BREVO_API_KEY = 'brevo-key';
         outbound.mockReset();
         outbound.mockResolvedValue(new Response('{"messageId":"1"}', { status: 201 }));
@@ -63,12 +63,12 @@ describe('bridge endpoints', () => {
         );
     });
 
-    function call(path: string, { key = BRIDGE_KEY, body }: { key?: string | null; body?: unknown } = {}) {
+    function call(path: string, { key = INSTALLATION_KEY, body }: { key?: string | null; body?: unknown } = {}) {
         return fetch(`${base}${path}`, {
             method: body === undefined ? 'GET' : 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                ...(key ? { 'X-Bridge-Key': key } : {}),
+                ...(key ? { 'X-Installation-Key': key } : {}),
             },
             body: body === undefined ? undefined : JSON.stringify(body),
         });
@@ -92,20 +92,20 @@ describe('bridge endpoints', () => {
 
     it.each([
         ['no key', null],
-        ['a wrong key', 'not-the-bridge-key-0123456789'],
+        ['a wrong key', 'not-the-installation-key-0123'],
     ])('refuses a bridge with %s', async (_name, key) => {
-        expect((await call('/api/bridge/venues', { key })).status).toBe(401);
-        expect((await call('/api/bridge/printer-alerts', { key, body: paperOut })).status).toBe(401);
+        expect((await call('/api/installation/venues', { key })).status).toBe(401);
+        expect((await call('/api/installation/printer-alerts', { key, body: paperOut })).status).toBe(401);
         expect(outbound).not.toHaveBeenCalled();
     });
 
-    it('answers 503 when bridges are not configured on this server', async () => {
-        mockConfig.COUNCIL_BRIDGE_KEY = undefined;
-        expect((await call('/api/bridge/venues')).status).toBe(503);
+    it('answers 503 when the server has no installation key', async () => {
+        mockConfig.COUNCIL_INSTALLATION_KEY = undefined;
+        expect((await call('/api/installation/venues')).status).toBe(503);
     });
 
     it('lists venues with masked recipients', async () => {
-        const response = await call('/api/bridge/venues');
+        const response = await call('/api/installation/venues');
         const { venues } = await response.json();
 
         expect(venues[0]).toEqual({
@@ -119,7 +119,7 @@ describe('bridge endpoints', () => {
     });
 
     it("emails a printer problem to that venue's staff only, with a copy to errorbot", async () => {
-        const response = await call('/api/bridge/printer-alerts', { body: paperOut });
+        const response = await call('/api/installation/printer-alerts', { body: paperOut });
         expect(response.status).toBe(200);
 
         const [email] = sentTo('https://api.brevo.com/v3/smtp/email');
@@ -140,13 +140,13 @@ describe('bridge endpoints', () => {
         ['an unknown kind', { ...paperOut, kind: 'panic' }, 400],
         ['a malformed date', { ...paperOut, since: 'yesterday' }, 400],
     ])('rejects %s without emailing', async (_name, body, status) => {
-        expect((await call('/api/bridge/printer-alerts', { body })).status).toBe(status);
+        expect((await call('/api/installation/printer-alerts', { body })).status).toBe(status);
         expect(sentTo('https://api.brevo.com')).toEqual([]);
     });
 
     it('answers 503 without Brevo configured', async () => {
         mockConfig.COUNCIL_BREVO_API_KEY = undefined;
-        expect((await call('/api/bridge/printer-alerts', { body: paperOut })).status).toBe(503);
+        expect((await call('/api/installation/printer-alerts', { body: paperOut })).status).toBe(503);
     });
 
     it('reports a failed send and tells the bridge, so it can retry', async () => {
@@ -156,15 +156,15 @@ describe('bridge endpoints', () => {
                 : new Response(null, { status: 200 }),
         );
 
-        expect((await call('/api/bridge/printer-alerts', { body: paperOut })).status).toBe(502);
+        expect((await call('/api/installation/printer-alerts', { body: paperOut })).status).toBe(502);
         expect(sentTo('http://errorbot.test/ingest').map((r) => r.severity)).toContain('error');
     });
 
     it('stops a runaway bridge per venue, not across venues', async () => {
         for (let i = 0; i < 12; i += 1) {
-            expect((await call('/api/bridge/printer-alerts', { body: { ...paperOut, kind: 'reminder' } })).status).toBe(200);
+            expect((await call('/api/installation/printer-alerts', { body: { ...paperOut, kind: 'reminder' } })).status).toBe(200);
         }
-        expect((await call('/api/bridge/printer-alerts', { body: paperOut })).status).toBe(429);
-        expect((await call('/api/bridge/printer-alerts', { body: { ...paperOut, venueId: 'other-museum' } })).status).toBe(200);
+        expect((await call('/api/installation/printer-alerts', { body: paperOut })).status).toBe(429);
+        expect((await call('/api/installation/printer-alerts', { body: { ...paperOut, venueId: 'other-museum' } })).status).toBe(200);
     });
 });

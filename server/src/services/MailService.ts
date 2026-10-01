@@ -53,8 +53,8 @@ export function initMail(): void {
     } else {
         console.warn("[init] COUNCIL_BREVO_API_KEY or COUNCIL_MAIL_FROM not set, will not send email.");
     }
-    if (config.COUNCIL_BRIDGE_KEY && config.COUNCIL_VENUES?.length) {
-        console.log(`[init] Bridge alerts for venues: ${config.COUNCIL_VENUES.map((venue) => venue.id).join(", ")}`);
+    if (config.COUNCIL_INSTALLATION_KEY && config.COUNCIL_VENUES?.length) {
+        console.log(`[init] Printer alerts for venues: ${config.COUNCIL_VENUES.map((venue) => venue.id).join(", ")}`);
     }
 }
 

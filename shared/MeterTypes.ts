@@ -46,8 +46,8 @@ export interface MeterSnapshot {
 export const ROOM_POWER_SILENT_MS = 20_000;
 
 /**
- * `POST /api/room-power`, sent every few seconds by each smart plug
- * (scripts/shelly/room-power.js), authorised by `X-Room-Power-Key`. The plug knows only its
+ * `POST /api/installation/room-power`, sent every few seconds by each smart plug
+ * (scripts/shelly/room-power.js), authorised by `X-Installation-Key`. The plug knows only its
  * number; which venue it is at, and what it powers, come from `COUNCIL_VENUES`.
  */
 export interface RoomPowerReport {

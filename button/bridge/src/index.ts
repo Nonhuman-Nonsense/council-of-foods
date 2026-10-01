@@ -8,7 +8,6 @@ import { LpPrinter, MockPrinter } from "./printer.js";
 import type { PrintRuntime } from "./printRoutes.js";
 import { PrintSpool } from "./printSpool.js";
 import { SerialManager } from "./serialManager.js";
-import { ServerClient } from "./serverClient.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
 import { WsServer } from "./wsServer.js";
 
@@ -40,9 +39,9 @@ function createPrintRuntime(config: ReturnType<typeof loadConfig>): PrintRuntime
     notPrintingAfterMs: config.printNotPrintingAfterMs,
   });
   const alerts = new AlertMonitor({
-    server: config.serverUrl && config.serverKey ? new ServerClient(config.serverUrl, config.serverKey) : null,
     spool,
     stateFile: path.join(config.printSpoolDir, "alerts-state.json"),
+    installationFile: path.join(config.printSpoolDir, "installation.json"),
     host: os.hostname(),
     timings: {
       graceMs: config.alertGraceMs,

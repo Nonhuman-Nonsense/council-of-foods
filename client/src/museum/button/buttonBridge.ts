@@ -77,8 +77,11 @@ export type BridgePrintHealth =
 
 /** The bridge's printer alert emails, as reported in `/health`. */
 export type BridgeAlertsHealth = {
-  /** The bridge has a council server and key (alerts.env). */
-  configured: boolean;
+  /**
+   * The council server the installation key was saved for (a page origin); null until staff
+   * enter one. Absent from bridges that predate the installation key.
+   */
+  server?: string | null;
   venue: { id: string; name: string; recipients: string[] } | null;
   /** Whether the venue is open right now; null without a venue. */
   open: boolean | null;

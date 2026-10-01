@@ -30,7 +30,7 @@ export class ServerError extends Error {
 
 const REQUEST_TIMEOUT_MS = 20_000;
 
-/** Talks to the council server's `/api/bridge/*` endpoints with the bridge key. */
+/** Talks to the council server's `/api/installation/*` endpoints with the installation key. */
 export class ServerClient {
   private readonly baseUrl: string;
 
@@ -46,12 +46,12 @@ export class ServerClient {
   }
 
   async getVenues(): Promise<Venue[]> {
-    const body = (await this.request("GET", "/api/bridge/venues")) as { venues?: Venue[] };
+    const body = (await this.request("GET", "/api/installation/venues")) as { venues?: Venue[] };
     return body.venues ?? [];
   }
 
   async sendPrinterAlert(alert: PrinterAlertPayload): Promise<void> {
-    await this.request("POST", "/api/bridge/printer-alerts", alert);
+    await this.request("POST", "/api/installation/printer-alerts", alert);
   }
 
   private async request(method: string, path: string, body?: unknown): Promise<unknown> {
@@ -59,7 +59,7 @@ export class ServerClient {
     try {
       response = await fetch(`${this.baseUrl}${path}`, {
         method,
-        headers: { "Content-Type": "application/json", "X-Bridge-Key": this.key },
+        headers: { "Content-Type": "application/json", "X-Installation-Key": this.key },
         body: body === undefined ? undefined : JSON.stringify(body),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });

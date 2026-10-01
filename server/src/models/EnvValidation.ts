@@ -24,11 +24,10 @@ export const EnvSchema = z.object({
     COUNCIL_BREVO_API_KEY: unsetIfBlank(z.string()),
     /** e.g. `Council of Foods <council@council-of-foods.com>`; the name also titles emails. */
     COUNCIL_MAIL_FROM: unsetIfBlank(z.string().regex(/^.+<[^<>\s]+@[^<>\s]+>$/, "expected Name <address>")),
-    // Installation bridges: shared key and the venues they can alert.
-    COUNCIL_BRIDGE_KEY: unsetIfBlank(z.string().min(16)),
+    // One key for an installation's devices: the bridge (printer alerts) and the room power plugs.
+    COUNCIL_INSTALLATION_KEY: unsetIfBlank(z.string().min(16)),
+    // Where installations run: printer alert addresses, opening hours, room power plugs.
     COUNCIL_VENUES: unsetIfBlank(VenuesEnv),
-    // Smart plugs reporting the installation room's electricity to the footprint meter.
-    COUNCIL_ROOM_POWER_KEY: unsetIfBlank(z.string().min(16)),
 });
 
 export type EnvConfig = z.infer<typeof EnvSchema>;

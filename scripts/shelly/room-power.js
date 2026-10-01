@@ -12,10 +12,10 @@
 // on the server (COUNCIL_VENUES), so moving the installation never means touching the plugs.
 
 let CONFIG = {
-  // Production server; for a local dev server use e.g. "http://192.168.1.20:3001/api/room-power".
-  url: "https://council-of-forest.com/api/room-power",
-  // COUNCIL_ROOM_POWER_KEY from the server environment.
-  key: "PASTE-ROOM-POWER-KEY",
+  // Production server; for a local dev server use e.g. "http://192.168.1.20:3001/api/installation/room-power".
+  url: "https://council-of-forest.com/api/installation/room-power",
+  // The installation key: COUNCIL_INSTALLATION_KEY from the server environment.
+  key: "PASTE-INSTALLATION-KEY",
   intervalMs: 5000,
 };
 
@@ -63,7 +63,7 @@ function report() {
     {
       method: "POST",
       url: CONFIG.url,
-      headers: { "Content-Type": "application/json", "X-Room-Power-Key": CONFIG.key },
+      headers: { "Content-Type": "application/json", "X-Installation-Key": CONFIG.key },
       body: JSON.stringify({
         plug: plug,
         deviceId: deviceId,

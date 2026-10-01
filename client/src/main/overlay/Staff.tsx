@@ -29,6 +29,7 @@ import { describePrinterReason } from "@shared/printerReasons";
 import { fetchVenues, type Venue } from "@api/venues";
 import {
   chooseAlertVenue,
+  saveInstallationKey,
   sendTestAlert,
 } from "@/museum/print/alertsClient";
 
@@ -205,17 +206,33 @@ function getStaffPrintDetailLines(print: EnabledPrintHealth): string[] {
   return lines;
 }
 
-type AlertsStatus = "notConfigured" | "chooseVenue" | "failing" | "on";
+type InstallationKeyStatus = "outdated" | "missing" | "otherServer" | "saved";
 
-function getAlertsStatus(alerts: BridgeAlertsHealth): AlertsStatus {
-  if (!alerts.configured) return "notConfigured";
+/** Whether the bridge holds the installation key for the server this page came from. */
+function getInstallationKeyStatus(alerts: BridgeAlertsHealth, origin: string): InstallationKeyStatus {
+  if (alerts.server === undefined) return "outdated";
+  if (alerts.server === null) return "missing";
+  return alerts.server === origin ? "saved" : "otherServer";
+}
+
+const INSTALLATION_KEY_STATUS_TONE: Record<InstallationKeyStatus, StatusTone> = {
+  outdated: "warn",
+  missing: "warn",
+  otherServer: "warn",
+  saved: "ok",
+};
+
+type AlertsStatus = "noKey" | "chooseVenue" | "failing" | "on";
+
+function getAlertsStatus(alerts: BridgeAlertsHealth, keyStatus: InstallationKeyStatus): AlertsStatus {
+  if (keyStatus !== "saved") return "noKey";
   if (!alerts.venue) return "chooseVenue";
   if (alerts.lastError) return "failing";
   return "on";
 }
 
 const ALERTS_STATUS_TONE: Record<AlertsStatus, StatusTone> = {
-  notConfigured: "idle",
+  noKey: "idle",
   chooseVenue: "warn",
   failing: "error",
   on: "ok",
@@ -425,8 +442,9 @@ function Staff(): ReactElement {
     useButtonConnection(bridgeButtonActive);
   const bridgeHealth = useButtonBridgeHealth(bridgeButtonActive || printSummariesEnabled);
   const alertsHealth = bridgeHealth.status === "running" ? bridgeHealth.alerts : null;
-  const alertsStatus = alertsHealth ? getAlertsStatus(alertsHealth) : null;
-  const alertsConfigured = alertsHealth?.configured === true;
+  const keyStatus = alertsHealth ? getInstallationKeyStatus(alertsHealth, window.location.origin) : null;
+  const alertsStatus = alertsHealth && keyStatus ? getAlertsStatus(alertsHealth, keyStatus) : null;
+  const keySaved = keyStatus === "saved";
   const { ledDebugOverlay, setLedDebugOverlay } = useButtonLedDebugOverlay();
 
   const [venueId, setVenueIdState] = useState(getVenueId);
@@ -450,6 +468,21 @@ function Staff(): ReactElement {
   const [testAlert, setTestAlert] = useState<{ state: "idle" | "sending" | "sent" } | { state: "failed"; error: string }>({
     state: "idle",
   });
+  const [keyDraft, setKeyDraft] = useState("");
+  const [keySave, setKeySave] = useState<{ state: "idle" | "saving" | "saved" } | { state: "failed"; error: string }>({
+    state: "idle",
+  });
+
+  const saveKey = async (): Promise<void> => {
+    setKeySave({ state: "saving" });
+    try {
+      await saveInstallationKey(keyDraft.trim());
+      setKeyDraft("");
+      setKeySave({ state: "saved" });
+    } catch (error) {
+      setKeySave({ state: "failed", error: error instanceof Error ? error.message : String(error) });
+    }
+  };
 
   const button = useButton("staff");
 
@@ -489,7 +522,7 @@ function Staff(): ReactElement {
   const chooseVenue = (id: string): void => {
     setVenueId(id);
     setVenueIdState(getVenueId());
-    if (alertsConfigured) void tellBridgeVenue(id);
+    if (keySaved) void tellBridgeVenue(id);
   };
 
   // One venue for the installation: the page's choice is the truth, and the bridge follows it.
@@ -498,7 +531,7 @@ function Staff(): ReactElement {
   const bridgeVenueId = alertsHealth?.venue?.id ?? "";
   const syncedRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!alertsConfigured || bridgeVenueId === venueId) return;
+    if (!keySaved || bridgeVenueId === venueId) return;
     if (!venueId && bridgeVenueId) {
       setVenueId(bridgeVenueId);
       setVenueIdState(bridgeVenueId);
@@ -508,7 +541,7 @@ function Staff(): ReactElement {
     if (syncedRef.current === attempt) return;
     syncedRef.current = attempt;
     void tellBridgeVenue(venueId);
-  }, [alertsConfigured, bridgeVenueId, venueId]);
+  }, [keySaved, bridgeVenueId, venueId]);
 
   const sendAlertTest = async (): Promise<void> => {
     setTestAlert({ state: "sending" });
@@ -667,6 +700,59 @@ function Staff(): ReactElement {
               {venueError}
             </p>
           ) : null}
+          {alertsHealth && keyStatus ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveKey();
+              }}
+              style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+              title={t("staff.installationKey.hint")}
+            >
+              <StaffStatusChip
+                label={t("staff.installationKey.label")}
+                value={
+                  keySave.state === "failed"
+                    ? `${t("staff.installationKey.notSaved")}: ${keySave.error}`
+                    : keySave.state === "saved"
+                      ? t("staff.installationKey.status.saved")
+                      : t(`staff.installationKey.status.${keyStatus}`, { server: alertsHealth.server ?? "" })
+                }
+                tone={
+                  keySave.state === "failed"
+                    ? "error"
+                    : keySave.state === "saved"
+                      ? "ok"
+                      : INSTALLATION_KEY_STATUS_TONE[keyStatus]
+                }
+                testId="staff-installation-key-status"
+              />
+              {keyStatus !== "outdated" ? (
+                <>
+                  <input
+                    type="password"
+                    data-testid="staff-installation-key"
+                    value={keyDraft}
+                    autoComplete="off"
+                    placeholder={t("staff.installationKey.placeholder")}
+                    onChange={(event) => {
+                      setKeyDraft(event.target.value);
+                      if (keySave.state !== "saving") setKeySave({ state: "idle" });
+                    }}
+                    style={{ flex: 1, minWidth: 160, fontSize: 16 }}
+                  />
+                  <button
+                    type="submit"
+                    data-testid="staff-installation-key-save"
+                    disabled={keyDraft.trim() === "" || keySave.state === "saving"}
+                    style={staffCompactButton}
+                  >
+                    {t("staff.installationKey.save")}
+                  </button>
+                </>
+              ) : null}
+            </form>
+          ) : null}
         </StaffPanel>
 
         {showBridgePanel ? (
@@ -778,7 +864,7 @@ function Staff(): ReactElement {
               </div>
             ) : null}
 
-            {printSummariesEnabled && alertsConfigured ? (
+            {printSummariesEnabled && keySaved ? (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
                 <button
                   type="button"

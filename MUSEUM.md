@@ -156,8 +156,15 @@ errorbot on Telegram:
 Venue). The page hands it to the bridge.
 Venues and their addresses are set on the council server, so staff can only choose
 among them, never type an address. The panel shows the masked addresses,
-**Alert emails: On / Choose a venue / Failing / Not set up on bridge**, and a
+**Alert emails: On / Choose a venue / Failing / No installation key**, and a
 **Send test alert** button (once a minute).
+
+**Installation key:** the bridge needs the council server's `COUNCIL_INSTALLATION_KEY`
+to send alerts, the same key the room power plugs use. Paste it once on `#staff`
+(Installation panel → **Installation key** → **Save**). The server checks it before the
+bridge keeps it, and the bridge keeps it for that server only, readable by root alone;
+nobody can read it back. **Saved for <another server>** means it was entered on a
+different council server's page: enter this server's key.
 
 **Adding or changing a venue** is a server config change: edit `COUNCIL_VENUES`
 in the server's environment and redeploy. Each venue has an id, name, alert
@@ -247,9 +254,12 @@ never touched again when the installation moves.
    server), and mark the number on the plug.
 3. Open the plug's web page (`http://<plug-ip>/`) → **Scripts** → create a script,
    paste [scripts/shelly/room-power.js](scripts/shelly/room-power.js), and fill in
-   the server URL and `COUNCIL_ROOM_POWER_KEY`; every plug runs the same script.
-   Save, **Start**, and enable **Run on startup**.
-4. The script's console on the plug's web page shows any failed request, e.g. a plug
+   the server URL and the installation key (`COUNCIL_INSTALLATION_KEY`); every plug runs
+   the same script. Save, **Start**, and enable **Run on startup**.
+4. Set a password for the plug's web page (Settings → Authentication). The script holds
+   the installation key, which also sends printer alerts, and the page is otherwise open
+   to anyone on the router's Wi-Fi.
+5. The script's console on the plug's web page shows any failed request, e.g. a plug
    not yet at any venue.
 
 **Placing plugs at a venue:** list them in the venue's entry in `COUNCIL_VENUES`,
@@ -262,7 +272,7 @@ venue counts from zero. **Replacing a broken plug:** give the new one the same n
 it takes over once the old one has been silent for 20 seconds. Two plugs reporting the
 same number at once are refused ("already reporting from …" in the newer one's console).
 
-The server needs `COUNCIL_ROOM_POWER_KEY` (16+ characters) in its environment;
+The server needs `COUNCIL_INSTALLATION_KEY` (16+ characters) in its environment;
 without it, plug reports are refused. A plug that stops reporting drops off the meter
 after 20 seconds, and its energy so far stays in the total. Each plug's energy is also
 kept per hour, for later questions (from a date, per day, open hours versus night).
@@ -304,10 +314,11 @@ During a live meeting, the button also drives human input and the meta-agent
 1. Connect the A4 printer and make it the Mac's default printer
 2. Install (or re-install) the bridge. It sets up the print folder, the Desktop
    shortcut and the printer's retry setting
-   and, for alert emails, asks for the bridge key (`COUNCIL_BRIDGE_KEY` on the council server)
 3. `#staff` → **Museum** + **Print summaries**. The Bridge panel shows the printer as **Ready**
 4. **Print test page**, and check a page comes out
-5. Bridge panel → **Venue** → choose the museum, then **Send test alert** and check the inbox
+5. Installation panel → **Venue** → choose the museum, and paste the **Installation key**
+   (`COUNCIL_INSTALLATION_KEY` on the council server) → **Save**
+6. Bridge panel → **Send test alert**, and check the inbox
 
 ### Screening (presenter)
 

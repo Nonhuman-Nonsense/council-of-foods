@@ -1,9 +1,10 @@
 import { getBridgeHttpBase } from "./printClient";
 
 /**
- * Staff page ↔ bridge, for printer alert emails. The venue is chosen on the
- * staff page (see `getVenueId`) and handed to the bridge, which only accepts
- * venues the council server lists — never an address.
+ * Staff page ↔ bridge, setting up the installation. Staff enter the installation key here and
+ * the bridge keeps it for this page's own server. The venue is chosen on the staff page (see
+ * `getVenueId`) and handed to the bridge, which only accepts venues the council server lists —
+ * never an address.
  */
 
 const REQUEST_TIMEOUT_MS = 20_000;
@@ -25,8 +26,12 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   return json;
 }
 
+export async function saveInstallationKey(key: string): Promise<void> {
+  await call("PUT", "/v1/installation/key", { key });
+}
+
 export async function chooseAlertVenue(venueId: string | null): Promise<void> {
-  await call("PUT", "/v1/alerts/venue", { venueId });
+  await call("PUT", "/v1/installation/venue", { venueId });
 }
 
 export async function sendTestAlert(): Promise<void> {

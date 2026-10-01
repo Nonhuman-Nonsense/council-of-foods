@@ -33,7 +33,7 @@ describe('COUNCIL_VENUES', () => {
         expect(VenuesEnv.safeParse(raw).success).toBe(false);
     });
 
-    it('treats blank mail and bridge settings in .env as unset', () => {
+    it('treats blank mail and installation settings in .env as unset', () => {
         const env = EnvSchema.parse({
             COUNCIL_DB_URL: 'mongodb://localhost:27017',
             COUNCIL_DB_PREFIX: 'test',
@@ -41,12 +41,12 @@ describe('COUNCIL_VENUES', () => {
             INWORLD_API_KEY: 'x',
             COUNCIL_BREVO_API_KEY: '',
             COUNCIL_MAIL_FROM: '',
-            COUNCIL_BRIDGE_KEY: ' ',
+            COUNCIL_INSTALLATION_KEY: ' ',
             COUNCIL_VENUES: '',
         });
         expect(env.COUNCIL_BREVO_API_KEY).toBeUndefined();
         expect(env.COUNCIL_MAIL_FROM).toBeUndefined();
-        expect(env.COUNCIL_BRIDGE_KEY).toBeUndefined();
+        expect(env.COUNCIL_INSTALLATION_KEY).toBeUndefined();
         expect(env.COUNCIL_VENUES).toBeUndefined();
     });
 });

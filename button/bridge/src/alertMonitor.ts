@@ -1,4 +1,4 @@
-import { readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { isOpen } from "./openingHours.js";
 import {
   INITIAL_ALERT_STATE,
@@ -8,14 +8,14 @@ import {
   type Outgoing,
 } from "./printAlerts.js";
 import type { PrintHealth } from "./printSpool.js";
-import { ServerError, type ServerClient, type Venue } from "./serverClient.js";
+import { ServerClient, ServerError, type Venue } from "./serverClient.js";
 
 export type AlertMonitorOptions = {
-  /** Null when the bridge has no server URL and key: alerts are off. */
-  server: ServerClient | null;
   spool: { health(): PrintHealth };
   /** JSON file holding the chosen venue and the alert state, so restarts don't re-send. */
   stateFile: string;
+  /** JSON file holding the council server and the installation key; readable by its owner only. */
+  installationFile: string;
   host: string;
   timings: AlertTimings;
   tickMs: number;
@@ -35,8 +35,12 @@ type Saved = {
   problemDelivered: boolean;
 };
 
+/** The council server this installation belongs to, and its key, as staff entered it on #staff. */
+type Installation = { serverUrl: string; key: string };
+
 export type AlertsHealth = {
-  configured: boolean;
+  /** The council server the installation key was saved for; null until staff enter one. Never the key. */
+  server: string | null;
   venue: { id: string; name: string; recipients: string[] } | null;
   open: boolean | null;
   phase: AlertState["phase"];
@@ -60,6 +64,7 @@ export class AlertMonitor {
     outbox: null,
     problemDelivered: false,
   };
+  private server: ServerClient | null = null;
   private tickTimer: NodeJS.Timeout | null = null;
   private venueTimer: NodeJS.Timeout | null = null;
   private ticking: Promise<void> | null = null;
@@ -78,11 +83,17 @@ export class AlertMonitor {
     } catch {
       // First start, or an unreadable file: begin from ok.
     }
-    if (!this.options.server) {
-      console.log("[button-bridge/alerts] no BRIDGE_SERVER_URL / BRIDGE_SERVER_KEY — printer alerts off");
+    try {
+      const installation = JSON.parse(await readFile(this.options.installationFile, "utf8")) as Installation;
+      this.server = new ServerClient(installation.serverUrl, installation.key);
+    } catch {
+      // No key entered yet.
+    }
+    if (!this.server) {
+      console.log("[button-bridge/alerts] no installation key yet (enter it on #staff) — printer alerts off");
     } else {
       console.log(
-        `[button-bridge/alerts] alerts via ${this.options.server.getBaseUrl()}, venue: ${this.saved.venue?.name ?? "none chosen"}`,
+        `[button-bridge/alerts] alerts via ${this.server.getBaseUrl()}, venue: ${this.saved.venue?.name ?? "none chosen"}`,
       );
     }
     this.tickTimer = setInterval(() => void this.tick(), this.options.tickMs);
@@ -101,7 +112,7 @@ export class AlertMonitor {
   health(now = Date.now()): AlertsHealth {
     const { venue } = this.saved;
     return {
-      configured: this.options.server !== null,
+      server: this.server?.getBaseUrl() ?? null,
       venue: venue ? { id: venue.id, name: venue.name, recipients: venue.recipients } : null,
       open: venue ? isOpen(venue.openingHours, venue.timezone, now) : null,
       phase: this.saved.alert.phase,
@@ -111,16 +122,52 @@ export class AlertMonitor {
     };
   }
 
-  async listVenues(): Promise<{ venues: Venue[]; current: string | null }> {
-    const venues = await this.requireServer().getVenues();
+  /**
+   * Saves the installation key for the council server at `serverUrl` (the staff page's own
+   * origin), once that server accepts it; null forgets the key. A different server's venues
+   * mean nothing here, so moving to another server clears the venue.
+   */
+  async setInstallationKey(serverUrl: string, key: string | null): Promise<void> {
+    if (key === null) {
+      this.server = null;
+      await rm(this.options.installationFile, { force: true });
+      console.log("[button-bridge/alerts] installation key removed — printer alerts off");
+      return;
+    }
+    const server = new ServerClient(serverUrl, key);
+    try {
+      await server.getVenues();
+    } catch (error) {
+      if (error instanceof ServerError && error.status === 401) {
+        throw new AlertsUnavailableError(`${server.getBaseUrl()} did not accept this installation key`);
+      }
+      throw error;
+    }
+    const installation: Installation = { serverUrl: server.getBaseUrl(), key };
+    const tmp = `${this.options.installationFile}.tmp`;
+    await writeFile(tmp, JSON.stringify(installation, null, 2), { mode: 0o600 });
+    await chmod(tmp, 0o600);
+    await rename(tmp, this.options.installationFile);
+
+    if (this.server?.getBaseUrl() !== server.getBaseUrl() && this.saved.venue) {
+      this.saved = { ...this.saved, venue: null, outbox: null };
+      await this.persist();
+    }
+    this.server = server;
+    this.lastError = null;
+    console.log(`[button-bridge/alerts] installation key saved for ${server.getBaseUrl()}`);
+  }
+
+  async listVenues(origin?: string): Promise<{ venues: Venue[]; current: string | null }> {
+    const venues = await this.requireServer(origin).getVenues();
     return { venues, current: this.saved.venue?.id ?? null };
   }
 
-  async setVenue(venueId: string | null): Promise<Venue | null> {
+  async setVenue(venueId: string | null, origin?: string): Promise<Venue | null> {
     if (venueId === null) {
       this.saved = { ...this.saved, venue: null, outbox: null };
     } else {
-      const venue = (await this.requireServer().getVenues()).find((v) => v.id === venueId);
+      const venue = (await this.requireServer(origin).getVenues()).find((v) => v.id === venueId);
       if (!venue) throw new AlertsUnavailableError(`unknown venue: ${venueId}`);
       this.saved = { ...this.saved, venue };
     }
@@ -130,8 +177,8 @@ export class AlertMonitor {
   }
 
   /** Sends a test alert straight away. Rate-limited, since any allowed page can ask. */
-  async sendTest(now = Date.now()): Promise<void> {
-    const server = this.requireServer();
+  async sendTest(origin?: string, now = Date.now()): Promise<void> {
+    const server = this.requireServer(origin);
     const venue = this.saved.venue;
     if (!venue) throw new AlertsUnavailableError("choose a venue first");
     if (now - this.lastTestAt < this.options.testAlertIntervalMs) {
@@ -187,7 +234,7 @@ export class AlertMonitor {
   private async deliver(now: number): Promise<void> {
     const { outbox, venue } = this.saved;
     if (!outbox || now < this.nextDeliveryAt) return;
-    if (!this.options.server || !venue) {
+    if (!this.server || !venue) {
       // Nobody to tell. Don't hoard it for a venue chosen later.
       this.saved = { ...this.saved, outbox: null };
       await this.persist();
@@ -195,7 +242,7 @@ export class AlertMonitor {
     }
 
     try {
-      await this.options.server.sendPrinterAlert({
+      await this.server.sendPrinterAlert({
         ...this.context(),
         venueId: venue.id,
         kind: outbox.kind,
@@ -236,7 +283,7 @@ export class AlertMonitor {
   }
 
   private async refreshVenue(): Promise<void> {
-    const { server } = this.options;
+    const { server } = this;
     const current = this.saved.venue;
     if (!server || !current) return;
     try {
@@ -255,11 +302,20 @@ export class AlertMonitor {
     }
   }
 
-  private requireServer(): ServerClient {
-    if (!this.options.server) {
-      throw new AlertsUnavailableError("alerts are not configured on this bridge (alerts.env)");
+  /**
+   * The council server, for a request from the staff page at `origin`. A page from another
+   * server (council-of-foods.com asking a bridge keyed for council-of-forest.com) is refused,
+   * so it can never choose venues that server doesn't have. Requests without an origin come
+   * from this Mac itself.
+   */
+  private requireServer(origin?: string): ServerClient {
+    if (!this.server) {
+      throw new AlertsUnavailableError("no installation key on this bridge; enter it on #staff");
     }
-    return this.options.server;
+    if (origin !== undefined && origin !== this.server.getBaseUrl()) {
+      throw new AlertsUnavailableError(`this bridge's installation key is for ${this.server.getBaseUrl()}`);
+    }
+    return this.server;
   }
 
   private async persist(): Promise<void> {

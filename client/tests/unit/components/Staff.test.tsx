@@ -94,6 +94,7 @@ vi.mock('@council/protocol/ProtocolDocument', () => ({
 const mockFetchVenues = vi.fn();
 const mockChooseAlertVenue = vi.fn();
 const mockSendTestAlert = vi.fn();
+const mockSaveInstallationKey = vi.fn();
 
 vi.mock('@api/venues', () => ({
   fetchVenues: (...args: unknown[]) => mockFetchVenues(...args),
@@ -102,6 +103,7 @@ vi.mock('@api/venues', () => ({
 vi.mock('@/museum/print/alertsClient', () => ({
   chooseAlertVenue: (...args: unknown[]) => mockChooseAlertVenue(...args),
   sendTestAlert: (...args: unknown[]) => mockSendTestAlert(...args),
+  saveInstallationKey: (...args: unknown[]) => mockSaveInstallationKey(...args),
 }));
 
 describe('Staff overlay', () => {
@@ -125,6 +127,7 @@ describe('Staff overlay', () => {
     mockFetchVenues.mockReset().mockResolvedValue([{ id: 'example-museum', name: 'Example Museum' }]);
     mockChooseAlertVenue.mockReset().mockResolvedValue(undefined);
     mockSendTestAlert.mockReset();
+    mockSaveInstallationKey.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -537,7 +540,7 @@ describe('Staff overlay', () => {
   describe('printer alert emails', () => {
     const venue = { id: 'example-museum', name: 'Example Museum', recipients: ['s***@example-museum.org'] };
     const alerts = (overrides: Partial<BridgeAlertsHealth> = {}): BridgeAlertsHealth => ({
-      configured: true,
+      server: window.location.origin,
       venue: null,
       open: null,
       phase: 'ok',
@@ -551,17 +554,46 @@ describe('Staff overlay', () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
     });
 
-    it('says alerts are not set up when the bridge has no server, and leaves the bridge alone', async () => {
-      bridgeHealthState.alerts = alerts({ configured: false });
+    it.each([
+      { name: 'no key', server: null, status: 'missing', canEnter: true },
+      { name: "another server's key", server: 'https://council-of-foods.com', status: 'otherServer', canEnter: true },
+      { name: 'a version without installation keys', server: undefined, status: 'outdated', canEnter: false },
+    ])('with $name on the bridge, asks for the key and leaves the bridge alone', async ({ server, status, canEnter }) => {
+      bridgeHealthState.alerts = alerts({ server });
 
       render(<Staff />);
       const picker = screen.getByTestId('staff-venue');
       await waitFor(() => expect(picker).not.toBeDisabled());
       fireEvent.change(picker, { target: { value: 'example-museum' } });
 
-      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.notConfigured');
+      expect(screen.getByTestId('staff-installation-key-status')).toHaveTextContent(`staff.installationKey.status.${status}`);
+      expect(screen.queryByTestId('staff-installation-key') !== null).toBe(canEnter);
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.noKey');
+      expect(screen.queryByTestId('staff-alerts-test')).not.toBeInTheDocument();
       expect(localStorage.getItem('councilVenueId')).toBe('example-museum');
       expect(mockChooseAlertVenue).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { name: 'accepted', outcome: () => undefined, fieldAfter: '', status: 'staff.installationKey.status.saved' },
+      {
+        name: 'refused',
+        outcome: () => mockSaveInstallationKey.mockRejectedValue(new Error('the server did not accept this installation key')),
+        fieldAfter: ' the-key ',
+        status: 'staff.installationKey.notSaved: the server did not accept this installation key',
+      },
+    ])('hands the key to the bridge and reports it $name', async ({ outcome, fieldAfter, status }) => {
+      outcome();
+      bridgeHealthState.alerts = alerts({ server: null });
+
+      render(<Staff />);
+      const input = screen.getByTestId('staff-installation-key');
+      fireEvent.change(input, { target: { value: ' the-key ' } });
+      fireEvent.click(screen.getByTestId('staff-installation-key-save'));
+
+      await waitFor(() => expect(screen.getByTestId('staff-installation-key-status')).toHaveTextContent(status));
+      expect(mockSaveInstallationKey).toHaveBeenCalledWith('the-key');
+      expect(input).toHaveValue(fieldAfter);
     });
 
     it('sends printer alerts for the venue chosen for the installation, and only then offers a test', async () => {

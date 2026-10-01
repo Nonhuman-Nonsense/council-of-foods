@@ -43,7 +43,8 @@ const STAFF_USB_STATUSES = ["connected", "checking", "notDetected", "wrongDevice
 const STAFF_LOG_CATEGORIES = ["API", "SOCKET", "AGENT", "REALTIME", "BUTTON", "META", "AUTOPLAY", "PRINT", "SYSTEM", "ERROR"] as const;
 const STAFF_PRINTER_STATUSES = ["unavailable", "outdated", "disabled", "checking", "noDefault", "idle", "printing", "stopped", "unknown"] as const;
 const STAFF_TEST_PAGE_RESULTS = ["sending", "queued", "rejected", "unreachable"] as const;
-const STAFF_ALERTS_STATUSES = ["notConfigured", "chooseVenue", "failing", "on"] as const;
+const STAFF_ALERTS_STATUSES = ["noKey", "chooseVenue", "failing", "on"] as const;
+const STAFF_INSTALLATION_KEY_STATUSES = ["outdated", "missing", "otherServer", "saved"] as const;
 const STAFF_ALERTS_TEST_RESULTS = ["sending", "sent", "failed"] as const;
 const STAFF_BUTTON_OWNERS = ["none", "staff", "autoplay", "setup-agent", "human-input", "meta-agent"] as const;
 
@@ -58,6 +59,7 @@ const STATIC_USED_KEYS = [
   ...STAFF_PRINTER_STATUSES.map((status) => `staff.print.printer.${status}`),
   ...STAFF_TEST_PAGE_RESULTS.map((result) => `staff.print.testPageResult.${result}`),
   ...STAFF_ALERTS_STATUSES.map((status) => `staff.alerts.status.${status}`),
+  ...STAFF_INSTALLATION_KEY_STATUSES.map((status) => `staff.installationKey.status.${status}`),
   ...STAFF_ALERTS_TEST_RESULTS.map((result) => `staff.alerts.testResult.${result}`),
   ...STAFF_BUTTON_OWNERS.map((owner) => `staff.button.owners.${owner}`),
 ] as const;

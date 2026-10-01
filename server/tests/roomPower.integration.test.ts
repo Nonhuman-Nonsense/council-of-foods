@@ -1,7 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import express from "express";
 import http from "http";
-import { registerRoomPowerRoutes, ROOM_POWER_KEY_HEADER } from "@api/roomPowerRoutes.js";
+import { INSTALLATION_KEY_HEADER } from "@api/installationKey.js";
+import { registerRoomPowerRoutes } from "@api/roomPowerRoutes.js";
 import { getMeterSnapshot } from "@api/meterRoutes.js";
 import type { Venue } from "@models/Venues.js";
 import { roomPowerCollection, roomPowerHoursCollection } from "@services/DbService.js";
@@ -9,7 +10,7 @@ import { meterEvents } from "@services/meterEvents.js";
 import { recordRoomPower, type PlacedRoomPowerReport } from "@services/RoomPowerService.js";
 import type { RoomPowerReading, RoomPowerReport } from "@shared/MeterTypes.js";
 
-const KEY = "room-power-key-for-tests-0123";
+const KEY = "installation-key-for-tests-0123";
 
 function venue(id: string, plugs: Venue["plugs"]): Venue {
     return {
@@ -32,7 +33,7 @@ vi.mock("@root/src/config.js", async (importOriginal) => {
     return {
         config: new Proxy(actual.config, {
             get: (target, prop) => {
-                if (prop === "COUNCIL_ROOM_POWER_KEY") return mockConfig.key;
+                if (prop === "COUNCIL_INSTALLATION_KEY") return mockConfig.key;
                 if (prop === "COUNCIL_VENUES") return mockConfig.venues;
                 return Reflect.get(target, prop);
             },
@@ -54,7 +55,7 @@ function placed(overrides: Partial<PlacedRoomPowerReport> = {}): PlacedRoomPower
     return { ...plugOne(), venueId: "museum-oslo", label: "Projector", ...overrides };
 }
 
-describe("POST /api/room-power (integration)", () => {
+describe("POST /api/installation/room-power (integration)", () => {
     let httpServer: http.Server;
     let base: string;
 
@@ -77,9 +78,9 @@ describe("POST /api/room-power (integration)", () => {
     });
 
     function report(body: unknown, key: string | null = KEY) {
-        return fetch(`${base}/api/room-power`, {
+        return fetch(`${base}/api/installation/room-power`, {
             method: "POST",
-            headers: { "Content-Type": "application/json", ...(key !== null ? { [ROOM_POWER_KEY_HEADER]: key } : {}) },
+            headers: { "Content-Type": "application/json", ...(key !== null ? { [INSTALLATION_KEY_HEADER]: key } : {}) },
             body: JSON.stringify(body),
         });
     }

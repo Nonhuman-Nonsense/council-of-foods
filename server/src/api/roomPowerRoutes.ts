@@ -1,20 +1,16 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 
-import { config } from "@root/src/config.js";
 import { recordRoomPower } from "@services/RoomPowerService.js";
 import { Logger } from "@utils/Logger.js";
 import { findPlug } from "@utils/venues.js";
-import { keyMatches } from "@utils/sharedKey.js";
+import { requireInstallationKey } from "./installationKey.js";
 
 /**
  * Smart plugs report the room's electricity here every few seconds
  * (scripts/shelly/room-power.js). A plug sends only its number; `COUNCIL_VENUES` says which
- * venue it is at and what it powers. The key lives in each plug's script, readable by anyone on
- * the museum network, so it is separate from the bridge key and can only report power.
+ * venue it is at and what it powers. The plug sends the installation key, pasted into its script.
  */
-
-export const ROOM_POWER_KEY_HEADER = "x-room-power-key";
 
 export const RoomPowerReportBody = z.object({
     plug: z.number().int().positive(),
@@ -24,17 +20,7 @@ export const RoomPowerReportBody = z.object({
 });
 
 export function registerRoomPowerRoutes(app: Express): void {
-    app.post("/api/room-power", async (req: Request, res: Response) => {
-        const expected = config.COUNCIL_ROOM_POWER_KEY;
-        if (!expected) {
-            res.status(503).json({ message: "Room power is not configured" });
-            return;
-        }
-        if (!keyMatches(req.get(ROOM_POWER_KEY_HEADER), expected)) {
-            res.status(401).json({ message: "Invalid room power key" });
-            return;
-        }
-
+    app.post("/api/installation/room-power", requireInstallationKey, async (req: Request, res: Response) => {
         const parsed = RoomPowerReportBody.safeParse(req.body);
         if (!parsed.success) {
             res.status(400).json({ message: "Invalid room power report" });
@@ -56,7 +42,7 @@ export function registerRoomPowerRoutes(app: Express): void {
             }
             res.status(204).end();
         } catch (error) {
-            await Logger.error("api", "POST /api/room-power failed", { error });
+            await Logger.error("api", "POST /api/installation/room-power failed", { error });
             res.status(500).json({ message: "Could not record room power" });
         }
     });

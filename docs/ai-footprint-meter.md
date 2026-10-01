@@ -136,8 +136,8 @@ ranges. Its Python library is used at dev time only; the Node app never runs Pyt
 ### Room electricity
 
 Shelly plugs (`scripts/shelly/room-power.js`) post `{ plug, deviceId, watts, energyCounterWh }`
-every 5 s to `POST /api/room-power` with `X-Room-Power-Key` (`COUNCIL_ROOM_POWER_KEY`; unset →
-503; separate from the bridge key because a plug's script is readable on its network). `plug` is
+every 5 s to `POST /api/installation/room-power` with `X-Installation-Key` (`COUNCIL_INSTALLATION_KEY`,
+the one key an installation's devices share; unset → 503). `plug` is
 the number marked on the plug, which its Shelly device name ends in (`CouncilPlug-2`); `deviceId` the Shelly's own id.
 The plug knows nothing else: each venue in `COUNCIL_VENUES` lists its `plugs` with a label, and
 a report is stored under the venue that lists the plug *when it arrives* (unlisted → 404). So

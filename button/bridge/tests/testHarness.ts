@@ -7,7 +7,6 @@ import type { BridgeConfig } from "../src/config.js";
 import { MockSerialManager } from "../src/mockSerialManager.js";
 import { AlertMonitor } from "../src/alertMonitor.js";
 import { MockPrinter } from "../src/printer.js";
-import { ServerClient } from "../src/serverClient.js";
 import type { PrintRuntime } from "../src/printRoutes.js";
 import { PrintSpool } from "../src/printSpool.js";
 import { WsServer } from "../src/wsServer.js";
@@ -72,8 +71,6 @@ export type StartTestBridgeOptions = {
   serialConnected?: boolean;
   /** Run the print spool against a mock printer in a temp folder. */
   print?: boolean;
-  /** Council server for printer alerts (needs `print`). */
-  alertServer?: { url: string; key: string };
 };
 
 function createTestConfig(port: number): BridgeConfig {
@@ -95,9 +92,6 @@ function createTestConfig(port: number): BridgeConfig {
     printRetryMaxMs: 100,
     printStatusIntervalMs: 50,
     printNotPrintingAfterMs: 300,
-    serverUrl: null,
-    serverKey: null,
-    alertsFile: "",
     alertGraceMs: 100,
     alertReminderMs: 60 * 60_000,
     alertOpeningReminderGapMs: 60 * 60_000,
@@ -193,9 +187,9 @@ export async function startTestBridge(
       });
       await spool.start();
       const alerts = new AlertMonitor({
-        server: options.alertServer ? new ServerClient(options.alertServer.url, options.alertServer.key) : null,
         spool,
         stateFile: path.join(spoolDir, "alerts-state.json"),
+        installationFile: path.join(spoolDir, "installation.json"),
         host: "test-mac",
         timings: {
           graceMs: config.alertGraceMs,
