@@ -20,11 +20,13 @@ import {
   EMPTY_METER_STATE,
   type MeterState,
 } from "./meterState";
+import { reloadWhenHealthy } from "./reload";
 
 /**
- * Live usage for the meter: a snapshot over HTTP whenever the socket (re)connects, then every
- * pushed usage event on top. Refetching on reconnect means a dropped connection costs at most
- * a moment of stale numbers, never a permanent gap.
+ * Live usage for the meter: a snapshot over HTTP when the socket connects, then every pushed
+ * usage event on top. A reconnect reloads the whole page instead: the server restarted, perhaps
+ * with a new deploy, or the network dropped, and a fresh page picks up both the new code and
+ * the numbers, never leaving a permanent gap.
  */
 export function useMeterFeed(venueId: string | undefined, demo: boolean): MeterState {
   const [state, setState] = useState<MeterState>(EMPTY_METER_STATE);
@@ -43,11 +45,19 @@ export function useMeterFeed(venueId: string | undefined, demo: boolean): MeterS
         const snapshot = (await res.json()) as MeterSnapshot;
         if (!cancelled) setState(snapshot);
       } catch {
-        // The next reconnect tries again.
+        // The next reconnect reloads the page, and tries again.
       }
     };
 
-    socket.on("connect", loadSnapshot);
+    let connectedBefore = false;
+    socket.on("connect", () => {
+      if (connectedBefore) {
+        void reloadWhenHealthy();
+        return;
+      }
+      connectedBefore = true;
+      void loadSnapshot();
+    });
     socket.on(METER_USAGE_EVENT, (event: MeterUsageEvent) => {
       setState((current) => applyUsageEvent(current, event, venueId));
     });

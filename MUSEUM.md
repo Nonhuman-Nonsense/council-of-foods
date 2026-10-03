@@ -228,8 +228,11 @@ council.
 5. **Check:** numbers move during a meeting (or plugs report), the QR code opens the
    methodology page on a phone, and the pointer is hidden on the meter.
 
-The meter reconnects and reloads its numbers by itself after a network drop, so it
-needs no restart. If macOS cannot rotate the screen (some USB-C displays refuse),
+The meter looks after itself: when its connection comes back after a network drop
+or a server restart (a deploy included) it reloads the page, so it also runs the new
+code; after a crash it stays black for 30 s, then reloads; and it reloads every night
+at 04:00. Each time it first waits until the server answers `/health`, so it never
+lands on Chrome's error page. It needs no restart. If macOS cannot rotate the screen (some USB-C displays refuse),
 leave it landscape and add `&rotate=90` (quarter turn clockwise) or `&rotate=-90`
 (anticlockwise) to the URL instead; the layout is the same.
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { HEALTH_PROBE_TIMEOUT_MS, probeOriginHealth } from "@/navigation";
+import { HEALTH_PROBE_TIMEOUT_MS, probeOriginHealth } from "@/health";
 
 function fetchRejectingOnAbort(status = 200) {
   return vi.fn((_url: string, init?: RequestInit) =>

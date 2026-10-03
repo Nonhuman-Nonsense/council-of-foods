@@ -2,7 +2,9 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { METER_METHODOLOGY_PATH } from "@shared/MeterTypes";
 import { Meter } from "./Meter";
+import { MeterErrorBoundary } from "./MeterErrorBoundary";
 import { Methodology } from "./Methodology";
+import { scheduleNightlyReload } from "./reload";
 import "./meter.css";
 
 /**
@@ -22,9 +24,11 @@ const rotate = params.get("rotate");
 if (!isMethodology && (rotate === "90" || rotate === "-90")) {
   document.documentElement.dataset.rotate = rotate;
 }
+// The meter runs unattended for months; the methodology page is a visitor's phone.
+if (!isMethodology) scheduleNightlyReload();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    {isMethodology ? <Methodology /> : <Meter />}
+    {isMethodology ? <Methodology /> : <MeterErrorBoundary><Meter /></MeterErrorBoundary>}
   </StrictMode>,
 );
