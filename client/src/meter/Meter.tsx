@@ -119,7 +119,7 @@ function RoomLine({ readings }: { readings: RoomPowerReading[] }): ReactElement 
   return (
     <p className="meter-dim meter-small">
       Measured in this room{what ? ` (${what})` : ""}:{" "}
-      {room.plugs.length > 0 ? `${Math.round(room.watts)} W now` : "no reading now"}, {energy} in total.
+      {room.plugs.length > 0 ? `${Math.round(room.watts)} W now, ` : ""}{energy} in total.
     </p>
   );
 }
@@ -193,7 +193,7 @@ function CurrentMeeting({ meeting, rows, activeRows }: {
         <span className="meter-unit">min</span>
       </Metric>
       <Impacts rows={rows} />
-      <ActiveModels rows={activeRows} />
+      {active ? <ActiveModels rows={activeRows} /> : null}
     </Section>
   );
 }
@@ -296,7 +296,7 @@ export function Meter(): ReactElement {
   return (
     <main className="meter">
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
-      <h1 className="meter-title">The cost of the council's AI</h1>
+      <h1 className="meter-title">The Cost of AI</h1>
       {state.meeting ? (
         <CurrentMeeting meeting={state.meeting} rows={heard} activeRows={atVenue ? state.venue : state.global} />
       ) : null}

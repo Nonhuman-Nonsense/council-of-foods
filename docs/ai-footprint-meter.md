@@ -165,16 +165,16 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
 - **Data:** `GET /api/meter?venue=<id>` returns a `MeterSnapshot` (`shared/MeterTypes.ts`):
   usage totals for all councils, the venue and its latest meeting, plus the room's plugs.
   `useMeterFeed` refetches it on every socket (re)connect and folds pushed events in.
-- **Screen**, under the title "The cost of the council's AI". Estimates are floors as well as
+- **Screen**, under the title "The Cost of AI". Estimates are floors as well as
   ranges, so the sections that carry them are tagged *At least*, and what lies outside them gets
   as much room as what is inside:
   1. **Current meeting**: what the providers bill for, exactly (`countedOf`, by each model's
      `role`) — text in tokens, text to speech and speech to text in minutes — then energy, water
      and carbon for the meeting, then the models called in the last minute (`activeModels`, from
      each row's `lastUsedAt`), one per line with role and assumed country. By call time, so the
-     list runs ahead of the room. Titled **Last meeting** after three quiet minutes
-     (`isMeetingActive`, from the meeting's `lastActiveAt`: its latest usage, playback progress or
-     setup start).
+     list runs ahead of the room. After three quiet minutes it is titled **Last meeting**, without
+     the model list (`isMeetingActive`, from the meeting's `lastActiveAt`: its latest usage,
+     playback progress or setup start).
   2. **Since opening at <venue>**: the same estimates for the whole exhibition, as the room has
      heard it (`heardVenueRows` leaves out the current meeting's unplayed messages, so the two rise
      together); the documented mining places in rotation; and one small line with the room's own
