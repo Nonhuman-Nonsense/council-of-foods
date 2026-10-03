@@ -274,7 +274,10 @@ same number at once are refused ("already reporting from …" in the newer one's
 
 The server needs `COUNCIL_INSTALLATION_KEY` (16+ characters) in its environment;
 without it, plug reports are refused. A plug that stops reporting drops off the meter
-after 20 seconds, and its energy so far stays in the total. Each plug's energy is also
+after 20 seconds, and its energy so far stays in the total. A plug offline for a while
+catches up with its next report, since it sends its own running counter. The counter
+restarts from zero after a power cut, and the plug's uptime tells the server so: plugs set up
+before October 2026 need the current script pasted in again to send it. Each plug's energy is also
 kept per hour, for later questions (from a date, per day, open hours versus night).
 
 ### Mode switch button (staff escape)

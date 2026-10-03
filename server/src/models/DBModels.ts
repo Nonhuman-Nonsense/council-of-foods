@@ -27,6 +27,8 @@ export interface StoredRoomPower extends Document {
     energyWh: number;
     /** The plug's counter at the last report, to accumulate deltas across its resets. */
     lastCounterWh: number;
+    /** The plug's uptime at the last report, to tell a restart (and counter reset) for certain. */
+    lastUptimeSeconds?: number;
     /** Energy the last report added, Wh; what that report adds to its hour. */
     lastDeltaWh: number;
     updatedAt: Date;

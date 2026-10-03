@@ -69,6 +69,8 @@ function report() {
         deviceId: deviceId,
         watts: status.apower,
         energyCounterWh: status.aenergy.total,
+        // The counter is not saved through a power cut; uptime tells the server it restarted.
+        uptimeSeconds: Shelly.getComponentStatus("sys").uptime,
       }),
       timeout: 10,
     },

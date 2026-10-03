@@ -17,6 +17,7 @@ export const RoomPowerReportBody = z.object({
     deviceId: z.string().trim().min(1).max(64),
     watts: z.number().min(0).max(10_000),
     energyCounterWh: z.number().min(0).max(1e9),
+    uptimeSeconds: z.number().min(0).max(1e10).optional(),
 });
 
 export function registerRoomPowerRoutes(app: Express): void {

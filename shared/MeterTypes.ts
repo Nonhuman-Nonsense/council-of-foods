@@ -108,6 +108,11 @@ export interface RoomPowerReport {
     watts: number;
     /** The plug's own lifetime energy counter, Wh. Resets when the plug does. */
     energyCounterWh: number;
+    /**
+     * Seconds since the plug started. Lower than last time means it restarted, and its counter
+     * with it, however far the counter has climbed since. Absent from older plug scripts.
+     */
+    uptimeSeconds?: number;
 }
 
 /** The latest state of one plug. Also pushed on `room-power`. */

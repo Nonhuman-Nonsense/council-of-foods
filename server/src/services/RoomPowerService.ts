@@ -36,7 +36,9 @@ function toReading(doc: StoredRoomPower): RoomPowerReading {
 
 /**
  * Stores one plug report. Energy grows by how far the plug's counter moved since its last
- * report; a counter that went backwards means the plug reset, so all of its new count is added.
+ * report. A plug that restarted — its uptime went down, or without uptime its counter went
+ * backwards — starts its counter from zero, so all of its new count is added. Uptime catches a
+ * restart the counter cannot: one where the plug, offline since, has counted past its old value.
  * One atomic update, so overlapping reports cannot double count. What the report added also
  * goes into the plug's hour, the history kept for later questions (from a date, per day).
  *
@@ -50,6 +52,10 @@ export async function recordRoomPower(report: PlacedRoomPowerReport, now: Date =
 
     const _id = `${report.venueId}|${report.plug}`;
     const counter = report.energyCounterWh;
+    const uptime = report.uptimeSeconds;
+    const restarted = uptime === undefined
+        ? false
+        : { $and: [{ $isNumber: "$lastUptimeSeconds" }, { $lt: [uptime, "$lastUptimeSeconds"] }] };
     let doc: StoredRoomPower | null;
     try {
         doc = await collection.findOneAndUpdate(
@@ -70,7 +76,13 @@ export async function recordRoomPower(report: PlacedRoomPowerReport, now: Date =
                                 // First sight of this Shelly as this number: its counter is only a baseline.
                                 { $or: [{ $eq: [{ $type: "$lastCounterWh" }, "missing"] }, { $ne: ["$deviceId", report.deviceId] }] },
                                 0,
-                                { $cond: [{ $gte: [counter, "$lastCounterWh"] }, { $subtract: [counter, "$lastCounterWh"] }, counter] },
+                                {
+                                    $cond: [
+                                        { $or: [restarted, { $lt: [counter, "$lastCounterWh"] }] },
+                                        counter,
+                                        { $subtract: [counter, "$lastCounterWh"] },
+                                    ],
+                                },
                             ],
                         },
                     },
@@ -85,6 +97,7 @@ export async function recordRoomPower(report: PlacedRoomPowerReport, now: Date =
                         updatedAt: { $literal: now },
                         energyWh: { $add: [{ $ifNull: ["$energyWh", 0] }, "$lastDeltaWh"] },
                         lastCounterWh: { $literal: counter },
+                        lastUptimeSeconds: uptime === undefined ? "$$REMOVE" : { $literal: uptime },
                     },
                 },
             ],

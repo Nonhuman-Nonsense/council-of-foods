@@ -108,6 +108,17 @@ describe("POST /api/installation/room-power (integration)", () => {
         expect(reading).toMatchObject({ plug: 1, label: "Projector", watts: 244, energyWh: 33 });
     });
 
+    it("counts a restart from the plug's uptime, even once its counter has passed the old one", async () => {
+        // Restarted (power cut), then offline long enough to count past its old 1010 Wh.
+        for (const [energyCounterWh, uptimeSeconds] of [[1000, 100], [1010, 105], [1030, 40]]) {
+            expect((await report(plugOne({ energyCounterWh, uptimeSeconds }))).status).toBe(204);
+        }
+
+        const [reading] = (await getMeterSnapshot("museum-oslo")).room;
+        // 0 at first sight, +10, restart (+1030)
+        expect(reading).toMatchObject({ energyWh: 1040 });
+    });
+
     it("keeps each plug's energy per hour, from the same counter deltas", async () => {
         const reports: [string, number, number][] = [
             ["10:00:00", 1000, 244],
