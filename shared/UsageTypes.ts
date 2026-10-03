@@ -44,6 +44,11 @@ export interface UsageRecord {
     /** Data-centre region, when the provider tells us (e.g. ElevenLabs' `x-region` header). */
     region?: string;
     meetingId?: number;
+    /**
+     * The conversation position the usage produced or served, so the meter can count it once
+     * that message has been played. Absent for live usage (realtime agents, visitor questions).
+     */
+    messageIndex?: number;
     venueId?: string;
 }
 

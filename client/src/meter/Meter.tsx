@@ -2,21 +2,23 @@ import NumberFlow from "@number-flow/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import type { RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
-import { ECOLOGITS_VERSION, estimateImpacts, findEcologitsModel, type ImpactRange } from "@shared/footprint/ecologits";
+import { ECOLOGITS_VERSION, estimateImpacts, findEcologitsModel } from "@shared/footprint/ecologits";
 import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED, PUBLISHED_COUNTS } from "@shared/footprint/counting";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
 import {
+  activeModels,
   countedOf,
   footprintOf,
   formatRange,
   gpuTimeOf,
   guessedShareOf,
+  playedRows,
   roomFootprintOf,
   toDisplayRange,
   significant,
   type DisplayRange,
 } from "./meterState";
-import { methodologyUrl } from "./modelInfo";
+import { methodologyUrl, zoneName } from "./modelInfo";
 import { useMeterFeed } from "./useMeterFeed";
 
 /**
@@ -107,7 +109,7 @@ function minutesAndSeconds(totalSeconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-/** Here, measured: the room's electricity from the plugs. */
+/** In the room, measured: the room's electricity from the plugs. */
 function Here({ readings }: { readings: RoomPowerReading[] }): ReactElement | null {
   const now = useNow(1_000);
   const room = roomFootprintOf(readings, now);
@@ -115,7 +117,7 @@ function Here({ readings }: { readings: RoomPowerReading[] }): ReactElement | nu
 
   const energy = toDisplayRange("energy", { low: room.energyWh / 1000, high: room.energyWh / 1000 });
   return (
-    <Section title="Here" status="Measured" className="meter-grid">
+    <Section title="In the room" status="Measured" className="meter-grid">
       <Metric label="Power now">
         {room.plugs.length > 0 ? (
           <>
@@ -144,16 +146,51 @@ function Here({ readings }: { readings: RoomPowerReading[] }): ReactElement | nu
   );
 }
 
-/** This meeting, counted: exactly what the providers bill for. */
+/** Current meeting, counted: exactly what the providers bill for, as far as the room has heard. */
 function Counted({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
   const counted = countedOf(rows);
   return (
-    <Section title="This meeting" status="Counted" className="meter-grid meter-grid--three">
-      <Metric label="Replies written">
-        <NumberFlow value={counted.replies} />
+    <Section title="Current meeting" status="Counted" className="meter-grid meter-grid--three">
+      <Metric label="Tokens written">
+        <NumberFlow value={counted.tokensWritten} />
       </Metric>
       <Metric label="Speaking">{minutesAndSeconds(counted.spokenSeconds)}</Metric>
       <Metric label="Listening">{minutesAndSeconds(counted.listenedSeconds)}</Metric>
+      <p className="meter-dim meter-small meter-wide">A token is a piece of a word, about three quarters of one.</p>
+    </Section>
+  );
+}
+
+/** The model's own name, without the router's maker prefix ("mistral/…"). */
+function modelName(model: string): string {
+  return model.split("/").pop() ?? model;
+}
+
+const ROLE_WORDS = { writing: "writing", speaking: "speaking", listening: "listening" } as const;
+
+/** Models called in the last minute — when they are called, which runs ahead of what is heard. */
+function ActiveNow({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
+  const active = activeModels(rows, useNow(5_000));
+  return (
+    <Section title="Active now" className="meter-stack">
+      {active.length > 0 ? (
+        <ul className="meter-list">
+          {active.map((row) => {
+            const entry = findEcologitsModel(row.provider, row.model);
+            return (
+              <li key={`${row.provider}|${row.model}`}>
+                <span>
+                  {modelName(row.model)}
+                  {entry ? <span className="meter-dim"> · {ROLE_WORDS[entry.role]}</span> : null}
+                </span>
+                <span className="meter-dim">{entry ? zoneName(entry.datacenterZone) : "unknown"}</span>
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="meter-dim meter-small">No model called in the last minute.</p>
+      )}
     </Section>
   );
 }
@@ -162,8 +199,8 @@ function percent(share: number): string {
   return `${Math.round(share * 100)}%`;
 }
 
-/** Elsewhere, estimated: energy, water and carbon as ranges, each with what it leaves out. */
-function Elsewhere({ title, rows, large }: { title: string; rows: UsageTotalsRow[]; large?: boolean }): ReactElement {
+/** Datacentre, estimated: energy, water and carbon as ranges, each with what it leaves out. */
+function Datacentre({ title, rows, large }: { title: string; rows: UsageTotalsRow[]; large?: boolean }): ReactElement {
   const impacts = footprintOf(rows);
   const guessed = guessedShareOf(rows);
   return (
@@ -206,39 +243,34 @@ function Hardware({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
   );
 }
 
-interface CountingLine {
-  label: string;
-  unit: string;
-  published: (number | undefined)[];
-  ours: ImpactRange;
-}
-
-function countingLines(): CountingLine[] {
-  const dialogue = findEcologitsModel("inworld", "mistral/mistral-large-3");
-  const ours = dialogue ? estimateImpacts(dialogue, { measures: { output_tokens: 400 }, requests: 1 }) : null;
-  if (!ours) return [];
-  return [
-    { label: "Water", unit: "mL", published: PUBLISHED_COUNTS.map((c) => c.perAnswer.waterMl), ours: { low: ours.wcf.low * 1e3, high: ours.wcf.high * 1e3 } },
-    { label: "Carbon", unit: "g CO₂e", published: PUBLISHED_COUNTS.map((c) => c.perAnswer.co2eG), ours: { low: ours.gwp.low * 1e3, high: ours.gwp.high * 1e3 } },
-    { label: "Energy", unit: "Wh", published: PUBLISHED_COUNTS.map((c) => c.perAnswer.energyWh), ours: { low: ours.energy.low * 1e3, high: ours.energy.high * 1e3 } },
-  ];
-}
-
-/** Who's counting: the same answer, by each source's own boundary. */
+/** Who's counting: one answer's water, by each source's own boundary. */
 function WhosCounting(): ReactElement | null {
-  const line = useRotation(countingLines());
-  if (!line) return null;
-  const counts = PUBLISHED_COUNTS.flatMap((count, i) => {
-    const value = line.published[i];
-    return value === undefined ? [] : [`${count.who} ${formatRange({ low: value, high: value, unit: line.unit }, 3)}`];
-  });
+  const dialogue = findEcologitsModel("inworld", "mistral/mistral-large-3");
+  if (!dialogue) return null;
+  const water = estimateImpacts(dialogue, { measures: { output_tokens: 400 }, requests: 1 }).wcf;
+  const rows = [
+    ...PUBLISHED_COUNTS.flatMap((count) =>
+      count.perAnswer.waterMl === undefined
+        ? []
+        : [{ who: count.who, includes: count.waterIncludes, value: formatRange({ low: count.perAnswer.waterMl, high: count.perAnswer.waterMl, unit: "mL" }, 3) }],
+    ),
+    { who: "This screen", includes: "cooling and power stations", value: formatRange(toDisplayRange("wcf", water)) },
+  ];
   return (
     <Section title="Who's counting" className="meter-stack">
-      <p className="meter-counting" key={line.label}>
-        <span className="meter-label">{line.label} for one answer</span>
-        <span>{[...counts, `EcoLogits ${formatRange({ ...line.ours, unit: line.unit })}`].join(" · ")}</span>
-      </p>
-      <p className="meter-dim meter-small">Each draws the line somewhere else.</p>
+      <p className="meter-label">Water for one answer, counted three ways</p>
+      <ul className="meter-list">
+        {rows.map((row) => (
+          <li key={row.who}>
+            <span>
+              {row.who}
+              <span className="meter-dim"> · {row.includes}</span>
+            </span>
+            <span>{row.value}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="meter-dim meter-small">Each figure depends on where someone decided to stop counting.</p>
     </Section>
   );
 }
@@ -277,23 +309,25 @@ export function Meter(): ReactElement {
   const demo = params.has("demo");
 
   const state = useMeterFeed(venueId, demo);
-  const meetingRows = state.meeting?.totals ?? [];
+  // The meeting as the room has heard it: replies are generated ahead and played gradually.
+  const heard = playedRows(state.meeting);
 
   return (
     <main className="meter">
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
       <Here readings={state.room} />
+      {state.meeting ? <Counted rows={heard} /> : null}
+      <ActiveNow rows={venueId || demo ? state.venue : state.global} />
       {state.meeting ? (
         <>
-          <Counted rows={meetingRows} />
-          <Elsewhere title="Elsewhere" rows={meetingRows} large />
-          <Hardware rows={meetingRows} />
+          <Datacentre title="Datacentre" rows={heard} large />
+          <Hardware rows={heard} />
         </>
       ) : null}
       <WhosCounting />
       <Uncounted />
       {venueId || demo ? (
-        <Elsewhere title={`Since opening at ${state.venueName ?? venueId ?? "this venue"}`} rows={state.venue} />
+        <Datacentre title={`Since opening at ${state.venueName ?? venueId ?? "this venue"}`} rows={state.venue} />
       ) : null}
       <footer className="meter-footer">
         <div>

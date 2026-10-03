@@ -1,4 +1,11 @@
-import { ROOM_POWER_SILENT_MS, type MeterSnapshot, type MeterUsageEvent, type RoomPowerReading, type UsageTotalsRow } from "@shared/MeterTypes";
+import {
+  ROOM_POWER_SILENT_MS,
+  type MeetingProgress,
+  type MeterSnapshot,
+  type MeterUsageEvent,
+  type RoomPowerReading,
+  type UsageTotalsRow,
+} from "@shared/MeterTypes";
 import type { UsageMeasures } from "@shared/UsageTypes";
 import {
   estimateGpuSeconds,
@@ -19,14 +26,30 @@ export type MeterState = MeterSnapshot;
 
 export const EMPTY_METER_STATE: MeterState = { global: [], venue: [], venueName: null, meeting: null, room: [] };
 
-function addToRows(rows: UsageTotalsRow[], event: MeterUsageEvent): UsageTotalsRow[] {
-  const index = rows.findIndex((row) => row.provider === event.provider && row.model === event.model);
-  const existing = index >= 0 ? rows[index] : { provider: event.provider, model: event.model, requests: 0, measures: {} };
+/**
+ * Adds an event to the row for its model — and, in a meeting's rows, for its message, so each
+ * message can be counted once it has been played.
+ */
+function addToRows(rows: UsageTotalsRow[], event: MeterUsageEvent, perMessage = false): UsageTotalsRow[] {
+  const messageIndex = perMessage ? event.messageIndex : undefined;
+  const index = rows.findIndex(
+    (row) => row.provider === event.provider && row.model === event.model && row.messageIndex === messageIndex,
+  );
+  const existing: UsageTotalsRow = index >= 0
+    ? rows[index]
+    : {
+        provider: event.provider,
+        model: event.model,
+        requests: 0,
+        measures: {},
+        lastUsedAt: event.ts,
+        ...(messageIndex !== undefined ? { messageIndex } : {}),
+      };
   const measures: UsageMeasures = { ...existing.measures };
   for (const [measure, value] of Object.entries(event.measures) as [keyof UsageMeasures, number][]) {
     measures[measure] = (measures[measure] ?? 0) + value;
   }
-  const updated = { ...existing, requests: existing.requests + 1, measures };
+  const updated = { ...existing, requests: existing.requests + 1, measures, lastUsedAt: event.ts };
   return index >= 0 ? rows.map((row, i) => (i === index ? updated : row)) : [...rows, updated];
 }
 
@@ -44,12 +67,53 @@ export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, venue
   let meeting = state.meeting;
   if (event.meetingId !== undefined) {
     if (!meeting || event.meetingId > meeting.meetingId) {
-      meeting = { meetingId: event.meetingId, totals: addToRows([], event) };
+      meeting = { meetingId: event.meetingId, maximumPlayedIndex: -1, totals: addToRows([], event, true) };
     } else if (event.meetingId === meeting.meetingId) {
-      meeting = { ...meeting, totals: addToRows(meeting.totals, event) };
+      meeting = { ...meeting, totals: addToRows(meeting.totals, event, true) };
     }
   }
   return { ...state, global, venue, meeting };
+}
+
+/** Moves the venue's current meeting on as the visitor's screen plays it; a newer meeting replaces it. */
+export function applyMeetingProgress(state: MeterState, progress: MeetingProgress, venueId: string | undefined): MeterState {
+  if (!venueId || progress.venueId !== venueId) return state;
+  const meeting = state.meeting;
+  if (!meeting || progress.meetingId > meeting.meetingId) {
+    return { ...state, meeting: { meetingId: progress.meetingId, maximumPlayedIndex: progress.maximumPlayedIndex, totals: [] } };
+  }
+  if (progress.meetingId !== meeting.meetingId) return state;
+  return {
+    ...state,
+    meeting: { ...meeting, maximumPlayedIndex: Math.max(meeting.maximumPlayedIndex, progress.maximumPlayedIndex) },
+  };
+}
+
+/**
+ * A meeting's usage as the visitor has seen it: messages up to the furthest one played, and
+ * live usage (no message) at once. Replies are generated ahead and played gradually, so the
+ * raw totals run ahead of what anyone in the room has heard.
+ */
+export function playedRows(meeting: MeterState["meeting"]): UsageTotalsRow[] {
+  if (!meeting) return [];
+  return meeting.totals.filter(
+    (row) => row.messageIndex === undefined || row.messageIndex <= meeting.maximumPlayedIndex,
+  );
+}
+
+/** How long a model counts as active after it was last called. */
+export const ACTIVE_WINDOW_MS = 60_000;
+
+/** Models called within the last minute, most recent first. */
+export function activeModels(rows: UsageTotalsRow[], now: number): UsageTotalsRow[] {
+  const latest = new Map<string, UsageTotalsRow>();
+  for (const row of rows) {
+    if (now - Date.parse(row.lastUsedAt) > ACTIVE_WINDOW_MS) continue;
+    const key = `${row.provider}|${row.model}`;
+    const seen = latest.get(key);
+    if (!seen || Date.parse(row.lastUsedAt) > Date.parse(seen.lastUsedAt)) latest.set(key, row);
+  }
+  return [...latest.values()].sort((a, b) => Date.parse(b.lastUsedAt) - Date.parse(a.lastUsedAt));
 }
 
 /** Replaces a plug's reading, if the plug is at this venue. */
@@ -123,8 +187,8 @@ export function gpuTimeOf(rows: UsageTotalsRow[]): ImpactRange {
 }
 
 export interface Counted {
-  /** Replies the writing models produced, retries included. */
-  replies: number;
+  /** Tokens the writing models produced (about three quarters of a word each), retries included. */
+  tokensWritten: number;
   /** Seconds of speech the voices produced. */
   spokenSeconds: number;
   /** Seconds of the visitors' speech the models listened to. */
@@ -133,10 +197,10 @@ export interface Counted {
 
 /** What the providers bill for, exactly: no estimate involved. */
 export function countedOf(rows: UsageTotalsRow[]): Counted {
-  const counted: Counted = { replies: 0, spokenSeconds: 0, listenedSeconds: 0 };
+  const counted: Counted = { tokensWritten: 0, spokenSeconds: 0, listenedSeconds: 0 };
   for (const row of rows) {
     const role = findEcologitsModel(row.provider, row.model)?.role;
-    if (role === "writing") counted.replies += row.requests;
+    if (role === "writing") counted.tokensWritten += row.measures.output_tokens ?? 0;
     if (role === "speaking") counted.spokenSeconds += row.measures.audio_seconds ?? 0;
     if (role === "listening") counted.listenedSeconds += row.measures.audio_seconds ?? 0;
   }

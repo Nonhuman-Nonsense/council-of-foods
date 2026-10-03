@@ -14,11 +14,15 @@ import { Logger } from "@utils/Logger.js";
  * not be written.
  */
 
-/** The meeting fields a usage record is tagged with. */
-export function usageTagsFor(meeting: Pick<StoredMeeting, "_id" | "venueId">): Pick<UsageRecord, "meetingId" | "venueId"> {
+/** The meeting fields a usage record is tagged with, and the message it was for when known. */
+export function usageTagsFor(
+    meeting: Pick<StoredMeeting, "_id" | "venueId">,
+    messageIndex?: number,
+): Pick<UsageRecord, "meetingId" | "venueId" | "messageIndex"> {
     return {
         meetingId: meeting._id,
         ...(meeting.venueId ? { venueId: meeting.venueId } : {}),
+        ...(messageIndex !== undefined && messageIndex >= 0 ? { messageIndex } : {}),
     };
 }
 
@@ -166,22 +170,33 @@ export function parseRealtimeUsage(usage: unknown): RealtimeUsagePart[] {
 
 /**
  * Summed usage per model of the events matching `filter`: everything, a venue or a meeting.
- * Summed on read rather than kept as running totals — fast enough at installation scale, and
- * any total can be recomputed from the event log.
+ * `byMessage` splits a meeting's rows per message too, so the meter can count each message
+ * once it has been played. Summed on read rather than kept as running totals — fast enough at
+ * installation scale, and any total can be recomputed from the event log.
  */
-export async function getUsageTotals(filter: { venueId?: string; meetingId?: number } = {}): Promise<UsageTotalsRow[]> {
+export async function getUsageTotals(
+    filter: { venueId?: string; meetingId?: number } = {},
+    { byMessage = false }: { byMessage?: boolean } = {},
+): Promise<UsageTotalsRow[]> {
     const events = usageEventsCollection;
     if (!events) return [];
     const measureSums = Object.fromEntries(USAGE_MEASURES.map((m) => [m, { $sum: `$measures.${m}` }]));
-    const groups = await events.aggregate<{ _id: { provider: string; model: string }; requests: number } & Record<string, number>>([
+    const key = { provider: "$provider", model: "$model", ...(byMessage ? { messageIndex: "$messageIndex" } : {}) };
+    const groups = await events.aggregate<{
+        _id: { provider: string; model: string; messageIndex?: number | null };
+        requests: number;
+        lastUsedAt: Date;
+    } & Record<string, number>>([
         { $match: filter },
-        { $group: { _id: { provider: "$provider", model: "$model" }, requests: { $sum: 1 }, ...measureSums } },
-        { $sort: { "_id.provider": 1, "_id.model": 1 } },
+        { $group: { _id: key, requests: { $sum: 1 }, lastUsedAt: { $max: "$ts" }, ...measureSums } },
+        { $sort: { "_id.provider": 1, "_id.model": 1, "_id.messageIndex": 1 } },
     ]).toArray();
     return groups.map((group) => ({
         provider: group._id.provider,
         model: group._id.model,
         requests: group.requests,
         measures: cleanMeasures(Object.fromEntries(USAGE_MEASURES.map((m) => [m, group[m]]))),
+        lastUsedAt: group.lastUsedAt.toISOString(),
+        ...(typeof group._id.messageIndex === "number" ? { messageIndex: group._id.messageIndex } : {}),
     }));
 }

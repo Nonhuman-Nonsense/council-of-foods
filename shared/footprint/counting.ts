@@ -8,6 +8,8 @@
 
 export interface PublishedCount {
     who: string;
+    /** In a few words, what its water figure includes — for the meter's comparison. */
+    waterIncludes: string;
     /** What one answer means in this source. */
     answer: string;
     /** What the source counts, and what it leaves out. */
@@ -26,6 +28,7 @@ export interface PublishedCount {
 export const PUBLISHED_COUNTS: PublishedCount[] = [
     {
         who: "Google",
+        waterIncludes: "cooling only",
         answer: "a median Gemini text prompt (2025)",
         counts: "the electricity of the chips, servers, idle machines and data centre, and the water evaporated to cool it",
         leavesOut: "the water used to generate the electricity, making the hardware, and training the model; emissions are counted after Google's clean-energy purchases",
@@ -34,6 +37,7 @@ export const PUBLISHED_COUNTS: PublishedCount[] = [
     },
     {
         who: "Mistral AI",
+        waterIncludes: "cooling, power stations and making the hardware",
         answer: "a 400-token answer from Mistral Large 2 (2025)",
         counts: "the electricity, the water used to cool the data centre and to generate its electricity, and making the hardware",
         leavesOut: "the visitor's own device; it publishes no energy figure",

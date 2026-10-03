@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import {
   METER_NAMESPACE,
+  METER_PROGRESS_EVENT,
   METER_ROOM_POWER_EVENT,
   METER_USAGE_EVENT,
+  type MeetingProgress,
   type MeterSnapshot,
   type MeterUsageEvent,
   type RoomPowerReading,
 } from "@shared/MeterTypes";
-import { applyRoomPower, applyUsageEvent, EMPTY_METER_STATE, type MeterState } from "./meterState";
+import { applyMeetingProgress, applyRoomPower, applyUsageEvent, EMPTY_METER_STATE, type MeterState } from "./meterState";
 
 /**
  * Live usage for the meter: a snapshot over HTTP whenever the socket (re)connects, then every
@@ -43,6 +45,9 @@ export function useMeterFeed(venueId: string | undefined, demo: boolean): MeterS
     socket.on(METER_ROOM_POWER_EVENT, (reading: RoomPowerReading) => {
       setState((current) => applyRoomPower(current, reading, venueId));
     });
+    socket.on(METER_PROGRESS_EVENT, (progress: MeetingProgress) => {
+      setState((current) => applyMeetingProgress(current, progress, venueId));
+    });
 
     return () => {
       cancelled = true;
@@ -60,12 +65,17 @@ export function useMeterFeed(venueId: string | undefined, demo: boolean): MeterS
 const DEMO_VENUE = "demo";
 const DEMO_INTERVAL_MS = 2500;
 
-const DEMO_CALLS: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">[] = [
+/** One council turn: the reply, its voice and its routing, all for one message. */
+const DEMO_TURN: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">[] = [
   { feature: "dialogue", provider: "inworld", model: "mistral/mistral-large-3", measures: { input_tokens: 2800, output_tokens: 220 } },
-  { feature: "tts", provider: "inworld", model: "inworld-tts-1.5-max", measures: { characters: 480, audio_seconds: 24 } },
   { feature: "classifier", provider: "inworld", model: "google-ai-studio/gemini-2.5-flash", measures: { input_tokens: 900, output_tokens: 4 } },
-  { feature: "meta-agent", provider: "inworld", model: "soniox/stt-rt-v4", measures: { audio_seconds: 6 } },
+  { feature: "tts", provider: "inworld", model: "inworld-tts-1.5-max", measures: { characters: 480, audio_seconds: 24 } },
 ];
+
+/** Live usage with no message: the meta agent listening to a visitor. */
+const DEMO_LISTENING: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures"> = {
+  feature: "meta-agent", provider: "inworld", model: "soniox/stt-rt-v4", measures: { audio_seconds: 6 },
+};
 
 const DEMO_PLUGS = [
   { plug: 1, label: "Projector", watts: 244 },
@@ -73,8 +83,11 @@ const DEMO_PLUGS = [
   { plug: 3, label: "Sound", watts: 22 },
 ];
 
+/** Replies are generated this many messages ahead of what has been played, like the council. */
+const DEMO_AHEAD = 2;
+
 function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => MeterState) => void): () => void {
-  let call = 0;
+  let tick = 0;
   const startedAt = Date.now();
   const timer = setInterval(() => {
     const hours = (Date.now() - startedAt) / 3_600_000;
@@ -88,14 +101,24 @@ function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => Me
       };
       setState((current) => applyRoomPower(current, reading, venueId));
     }
-    const event: MeterUsageEvent = {
-      ...DEMO_CALLS[call % DEMO_CALLS.length],
+    const ts = new Date().toISOString();
+    const usage = (call: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">, messageIndex?: number): MeterUsageEvent => ({
+      ...call,
       venueId,
       meetingId: 1,
-      ts: new Date().toISOString(),
-    };
-    call++;
-    setState((current) => applyUsageEvent(current, event, venueId));
+      ...(messageIndex !== undefined ? { messageIndex } : {}),
+      ts,
+    });
+    // Each tick writes the next message and plays the one DEMO_AHEAD behind it.
+    const message = tick;
+    for (const call of DEMO_TURN) {
+      setState((current) => applyUsageEvent(current, usage(call, message), venueId));
+    }
+    if (tick % 3 === 2) {
+      setState((current) => applyUsageEvent(current, usage(DEMO_LISTENING), venueId));
+    }
+    setState((current) => applyMeetingProgress(current, { meetingId: 1, venueId, maximumPlayedIndex: message - DEMO_AHEAD }, venueId));
+    tick++;
   }, DEMO_INTERVAL_MS);
   return () => clearInterval(timer);
 }

@@ -51,25 +51,36 @@ describe("meter", () => {
         await usageEventsCollection?.deleteMany({});
     });
 
-    it("snapshots global, venue and latest-meeting usage", async () => {
+    it("snapshots global, venue and latest-meeting usage, the meeting per message", async () => {
         for (const _id of [11, 12]) {
-            await meetingsCollection.insertOne(MockFactory.createStoredMeeting({ _id, liveKey: `key-${_id}`, venueId: "museum-oslo" }));
+            await meetingsCollection.insertOne(
+                MockFactory.createStoredMeeting({ _id, liveKey: `key-${_id}`, venueId: "museum-oslo", maximumPlayedIndex: 1 }),
+            );
         }
         await recordUsage(dialogue({ meetingId: 11, venueId: "museum-oslo" }));
-        await recordUsage(dialogue({ meetingId: 12, venueId: "museum-oslo" }));
-        await recordUsage(dialogue({ meetingId: 12, venueId: "museum-oslo", measures: { output_tokens: 10 } }));
+        await recordUsage(dialogue({ meetingId: 12, venueId: "museum-oslo", messageIndex: 0 }));
+        await recordUsage(dialogue({ meetingId: 12, venueId: "museum-oslo", messageIndex: 2, measures: { output_tokens: 10 } }));
         await recordUsage(dialogue({ meetingId: 99 }));
 
         const snapshot = await getMeterSnapshot("museum-oslo");
 
-        const row = (requests: number, measures: object) => ({
-            provider: "inworld", model: "mistral/mistral-large-3", requests, measures,
+        const row = (requests: number, measures: object, messageIndex?: number) => ({
+            provider: "inworld",
+            model: "mistral/mistral-large-3",
+            requests,
+            measures,
+            lastUsedAt: expect.any(String),
+            ...(messageIndex !== undefined ? { messageIndex } : {}),
         });
         expect(snapshot).toEqual({
             global: [row(4, { input_tokens: 300, output_tokens: 130 })],
             venue: [row(3, { input_tokens: 200, output_tokens: 90 })],
             venueName: "museum-oslo",
-            meeting: { meetingId: 12, totals: [row(2, { input_tokens: 100, output_tokens: 50 })] },
+            meeting: {
+                meetingId: 12,
+                maximumPlayedIndex: 1,
+                totals: [row(1, { input_tokens: 100, output_tokens: 40 }, 0), row(1, { output_tokens: 10 }, 2)],
+            },
             room: [],
         });
     });

@@ -166,20 +166,32 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
   usage totals for all councils, the venue and its latest meeting, plus the room's plugs.
   `useMeterFeed` refetches it on every socket (re)connect and folds pushed events in.
 - **Screen**, a chain of certainty, each section tagged with how its figures are known:
-  1. **Here** (*measured*): power now, electricity so far, one line per reporting plug; a plug
-     silent for 20 s drops off, its energy stays in the total; power now shows – when none report.
-  2. **This meeting** (*counted*): replies written, minutes spoken, minutes listened — exactly
+  1. **In the room** (*measured*): power now, electricity so far, one line per reporting plug; a
+     plug silent for 20 s drops off, its energy stays in the total; power now shows – when none report.
+  2. **Current meeting** (*counted*): tokens written, minutes spoken, minutes listened — exactly
      what the providers bill for (`countedOf`, by each model's `role`).
-  3. **Elsewhere** (*estimated*): energy, water and carbon for the meeting, each with what it
+  3. **Active now**: models called in the last minute (`activeModels`, from each row's
+     `lastUsedAt`) with their role and assumed country. By call time, so it runs ahead of the
+     room — which is what "active" means.
+  4. **Datacentre** (*estimated*): energy, water and carbon for the meeting, each with what it
      leaves out, and the share of the energy that rests on `guessed` models (`guessedShareOf`).
-  4. **Hardware** (*estimated*): GPU time the meeting occupied (`estimateGpuSeconds`: generation
+  5. **Hardware** (*estimated*): GPU time the meeting occupied (`estimateGpuSeconds`: generation
      time × GPUs ÷ batch size) — what EcoLogits divides the hardware's minerals by — with the
      documented mining places in rotation. The Sb eq figure itself is on the methodology page.
-  5. **Who's counting**: one answer by Google, Mistral and EcoLogits, rotating water / carbon /
-     energy (`shared/footprint/counting.ts`).
-  6. **Not counted** and **Not disclosed**, with the one published training figure.
-  7. **Since opening at <venue>**: the same estimates for the whole exhibition.
-  8. A QR code to the methodology page.
+  6. **Who's counting**: one answer's water as counted by Google, Mistral and this screen, each
+     with what it includes (`shared/footprint/counting.ts`).
+  7. **Not counted** and **Not disclosed**, with the one published training figure.
+  8. **Since opening at <venue>**: the same estimates for the whole exhibition, counted as they
+     happen.
+  9. A QR code to the methodology page.
+
+  **The current meeting follows playback.** Replies are generated a few messages ahead and played
+  gradually, so raw usage runs ahead of what the room has heard. Usage is tagged with the
+  `messageIndex` it was for (dialogue, chair lines and summary in `DialogGenerator`, voices and
+  Whisper timing in `AudioSystem`, the handoff classifier), the snapshot splits the meeting's rows
+  per message, and the server pushes `meeting-progress` whenever the meeting's
+  `maximumPlayedIndex` advances. `playedRows` counts messages up to that index; untagged live
+  usage (realtime agents, visitor questions) counts at once.
 
   Estimates are only ever shown as ranges — both ends, two significant figures, no midpoint:
   EcoLogits' ends are bounds from extreme inputs, not a distribution. Sized in container units

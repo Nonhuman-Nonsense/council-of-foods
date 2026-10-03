@@ -30,6 +30,7 @@ import {
     ConcludeMeetingMessageSchema
 } from "@models/ValidationSchemas.js";
 import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
+import { announceMeetingProgress } from "@services/meterEvents.js";
 
 /** How many message indices beyond `maximumPlayedIndex` the server may generate before waiting for client playback progress. */
 const PLAYBACK_AHEAD_BUFFER = 3;
@@ -281,6 +282,7 @@ export class MeetingManager implements IMeetingManager {
         const prevLocal = meeting.maximumPlayedIndex;
         meeting.maximumPlayedIndex =
             prevLocal == null ? index : Math.max(prevLocal, index);
+        announceMeetingProgress(meeting);
 
         this.startLoop();
     }

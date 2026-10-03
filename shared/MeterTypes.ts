@@ -16,6 +16,7 @@ export const METER_PAGE_PATHS = [METER_PAGE_PATH, METER_METHODOLOGY_PATH];
 export const METER_NAMESPACE = "/meter";
 export const METER_USAGE_EVENT = "usage";
 export const METER_ROOM_POWER_EVENT = "room-power";
+export const METER_PROGRESS_EVENT = "meeting-progress";
 
 /** Summed raw usage of one model within a scope. */
 export interface UsageTotalsRow {
@@ -23,6 +24,21 @@ export interface UsageTotalsRow {
     model: string;
     requests: number;
     measures: UsageMeasures;
+    /** ISO time the model was last called in this scope. */
+    lastUsedAt: string;
+    /**
+     * In a meeting's totals: the message the usage was for (rows are per model and message), or
+     * absent for live usage that counts at once.
+     */
+    messageIndex?: number;
+}
+
+/** A meeting's playback, pushed on `meeting-progress` as the visitor's screen moves on. */
+export interface MeetingProgress {
+    meetingId: number;
+    venueId?: string;
+    /** The furthest message the visitor has been shown; its usage, and all before, has been seen. */
+    maximumPlayedIndex: number;
 }
 
 /** `GET /api/meter?venue=<id>` */
@@ -33,8 +49,8 @@ export interface MeterSnapshot {
     venue: UsageTotalsRow[];
     /** The venue's display name, if one was requested. */
     venueName: string | null;
-    /** The venue's most recent meeting, if it has had one. */
-    meeting: { meetingId: number; totals: UsageTotalsRow[] } | null;
+    /** The venue's most recent meeting, if it has had one: usage per model and message. */
+    meeting: { meetingId: number; maximumPlayedIndex: number; totals: UsageTotalsRow[] } | null;
     /** The venue's room electricity, one entry per plug. */
     room: RoomPowerReading[];
 }

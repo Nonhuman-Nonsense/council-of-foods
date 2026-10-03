@@ -20,6 +20,8 @@ export interface SpeakerTargetRequest {
     text: string;
     /** Character id for participant handoff; human display name for human questions */
     speakerId: string;
+    /** Conversation position of the message being routed, for the meter's playback count. */
+    messageIndex?: number;
 }
 
 type ClassifierBuildOptions = SpeakerTargetRequest & {
@@ -56,6 +58,7 @@ export class SpeakerTargetClassifier {
                 CLASSIFIER_MAX_TOKENS,
                 `SpeakerTargetClassifier:${request.mode}`,
                 meeting,
+                request.messageIndex,
             );
 
             const targetId = resolveClassifierTarget(content, allowedTargetIds, eligibleCharacters);

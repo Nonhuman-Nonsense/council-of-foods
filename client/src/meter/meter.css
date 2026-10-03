@@ -42,8 +42,8 @@ html[data-rotate="-90"] #root {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 6cqw;
-  padding: 10cqw 7cqw;
+  gap: 4.5cqw;
+  padding: 7cqw 6cqw;
   --meter-unit: 1cqw;
 }
 
@@ -52,8 +52,8 @@ html[data-rotate="-90"] #root {
   justify-content: space-between;
   align-items: baseline;
   gap: calc(var(--meter-unit) * 2);
-  margin: 0 0 calc(var(--meter-unit) * 3);
-  font-size: calc(var(--meter-unit) * 4);
+  margin: 0 0 calc(var(--meter-unit) * 2.5);
+  font-size: calc(var(--meter-unit) * 3.4);
   font-weight: normal;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -76,7 +76,7 @@ html[data-rotate="-90"] #root {
 .meter-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: calc(var(--meter-unit) * 4) calc(var(--meter-unit) * 3);
+  gap: calc(var(--meter-unit) * 3) calc(var(--meter-unit) * 2.5);
 }
 .meter-grid--three {
   grid-template-columns: 1fr 1fr 1fr;
@@ -92,24 +92,24 @@ html[data-rotate="-90"] #root {
 .meter-stack {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--meter-unit) * 3);
+  gap: calc(var(--meter-unit) * 2.5);
 }
 .meter-stack h2 {
   margin-bottom: 0;
 }
 
 .meter-label {
-  font-size: calc(var(--meter-unit) * 3.2);
+  font-size: calc(var(--meter-unit) * 2.8);
   color: #9c9788;
 }
 
 .meter-value {
-  font-size: calc(var(--meter-unit) * 8);
+  font-size: calc(var(--meter-unit) * 6);
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
 .meter-large .meter-value {
-  font-size: calc(var(--meter-unit) * 10);
+  font-size: calc(var(--meter-unit) * 7.5);
 }
 
 .meter-range-value {
@@ -128,14 +128,14 @@ html[data-rotate="-90"] #root {
 
 /* What a figure leaves out. */
 .meter-note {
-  margin-top: calc(var(--meter-unit) * 0.8);
-  font-size: calc(var(--meter-unit) * 2.8);
+  margin-top: calc(var(--meter-unit) * 0.6);
+  font-size: calc(var(--meter-unit) * 2.4);
   color: #6f6b60;
 }
 
 .meter-guessed {
   margin: 0;
-  font-size: calc(var(--meter-unit) * 3.4);
+  font-size: calc(var(--meter-unit) * 2.9);
   font-style: italic;
   color: #c9c4b6;
 }
@@ -146,8 +146,8 @@ html[data-rotate="-90"] #root {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: calc(var(--meter-unit) * 1.5);
-  font-size: calc(var(--meter-unit) * 3.2);
+  gap: calc(var(--meter-unit) * 1.2);
+  font-size: calc(var(--meter-unit) * 2.9);
 }
 .meter-list li {
   display: flex;
@@ -155,16 +155,10 @@ html[data-rotate="-90"] #root {
   gap: calc(var(--meter-unit) * 2);
 }
 
-.meter-place-line,
-.meter-counting {
+.meter-place-line {
   margin: 0;
-  font-size: calc(var(--meter-unit) * 3.6);
+  font-size: calc(var(--meter-unit) * 3.1);
   animation: meter-fade-in 1.2s ease-out;
-}
-.meter-counting {
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--meter-unit) * 1);
 }
 @keyframes meter-fade-in {
   from { opacity: 0; }
@@ -176,21 +170,21 @@ html[data-rotate="-90"] #root {
 }
 .meter-small {
   margin: 0;
-  font-size: calc(var(--meter-unit) * 2.8);
+  font-size: calc(var(--meter-unit) * 2.4);
 }
 
 .meter-footer {
   margin-top: auto;
   display: flex;
   align-items: flex-end;
-  gap: calc(var(--meter-unit) * 4);
-  font-size: calc(var(--meter-unit) * 2.6);
+  gap: calc(var(--meter-unit) * 3);
+  font-size: calc(var(--meter-unit) * 2.4);
   color: #6f6b60;
 }
 .meter-qr {
   flex: none;
-  width: calc(var(--meter-unit) * 20);
-  height: calc(var(--meter-unit) * 20);
+  width: calc(var(--meter-unit) * 16);
+  height: calc(var(--meter-unit) * 16);
 }
 
 .meter-demo {

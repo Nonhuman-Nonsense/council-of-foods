@@ -5,8 +5,10 @@ import type { Server } from "socket.io";
 import {
     METER_NAMESPACE,
     METER_PAGE_PATHS,
+    METER_PROGRESS_EVENT,
     METER_ROOM_POWER_EVENT,
     METER_USAGE_EVENT,
+    type MeetingProgress,
     type MeterSnapshot,
     type MeterUsageEvent,
     type RoomPowerReading,
@@ -29,13 +31,13 @@ import { findVenue, resolveVenueId } from "@utils/venues.js";
 
 export async function getMeterSnapshot(venueId: string | undefined): Promise<MeterSnapshot> {
     const latestMeeting = venueId
-        ? await meetingsCollection.findOne({ venueId }, { sort: { _id: -1 }, projection: { _id: 1 } })
+        ? await meetingsCollection.findOne({ venueId }, { sort: { _id: -1 }, projection: { _id: 1, maximumPlayedIndex: 1 } })
         : null;
 
     const [global, venue, meetingTotals, room] = await Promise.all([
         getUsageTotals(),
         venueId ? getUsageTotals({ venueId }) : Promise.resolve([]),
-        latestMeeting ? getUsageTotals({ meetingId: latestMeeting._id }) : Promise.resolve([]),
+        latestMeeting ? getUsageTotals({ meetingId: latestMeeting._id }, { byMessage: true }) : Promise.resolve([]),
         venueId ? getRoomPower(venueId) : Promise.resolve([]),
     ]);
 
@@ -43,7 +45,9 @@ export async function getMeterSnapshot(venueId: string | undefined): Promise<Met
         global,
         venue,
         venueName: venueId ? findVenue(venueId)?.name ?? venueId : null,
-        meeting: latestMeeting ? { meetingId: latestMeeting._id, totals: meetingTotals } : null,
+        meeting: latestMeeting
+            ? { meetingId: latestMeeting._id, maximumPlayedIndex: latestMeeting.maximumPlayedIndex ?? -1, totals: meetingTotals }
+            : null,
         room,
     };
 }
@@ -78,10 +82,13 @@ export function registerMeterSocket(io: Server): () => void {
         meters.emit(METER_USAGE_EVENT, payload);
     };
     const onRoomPower = (reading: RoomPowerReading) => meters.emit(METER_ROOM_POWER_EVENT, reading);
+    const onProgress = (progress: MeetingProgress) => meters.emit(METER_PROGRESS_EVENT, progress);
     meterEvents.on("usage", onUsage);
     meterEvents.on("roomPower", onRoomPower);
+    meterEvents.on("meetingProgress", onProgress);
     return () => {
         meterEvents.off("usage", onUsage);
         meterEvents.off("roomPower", onRoomPower);
+        meterEvents.off("meetingProgress", onProgress);
     };
 }

@@ -3,6 +3,8 @@ import type { MeterUsageEvent } from "@shared/MeterTypes";
 import { estimateGpuSeconds, estimateImpacts, findEcologitsModel } from "@shared/footprint/ecologits";
 import { ROOM_POWER_SILENT_MS, type RoomPowerReading } from "@shared/MeterTypes";
 import {
+  activeModels,
+  applyMeetingProgress,
   applyRoomPower,
   applyUsageEvent,
   countedOf,
@@ -11,10 +13,13 @@ import {
   formatRange,
   gpuTimeOf,
   guessedShareOf,
+  playedRows,
   roomFootprintOf,
   toDisplayRange,
   type MeterState,
 } from "@/meter/meterState";
+
+const TS = "2026-09-16T12:00:00.000Z";
 
 function usage(overrides: Partial<MeterUsageEvent> = {}): MeterUsageEvent {
   return {
@@ -22,7 +27,7 @@ function usage(overrides: Partial<MeterUsageEvent> = {}): MeterUsageEvent {
     provider: "inworld",
     model: "mistral/mistral-large-3",
     measures: { output_tokens: 100 },
-    ts: "2026-09-16T12:00:00.000Z",
+    ts: TS,
     ...overrides,
   };
 }
@@ -32,6 +37,7 @@ const row = (requests: number, output_tokens: number) => ({
   model: "mistral/mistral-large-3",
   requests,
   measures: { output_tokens },
+  lastUsedAt: TS,
 });
 
 describe("meter state", () => {
@@ -39,7 +45,7 @@ describe("meter state", () => {
     global: [row(1, 100)],
     venue: [row(1, 100)],
     venueName: "Museum Oslo",
-    meeting: { meetingId: 5, totals: [row(1, 100)] },
+    meeting: { meetingId: 5, maximumPlayedIndex: -1, totals: [row(1, 100)] },
     room: [],
   };
 
@@ -52,12 +58,12 @@ describe("meter state", () => {
     {
       name: "adds usage of the current meeting to every scope",
       event: usage({ venueId: "museum-oslo", meetingId: 5 }),
-      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 5, totals: [row(2, 200)] } },
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 5, maximumPlayedIndex: -1, totals: [row(2, 200)] } },
     },
     {
       name: "starts over when the venue begins a newer meeting",
       event: usage({ venueId: "museum-oslo", meetingId: 6 }),
-      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 6, totals: [row(1, 100)] } },
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 6, maximumPlayedIndex: -1, totals: [row(1, 100)] } },
     },
     {
       name: "keeps setup usage without a meeting out of the meeting",
@@ -71,26 +77,71 @@ describe("meter state", () => {
   it("adds a model it has not seen as a new row", () => {
     const state = applyUsageEvent(EMPTY_METER_STATE, usage({ model: "inworld-tts-1.5-max", measures: { audio_seconds: 3 } }), undefined);
 
-    expect(state.global).toEqual([{ provider: "inworld", model: "inworld-tts-1.5-max", requests: 1, measures: { audio_seconds: 3 } }]);
+    expect(state.global).toEqual([
+      { provider: "inworld", model: "inworld-tts-1.5-max", requests: 1, measures: { audio_seconds: 3 }, lastUsedAt: TS },
+    ]);
+  });
+
+  it("counts a meeting's messages once they have been played, and live usage at once", () => {
+    const venue = "museum-oslo";
+    let state: MeterState = { ...EMPTY_METER_STATE, meeting: { meetingId: 5, maximumPlayedIndex: 0, totals: [] } };
+    state = applyUsageEvent(state, usage({ venueId: venue, meetingId: 5, messageIndex: 0, measures: { output_tokens: 10 } }), venue);
+    state = applyUsageEvent(state, usage({ venueId: venue, meetingId: 5, messageIndex: 1, measures: { output_tokens: 20 } }), venue);
+    state = applyUsageEvent(state, usage({ venueId: venue, meetingId: 5, measures: { output_tokens: 3 } }), venue);
+
+    expect(countedOf(playedRows(state.meeting)).tokensWritten).toBe(13);
+
+    state = applyMeetingProgress(state, { meetingId: 5, venueId: venue, maximumPlayedIndex: 1 }, venue);
+
+    expect(countedOf(playedRows(state.meeting)).tokensWritten).toBe(33);
+    expect(countedOf(state.venue).tokensWritten).toBe(33);
+  });
+
+  it.each([
+    { name: "moves the current meeting on", progress: { meetingId: 5, venueId: "museum-oslo", maximumPlayedIndex: 4 }, expected: { meetingId: 5, maximumPlayedIndex: 4 } },
+    { name: "never moves it back", progress: { meetingId: 5, venueId: "museum-oslo", maximumPlayedIndex: 1 }, expected: { meetingId: 5, maximumPlayedIndex: 2 } },
+    { name: "ignores an older meeting", progress: { meetingId: 4, venueId: "museum-oslo", maximumPlayedIndex: 9 }, expected: { meetingId: 5, maximumPlayedIndex: 2 } },
+    { name: "ignores another venue", progress: { meetingId: 7, venueId: "elsewhere", maximumPlayedIndex: 9 }, expected: { meetingId: 5, maximumPlayedIndex: 2 } },
+    { name: "starts a newer meeting empty", progress: { meetingId: 6, venueId: "museum-oslo", maximumPlayedIndex: 0 }, expected: { meetingId: 6, maximumPlayedIndex: 0 } },
+  ])("playback progress $name", ({ progress, expected }) => {
+    const state: MeterState = { ...EMPTY_METER_STATE, meeting: { meetingId: 5, maximumPlayedIndex: 2, totals: [row(1, 1)] } };
+
+    expect(applyMeetingProgress(state, progress, "museum-oslo").meeting).toMatchObject(expected);
+  });
+
+  it("lists models called in the last minute, most recent first, once each", () => {
+    const now = Date.parse(TS);
+    const at = (secondsAgo: number) => new Date(now - secondsAgo * 1000).toISOString();
+    const rows = [
+      { ...row(1, 10), messageIndex: 0, lastUsedAt: at(50) },
+      { ...row(1, 10), messageIndex: 1, lastUsedAt: at(5) },
+      { provider: "inworld", model: "inworld-tts-1.5-max", requests: 1, measures: {}, lastUsedAt: at(20) },
+      { provider: "inworld", model: "soniox/stt-rt-v4", requests: 1, measures: {}, lastUsedAt: at(90) },
+    ];
+
+    expect(activeModels(rows, now).map((r) => [r.model, r.lastUsedAt])).toEqual([
+      ["mistral/mistral-large-3", at(5)],
+      ["inworld-tts-1.5-max", at(20)],
+    ]);
   });
 
   it("sums the footprint of estimated models and leaves unknown ones out", () => {
     const mistral = findEcologitsModel("inworld", "mistral/mistral-large-3")!;
 
-    const impacts = footprintOf([row(2, 400), { provider: "acme", model: "mystery-1", requests: 1, measures: { output_tokens: 5 } }]);
+    const impacts = footprintOf([row(2, 400), { provider: "acme", model: "mystery-1", requests: 1, measures: { output_tokens: 5 }, lastUsedAt: TS }]);
 
     expect(impacts).toEqual(estimateImpacts(mistral, { measures: { output_tokens: 400 }, requests: 2 }));
   });
 });
 
 describe("what the meter derives from usage", () => {
-  const speech = { provider: "inworld", model: "inworld-tts-1.5-max", requests: 4, measures: { characters: 900, audio_seconds: 50 } };
-  const listening = { provider: "inworld", model: "soniox/stt-rt-v4", requests: 2, measures: { audio_seconds: 12 } };
-  const classifier = { provider: "inworld", model: "google-ai-studio/gemini-2.5-flash", requests: 3, measures: { output_tokens: 12 } };
+  const speech = { provider: "inworld", model: "inworld-tts-1.5-max", requests: 4, measures: { characters: 900, audio_seconds: 50 }, lastUsedAt: TS };
+  const listening = { provider: "inworld", model: "soniox/stt-rt-v4", requests: 2, measures: { audio_seconds: 12 }, lastUsedAt: TS };
+  const classifier = { provider: "inworld", model: "google-ai-studio/gemini-2.5-flash", requests: 3, measures: { output_tokens: 12 }, lastUsedAt: TS };
 
-  it("counts replies written, seconds spoken and seconds listened, exactly", () => {
+  it("counts tokens written, seconds spoken and seconds listened, exactly", () => {
     expect(countedOf([row(5, 2000), classifier, speech, listening])).toEqual({
-      replies: 8,
+      tokensWritten: 2012,
       spokenSeconds: 50,
       listenedSeconds: 12,
     });

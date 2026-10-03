@@ -116,6 +116,8 @@ export class AudioSystem {
         // Merge context language into options for consistent usage internally
         const effectiveOptions: AudioSystemOptions = { ...serverOptions, language };
         const from = this.reportContextFor(meeting);
+        /** Where the message sits, so its voice is counted on the meter once it has been played. */
+        const messageIndex = meeting.conversation?.findIndex((entry) => entry.id === message.id) ?? -1;
 
         if (effectiveOptions.skipAudio) return;
 
@@ -210,7 +212,7 @@ export class AudioSystem {
                         ...usage,
                         ...(region ? { region } : {}),
                         measures: { characters, audio_seconds: chunkDurations?.[i] },
-                        ...usageTagsFor(meeting),
+                        ...usageTagsFor(meeting, messageIndex),
                     });
                 });
             }
@@ -280,7 +282,7 @@ export class AudioSystem {
                                 provider: "openai",
                                 model: WHISPER_MODEL,
                                 measures: { audio_seconds: durations.reduce((sum, d) => sum + Math.max(d, 0), 0) },
-                                ...usageTagsFor(meeting),
+                                ...usageTagsFor(meeting, messageIndex),
                             });
                             const whisperSentences = mapSentencesToWords(
                                 sentenceTexts,

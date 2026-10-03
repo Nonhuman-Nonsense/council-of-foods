@@ -92,6 +92,7 @@ export async function requestSpeakerClassifierCompletion(
     logLabel: string,
     /** The meeting to tag the call's usage with. */
     meeting: StoredMeeting,
+    messageIndex?: number,
 ): Promise<string> {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), OUTBOUND_HTTP_TIMEOUT_MS);
@@ -128,7 +129,7 @@ export async function requestSpeakerClassifierCompletion(
             provider: "inworld",
             model: serverOptions.speakerClassifierModel,
             measures: parseChatCompletionUsage(data.usage),
-            ...usageTagsFor(meeting),
+            ...usageTagsFor(meeting, messageIndex),
         });
         const content = data.choices?.[0]?.message?.content;
         return typeof content === "string" ? content : "";

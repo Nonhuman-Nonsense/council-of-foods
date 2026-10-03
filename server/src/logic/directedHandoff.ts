@@ -22,6 +22,8 @@ export async function annotateDirectedHandoff(
         mode: "participantHandoff",
         text,
         speakerId,
+        // The message is routed before it is appended, so it will take the next position.
+        messageIndex: meeting.conversation.length,
     });
 
     if (targetId) {

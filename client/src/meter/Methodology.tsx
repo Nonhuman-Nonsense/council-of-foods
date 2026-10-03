@@ -262,8 +262,8 @@ function AllCouncils(): ReactElement | null {
       <h2>All councils</h2>
       <p>Every council, at every venue and online, since counting began.</p>
       <dl className="method-totals">
-        <dt>Replies written</dt>
-        <dd>{counted.replies.toLocaleString("en")}</dd>
+        <dt>Tokens written</dt>
+        <dd>{counted.tokensWritten.toLocaleString("en")}</dd>
         <dt>Speaking</dt>
         <dd>{Math.round(counted.spokenSeconds / 60).toLocaleString("en")} minutes</dd>
         <dt>Listening</dt>
@@ -300,8 +300,10 @@ export function Methodology(): ReactElement {
           <dd>The electricity of this room — projector, computer, speakers, screens — from power meters in the plugs.</dd>
           <dt>Counted</dt>
           <dd>
-            What the AI providers bill for, exactly: replies written, seconds of speech produced, seconds of the
-            visitors' speech listened to. No estimate involved.
+            What the AI providers bill for, exactly: tokens written (pieces of words, about three quarters of a word
+            each), seconds of speech produced, seconds of the visitors' speech listened to. No estimate involved.
+            The screen counts the current meeting as far as it has been played: replies are written ahead and
+            played gradually, so the room's figures follow what you hear.
           </dd>
           <dt>Estimated</dt>
           <dd>

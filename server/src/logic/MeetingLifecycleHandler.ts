@@ -7,6 +7,7 @@ import { Logger } from "@utils/Logger.js";
 import removeMd from 'remove-markdown';
 import type { StoredMeeting } from "@models/DBModels.js";
 import { isCompleteReplayManifest } from "../api/replayManifest.js";
+import { announceMeetingProgress } from "@services/meterEvents.js";
 
 /**
  * Promotes a concluded meeting to `meetingComplete: true` — but only once its replay manifest
@@ -180,6 +181,7 @@ export class MeetingLifecycleHandler {
             summaryPrompt,
             m,
             manager.serverOptions.summarizeMeetingLength,
+            m.conversation.findIndex((msg) => msg.type === "summary_pending"),
         );
 
         if (!manager.isActive) return;
@@ -220,6 +222,7 @@ export class MeetingLifecycleHandler {
                 },
             },
         );
+        announceMeetingProgress(m);
 
         const audioMessage = {
             ...summary,

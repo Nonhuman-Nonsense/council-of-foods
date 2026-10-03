@@ -108,6 +108,8 @@ export class DialogGenerator {
             /** What the generation is for, in the footprint meter's usage log. */
             feature: UsageFeature;
             meeting: StoredMeeting;
+            /** Conversation position the generation will take, for the meter's playback count. */
+            messageIndex: number;
             /**
              * Interrupts (hand raise, pause, teardown), checked between attempts.
              * Aborting returns an empty response, so only pass one from a caller
@@ -118,7 +120,7 @@ export class DialogGenerator {
             shouldAbort?: () => boolean;
         },
     ): Promise<{ id: string | null } & T> {
-        const { operation, feature, meeting, shouldAbort } = ctx;
+        const { operation, feature, meeting, messageIndex, shouldAbort } = ctx;
         let lastEmpty: { id: string | null } & T | null = null;
 
         for (let attempt = 1; attempt <= GENERATION_ATTEMPTS; attempt++) {
@@ -130,7 +132,7 @@ export class DialogGenerator {
 
             // Every attempt is paid for, including the empty ones.
             if (completion.usage) {
-                void recordUsage({ feature, ...completion.usage, ...usageTagsFor(meeting) });
+                void recordUsage({ feature, ...completion.usage, ...usageTagsFor(meeting, messageIndex) });
             }
 
             if (completion.content) {
@@ -369,7 +371,7 @@ export class DialogGenerator {
                         currentSpeakerIndex,
                         completion.finishReason,
                     ),
-                { operation: `${speaker.name}'s turn`, feature: "dialogue", meeting, shouldAbort },
+                { operation: `${speaker.name}'s turn`, feature: "dialogue", meeting, messageIndex: meeting.conversation.length, shouldAbort },
             );
         } catch (error) {
             //Just log and rethrow
@@ -413,7 +415,7 @@ export class DialogGenerator {
                         0,
                         completion.finishReason,
                     ),
-                { operation: "chair interjection", feature: "dialogue", meeting },
+                { operation: "chair interjection", feature: "dialogue", meeting, messageIndex: index },
             );
         } catch (error) {
             //Just log and rethrow
@@ -430,6 +432,8 @@ export class DialogGenerator {
         documentPrompt: string,
         meeting: StoredMeeting,
         maxTokens: number,
+        /** Where the document will sit in the conversation (the summary marker's index). */
+        messageIndex: number = meeting.conversation.length,
     ): Promise<DocumentResponse> {
         try {
             const chair = meeting.characters[0];
@@ -452,7 +456,7 @@ export class DialogGenerator {
                         completion.finishReason,
                     );
                 },
-                { operation: "summary document", feature: "summary", meeting },
+                { operation: "summary document", feature: "summary", meeting, messageIndex },
             );
 
             const trimmedNote = result.trimmed
