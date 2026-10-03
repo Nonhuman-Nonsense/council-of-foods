@@ -114,11 +114,13 @@ ranges. Its Python library is used at dev time only; the Node app never runs Pyt
     profile with the Dutch electricity mix (from `x-region: europe-west4`).
   - Soniox STT: nothing published; 0.6–2B (Parakeet TDT 0.6B to Whisper large-v3 1.55B), 50
     tokens per audio second, EcoLogits' generic US cloud profile.
-- **Mistral Large 3 correction:** EcoLogits (0.11.1 and `main`) lists `mistral-large-2512` as
-  123B dense, copied from Mistral Large 2. Mistral publishes 675B total / 41B active,
-  mixture-of-experts. `export.py` overrides it, with an 8–16-bit serving range (weights ship in
-  FP8 and BF16; EcoLogits sizes the GPU fleet by weight memory, so 16–32 GPUs): 0.24 Wh →
-  **0.60–1.20 Wh per 400 tokens**. Reported upstream as a GitHub issue (2026-09).
+- **Mistral Large 3:** EcoLogits up to 0.11.1 listed `mistral-large-2512` as 123B dense, copied
+  from Mistral Large 2. We reported it; 0.11.2 (2026-09-29,
+  [PR #262](https://github.com/mlco2/ecologits/pull/262)) takes Mistral's published 675B total /
+  41B active mixture-of-experts and a measured 16 tokens/s. `export.py` keeps only our 8–16-bit
+  serving range (weights ship in FP8 and BF16; EcoLogits assumes 16-bit and has announced
+  changes to how it treats quantization), so 16–32 GPUs: **0.78–1.6 Wh per 400 tokens**.
+  Revisit the range when EcoLogits' quantization change lands.
 - **Training** (`shared/footprint/training.ts`) is shown whole, never per request: no provider
   publishes a model's lifetime request count. Only Mistral publishes figures — Large 2's life-cycle
   analysis (training + 18 months: 20.4 kt CO₂e, 281,000 m³ water, 660 kg Sb eq), shown as the

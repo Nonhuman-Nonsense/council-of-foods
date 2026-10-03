@@ -65,23 +65,19 @@ SONIOX_ASSUMPTIONS = [
 MODELS = {
     "inworld|mistral/mistral-large-3": {
         "ecologits": ("mistralai", "mistral-large-2512"),
-        # EcoLogits (0.11.1 and main as of 2026-09) lists mistral-large-2512 as 123B dense, with
-        # Mistral Large 2's sources. Mistral publishes Large 3 as a 675B / 41B-active MoE.
-        "parameters": {"total": 675, "active": 41},
-        # Weights ship in FP8 and BF16; EcoLogits' default is 16-bit. The GPU count, and with it
-        # most of the estimate, depends on which one serves.
+        # Weights ship in FP8 and BF16; EcoLogits (0.11.2) assumes 16-bit for every model and has
+        # announced changes to how it treats quantization. The GPU count, and with it most of
+        # the estimate, depends on which one serves.
         "quantizationBits": (8, 16),
         "role": "writing",
-        "basis": "corrected",
+        "basis": "ecologits",
         "assumptions": [
             "Routed through Inworld to Mistral's own API; EcoLogits' Mistral data-centre profile applies.",
-            "Architecture corrected from EcoLogits' entry (123B dense, copied from Mistral Large 2) to Mistral's published 675B total / 41B active mixture-of-experts.",
-            "Served with 8-bit (FP8, published) to 16-bit weights: EcoLogits sizes the GPU fleet by memory, so this halves or doubles the GPUs a request occupies (16 to 32 H100-class GPUs).",
+            "EcoLogits listed Mistral Large 3 with Mistral Large 2's size until 0.11.2, which took Mistral's published 675B total / 41B active mixture-of-experts after we reported it.",
+            "Served with 8-bit (FP8, published) to 16-bit weights: EcoLogits sizes the GPU fleet by memory, so this halves or doubles the GPUs a request occupies (16 to 32 H100-class GPUs). EcoLogits itself assumes 16-bit.",
         ],
         "sources": [
-            "https://mistral.ai/news/mistral-3/",
-            "https://docs.mistral.ai/models/mistral-large-3-25-12",
-            "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512",
+            "https://github.com/mlco2/ecologits/pull/262",
             "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512-NVFP4",
         ],
     },
@@ -248,7 +244,9 @@ def coefficients(inputs, end):
 def golden(key, spec, inputs, units, request_seconds):
     tokens = units * spec.get("tokensPerUnit", 1)
     latency = math.inf if request_seconds is None else request_seconds
-    if "ecologits" in spec and "parameters" not in spec:
+    # EcoLogits' public entry point, unless our inputs differ from its own: a corrected size, or
+    # a quantization range (llm_impacts assumes 16-bit).
+    if "ecologits" in spec and "parameters" not in spec and inputs["bits"] == (16, 16):
         provider, name = spec["ecologits"]
         result = llm_impacts(provider, name, tokens, latency)
         if result.has_errors:
@@ -340,7 +338,7 @@ def export(expected_version):
             "high": coefficients(inputs, 1),
             "assumptions": spec.get("assumptions", []),
             "warnings": inputs["warnings"],
-            "sources": inputs["sources"] + spec.get("sources", []),
+            "sources": list(dict.fromkeys(inputs["sources"] + spec.get("sources", []))),
             "samples": [golden(key, spec, inputs, u, s) for u, s in SAMPLES],
         }
     return out
