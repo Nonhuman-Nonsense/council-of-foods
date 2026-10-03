@@ -243,75 +243,169 @@ html[data-rotate="-90"] #root {
   z-index: 1;
 }
 
-/* Methodology page: read on a visitor's phone, so it scrolls and keeps the pointer. */
+/*
+ * Methodology page: read on a visitor's phone, so it scrolls and keeps the pointer. Same palette
+ * and type as the screen: light text on black, uppercase section heads over a hairline.
+ */
 html[data-page="methodology"] body {
   overflow: auto;
   cursor: auto;
-  background: #f4f1e8;
-  color: #1d1c19;
+  background: #000;
+  color: #f2efe6;
 }
 .methodology {
   box-sizing: border-box;
   max-width: 44rem;
   margin: 0 auto;
-  padding: 2rem 1rem 4rem;
+  padding: 2.5rem 1rem 4rem;
   font-size: 1.05rem;
-  line-height: 1.55;
+  line-height: 1.6;
+}
+.method-kicker {
+  margin: 0;
+  font-size: 0.8rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9c9788;
 }
 .methodology h1 {
-  font-size: 1.9rem;
-  line-height: 1.2;
+  margin: 0.3rem 0 1.25rem;
+  font-size: 2.2rem;
+  font-weight: normal;
+  line-height: 1.15;
+}
+.method-lead {
+  font-size: 1.15rem;
+  color: #c9c4b6;
 }
 .methodology h2 {
-  margin-top: 2.5rem;
-  font-size: 1.35rem;
+  margin: 3rem 0 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #333;
+  font-size: 0.85rem;
+  font-weight: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9c9788;
 }
 .methodology a {
   color: inherit;
+  text-decoration-color: #5a564c;
+  text-underline-offset: 0.15em;
 }
-.method-model {
-  margin: 1.25rem 0;
-  padding: 1rem;
-  border: 1px solid #d8d2c2;
-  border-radius: 6px;
-  background: #fbf9f3;
+.methodology a:hover {
+  text-decoration-color: currentColor;
 }
-.method-model h3 {
-  margin: 0;
-  font-size: 1.1rem;
+.methodology em {
+  color: #f2efe6;
+}
+.method-glance {
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #333;
+}
+.method-glance li {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid #1f1f1f;
+  color: #c9c4b6;
+}
+.method-glance strong {
+  font-weight: normal;
+  color: #f2efe6;
+}
+.methodology strong {
+  font-weight: normal;
+  color: #f2efe6;
+}
+.methodology p {
+  color: #c9c4b6;
+}
+
+/* A line to glance at; tapping it opens the detail. */
+.method-fold {
+  border-bottom: 1px solid #1f1f1f;
+}
+.method-fold summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  cursor: pointer;
+  list-style: none;
+}
+.method-fold summary::-webkit-details-marker {
+  display: none;
+}
+.method-fold summary::before {
+  content: "+";
+  flex: none;
+  width: 1rem;
+  color: #6f6b60;
+}
+.method-fold[open] summary::before {
+  content: "–";
+}
+.method-fold summary > span:first-of-type {
+  flex: 1;
+}
+.method-aside {
+  flex: none;
+  max-width: 55%;
+  text-align: right;
+  font-size: 0.92rem;
+  color: #9c9788;
+}
+.method-fold-body {
+  padding: 0 0 1rem 1rem;
+}
+.method-fold-body > :first-child {
+  margin-top: 0;
 }
 .method-role {
-  margin: 0.1rem 0 0.75rem;
-  color: #6f6b60;
+  margin: 0 0 0.6rem;
+  color: #9c9788;
 }
-.method-model dl {
+.method-pairs {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.2rem 1rem;
+  gap: 0.25rem 1rem;
   margin: 0 0 0.75rem;
 }
-.method-model dt {
-  color: #6f6b60;
+.method-pairs dt {
+  color: #9c9788;
 }
-.method-model dd {
+.method-pairs dd {
   margin: 0;
+  font-variant-numeric: tabular-nums;
 }
-.method-assumptions,
-.method-warning,
+.method-small,
 .method-sources {
-  font-size: 0.92rem;
-  color: #4a473f;
+  font-size: 0.9rem;
+  color: #9c9788;
 }
-.method-undisclosed {
-  font-weight: bold;
+.methodology .method-small,
+.methodology .method-sources {
+  color: #9c9788;
 }
-/* The chain of certainty and the all-councils totals: term above its explanation, on a phone. */
-.method-chain dt,
-.method-totals dt {
-  margin-top: 0.9rem;
-  font-weight: bold;
+ul.method-small {
+  padding-left: 1.1rem;
 }
-.method-chain dd,
-.method-totals dd {
-  margin: 0.15rem 0 0;
+.method-references {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.95rem;
+}
+.method-references li {
+  margin: 0.3rem 0;
+}
+.method-footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid #333;
+  font-size: 0.9rem;
+}
+.methodology .method-footer p {
+  color: #6f6b60;
 }

@@ -46,6 +46,8 @@ export interface OutsideItem {
     item: string;
     /** Not counted: no figure here includes it. Not published: the companies do not say. */
     why: "not counted" | "not published";
+    /** What it is, and why the figures leave it out, for the methodology page. */
+    note: string;
     /**
      * What one published study puts it at, relative to what the screen counts. Only where the
      * study measures what our figures leave out, so it says how far above them the truth lies.
@@ -62,36 +64,64 @@ export const OUTSIDE_THE_NUMBERS: OutsideItem[] = [
     {
         item: "AI companies' own development",
         why: "not published",
+        note: "The experiments, tuning and abandoned runs before a model's final training. Training figures, where they exist, cover only the final run.",
         estimate: {
             figure: "about +50% on training",
             note: "Morrison et al. (ICLR 2025) measured the development of AI2's open language models: the experiments and tuning before the final training run came to about half of that run's own impact. No company behind the council's models publishes this.",
             sources: ["https://arxiv.org/abs/2503.05804"],
         },
     },
-    { item: "Building the data centres", why: "not counted" },
-    { item: "The water used to make the chips", why: "not counted" },
-    { item: "How large most of the models are", why: "not published" },
-    { item: "Where the answers are computed", why: "not published" },
-    { item: "Where the electricity really came from", why: "not published" },
-    { item: "Reading the question, before each answer", why: "not counted" },
-    { item: "Internet infrastructure", why: "not counted" },
+    {
+        item: "Building the data centres",
+        why: "not counted",
+        note: "The concrete, steel, cooling plants and grid connections of the buildings. EcoLogits counts a share of making the servers and GPUs, not the buildings they stand in.",
+    },
+    {
+        item: "The water used to make the chips",
+        why: "not counted",
+        note: "Chip factories use large amounts of ultrapure water. EcoLogits counts the water for cooling and for electricity, but none for manufacturing.",
+    },
+    {
+        item: "How large most of the models are",
+        why: "not published",
+        note: "EcoLogits estimates from a model's size. Of the council's models only Mistral publishes it; Gemini's size is EcoLogits' own estimate, and the voices' and listening models' sizes are our guesses.",
+    },
+    {
+        item: "Where the answers are computed",
+        why: "not published",
+        note: "No provider says which data centre served a request. Each model below has an assumed country, from what its provider documents.",
+    },
+    {
+        item: "Where the electricity really came from",
+        why: "not published",
+        note: "The figures use each country's average grid. The actual supply at that hour, and the companies' own energy contracts, are not published.",
+    },
+    {
+        item: "Reading the question, before each answer",
+        why: "not counted",
+        note: "EcoLogits counts the time to write an answer, not to read what it is given. Here that is a lot: each reply reads the whole conversation so far.",
+    },
+    {
+        item: "Internet infrastructure",
+        why: "not counted",
+        note: "The networks carrying each request between this room, the AI providers and their data centres.",
+    },
     {
         item: "Data centres kept waiting for demand",
         why: "not counted",
+        note: "Machines kept running idle so that capacity is there when requests arrive.",
         estimate: {
             figure: "about +10% energy",
             note: "In Google's measurement of a median Gemini prompt (2025), machines kept running idle, ready for demand, took 0.02 of its 0.24 Wh. EcoLogits counts the servers and the cooling, but not this idle capacity.",
             sources: ["https://arxiv.org/html/2508.15734"],
         },
     },
-    { item: "The hardware's afterlife as e-waste", why: "not counted" },
+    {
+        item: "The hardware's afterlife as e-waste",
+        why: "not counted",
+        note: "Servers and chips are replaced every few years as newer ones arrive; what happens to them, and to the toxic materials in them, is outside every figure.",
+    },
 ];
-
-/** Costs no figure on the meter includes. */
-export const NOT_COUNTED: string[] = OUTSIDE_THE_NUMBERS.filter((o) => o.why === "not counted").map((o) => o.item);
-
-/** What the companies running the models do not say. */
-export const NOT_DISCLOSED: string[] = OUTSIDE_THE_NUMBERS.filter((o) => o.why === "not published").map((o) => o.item);
 
 export interface MineralPlace {
     mineral: string;

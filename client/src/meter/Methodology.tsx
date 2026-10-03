@@ -11,17 +11,24 @@ import {
   type EcologitsModel,
   type ModelBasis,
 } from "@shared/footprint/ecologits";
-import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED, OUTSIDE_THE_NUMBERS, PUBLISHED_COUNTS } from "@shared/footprint/counting";
+import { MINERAL_PLACES, OUTSIDE_THE_NUMBERS, PUBLISHED_COUNTS } from "@shared/footprint/counting";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
 import { WORLD_FIGURES } from "@shared/footprint/world";
 import { countedOf, footprintOf, formatRange, gpuTimeOf, guessedShareOf, toDisplayRange } from "./meterState";
 import { MODEL_ROLES, zoneName } from "./modelInfo";
 
 /**
- * The methodology page behind the meter's QR code, read on a visitor's phone. It follows the
- * screen's chain of certainty — measured, counted, estimated, guessed, not counted — and is
- * generated from the same tables the meter computes with, so the two cannot drift.
+ * The methodology page behind the meter's QR code, read on a visitor's phone. Each section opens
+ * with what matters in a sentence or two; the detail — every model, source and caveat — is folded
+ * away to open on a tap. Generated from the same tables the meter computes with, so the two
+ * cannot drift.
  */
+
+const BASIS_SHORT: Record<ModelBasis, string> = {
+  ecologits: "described",
+  corrected: "described",
+  guessed: "guessed",
+};
 
 const BASIS_TEXT: Record<ModelBasis, string> = {
   ecologits: "EcoLogits' own description of the model",
@@ -47,13 +54,16 @@ function Sources({ urls }: { urls: string[] }): ReactElement | null {
   );
 }
 
-function Card({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }): ReactElement {
+/** A line to glance at, folding open on a tap to the detail behind it. */
+function Fold({ summary, aside, children }: { summary: ReactNode; aside?: ReactNode; children: ReactNode }): ReactElement {
   return (
-    <article className="method-model">
-      <h3>{title}</h3>
-      {subtitle ? <p className="method-role">{subtitle}</p> : null}
-      {children}
-    </article>
+    <details className="method-fold">
+      <summary>
+        <span>{summary}</span>
+        {aside ? <span className="method-aside">{aside}</span> : null}
+      </summary>
+      <div className="method-fold-body">{children}</div>
+    </details>
   );
 }
 
@@ -77,96 +87,90 @@ function ModelEntry({ id, model }: { id: string; model: EcologitsModel }): React
   const fromHardware = estimateManufacturing(model, reference.usage).adpe.high / impacts.adpe.high;
 
   return (
-    <Card title={id.split("|")[1]} subtitle={MODEL_ROLES[id] ?? "Used by the council"}>
-      <dl>
+    <Fold
+      summary={id.split("|")[1]}
+      aside={`${zoneName(model.datacenterZones)} · ${BASIS_SHORT[model.basis]}`}
+    >
+      <p className="method-role">{MODEL_ROLES[id] ?? "Used by the council"}</p>
+      <dl className="method-pairs">
         <dt>Known from</dt>
         <dd>{BASIS_TEXT[model.basis]}</dd>
-        <dt>Assumed location</dt>
-        <dd>{zoneName(model.datacenterZones)}</dd>
         <dt>Size</dt>
         <dd>{formatParameters(model)}</dd>
         <dt>Energy {reference.label}</dt>
         <dd>{formatRange(toDisplayRange("energy", impacts.energy))}</dd>
-        <dt>Water {reference.label}</dt>
+        <dt>Water</dt>
         <dd>{formatRange(toDisplayRange("wcf", impacts.wcf))}</dd>
-        <dt>Carbon {reference.label}</dt>
+        <dt>Carbon</dt>
         <dd>{formatRange(toDisplayRange("gwp", impacts.gwp))}</dd>
-        <dt>GPU time {reference.label}</dt>
+        <dt>GPU time</dt>
         <dd>{formatRange(toDisplayRange("gpuTime", estimateGpuSeconds(model, reference.usage)))}</dd>
-        <dt>Minerals {reference.label}</dt>
+        <dt>Minerals</dt>
         <dd>
           {formatRange(toDisplayRange("adpe", impacts.adpe))}, {percent(fromHardware)} from making the hardware
         </dd>
       </dl>
       {model.assumptions.length > 0 ? (
-        <ul className="method-assumptions">
+        <ul className="method-small">
           {model.assumptions.map((assumption) => <li key={assumption}>{assumption}</li>)}
         </ul>
       ) : null}
-      {model.warnings.length > 0 ? <p className="method-warning">EcoLogits notes: {model.warnings.join(" ")}</p> : null}
+      {model.warnings.length > 0 ? <p className="method-small">EcoLogits notes: {model.warnings.join(" ")}</p> : null}
       <Sources urls={model.sources} />
-    </Card>
+    </Fold>
   );
 }
 
-function WhosCounting(): ReactElement {
-  const dialogue = findEcologitsModel("inworld", "mistral/mistral-large-3");
-  const ours = dialogue ? estimateImpacts(dialogue, ONE_ANSWER) : null;
-  const published = (value: number | undefined, unit: string) =>
-    value === undefined ? "not published" : formatRange({ low: value, high: value, unit }, 3);
-
+function Training(): ReactElement {
+  const published = TRAINING_DISCLOSURES.find((entry) => entry.disclosed);
+  const silent = TRAINING_DISCLOSURES.filter((entry) => !entry.disclosed).map((entry) => entry.maker);
+  const disclosed = published?.disclosed;
   return (
     <section>
-      <h2>Who's counting</h2>
+      <h2>Training the models</h2>
       <p>
-        There is no agreed way to count what an AI answer costs. Each estimate depends on where someone decided to
-        stop counting: Google and Mistral AI have each published figures for one answer, and their water figures
-        differ more than a hundredfold, mostly because they count different things.
+        Training is paid once, before any meeting, and dwarfs everything the screen counts.
+        {disclosed ? (
+          <>
+            {" "}Only Mistral publishes it: <strong>{formatRange(toDisplayRange("gwp", { low: disclosed.gwpKgCo2e, high: disclosed.gwpKgCo2e }), 3)}</strong>{" "}
+            and <strong>{formatRange({ low: disclosed.waterL / 1e6, high: disclosed.waterL / 1e6, unit: "million litres" }, 3)}</strong>{" "}
+            of water for {disclosed.figuresFor}, the predecessor of the model the council uses.
+          </>
+        ) : null}{" "}
+        {[...new Set(silent)].join(", ")} publish nothing. Nobody publishes how many answers a model serves, so it
+        cannot be divided per meeting.
       </p>
-      {PUBLISHED_COUNTS.map((count) => (
-        <Card key={count.who} title={count.who} subtitle={`One answer: ${count.answer}`}>
-          <dl>
-            <dt>Counts</dt>
-            <dd>{count.counts}</dd>
-            <dt>Leaves out</dt>
-            <dd>{count.leavesOut}</dd>
-            <dt>Energy</dt>
-            <dd>{published(count.perAnswer.energyWh, "Wh")}</dd>
-            <dt>Water</dt>
-            <dd>{published(count.perAnswer.waterMl, "mL")}</dd>
-            <dt>Carbon</dt>
-            <dd>{published(count.perAnswer.co2eG, "g CO₂e")}</dd>
-            <dt>Minerals</dt>
-            <dd>{published(count.perAnswer.mineralsMgSbEq, "mg Sb eq")}</dd>
-          </dl>
-          <Sources urls={count.sources} />
-        </Card>
-      ))}
-      {ours ? (
-        <Card title="EcoLogits, as used here" subtitle="One answer: 400 tokens from Mistral Large 3, the council's dialogue model">
-          <dl>
-            <dt>Counts</dt>
-            <dd>
-              the electricity of the GPUs and servers with data-centre overhead, the water used to cool them and to
-              generate their electricity, and a share of making the GPUs and servers
-            </dd>
-            <dt>Leaves out</dt>
-            <dd>training, reading the input, networks, idle capacity, the water used to make the chips, e-waste</dd>
-            <dt>Energy</dt>
-            <dd>{formatRange(toDisplayRange("energy", ours.energy))}</dd>
-            <dt>Water</dt>
-            <dd>{formatRange(toDisplayRange("wcf", ours.wcf))}</dd>
-            <dt>Carbon</dt>
-            <dd>{formatRange(toDisplayRange("gwp", ours.gwp))}</dd>
-            <dt>Minerals</dt>
-            <dd>{formatRange(toDisplayRange("adpe", ours.adpe))}</dd>
-          </dl>
-        </Card>
+      {published?.disclosed ? (
+        <Fold summary="What Mistral's figure covers">
+          <p>{published.disclosed.scope}</p>
+          <p>{published.note}</p>
+          {published.disclosed.trainingHardware ? <p>{published.disclosed.trainingHardware}</p> : null}
+          <Sources urls={published.disclosed.sources} />
+        </Fold>
       ) : null}
+    </section>
+  );
+}
+
+function Outside(): ReactElement {
+  return (
+    <section>
+      <h2>Outside these numbers</h2>
       <p>
-        The models are not the same — Google's figure is for Gemini, Mistral's for its previous large model — so the
-        comparison shows how much the boundary matters, not which model is cleaner.
+        Every estimate is a floor. None of these is in the figures: some because the method stops short of them,
+        some because the companies do not publish them.
       </p>
+      {OUTSIDE_THE_NUMBERS.map(({ item, why, note, estimate }) => (
+        <Fold key={item} summary={item} aside={estimate ? estimate.figure : why}>
+          <p>{note}</p>
+          {estimate ? (
+            <>
+              <p>{estimate.note}</p>
+              <Sources urls={estimate.sources} />
+            </>
+          ) : null}
+        </Fold>
+      ))}
     </section>
   );
 }
@@ -177,48 +181,18 @@ function Minerals(): ReactElement {
     <section>
       <h2>Minerals</h2>
       <p>
-        EcoLogits expresses minerals as <em>abiotic resource depletion</em>, in kilograms of antimony-equivalent
-        (Sb eq): every metal mined is weighted by how scarce it is, relative to antimony. It is the standard
-        life-cycle measure, and it means little to anyone standing in front of it.
-      </p>
-      <p>
-        Almost all of it — over 99% for the models here — comes not from running the models but from making the
-        hardware. EcoLogits takes one published estimate for a server and one for a GPU ({HARDWARE.gpu}), assumes
-        they last {lifeYears} years, and gives each request a share by the time it keeps the GPUs busy, shared with
-        the {HARDWARE.batchSize - 1} other requests served at the same moment. Its authors note that the uncertainty
-        of those hardware estimates is not quantified.
-      </p>
-      <p>
-        So the screen shows no mineral figure. The Sb eq figures are given per model below, and the GPU time they
-        are built from with the totals at the end. Because a weighted mass says nothing about where the ground was
-        opened, the screen names places in the supply of the minerals the hardware is made with instead. Nobody can trace
-        which mine supplied which chip; these places are documented, not our hardware's own history.
+        More than 90% of the minerals behind each answer are in the hardware, not in running it: EcoLogits shares a
+        GPU's and a server's making over their {lifeYears}-year life. Its measure, antimony-equivalent, says nothing
+        about where the ground was opened, so the screen names places instead. Nobody can trace which mine supplied
+        which chip.
       </p>
       {MINERAL_PLACES.map((place) => (
-        <Card key={place.mineral} title={`${place.mineral} — ${place.place}`} subtitle={`Used for ${place.use}`}>
+        <Fold key={place.mineral} summary={place.mineral} aside={place.place}>
+          <p className="method-role">Used for {place.use}</p>
           <p>{place.note}</p>
           <Sources urls={place.sources} />
-        </Card>
+        </Fold>
       ))}
-    </section>
-  );
-}
-
-/** The costs outside the figures that a published study has put a size on. */
-function OutsideEstimates(): ReactElement {
-  return (
-    <section>
-      <h2>Outside these numbers, where someone has measured</h2>
-      <p>
-        Most of what the screen leaves out has no published figure. Two have one, each from a single study and
-        not of this council's own use: they say roughly how far above the screen's figures the truth lies.
-      </p>
-      {OUTSIDE_THE_NUMBERS.map(({ item, estimate }) => estimate ? (
-        <Card key={item} title={item} subtitle={estimate.figure}>
-          <p>{estimate.note}</p>
-          <Sources urls={estimate.sources} />
-        </Card>
-      ) : null)}
     </section>
   );
 }
@@ -227,50 +201,148 @@ function AroundTheWorld(): ReactElement {
   return (
     <section>
       <h2>Around the world</h2>
-      <p>
-        The figures on the screen are one council's share of a much larger build-out: data centres, chips and
-        power built for AI everywhere. These are the published figures the screen gives for its scale.
-      </p>
       {WORLD_FIGURES.map((entry) => (
-        <Card key={entry.what} title={entry.what} subtitle={entry.figure}>
+        <Fold key={entry.what} summary={entry.what} aside={entry.figure}>
           <p>{entry.note}</p>
           <Sources urls={entry.sources} />
-        </Card>
+        </Fold>
       ))}
     </section>
   );
 }
 
-function Training(): ReactElement {
+/** How Google, Mistral and this screen each count one answer: the boundary is the difference. */
+function WhosCounting(): ReactElement {
+  const dialogue = findEcologitsModel("inworld", "mistral/mistral-large-3");
+  const ours = dialogue ? estimateImpacts(dialogue, ONE_ANSWER) : null;
+  const published = (value: number | undefined, unit: string) =>
+    value === undefined ? "not published" : formatRange({ low: value, high: value, unit }, 3);
+  const rows = [
+    ...PUBLISHED_COUNTS.map((count) => ({
+      who: count.who,
+      answer: count.answer,
+      counts: count.counts,
+      leavesOut: count.leavesOut,
+      energy: published(count.perAnswer.energyWh, "Wh"),
+      water: published(count.perAnswer.waterMl, "mL"),
+      carbon: published(count.perAnswer.co2eG, "g CO₂e"),
+      sources: count.sources,
+    })),
+    ...(ours
+      ? [{
+          who: "This screen (EcoLogits)",
+          answer: "400 tokens from Mistral Large 3",
+          counts: "the GPUs' and servers' electricity with the data centre's overhead, the water for cooling and for the electricity, and a share of making the hardware",
+          leavesOut: "training, and everything under Outside these numbers",
+          energy: formatRange(toDisplayRange("energy", ours.energy)),
+          water: formatRange(toDisplayRange("wcf", ours.wcf)),
+          carbon: formatRange(toDisplayRange("gwp", ours.gwp)),
+          sources: [] as string[],
+        }]
+      : []),
+  ];
   return (
     <section>
-      <h2>Not counted: training</h2>
+      <h2>Who's counting</h2>
       <p>
-        Before a model can speak it has to be trained, on thousands of GPUs, in data centres built for it. That cost
-        is paid once and shared by everyone who ever uses the model; no maker publishes how many answers a model
-        gives, so it cannot be divided per meeting. Where it is published, it is shown here whole.
+        There is no agreed way to count what one AI answer costs. Google and Mistral have each published a figure;
+        their water figures differ more than a hundredfold, mostly because they count different things.
       </p>
-      {TRAINING_DISCLOSURES.map((entry) => (
-        <Card key={entry.model} title={entry.model} subtitle={entry.maker}>
-          {entry.disclosed ? (
-            <>
-              <p>{entry.disclosed.scope}</p>
-              <dl>
-                <dt>Carbon</dt>
-                <dd>{formatRange(toDisplayRange("gwp", { low: entry.disclosed.gwpKgCo2e, high: entry.disclosed.gwpKgCo2e }), 3)}</dd>
-                <dt>Water</dt>
-                <dd>{formatRange(toDisplayRange("wcf", { low: entry.disclosed.waterL, high: entry.disclosed.waterL }), 3)}</dd>
-                <dt>Minerals</dt>
-                <dd>{formatRange(toDisplayRange("adpe", { low: entry.disclosed.adpeKgSbEq, high: entry.disclosed.adpeKgSbEq }), 3)}</dd>
-              </dl>
-              {entry.disclosed.trainingHardware ? <p>{entry.disclosed.trainingHardware}</p> : null}
-            </>
-          ) : (
-            <p className="method-undisclosed">Not disclosed.</p>
-          )}
-          <p>{entry.note}</p>
-          {entry.disclosed ? <Sources urls={entry.disclosed.sources} /> : null}
-        </Card>
+      {rows.map((row) => (
+        <Fold key={row.who} summary={row.who} aside={`water ${row.water}`}>
+          <p className="method-role">One answer: {row.answer}</p>
+          <dl className="method-pairs">
+            <dt>Energy</dt>
+            <dd>{row.energy}</dd>
+            <dt>Water</dt>
+            <dd>{row.water}</dd>
+            <dt>Carbon</dt>
+            <dd>{row.carbon}</dd>
+          </dl>
+          <p>Counts {row.counts}. Leaves out {row.leavesOut}.</p>
+          <Sources urls={row.sources} />
+        </Fold>
+      ))}
+    </section>
+  );
+}
+
+interface Reference {
+  title: string;
+  url: string;
+}
+
+/** Everything the screen and this page rest on, grouped as the page reads. */
+const REFERENCES: { group: string; items: Reference[] }[] = [
+  {
+    group: "The method",
+    items: [
+      { title: "EcoLogits — methodology for LLM inference", url: "https://ecologits.ai/latest/methodology/llm_inference/" },
+      { title: "EcoLogits — source code (MPL-2.0)", url: "https://github.com/mlco2/ecologits" },
+      { title: "EcoLogits pull request #262 — Mistral Large 3's published size", url: "https://github.com/mlco2/ecologits/pull/262" },
+      { title: "Google (2025) — Measuring the environmental impact of delivering AI at Google Scale", url: "https://arxiv.org/abs/2508.15734" },
+      { title: "Mistral AI (2025) — Our contribution to a global environmental standard for AI", url: "https://mistral.ai/news/our-contribution-to-a-global-environmental-standard-for-ai" },
+    ],
+  },
+  {
+    group: "The models and where they run",
+    items: [
+      { title: "Mistral AI — Introducing Mistral 3", url: "https://mistral.ai/news/mistral-3/" },
+      { title: "Mistral Large 3 — model card", url: "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512-NVFP4" },
+      { title: "Mistral AI — When using Mistral AI's API, where is my data stored?", url: "https://help.mistral.ai/en/articles/156206-when-using-mistral-ai-s-api-where-is-my-data-stored" },
+      { title: "Inworld (2025) — TTS-1 technical report", url: "https://arxiv.org/abs/2507.21138" },
+      { title: "Inworld — regional deployments", url: "https://docs.inworld.ai/portal/regions" },
+      { title: "Inworld — realtime speech-to-text", url: "https://docs.inworld.ai/stt/overview" },
+      { title: "Google Cloud — Inworld customer story", url: "https://cloud.google.com/customers/inworld" },
+      { title: "ElevenLabs — data residency", url: "https://elevenlabs.io/docs/overview/administration/data-residency" },
+      { title: "Soniox — data residency", url: "https://soniox.com/docs/data-residency" },
+      { title: "NVIDIA Parakeet TDT 0.6B v2 — model card", url: "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2" },
+      { title: "OpenAI Whisper large-v3 — model card", url: "https://huggingface.co/openai/whisper-large-v3" },
+    ],
+  },
+  {
+    group: "Training and development",
+    items: [
+      { title: "Morrison et al. (ICLR 2025) — Holistically evaluating the environmental impact of creating language models", url: "https://arxiv.org/abs/2503.05804" },
+    ],
+  },
+  {
+    group: "Around the world",
+    items: [
+      { title: "International Energy Agency (2026) — Key questions on energy and AI", url: "https://www.iea.org/reports/key-questions-on-energy-and-ai/executive-summary" },
+      { title: "Wang et al., Nature Computational Science (2024) — E-waste challenges of generative artificial intelligence", url: "https://www.nature.com/articles/s43588-024-00712-6" },
+      { title: "Science Media Centre Spain — Generative AI expansion could create up to five million tonnes of e-waste", url: "https://sciencemediacentre.es/en/generative-ai-expansion-could-create-five-million-tonnes-e-waste" },
+    ],
+  },
+  {
+    group: "Minerals",
+    items: [
+      { title: "Argus Media — Rubaya mine collapse and the tantalum supply chain", url: "https://www.argusmedia.com/en/news-and-insights/market-opinion-and-analysis-blog/rubaya-mine-collapse-tantalum-supply-chain" },
+      { title: "Swissinfo — UN experts warn Congo's conflict minerals slipping into global market", url: "https://www.swissinfo.ch/eng/international-geneva/un-experts-warn-congos-conflict-minerals-slipping-into-global-market/89978793" },
+      { title: "Al Jazeera (2026) — More than 200 killed in mine collapse in eastern DR Congo", url: "https://www.aljazeera.com/news/2026/1/31/more-than-200-killed-in-mine-collapse-in-eastern-dr-congo-report" },
+      { title: "Our World in Data — Most of the world's cobalt is mined in the DR Congo, but refined in China", url: "https://ourworldindata.org/data-insights/most-of-the-worlds-cobalt-is-mined-in-the-democratic-republic-of-congo-but-refined-in-china" },
+      { title: "Amnesty International (2016) — DRC: cobalt and child labour", url: "https://www.amnesty.org/en/latest/campaigns/2016/06/drc-cobalt-child-labour/" },
+      { title: "U.S. Geological Survey — Mineral Commodity Summaries 2026: gallium", url: "https://pubs.usgs.gov/periodicals/mcs2026/mcs2026-gallium.pdf" },
+      { title: "Wikipedia — Monturaqui-Negrillar-Tilopozo Aquifer", url: "https://en.wikipedia.org/wiki/Monturaqui-Negrillar-Tilopozo_Aquifer" },
+      { title: "Mongabay (2024) — Chilean Indigenous association participates in key study for lawsuit against mining", url: "https://news.mongabay.com/2024/10/chilean-indigenous-association-participates-in-key-study-for-lawsuit-against-mining/" },
+    ],
+  },
+];
+
+function References(): ReactElement {
+  return (
+    <section>
+      <h2>References</h2>
+      {REFERENCES.map(({ group, items }) => (
+        <Fold key={group} summary={group} aside={`${items.length}`}>
+          <ul className="method-references">
+            {items.map(({ title, url }) => (
+              <li key={url}>
+                <a href={url}>{title}</a>
+              </li>
+            ))}
+          </ul>
+        </Fold>
       ))}
     </section>
   );
@@ -298,23 +370,19 @@ function AllCouncils(): ReactElement | null {
   const guessed = guessedShareOf(rows);
   return (
     <section>
-      <h2>All councils</h2>
-      <p>Every council, at every venue and online, since counting began.</p>
-      <dl className="method-totals">
-        <dt>Tokens written</dt>
-        <dd>{counted.tokensWritten.toLocaleString("en")}</dd>
-        <dt>Speaking</dt>
-        <dd>{Math.round(counted.spokenSeconds / 60).toLocaleString("en")} minutes</dd>
-        <dt>Listening</dt>
-        <dd>{Math.round(counted.listenedSeconds / 60).toLocaleString("en")} minutes</dd>
+      <h2>All councils so far</h2>
+      <dl className="method-pairs">
+        <dt>Text</dt>
+        <dd>{counted.tokensWritten.toLocaleString("en")} tokens</dd>
+        <dt>Text to speech</dt>
+        <dd>{Math.round(counted.spokenSeconds / 60).toLocaleString("en")} min</dd>
+        <dt>Speech to text</dt>
+        <dd>{Math.round(counted.listenedSeconds / 60).toLocaleString("en")} min</dd>
         <dt>Energy</dt>
-        <dd>{formatRange(toDisplayRange("energy", impacts.energy))}</dd>
-        {guessed ? (
-          <>
-            <dt>Of that energy, resting on guessed models</dt>
-            <dd>{Math.round(guessed.low * 100)}–{Math.round(guessed.high * 100)}%</dd>
-          </>
-        ) : null}
+        <dd>
+          {formatRange(toDisplayRange("energy", impacts.energy))}
+          {guessed ? `, ${Math.round(guessed.low * 100)}–${Math.round(guessed.high * 100)}% of it on guessed models` : ""}
+        </dd>
         <dt>Water</dt>
         <dd>{formatRange(toDisplayRange("wcf", impacts.wcf))}</dd>
         <dt>Carbon</dt>
@@ -327,92 +395,75 @@ function AllCouncils(): ReactElement | null {
 }
 
 export function Methodology(): ReactElement {
+  const models = listEcologitsModels();
+  const guessed = models.filter(([, model]) => model.basis === "guessed").length;
   return (
     <main className="methodology">
-      <h1>How the footprint is estimated</h1>
-      <p>
-        This council uses artificial intelligence to speak for the forest. That speech has a material cost:
-        electricity, water for cooling and for generating that electricity, greenhouse gases, and minerals mined for
-        the chips it runs on. Some of it can be measured in this room. Most of it is paid far from here, and has to
-        be estimated, because the companies running the models do not disclose what it takes. This page explains
-        how each figure on the screen is known, and how uncertain it is.
+      <p className="method-kicker">Methodology</p>
+      <h1>AI Energy &amp; Water Use</h1>
+      <p className="method-lead">
+        How the figures on the screen are made, and how uncertain they are. Tap any line to open it.
       </p>
 
-      <section>
-        <h2>How each figure is known</h2>
-        <dl className="method-chain">
-          <dt>Measured</dt>
-          <dd>The electricity of this room — projector, computer, speakers, screens — from power meters in the plugs.</dd>
-          <dt>Counted</dt>
-          <dd>
-            What the AI providers bill for, exactly: tokens written (pieces of words, about three quarters of a word
-            each), seconds of speech produced, seconds of the visitors' speech listened to. No estimate involved.
-            The screen counts the current meeting as far as it has been played: replies are written ahead and
-            played gradually, so the room's figures follow what you hear.
-          </dd>
-          <dt>Estimated</dt>
-          <dd>
-            Energy, water, carbon and hardware time, from that usage, with{" "}
-            <a href="https://ecologits.ai/latest/methodology/llm_inference/">EcoLogits</a> {ECOLOGITS_VERSION}, an open
-            life-cycle method by the non-profit GenAI Impact. Its only measured layer is the energy of open models on
-            one type of GPU; for the council's models it extrapolates from their size, which is itself mostly
-            estimated.
-          </dd>
-          <dt>Guessed</dt>
-          <dd>
-            The voices and the listening. Their makers publish nothing about the models, and EcoLogits does not cover
-            speech; we run its method on a reasoned analogy. The totals at the end of this page say how much of
-            the energy rests on these guesses.
-          </dd>
-          <dt>Not counted</dt>
-          <dd>{NOT_COUNTED.join(". ")}.</dd>
-          <dt>Not disclosed</dt>
-          <dd>{NOT_DISCLOSED.join(". ")}.</dd>
-        </dl>
-      </section>
+      <ul className="method-glance">
+        <li>
+          <strong>Counted</strong> — the text, speech and listening the AI providers bill for. Exact.
+        </li>
+        <li>
+          <strong>Estimated</strong> — energy, water and carbon, with the open method{" "}
+          <a href="https://ecologits.ai/latest/methodology/llm_inference/">EcoLogits</a> {ECOLOGITS_VERSION}. Shown as
+          ranges, because nobody knows the exact figure.
+        </li>
+        <li>
+          <strong>Guessed</strong> — {guessed} of the {models.length} models are described by nobody: their makers
+          publish no size, so the estimate rests on our analogy.
+        </li>
+        <li>
+          <strong>Floors</strong> — training, building, idle capacity and more are left out, so the true cost is
+          higher.
+        </li>
+        <li>
+          <strong>Measured</strong> — the room's own electricity, from the plugs. Not AI, and so far far larger than
+          the AI's estimated electricity: the AI's cost is paid elsewhere.
+        </li>
+      </ul>
 
       <section>
-        <h2>Ranges, not single numbers</h2>
+        <h2>Ranges</h2>
         <p>
-          Every estimate is shown as a range, with no number in the middle. The ends are not a forecast with a most
-          likely value: they are what EcoLogits gives for the smallest and largest plausible inputs it can vary — the
-          model's size, the data centre's efficiency, and for Mistral Large 3 whether it is served with 8-bit or 16-bit
-          weights. The middle of that range is no more likely than any other point in it.
-        </p>
-        <p>
-          And the range is still too narrow. It does not vary what EcoLogits fixes: the kind of chip (Gemini runs on
-          Google's own chips, not the GPUs assumed), how many requests share them, where the data centres are, or the
-          hardware estimates, whose uncertainty nobody has quantified. Each figure is an estimate resting on other
-          estimates. Numbers are rounded to two significant figures, so they claim no more precision than that.
+          The two ends of a range come from the smallest and largest plausible inputs: model size, data-centre
+          efficiency, and for Mistral whether it runs in Sweden or the US. The middle is no more likely than any
+          other point. Kinds of chip, how many requests share them and the hardware's making are fixed, so the true
+          range is wider still.
         </p>
       </section>
 
       <section>
-        <h2>Measured: this room</h2>
+        <h2>The current meeting</h2>
         <p>
-          The room's electricity is not estimated but measured, by the plugs, and shown as it happens. It is the part
-          of the cost you can see, and in any one hour it may well be larger than the electricity of the answers
-          themselves. What is paid elsewhere is not mostly electricity: it is water, minerals, training, and place.
+          It starts when a visitor begins talking to the guide that sets it up, and counts each reply only once it
+          has been played. After three quiet minutes it is shown as the last meeting.
         </p>
       </section>
-
-      <WhosCounting />
-      <Minerals />
 
       <section>
         <h2>The models</h2>
-        {listEcologitsModels().map(([id, model]) => <ModelEntry key={id} id={id} model={model} />)}
+        <p>Where each is assumed to run, and whether anyone has described it.</p>
+        {models.map(([id, model]) => <ModelEntry key={id} id={id} model={model} />)}
       </section>
 
       <Training />
-      <OutsideEstimates />
+      <Outside />
+      <Minerals />
       <AroundTheWorld />
+      <WhosCounting />
       <AllCouncils />
+      <References />
 
-      <footer>
+      <footer className="method-footer">
         <p>
-          EcoLogits is open source (MPL-2.0): <a href="https://github.com/mlco2/ecologits">github.com/mlco2/ecologits</a>.
-          Model sizes that EcoLogits lacks or lists incorrectly are taken from the sources given with each model.
+          EcoLogits is open source (MPL-2.0). Model sizes it lacks or lists incorrectly are taken from the sources
+          given with each model. Published figures checked October 2026.
         </p>
       </footer>
     </main>
