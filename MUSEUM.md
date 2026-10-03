@@ -242,8 +242,8 @@ addresses, timezone and one weekly opening window:
 
 Holidays and closed weeks aren't modelled. The worst case is a reminder on a closed day.
 
-**Nothing is sent if the Mac, the bridge or the internet is down.** That needs a
-watchdog outside the Mac (see section 7).
+**Nothing is sent if the Mac, the bridge or the internet is down.** Staff notice
+that by the black screens (see section 7).
 
 ### Venue and footprint meter
 
@@ -446,4 +446,5 @@ Every reload and reopen waits for `/health` first, so nothing lands on Chrome's 
 page while the server is down; the screens wait, black, instead.
 
 What none of this reaches: a Mac that hangs, a screen that stays black while still
-connected, and the network or server being down for good. Those need a person.
+connected, and the network or server being down for good. Nothing reports those either;
+staff notice them by the black screens, and need a person to fix them.
