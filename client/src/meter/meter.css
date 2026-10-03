@@ -267,3 +267,13 @@ html[data-page="methodology"] body {
 .method-undisclosed {
   font-weight: bold;
 }
+/* The chain of certainty and the all-councils totals: term above its explanation, on a phone. */
+.method-chain dt,
+.method-totals dt {
+  margin-top: 0.9rem;
+  font-weight: bold;
+}
+.method-chain dd,
+.method-totals dd {
+  margin: 0.15rem 0 0;
+}
