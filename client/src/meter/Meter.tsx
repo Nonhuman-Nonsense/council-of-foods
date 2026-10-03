@@ -1,17 +1,18 @@
 import NumberFlow from "@number-flow/react";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useState, type ReactElement, type ReactNode } from "react";
-import type { RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
+import { Fragment, useEffect, useState, type ReactElement, type ReactNode } from "react";
+import type { MeterMeeting, RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
 import { ECOLOGITS_VERSION, findEcologitsModel } from "@shared/footprint/ecologits";
-import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED } from "@shared/footprint/counting";
+import { MINERAL_PLACES, OUTSIDE_THE_NUMBERS } from "@shared/footprint/counting";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
+import { WORLD_FIGURES } from "@shared/footprint/world";
 import {
   activeModels,
   countedOf,
   footprintOf,
   formatRange,
-  gpuTimeOf,
-  guessedShareOf,
+  heardVenueRows,
+  isMeetingActive,
   playedRows,
   roomFootprintOf,
   toDisplayRange,
@@ -23,12 +24,12 @@ import { useMeterFeed } from "./useMeterFeed";
 
 /**
  * The footprint meter: what the council's AI use costs, live, for a tall side screen
- * (docs/ai-footprint-meter.md). Ordered as a chain of certainty — what is measured here, what
- * is counted, what is estimated or guessed elsewhere, and what nobody counts — with every
- * estimate as a range. Copy and layout are to be tuned on the real display.
+ * (docs/ai-footprint-meter.md). What the providers count for the current meeting, then estimates
+ * for it and since opening — ranges, and floors, never the whole cost — then training, which
+ * dwarfs them, and what no figure includes. Copy and layout are to be tuned on the real display.
  */
 
-type Status = "Measured" | "Counted" | "Estimated";
+type Status = "At least";
 
 /** How long each rotating line stays up. */
 const ROTATE_MS = 9_000;
@@ -109,55 +110,17 @@ function minutesAndSeconds(totalSeconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-/** In the room, measured: the room's electricity from the plugs. */
-function Here({ readings }: { readings: RoomPowerReading[] }): ReactElement | null {
+/** The room's own electricity, measured by the plugs: context, not AI, so one small line. */
+function RoomLine({ readings }: { readings: RoomPowerReading[] }): ReactElement {
   const now = useNow(1_000);
   const room = roomFootprintOf(readings, now);
-  if (room.plugs.length === 0 && room.energyWh === 0) return null;
-
-  const energy = toDisplayRange("energy", { low: room.energyWh / 1000, high: room.energyWh / 1000 });
+  const energy = formatRange(toDisplayRange("energy", { low: room.energyWh / 1000, high: room.energyWh / 1000 }));
+  const what = readings.map((reading) => reading.label.toLowerCase()).join(", ");
   return (
-    <Section title="In the room" status="Measured" className="meter-grid">
-      <Metric label="Power now">
-        {room.plugs.length > 0 ? (
-          <>
-            <NumberFlow value={Math.round(room.watts)} />
-            <span className="meter-unit">W</span>
-          </>
-        ) : (
-          "–"
-        )}
-      </Metric>
-      <Metric label="Electricity so far">
-        <Figure value={energy.low} />
-        <span className="meter-unit">{energy.unit}</span>
-      </Metric>
-      {room.plugs.length > 0 ? (
-        <ul className="meter-list meter-wide">
-          {room.plugs.map((plug) => (
-            <li key={plug.plug}>
-              <span>{plug.label}</span>
-              <span className="meter-dim">{Math.round(plug.watts)} W</span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-    </Section>
-  );
-}
-
-/** Current meeting, counted: exactly what the providers bill for, as far as the room has heard. */
-function Counted({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
-  const counted = countedOf(rows);
-  return (
-    <Section title="Current meeting" status="Counted" className="meter-grid meter-grid--three">
-      <Metric label="Tokens written">
-        <NumberFlow value={counted.tokensWritten} />
-      </Metric>
-      <Metric label="Speaking">{minutesAndSeconds(counted.spokenSeconds)}</Metric>
-      <Metric label="Listening">{minutesAndSeconds(counted.listenedSeconds)}</Metric>
-      <p className="meter-dim meter-small meter-wide">A token is a piece of a word, about three quarters of one.</p>
-    </Section>
+    <p className="meter-dim meter-small">
+      Measured in this room{what ? ` (${what})` : ""}:{" "}
+      {room.plugs.length > 0 ? `${Math.round(room.watts)} W now` : "no reading now"}, {energy} in total.
+    </p>
   );
 }
 
@@ -166,99 +129,154 @@ function modelName(model: string): string {
   return model.split("/").pop() ?? model;
 }
 
-const ROLE_WORDS = { writing: "writing", speaking: "speaking", listening: "listening" } as const;
-
-/** Models called in the last minute — when they are called, which runs ahead of what is heard. */
-function ActiveNow({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
+/**
+ * Models called in the last minute — when they are called, which runs ahead of what is heard.
+ */
+function ActiveModels({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
   const active = activeModels(rows, useNow(5_000));
+  if (active.length === 0) {
+    return <p className="meter-dim meter-small meter-wide">No model called in the last minute.</p>;
+  }
   return (
-    <Section title="Active now" className="meter-stack">
-      {active.length > 0 ? (
-        <ul className="meter-list">
-          {active.map((row) => {
-            const entry = findEcologitsModel(row.provider, row.model);
-            return (
-              <li key={`${row.provider}|${row.model}`}>
-                <span>
-                  {modelName(row.model)}
-                  {entry ? <span className="meter-dim"> · {ROLE_WORDS[entry.role]}</span> : null}
-                </span>
-                <span className="meter-dim">{entry ? zoneName(entry.datacenterZone) : "unknown"}</span>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p className="meter-dim meter-small">No model called in the last minute.</p>
-      )}
-    </Section>
+    <ul className="meter-list meter-wide">
+      {active.map((row) => {
+        const entry = findEcologitsModel(row.provider, row.model);
+        return (
+          <li key={`${row.provider}|${row.model}`}>
+            <span>
+              {modelName(row.model)}
+              {entry ? <span className="meter-dim"> · {entry.role}</span> : null}
+            </span>
+            <span className="meter-dim">{entry ? zoneName(entry.datacenterZone) : "unknown"}</span>
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
-function percent(share: number): string {
-  return `${Math.round(share * 100)}%`;
-}
-
-/** Datacentre, estimated: energy, water and carbon as ranges, each with what it leaves out. */
-function Datacentre({ title, rows, large }: { title: string; rows: UsageTotalsRow[]; large?: boolean }): ReactElement {
+/** Energy, water and carbon as ranges, three across. Each is a floor: see Outside these numbers. */
+function Impacts({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
   const impacts = footprintOf(rows);
-  const guessed = guessedShareOf(rows);
   return (
-    <Section title={title} status="Estimated" className={`meter-stack${large ? " meter-large" : ""}`}>
-      <Metric label="Energy" note="Writing the answers only: not reading, not the networks, not training.">
-        <Range range={toDisplayRange("energy", impacts.energy)} />
+    <>
+      <Metric label="Energy"><Range range={toDisplayRange("energy", impacts.energy)} /></Metric>
+      <Metric label="Water"><Range range={toDisplayRange("wcf", impacts.wcf)} /></Metric>
+      <Metric label="Carbon"><Range range={toDisplayRange("gwp", impacts.gwp)} /></Metric>
+    </>
+  );
+}
+
+/**
+ * The current meeting: what the providers bill for, exactly, then what that costs in the data
+ * centres, at least — as far as the room has heard — and the models working on it now.
+ */
+function CurrentMeeting({ meeting, rows, activeRows }: {
+  meeting: MeterMeeting;
+  rows: UsageTotalsRow[];
+  activeRows: UsageTotalsRow[];
+}): ReactElement {
+  const counted = countedOf(rows);
+  const active = isMeetingActive(meeting, useNow(5_000));
+  return (
+    <Section title={active ? "Current meeting" : "Last meeting"} status="At least" className="meter-grid meter-grid--three">
+      <Metric label="Text">
+        <NumberFlow value={counted.tokensWritten} />
+        <span className="meter-unit">tokens</span>
       </Metric>
-      <Metric label="Water" note="For cooling and for the electricity. Not the water used to make the chips.">
-        <Range range={toDisplayRange("wcf", impacts.wcf)} />
+      <Metric label="Text to speech">
+        {minutesAndSeconds(counted.spokenSeconds)}
+        <span className="meter-unit">min</span>
       </Metric>
-      <Metric label="Carbon" note="Assumes each country's average grid: nobody says where the answers really ran.">
-        <Range range={toDisplayRange("gwp", impacts.gwp)} />
+      <Metric label="Speech to text">
+        {minutesAndSeconds(counted.listenedSeconds)}
+        <span className="meter-unit">min</span>
       </Metric>
-      {guessed ? (
-        <p className="meter-guessed">
-          {guessed.high - guessed.low < 0.01 ? percent(guessed.low) : `${percent(guessed.low)}–${percent(guessed.high)}`} of
-          this energy rests on guesses about models nobody has described.
-        </p>
-      ) : null}
+      <Impacts rows={rows} />
+      <ActiveModels rows={activeRows} />
     </Section>
   );
 }
 
-/** Minerals as what the estimate is built from: GPU time, and where the minerals come from. */
-function Hardware({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
+/** Where the minerals in the hardware come from, one documented place at a time. */
+function MineralPlace(): ReactElement {
   const place = useRotation(MINERAL_PLACES);
   return (
-    <Section title="Hardware" status="Estimated" className="meter-stack">
-      <Metric
-        label="Kept AI chips busy for"
-        note="The minerals in chips and servers are shared out by this time over their three-year life."
-      >
-        <Range range={toDisplayRange("gpuTime", gpuTimeOf(rows))} />
-      </Metric>
+    <div>
       <p className="meter-place-line" key={place.mineral}>
         <strong>{place.mineral}</strong>, for {place.use}: {place.place}.
       </p>
       <p className="meter-dim meter-small">We cannot know which mine supplied which chip.</p>
+    </div>
+  );
+}
+
+/**
+ * Training, in grams and litres so the length of the numbers shows its scale against the
+ * figures above. Never divided per meeting: nobody publishes how many answers a model serves.
+ * Makers who publish nothing get an empty slot.
+ */
+function Training(): ReactElement {
+  const grams = (kg: number) => formatRange({ low: kg * 1000, high: kg * 1000, unit: "g" }, 3);
+  const litres = (l: number) => formatRange({ low: l, high: l, unit: "L" }, 3);
+  return (
+    <Section title="Training the models" className="meter-stack">
+      <div className="meter-table">
+        <span />
+        <span className="meter-label meter-num">Carbon, CO₂e</span>
+        <span className="meter-label meter-num">Water</span>
+        {TRAINING_DISCLOSURES.map((entry) => entry.disclosed ? (
+          <Fragment key={entry.model}>
+            <span className="meter-dim">{entry.disclosed.figuresFor}*</span>
+            <span className="meter-bright meter-num">{grams(entry.disclosed.gwpKgCo2e)}</span>
+            <span className="meter-bright meter-num">{litres(entry.disclosed.waterL)}</span>
+          </Fragment>
+        ) : (
+          <Fragment key={entry.model}>
+            <span className="meter-dim">{entry.model}</span>
+            <span className="meter-empty meter-num meter-table-wide">not published</span>
+          </Fragment>
+        ))}
+      </div>
+      <p className="meter-dim meter-small">
+        * Training and its first 18 months of use, the only figure any maker publishes, and with no
+        energy figure. The council speaks with Mistral Large 3, about five times its size.
+      </p>
     </Section>
   );
 }
 
-/** What no figure here includes, and what the companies do not say, under one heading. */
-function Uncounted(): ReactElement {
-  const training = TRAINING_DISCLOSURES.find((entry) => entry.disclosed)?.disclosed;
-  const silent = [...new Set(TRAINING_DISCLOSURES.filter((entry) => !entry.disclosed).map((entry) => entry.maker))];
+/** The scale all of this sits in: AI's build-out around the world, as published. */
+function AroundTheWorld(): ReactElement {
   return (
-    <Section title="Not counted or disclosed" className="meter-stack">
-      <ul className="meter-list meter-small">
-        {[...NOT_COUNTED, ...NOT_DISCLOSED].map((item) => <li key={item}>{item}</li>)}
-        <li>
-          Training: only Mistral publishes it
-          {training
-            ? ` — Large 2, ${formatRange(toDisplayRange("gwp", { low: training.gwpKgCo2e, high: training.gwpKgCo2e }), 3)} and ${formatRange(toDisplayRange("wcf", { low: training.waterL, high: training.waterL }), 3)} of water`
-            : ""}
-          . Not disclosed by {silent.join(", ")}.
-        </li>
-      </ul>
+    <Section title="Around the world" className="meter-stack">
+      <div className="meter-table">
+        {WORLD_FIGURES.map((entry) => (
+          <Fragment key={entry.what}>
+            <span className="meter-dim">{entry.what}</span>
+            <span className="meter-bright meter-num meter-table-wide">{entry.figure}</span>
+          </Fragment>
+        ))}
+      </div>
+    </Section>
+  );
+}
+
+/**
+ * What no figure here includes, and what the companies do not say, laid out like training: a
+ * row per cost, and in place of a number, why there is none. Why every figure is a floor.
+ */
+function Outside(): ReactElement {
+  return (
+    <Section title="Outside these numbers" className="meter-stack">
+      <div className="meter-table">
+        {OUTSIDE_THE_NUMBERS.map(({ item, why }) => (
+          <Fragment key={item}>
+            <span className="meter-dim">{item}</span>
+            <span className="meter-empty meter-num meter-table-wide">{why}</span>
+          </Fragment>
+        ))}
+      </div>
     </Section>
   );
 }
@@ -271,29 +289,38 @@ export function Meter(): ReactElement {
   const state = useMeterFeed(venueId, demo);
   // The meeting as the room has heard it: replies are generated ahead and played gradually.
   const heard = playedRows(state.meeting);
+  const venueHeard = heardVenueRows(state.venue, state.meeting);
+  const atVenue = Boolean(venueId || demo);
+  const venueName = atVenue ? state.venueName ?? venueId ?? "this venue" : null;
 
   return (
     <main className="meter">
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
-      <Here readings={state.room} />
-      {state.meeting ? <Counted rows={heard} /> : null}
-      <ActiveNow rows={venueId || demo ? state.venue : state.global} />
+      <h1 className="meter-title">The cost of the council's AI</h1>
       {state.meeting ? (
-        <>
-          <Datacentre title="Datacentre" rows={heard} large />
-          <Hardware rows={heard} />
-        </>
+        <CurrentMeeting meeting={state.meeting} rows={heard} activeRows={atVenue ? state.venue : state.global} />
       ) : null}
-      {venueId || demo ? (
-        <Datacentre title={`Since opening at ${state.venueName ?? venueId ?? "this venue"}`} rows={state.venue} />
+      {venueName ? (
+        <Section title={`Since opening at ${venueName}`} status="At least" className="meter-stack">
+          <div className="meter-grid meter-grid--three">
+            <Impacts rows={venueHeard} />
+          </div>
+          <MineralPlace />
+          <RoomLine readings={state.room} />
+        </Section>
       ) : null}
-      <Uncounted />
+      <Training />
+      <AroundTheWorld />
+      <Outside />
       <footer className="meter-footer">
         <div>
-          Estimates with EcoLogits {ECOLOGITS_VERSION}, shown as ranges because nobody knows the exact figure.
-          Scan for how they are made.
+          Estimates with EcoLogits {ECOLOGITS_VERSION}. Ranges, because nobody knows the exact figure, and
+          floors, because so much is left out.
         </div>
-        <QRCodeSVG className="meter-qr" value={methodologyUrl()} bgColor="#000000" fgColor="#f2efe6" marginSize={0} />
+        <figure className="meter-qr-block">
+          <figcaption>Methodology</figcaption>
+          <QRCodeSVG className="meter-qr" value={methodologyUrl()} bgColor="#000000" fgColor="#f2efe6" marginSize={0} />
+        </figure>
       </footer>
     </main>
   );

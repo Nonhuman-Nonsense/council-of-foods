@@ -42,9 +42,17 @@ html[data-rotate="-90"] #root {
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 4.5cqw;
+  /* Room between sections, so each reads as its own block. */
+  gap: 10cqw;
   padding: 7cqw 6cqw;
   --meter-unit: 1cqw;
+}
+
+.meter-title {
+  margin: 0;
+  font-size: calc(var(--meter-unit) * 6.5);
+  font-weight: normal;
+  line-height: 1.1;
 }
 
 .meter h2 {
@@ -108,8 +116,9 @@ html[data-rotate="-90"] #root {
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
-.meter-large .meter-value {
-  font-size: calc(var(--meter-unit) * 7.5);
+/* Three across: ranges like "0.072–0.12 L" have to fit a third of the width. */
+.meter-grid--three .meter-value {
+  font-size: calc(var(--meter-unit) * 5);
 }
 
 .meter-range-value {
@@ -133,13 +142,6 @@ html[data-rotate="-90"] #root {
   color: #6f6b60;
 }
 
-.meter-guessed {
-  margin: 0;
-  font-size: calc(var(--meter-unit) * 2.9);
-  font-style: italic;
-  color: #c9c4b6;
-}
-
 .meter-list {
   list-style: none;
   margin: 0;
@@ -155,6 +157,9 @@ html[data-rotate="-90"] #root {
   gap: calc(var(--meter-unit) * 2);
 }
 
+.meter-place-line + .meter-small {
+  margin-top: calc(var(--meter-unit) * 0.8);
+}
 .meter-place-line {
   margin: 0;
   font-size: calc(var(--meter-unit) * 3.1);
@@ -168,6 +173,36 @@ html[data-rotate="-90"] #root {
 .meter-dim {
   color: #9c9788;
 }
+.meter-bright {
+  color: #f2efe6;
+}
+
+/*
+ * Training against what this screen counts, in the same units: the length of the numbers is the
+ * comparison, so they are right-aligned in tabular figures.
+ */
+.meter-table {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: calc(var(--meter-unit) * 1.4) calc(var(--meter-unit) * 3);
+  align-items: baseline;
+  font-size: calc(var(--meter-unit) * 2.9);
+  font-variant-numeric: tabular-nums;
+}
+.meter-table .meter-num {
+  text-align: right;
+}
+.meter-table .meter-label {
+  font-size: calc(var(--meter-unit) * 2.4);
+}
+/* A maker that publishes nothing: an empty slot across both columns. */
+.meter-empty {
+  color: #5a564c;
+  font-style: italic;
+}
+.meter-table .meter-table-wide {
+  grid-column: 2 / -1;
+}
 .meter-small {
   margin: 0;
   font-size: calc(var(--meter-unit) * 2.4);
@@ -180,6 +215,15 @@ html[data-rotate="-90"] #root {
   gap: calc(var(--meter-unit) * 3);
   font-size: calc(var(--meter-unit) * 2.4);
   color: #6f6b60;
+}
+.meter-qr-block {
+  flex: none;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--meter-unit) * 1);
+  font-size: calc(var(--meter-unit) * 2);
 }
 .meter-qr {
   flex: none;

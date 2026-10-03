@@ -13,7 +13,8 @@ import {
 } from "@shared/footprint/ecologits";
 import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED, PUBLISHED_COUNTS } from "@shared/footprint/counting";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
-import { countedOf, footprintOf, formatRange, gpuTimeOf, toDisplayRange } from "./meterState";
+import { WORLD_FIGURES } from "@shared/footprint/world";
+import { countedOf, footprintOf, formatRange, gpuTimeOf, guessedShareOf, toDisplayRange } from "./meterState";
 import { MODEL_ROLES, zoneName } from "./modelInfo";
 
 /**
@@ -174,7 +175,7 @@ function Minerals(): ReactElement {
   const lifeYears = Math.round(HARDWARE.lifetimeSeconds / (365 * 24 * 3600));
   return (
     <section>
-      <h2>Minerals: why the screen shows GPU time</h2>
+      <h2>Minerals</h2>
       <p>
         EcoLogits expresses minerals as <em>abiotic resource depletion</em>, in kilograms of antimony-equivalent
         (Sb eq): every metal mined is weighted by how scarce it is, relative to antimony. It is the standard
@@ -188,15 +189,33 @@ function Minerals(): ReactElement {
         of those hardware estimates is not quantified.
       </p>
       <p>
-        So the screen shows what the mineral figure is actually built from: the GPU time the council occupied. The
-        Sb eq figures are given per model below. And because a weighted mass says nothing about where the ground was
-        opened, the screen names places in the supply of the minerals the hardware is made with. Nobody can trace
+        So the screen shows no mineral figure. The Sb eq figures are given per model below, and the GPU time they
+        are built from with the totals at the end. Because a weighted mass says nothing about where the ground was
+        opened, the screen names places in the supply of the minerals the hardware is made with instead. Nobody can trace
         which mine supplied which chip; these places are documented, not our hardware's own history.
       </p>
       {MINERAL_PLACES.map((place) => (
         <Card key={place.mineral} title={`${place.mineral} — ${place.place}`} subtitle={`Used for ${place.use}`}>
           <p>{place.note}</p>
           <Sources urls={place.sources} />
+        </Card>
+      ))}
+    </section>
+  );
+}
+
+function AroundTheWorld(): ReactElement {
+  return (
+    <section>
+      <h2>Around the world</h2>
+      <p>
+        The figures on the screen are one council's share of a much larger build-out: data centres, chips and
+        power built for AI everywhere. These are the published figures the screen gives for its scale.
+      </p>
+      {WORLD_FIGURES.map((entry) => (
+        <Card key={entry.what} title={entry.what} subtitle={entry.figure}>
+          <p>{entry.note}</p>
+          <Sources urls={entry.sources} />
         </Card>
       ))}
     </section>
@@ -257,6 +276,7 @@ function AllCouncils(): ReactElement | null {
 
   const impacts = footprintOf(rows);
   const counted = countedOf(rows);
+  const guessed = guessedShareOf(rows);
   return (
     <section>
       <h2>All councils</h2>
@@ -270,6 +290,12 @@ function AllCouncils(): ReactElement | null {
         <dd>{Math.round(counted.listenedSeconds / 60).toLocaleString("en")} minutes</dd>
         <dt>Energy</dt>
         <dd>{formatRange(toDisplayRange("energy", impacts.energy))}</dd>
+        {guessed ? (
+          <>
+            <dt>Of that energy, resting on guessed models</dt>
+            <dd>{Math.round(guessed.low * 100)}–{Math.round(guessed.high * 100)}%</dd>
+          </>
+        ) : null}
         <dt>Water</dt>
         <dd>{formatRange(toDisplayRange("wcf", impacts.wcf))}</dd>
         <dt>Carbon</dt>
@@ -316,8 +342,8 @@ export function Methodology(): ReactElement {
           <dt>Guessed</dt>
           <dd>
             The voices and the listening. Their makers publish nothing about the models, and EcoLogits does not cover
-            speech; we run its method on a reasoned analogy. The screen says how much of each estimate rests on
-            these guesses.
+            speech; we run its method on a reasoned analogy. The totals at the end of this page say how much of
+            the energy rests on these guesses.
           </dd>
           <dt>Not counted</dt>
           <dd>{NOT_COUNTED.join(". ")}.</dd>
@@ -360,6 +386,7 @@ export function Methodology(): ReactElement {
       </section>
 
       <Training />
+      <AroundTheWorld />
       <AllCouncils />
 
       <footer>

@@ -4,13 +4,22 @@ import {
   METER_NAMESPACE,
   METER_PROGRESS_EVENT,
   METER_ROOM_POWER_EVENT,
+  METER_SETUP_EVENT,
   METER_USAGE_EVENT,
   type MeetingProgress,
   type MeterSnapshot,
   type MeterUsageEvent,
   type RoomPowerReading,
+  type SetupStarted,
 } from "@shared/MeterTypes";
-import { applyMeetingProgress, applyRoomPower, applyUsageEvent, EMPTY_METER_STATE, type MeterState } from "./meterState";
+import {
+  applyMeetingProgress,
+  applyRoomPower,
+  applySetupStarted,
+  applyUsageEvent,
+  EMPTY_METER_STATE,
+  type MeterState,
+} from "./meterState";
 
 /**
  * Live usage for the meter: a snapshot over HTTP whenever the socket (re)connects, then every
@@ -47,6 +56,9 @@ export function useMeterFeed(venueId: string | undefined, demo: boolean): MeterS
     });
     socket.on(METER_PROGRESS_EVENT, (progress: MeetingProgress) => {
       setState((current) => applyMeetingProgress(current, progress, venueId));
+    });
+    socket.on(METER_SETUP_EVENT, (setup: SetupStarted) => {
+      setState((current) => applySetupStarted(current, setup, venueId));
     });
 
     return () => {
@@ -114,6 +126,12 @@ function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => Me
     const ts = new Date().toISOString();
     const setupId = "demo-setup";
     // The setup comes first, before the meeting exists; its usage then joins meeting 1.
+    if (tick === 0) {
+      // The agent connects: the meter shows zero until the visitor's first exchange.
+      setState((current) => applySetupStarted(current, { venueId, setupId }, venueId));
+      tick++;
+      return;
+    }
     if (tick < DEMO_SETUP_TICKS) {
       for (const call of DEMO_SETUP_TURN) {
         setState((current) => applyUsageEvent(current, { ...call, venueId, setupId, ts }, venueId));

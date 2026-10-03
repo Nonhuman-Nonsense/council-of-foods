@@ -6,6 +6,7 @@ import {
   activeModels,
   applyMeetingProgress,
   applyRoomPower,
+  applySetupStarted,
   applyUsageEvent,
   countedOf,
   EMPTY_METER_STATE,
@@ -13,6 +14,9 @@ import {
   formatRange,
   gpuTimeOf,
   guessedShareOf,
+  heardVenueRows,
+  isMeetingActive,
+  MEETING_IDLE_MS,
   playedRows,
   roomFootprintOf,
   toDisplayRange,
@@ -58,12 +62,12 @@ describe("meter state", () => {
     {
       name: "adds usage of the current meeting to every scope",
       event: usage({ venueId: "museum-oslo", meetingId: 5 }),
-      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 5, maximumPlayedIndex: -1, totals: [row(2, 200)] } },
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 5, maximumPlayedIndex: -1, totals: [row(2, 200)], lastActiveAt: TS } },
     },
     {
       name: "starts over when the venue begins a newer meeting",
       event: usage({ venueId: "museum-oslo", meetingId: 6 }),
-      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 6, maximumPlayedIndex: -1, totals: [row(1, 100)] } },
+      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 6, maximumPlayedIndex: -1, totals: [row(1, 100)], lastActiveAt: TS } },
     },
     {
       name: "starts over, before the meeting exists, when a visitor's setup begins",
@@ -72,7 +76,7 @@ describe("meter state", () => {
         ...atMeeting5,
         global: [row(2, 200)],
         venue: [row(2, 200)],
-        meeting: { meetingId: null, setupId: "visit", previousMeetingId: 5, maximumPlayedIndex: -1, totals: [row(1, 100)] },
+        meeting: { meetingId: null, setupId: "visit", previousMeetingId: 5, maximumPlayedIndex: -1, totals: [row(1, 100)], lastActiveAt: TS },
       },
     },
   ])("$name", ({ event, expected }) => {
@@ -102,6 +106,23 @@ describe("meter state", () => {
     expect(countedOf(state.venue).tokensWritten).toBe(33);
   });
 
+  it.each([
+    { name: "starts the current meeting over at zero when a new setup begins", setup: { venueId: "museum-oslo", setupId: "visit" }, expected: { meetingId: null, setupId: "visit", previousMeetingId: 5, totals: [] } },
+    { name: "ignores a setup at another venue", setup: { venueId: "elsewhere", setupId: "visit" }, expected: { meetingId: 5, totals: [row(1, 100)] } },
+  ])("$name", ({ setup, expected }) => {
+    expect(applySetupStarted(atMeeting5, setup, "museum-oslo").meeting).toMatchObject(expected);
+  });
+
+  it.each([
+    { name: "current while it has just moved on", quietMs: MEETING_IDLE_MS - 1, active: true },
+    { name: "the last meeting once it has been quiet for three minutes", quietMs: MEETING_IDLE_MS, active: false },
+  ])("shows the meeting as $name", ({ quietMs, active }) => {
+    const playedAt = Date.parse(TS);
+    const state = applyMeetingProgress(atMeeting5, { meetingId: 5, venueId: "museum-oslo", maximumPlayedIndex: 0 }, "museum-oslo", playedAt);
+
+    expect(isMeetingActive(state.meeting, playedAt + quietMs)).toBe(active);
+  });
+
   it("keeps a setup's usage in the meeting it leads to, and the previous meeting's out", () => {
     const venue = "museum-oslo";
     let state = applyUsageEvent(atMeeting5, usage({ venueId: venue, feature: "setup-agent", setupId: "visit", measures: { output_tokens: 7 } }), venue);
@@ -112,6 +133,17 @@ describe("meter state", () => {
     expect(state.meeting).toMatchObject({ meetingId: 6, setupId: "visit" });
     expect(state.meeting).not.toHaveProperty("previousMeetingId");
     expect(countedOf(playedRows(state.meeting)).tokensWritten).toBe(8);
+  });
+
+  it("leaves the current meeting's unplayed messages out of the venue, as the room has heard it", () => {
+    const meeting = {
+      meetingId: 5,
+      maximumPlayedIndex: 0,
+      totals: [{ ...row(1, 10), messageIndex: 0 }, { ...row(2, 30), messageIndex: 1 }, row(1, 3)],
+    };
+
+    expect(heardVenueRows([row(9, 1000)], meeting)).toEqual([row(7, 970)]);
+    expect(heardVenueRows([row(9, 1000)], { ...meeting, maximumPlayedIndex: 1 })).toEqual([row(9, 1000)]);
   });
 
   it.each([

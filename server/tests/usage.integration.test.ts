@@ -80,6 +80,7 @@ describe("meter", () => {
                 meetingId: 12,
                 maximumPlayedIndex: 1,
                 totals: [row(1, { input_tokens: 100, output_tokens: 40 }, 0), row(1, { output_tokens: 10 }, 2)],
+                lastActiveAt: expect.any(String),
             },
             room: [],
         });
@@ -101,6 +102,7 @@ describe("meter", () => {
             previousMeetingId: 21,
             maximumPlayedIndex: -1,
             totals: [expect.objectContaining({ requests: 1, measures: { input_tokens: 100, output_tokens: 40 } })],
+            lastActiveAt: meeting!.totals[0].lastUsedAt,
         });
     });
 

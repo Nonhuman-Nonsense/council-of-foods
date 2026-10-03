@@ -27,6 +27,7 @@ interface UsageGrant {
     venueId?: string;
     /** Setup-agent: the visit's setup, until its meeting exists (then both are set). */
     setupId?: string;
+    grantedAt: number;
     expiresAt: number;
     reports: number;
 }
@@ -45,7 +46,7 @@ export function grantRealtimeUsageToken(
         }
     }
     const token = randomUUID();
-    grants.set(token, { ...grant, expiresAt: now + USAGE_TOKEN_TTL_MS, reports: 0 });
+    grants.set(token, { ...grant, grantedAt: now, expiresAt: now + USAGE_TOKEN_TTL_MS, reports: 0 });
     return token;
 }
 
@@ -62,6 +63,28 @@ export function setupIdFor(requested: string | undefined, now: number = Date.now
         }
     }
     return randomUUID();
+}
+
+/**
+ * The venue's newest setup that has not led to a meeting yet, and when it began — so a meter
+ * loading mid-setup starts at zero, before the setup has used anything. In memory, like the
+ * grants: after a restart the meter falls back to the setup's recorded usage.
+ */
+export function latestOpenSetup(venueId: string, now: number = Date.now()): { setupId: string; startedAt: number } | undefined {
+    const startedAt = new Map<string, number>();
+    const linked = new Set<string>();
+    for (const grant of grants.values()) {
+        if (!grant.setupId || grant.venueId !== venueId) continue;
+        if (grant.meetingId !== undefined) linked.add(grant.setupId);
+        if (grant.expiresAt > now) {
+            startedAt.set(grant.setupId, Math.min(startedAt.get(grant.setupId) ?? Infinity, grant.grantedAt));
+        }
+    }
+    let latest: { setupId: string; startedAt: number } | undefined;
+    for (const [setupId, at] of startedAt) {
+        if (!linked.has(setupId) && (!latest || at > latest.startedAt)) latest = { setupId, startedAt: at };
+    }
+    return latest;
 }
 
 /** The setup has led to this meeting: whatever its sessions report from now on is the meeting's. */

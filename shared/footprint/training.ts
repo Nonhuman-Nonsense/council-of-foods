@@ -13,6 +13,8 @@ export interface TrainingDisclosure {
     /** Who makes it. */
     maker: string;
     disclosed: {
+        /** The model the figures are for, when it is not the one the council calls. */
+        figuresFor: string;
         /** Short caption for the meter screen. */
         label: string;
         /** What the published figures actually describe. */
@@ -33,6 +35,7 @@ export const TRAINING_DISCLOSURES: TrainingDisclosure[] = [
         model: "Mistral Large 3",
         maker: "Mistral AI",
         disclosed: {
+            figuresFor: "Mistral Large 2",
             label: "Training Mistral Large 2 and its first 18 months — the closest published figure",
             scope: "Mistral Large 2 — training plus its first 18 months of use (to January 2025), including data centres and hardware manufacturing. The closest published figure: Mistral has not published a life-cycle analysis of Large 3.",
             gwpKgCo2e: 20_400_000,

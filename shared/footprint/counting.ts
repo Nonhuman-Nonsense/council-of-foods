@@ -42,20 +42,35 @@ export const PUBLISHED_COUNTS: PublishedCount[] = [
     },
 ];
 
-/** Costs no figure on the meter includes. Training has its own entry (training.ts). */
-export const NOT_COUNTED: string[] = [
-    "The water used to make the chips",
-    "Reading: the text each answer is based on",
-    "The networks between this room and the data centres",
-    "Data centres kept waiting for demand",
-    "The hardware's afterlife as e-waste",
+export interface OutsideItem {
+    item: string;
+    /** Not counted: no figure here includes it. Not published: the companies do not say. */
+    why: "not counted" | "not published";
+}
+
+/**
+ * What lies outside the meter's figures, in the order of the hardware's and the models' life:
+ * before training, building and making, running each answer, and the afterlife. Training itself
+ * has its own entry (training.ts).
+ */
+export const OUTSIDE_THE_NUMBERS: OutsideItem[] = [
+    { item: "Experiments before the final training run", why: "not published" },
+    { item: "Building the data centres", why: "not counted" },
+    { item: "The water used to make the chips", why: "not counted" },
+    { item: "How large most of the models are", why: "not published" },
+    { item: "Where the answers are computed", why: "not published" },
+    { item: "Where the electricity really came from", why: "not published" },
+    { item: "Reading the question, before each answer", why: "not counted" },
+    { item: "The networks between this room and the data centres", why: "not counted" },
+    { item: "Data centres kept waiting for demand", why: "not counted" },
+    { item: "The hardware's afterlife as e-waste", why: "not counted" },
 ];
 
-/** What the companies running the models do not say. Training has its own entry (training.ts). */
-export const NOT_DISCLOSED: string[] = [
-    "How large most of the models are",
-    "Where the answers are computed",
-];
+/** Costs no figure on the meter includes. */
+export const NOT_COUNTED: string[] = OUTSIDE_THE_NUMBERS.filter((o) => o.why === "not counted").map((o) => o.item);
+
+/** What the companies running the models do not say. */
+export const NOT_DISCLOSED: string[] = OUTSIDE_THE_NUMBERS.filter((o) => o.why === "not published").map((o) => o.item);
 
 export interface MineralPlace {
     mineral: string;

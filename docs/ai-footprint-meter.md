@@ -165,25 +165,30 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
 - **Data:** `GET /api/meter?venue=<id>` returns a `MeterSnapshot` (`shared/MeterTypes.ts`):
   usage totals for all councils, the venue and its latest meeting, plus the room's plugs.
   `useMeterFeed` refetches it on every socket (re)connect and folds pushed events in.
-- **Screen**, a chain of certainty, each section tagged with how its figures are known:
-  1. **In the room** (*measured*): power now, electricity so far, one line per reporting plug; a
-     plug silent for 20 s drops off, its energy stays in the total; power now shows – when none report.
-  2. **Current meeting** (*counted*): tokens written, minutes spoken, minutes listened — exactly
-     what the providers bill for (`countedOf`, by each model's `role`).
-  3. **Active now**: models called in the last minute (`activeModels`, from each row's
-     `lastUsedAt`) with their role and assumed country. By call time, so it runs ahead of the
-     room — which is what "active" means.
-  4. **Datacentre** (*estimated*): energy, water and carbon for the meeting, each with what it
-     leaves out, and the share of the energy that rests on `guessed` models (`guessedShareOf`).
-  5. **Hardware** (*estimated*): GPU time the meeting occupied (`estimateGpuSeconds`: generation
-     time × GPUs ÷ batch size) — what EcoLogits divides the hardware's minerals by — with the
-     documented mining places in rotation. The Sb eq figure itself is on the methodology page.
-  6. **Since opening at <venue>**: the same estimates for the whole exhibition, counted as they
-     happen.
-  7. **Not counted or disclosed**: what no figure includes and what the companies do not say
-     (`shared/footprint/counting.ts`), with the one published training figure. How Google and
-     Mistral each count one answer is on the methodology page.
-  8. A QR code to the methodology page.
+- **Screen**, under the title "The cost of the council's AI". Estimates are floors as well as
+  ranges, so the sections that carry them are tagged *At least*, and what lies outside them gets
+  as much room as what is inside:
+  1. **Current meeting**: what the providers bill for, exactly (`countedOf`, by each model's
+     `role`) — text in tokens, text to speech and speech to text in minutes — then energy, water
+     and carbon for the meeting, then the models called in the last minute (`activeModels`, from
+     each row's `lastUsedAt`), one per line with role and assumed country. By call time, so the
+     list runs ahead of the room. Titled **Last meeting** after three quiet minutes
+     (`isMeetingActive`, from the meeting's `lastActiveAt`: its latest usage, playback progress or
+     setup start).
+  2. **Since opening at <venue>**: the same estimates for the whole exhibition, as the room has
+     heard it (`heardVenueRows` leaves out the current meeting's unplayed messages, so the two rise
+     together); the documented mining places in rotation; and one small line with the room's own
+     electricity measured by the plugs, power now and in total.
+  3. **Training the models**: Mistral's published figure in grams and litres, so the length of
+     the number shows its scale, and an empty "not published" slot per maker that publishes
+     nothing (`shared/footprint/training.ts`). Never divided per meeting.
+  4. **Around the world**: published figures for the build-out, globally and near Boden
+     (`shared/footprint/world.ts`, sources on the methodology page).
+  5. **Outside these numbers**: what no figure includes or the companies do not say, in the order
+     of the hardware's and models' life, each "not counted" or "not published"
+     (`OUTSIDE_THE_NUMBERS` in `shared/footprint/counting.ts`).
+  6. A QR code to the methodology page, which has GPU time, the Sb eq mineral figures, the share
+     of the energy resting on guessed models, and how Google and Mistral each count one answer.
 
   **The current meeting follows playback.** Replies are generated a few messages ahead and played
   gradually, so raw usage runs ahead of what the room has heard. Usage is tagged with the
@@ -197,9 +202,12 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
   exists, so its bootstrap names a `setupId` (`setupIdFor`), which tags the session's usage. A
   reconnect sends it back and keeps it; creating the meeting sends it too, and the server gives
   the setup's events and live grants the new `meetingId` (`linkSetupUsage`, `linkSetupGrants`).
-  The meter starts a new current meeting at a new setup's first usage and hands it the first
-  newer meeting id it sees; the snapshot shows a setup in progress when it is newer than the
-  venue's latest meeting. A setup the visitor walks away from stays in the venue's totals only.
+  A new setup also pushes `setup-started` to the venue's meters, so the current meeting drops to
+  zero as soon as the setup agent connects for the next visitor (a reconnect keeps its setup and
+  pushes nothing). The meter hands the setup the first newer meeting id it sees; the snapshot
+  shows a setup in progress when it is newer than the venue's latest meeting (`latestOpenSetup`,
+  in memory, or after a restart the setup's recorded usage). A setup the visitor walks away from
+  stays in the venue's totals only.
 
   Estimates are only ever shown as ranges — both ends, two significant figures, no midpoint:
   EcoLogits' ends are bounds from extreme inputs, not a distribution. Sized in container units

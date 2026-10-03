@@ -139,6 +139,17 @@ describe("POST /api/installation/room-power (integration)", () => {
         expect(room.map((r) => [r.plug, r.label, r.watts])).toEqual([[1, "Projector", 244], [2, "Sound", 20]]);
     });
 
+    it("leaves out readings stored before plugs were numbered", async () => {
+        await report(plugOne());
+        await roomPowerCollection!.insertOne({
+            _id: "museum-oslo|legacy", venueId: "museum-oslo", label: "Projector2", watts: 8, energyWh: 7, updatedAt: new Date(),
+        } as never);
+
+        const room = (await getMeterSnapshot("museum-oslo")).room;
+
+        expect(room.map((r) => r.label)).toEqual(["Projector"]);
+    });
+
     it("counts a moved plug at its new venue from zero, leaving its energy with the old one", async () => {
         await report(plugOne({ energyCounterWh: 1000 }));
         await report(plugOne({ energyCounterWh: 1010 }));

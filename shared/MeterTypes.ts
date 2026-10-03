@@ -17,6 +17,7 @@ export const METER_NAMESPACE = "/meter";
 export const METER_USAGE_EVENT = "usage";
 export const METER_ROOM_POWER_EVENT = "room-power";
 export const METER_PROGRESS_EVENT = "meeting-progress";
+export const METER_SETUP_EVENT = "setup-started";
 
 /** Summed raw usage of one model within a scope. */
 export interface UsageTotalsRow {
@@ -57,6 +58,20 @@ export interface MeterMeeting {
     previousMeetingId?: number;
     maximumPlayedIndex: number;
     totals: UsageTotalsRow[];
+    /**
+     * ISO time of the meeting's latest sign of life: usage, playback moving on, or its setup
+     * starting. Long quiet, it is shown as the last meeting rather than the current one.
+     */
+    lastActiveAt?: string;
+}
+
+/**
+ * A visitor's setup has begun at a venue, pushed on `setup-started` when the setup agent first
+ * connects: the meter's current meeting starts over at zero, before anything is used.
+ */
+export interface SetupStarted {
+    venueId: string;
+    setupId: string;
 }
 
 /** `GET /api/meter?venue=<id>` */

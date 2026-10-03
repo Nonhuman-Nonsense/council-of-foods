@@ -5,6 +5,7 @@ import {
   type MeterSnapshot,
   type MeterUsageEvent,
   type RoomPowerReading,
+  type SetupStarted,
   type UsageTotalsRow,
 } from "@shared/MeterTypes";
 import type { UsageMeasures } from "@shared/UsageTypes";
@@ -63,6 +64,18 @@ function isNewerMeeting(meeting: MeterMeeting | null, meetingId: number): boolea
   return meetingId > (meeting.meetingId ?? meeting.previousMeetingId ?? -Infinity);
 }
 
+/** A meeting this long quiet is over, or paused with nobody there: shown as the last meeting. */
+export const MEETING_IDLE_MS = 3 * 60_000;
+
+/**
+ * Whether the meeting shown is still going. A running meeting moves on every half minute or so
+ * (each message played), so three quiet minutes mean the visitor has gone, or the day is over.
+ */
+export function isMeetingActive(meeting: MeterMeeting | null, now: number): boolean {
+  if (!meeting?.lastActiveAt) return false;
+  return now - Date.parse(meeting.lastActiveAt) < MEETING_IDLE_MS;
+}
+
 /** A new visitor's setup has begun: a new meeting, without its id until it is created. */
 function setupMeeting(previous: MeterMeeting | null, setupId: string): MeterMeeting {
   const previousMeetingId = previous?.meetingId ?? previous?.previousMeetingId;
@@ -83,7 +96,7 @@ function adopt(meeting: MeterMeeting, meetingId: number): MeterMeeting {
 
 /** The meeting shown once `event` is counted in it, if it belongs there. */
 function meetingWith(meeting: MeterMeeting | null, event: MeterUsageEvent): MeterMeeting | null {
-  const add = (target: MeterMeeting) => ({ ...target, totals: addToRows(target.totals, event, true) });
+  const add = (target: MeterMeeting) => ({ ...target, totals: addToRows(target.totals, event, true), lastActiveAt: event.ts });
 
   if (event.meetingId === undefined) {
     if (!event.setupId) return meeting;
@@ -107,21 +120,38 @@ export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, venue
   return { ...state, global, venue: addToRows(state.venue, event), meeting: meetingWith(state.meeting, event) };
 }
 
+/** A new visitor's setup has begun at the venue: the current meeting starts over at zero. */
+export function applySetupStarted(
+  state: MeterState,
+  setup: SetupStarted,
+  venueId: string | undefined,
+  now: number = Date.now(),
+): MeterState {
+  if (!venueId || setup.venueId !== venueId || state.meeting?.setupId === setup.setupId) return state;
+  return { ...state, meeting: { ...setupMeeting(state.meeting, setup.setupId), lastActiveAt: new Date(now).toISOString() } };
+}
+
 /** Moves the venue's current meeting on as the visitor's screen plays it; a newer meeting replaces it. */
-export function applyMeetingProgress(state: MeterState, progress: MeetingProgress, venueId: string | undefined): MeterState {
+export function applyMeetingProgress(
+  state: MeterState,
+  progress: MeetingProgress,
+  venueId: string | undefined,
+  now: number = Date.now(),
+): MeterState {
   if (!venueId || progress.venueId !== venueId) return state;
   const meeting = state.meeting;
+  const lastActiveAt = new Date(now).toISOString();
   if (meeting?.meetingId === progress.meetingId) {
     return {
       ...state,
-      meeting: { ...meeting, maximumPlayedIndex: Math.max(meeting.maximumPlayedIndex, progress.maximumPlayedIndex) },
+      meeting: { ...meeting, maximumPlayedIndex: Math.max(meeting.maximumPlayedIndex, progress.maximumPlayedIndex), lastActiveAt },
     };
   }
   if (!isNewerMeeting(meeting, progress.meetingId)) return state;
   const next = meeting?.meetingId === null
     ? adopt(meeting, progress.meetingId)
     : { meetingId: progress.meetingId, maximumPlayedIndex: -1, totals: [] };
-  return { ...state, meeting: { ...next, maximumPlayedIndex: progress.maximumPlayedIndex } };
+  return { ...state, meeting: { ...next, maximumPlayedIndex: progress.maximumPlayedIndex, lastActiveAt } };
 }
 
 /**
@@ -134,6 +164,31 @@ export function playedRows(meeting: MeterState["meeting"]): UsageTotalsRow[] {
   return meeting.totals.filter(
     (row) => row.messageIndex === undefined || row.messageIndex <= meeting.maximumPlayedIndex,
   );
+}
+
+/**
+ * A venue's usage as the room has heard it: the current meeting's messages not yet played are
+ * left out, so the venue's totals rise with the meeting's instead of jumping ahead of them.
+ */
+export function heardVenueRows(venue: UsageTotalsRow[], meeting: MeterState["meeting"]): UsageTotalsRow[] {
+  if (!meeting) return venue;
+  const ahead = meeting.totals.filter(
+    (row) => row.messageIndex !== undefined && row.messageIndex > meeting.maximumPlayedIndex,
+  );
+  if (ahead.length === 0) return venue;
+  return venue.map((row) => {
+    const unheard = ahead.filter((a) => a.provider === row.provider && a.model === row.model);
+    if (unheard.length === 0) return row;
+    const measures: UsageMeasures = { ...row.measures };
+    let requests = row.requests;
+    for (const a of unheard) {
+      requests -= a.requests;
+      for (const [measure, value] of Object.entries(a.measures) as [keyof UsageMeasures, number][]) {
+        measures[measure] = Math.max(0, (measures[measure] ?? 0) - value);
+      }
+    }
+    return { ...row, requests: Math.max(0, requests), measures };
+  });
 }
 
 /** How long a model counts as active after it was last called. */
@@ -251,7 +306,8 @@ interface UnitStep {
 /** From smallest to largest; EcoLogits' units are kWh, kgCO2eq, kgSbeq and L. */
 const UNIT_LADDERS: Record<Impact | "gpuTime", UnitStep[]> = {
   energy: [{ unit: "Wh", factor: 1e3 }, { unit: "kWh", factor: 1 }, { unit: "MWh", factor: 1e-3 }],
-  wcf: [{ unit: "mL", factor: 1e3 }, { unit: "L", factor: 1 }, { unit: "m³", factor: 1e-3 }],
+  // Litres all the way up: a million litres is easier to picture than a thousand cubic metres.
+  wcf: [{ unit: "mL", factor: 1e3 }, { unit: "L", factor: 1 }],
   gwp: [{ unit: "mg CO₂e", factor: 1e6 }, { unit: "g CO₂e", factor: 1e3 }, { unit: "kg CO₂e", factor: 1 }, { unit: "t CO₂e", factor: 1e-3 }],
   adpe: [{ unit: "µg Sb eq", factor: 1e9 }, { unit: "mg Sb eq", factor: 1e6 }, { unit: "g Sb eq", factor: 1e3 }, { unit: "kg Sb eq", factor: 1 }],
   gpuTime: [

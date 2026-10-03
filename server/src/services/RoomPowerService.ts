@@ -130,6 +130,8 @@ async function recordHour(doc: StoredRoomPower, now: Date): Promise<void> {
 export async function getRoomPower(venueId: string): Promise<RoomPowerReading[]> {
     const collection = roomPowerCollection;
     if (!collection) return [];
-    const docs = await collection.find({ venueId }).sort({ plug: 1 }).toArray();
+    // Readings stored before plugs were numbered have no plug: they belong to no plug the venue
+    // list knows, so they are left out rather than shown under their old labels.
+    const docs = await collection.find({ venueId, plug: { $exists: true } }).sort({ plug: 1 }).toArray();
     return docs.map(toReading);
 }

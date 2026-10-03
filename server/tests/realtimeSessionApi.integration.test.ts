@@ -5,6 +5,8 @@ import { registerMeetingRoutes } from "@api/meetingRoutes.js";
 import { registerRealtimeRoutes } from "@api/realtimeSession.js";
 import { clearRealtimeUsageGrantsForTests, registerRealtimeUsageRoutes } from "@api/realtimeUsage.js";
 import { meetingsCollection, usageEventsCollection } from "@services/DbService.js";
+import { meterEvents } from "@services/meterEvents.js";
+import { getMeterSnapshot } from "@api/meterRoutes.js";
 import { cacheControlPrivateNoStoreApi } from "@utils/httpCache.js";
 import { UpstreamHttpError } from "@utils/NetworkUtils.js";
 import { CapacityError } from "@models/Errors.js";
@@ -481,6 +483,21 @@ describe("POST /api/realtime/* (integration)", () => {
             // A setup that has led to a meeting is over: the next visitor gets a new one.
             const next = await bootstrapSession({ feature: "setup-agent", language: "en", setupId: first.setupId });
             expect(next.setupId).not.toBe(first.setupId);
+        });
+
+        it("tells the venue's meters when a new setup starts, not when one reconnects", async () => {
+            const started: unknown[] = [];
+            const listener = (setup: unknown) => started.push(setup);
+            meterEvents.on("setupStarted", listener);
+            try {
+                const first = await bootstrapSession({ feature: "setup-agent", language: "en", venueId: "museum-oslo" });
+                await bootstrapSession({ feature: "setup-agent", language: "en", venueId: "museum-oslo", setupId: first.setupId });
+
+                expect(started).toEqual([{ venueId: "museum-oslo", setupId: first.setupId }]);
+                expect((await getMeterSnapshot("museum-oslo")).meeting).toMatchObject({ meetingId: null, setupId: first.setupId, totals: [] });
+            } finally {
+                meterEvents.off("setupStarted", listener);
+            }
         });
 
         it("tags a meeting session's usage with that meeting and its venue", async () => {
