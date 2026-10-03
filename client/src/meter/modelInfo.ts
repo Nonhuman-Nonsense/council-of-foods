@@ -10,6 +10,7 @@ export const MODEL_ROLES: Record<string, string> = {
   "inworld|inworld-tts-2": "Gives the council its voices",
   "elevenlabs|eleven_flash_v2_5": "Gives the council its voices",
   "inworld|soniox/stt-rt-v4": "Listens to visitors",
+  "inworld|inworld/inworld-stt-1": "Listens to visitors",
 };
 
 export const ZONE_NAMES: Record<string, string> = {
@@ -19,8 +20,9 @@ export const ZONE_NAMES: Record<string, string> = {
   WOR: "somewhere in the world",
 };
 
-export function zoneName(zone: string): string {
-  return ZONE_NAMES[zone] ?? zone;
+/** "Sweden", or "Sweden or United States" where it is not known which. */
+export function zoneName(zones: string[]): string {
+  return zones.map((zone) => ZONE_NAMES[zone] ?? zone).join(" or ");
 }
 
 /** Where the methodology page lives, for the QR code. */

@@ -46,6 +46,11 @@ export interface OutsideItem {
     item: string;
     /** Not counted: no figure here includes it. Not published: the companies do not say. */
     why: "not counted" | "not published";
+    /**
+     * What one published study puts it at, relative to what the screen counts. Only where the
+     * study measures what our figures leave out, so it says how far above them the truth lies.
+     */
+    estimate?: { figure: string; note: string; sources: string[] };
 }
 
 /**
@@ -54,15 +59,31 @@ export interface OutsideItem {
  * has its own entry (training.ts).
  */
 export const OUTSIDE_THE_NUMBERS: OutsideItem[] = [
-    { item: "Experiments before the final training run", why: "not published" },
+    {
+        item: "AI companies' own development",
+        why: "not published",
+        estimate: {
+            figure: "about +50% on training",
+            note: "Morrison et al. (ICLR 2025) measured the development of AI2's open language models: the experiments and tuning before the final training run came to about half of that run's own impact. No company behind the council's models publishes this.",
+            sources: ["https://arxiv.org/abs/2503.05804"],
+        },
+    },
     { item: "Building the data centres", why: "not counted" },
     { item: "The water used to make the chips", why: "not counted" },
     { item: "How large most of the models are", why: "not published" },
     { item: "Where the answers are computed", why: "not published" },
     { item: "Where the electricity really came from", why: "not published" },
     { item: "Reading the question, before each answer", why: "not counted" },
-    { item: "The networks between this room and the data centres", why: "not counted" },
-    { item: "Data centres kept waiting for demand", why: "not counted" },
+    { item: "Internet infrastructure", why: "not counted" },
+    {
+        item: "Data centres kept waiting for demand",
+        why: "not counted",
+        estimate: {
+            figure: "about +10% energy",
+            note: "In Google's measurement of a median Gemini prompt (2025), machines kept running idle, ready for demand, took 0.02 of its 0.24 Wh. EcoLogits counts the servers and the cooling, but not this idle capacity.",
+            sources: ["https://arxiv.org/html/2508.15734"],
+        },
+    },
     { item: "The hardware's afterlife as e-waste", why: "not counted" },
 ];
 

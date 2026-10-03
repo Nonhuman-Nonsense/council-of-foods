@@ -165,28 +165,27 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
 - **Data:** `GET /api/meter?venue=<id>` returns a `MeterSnapshot` (`shared/MeterTypes.ts`):
   usage totals for all councils, the venue and its latest meeting, plus the room's plugs.
   `useMeterFeed` refetches it on every socket (re)connect and folds pushed events in.
-- **Screen**, under the title "The Cost of AI". Estimates are floors as well as
-  ranges, so the sections that carry them are tagged *At least*, and what lies outside them gets
-  as much room as what is inside:
+- **Screen**, under the title "AI Energy & Water Use". Sections with estimates are tagged
+  *Estimated*; the estimates are floors as well as ranges, so what lies outside them gets as much
+  room as what is inside:
   1. **Current meeting**: what the providers bill for, exactly (`countedOf`, by each model's
      `role`) — text in tokens, text to speech and speech to text in minutes — then energy, water
-     and carbon for the meeting, then the models called in the last minute (`activeModels`, from
-     each row's `lastUsedAt`), one per line with role and assumed country. By call time, so the
-     list runs ahead of the room. After three quiet minutes it is titled **Last meeting**, without
-     the model list (`isMeetingActive`, from the meeting's `lastActiveAt`: its latest usage,
-     playback progress or setup start).
+     and carbon for the meeting, then the models it has used (`modelsUsed`), one per line with
+     role and assumed country, the most recently used first. After three quiet minutes it is
+     titled **Last meeting** (`isMeetingActive`, from the meeting's `lastActiveAt`: its latest
+     usage, playback progress or setup start).
   2. **Since opening at <venue>**: the same estimates for the whole exhibition, as the room has
      heard it (`heardVenueRows` leaves out the current meeting's unplayed messages, so the two rise
      together); the documented mining places in rotation; and one small line with the room's own
      electricity measured by the plugs, power now and in total.
-  3. **Training the models**: Mistral's published figure in grams and litres, so the length of
-     the number shows its scale, and an empty "not published" slot per maker that publishes
-     nothing (`shared/footprint/training.ts`). Never divided per meeting.
-  4. **Around the world**: published figures for the build-out, globally and near Boden
-     (`shared/footprint/world.ts`, sources on the methodology page).
-  5. **Outside these numbers**: what no figure includes or the companies do not say, in the order
+  3. **Training the models**: Mistral's published figure in tonnes of CO₂e and litres, and an
+     empty "not published" slot per maker that publishes nothing (`shared/footprint/training.ts`).
+     Never divided per meeting.
+  4. **Outside these numbers**: what no figure includes or the companies do not say, in the order
      of the hardware's and models' life, each "not counted" or "not published"
      (`OUTSIDE_THE_NUMBERS` in `shared/footprint/counting.ts`).
+  5. **Around the world**: published figures for the build-out, at the end for scale
+     (`shared/footprint/world.ts`, sources on the methodology page).
   6. A QR code to the methodology page, which has GPU time, the Sb eq mineral figures, the share
      of the energy resting on guessed models, and how Google and Mistral each count one answer.
 
@@ -245,9 +244,9 @@ cooling only. That difference is itself worth showing.
 
 | Provider | What is public |
 |---|---|
-| Inworld (router, TTS, realtime) | Runs on Google Cloud; region not published |
+| Inworld (router, TTS, STT, realtime) | Runs on Google Cloud; the default deployment we call is in the US (EU and India on enterprise contracts), cloud region not published |
 | Google AI Studio (Gemini) | Google's global fleet; no per-request region |
-| Mistral | EcoLogits assumes Microsoft Azure, Sweden; Mistral also runs its own compute in France |
+| Mistral | Its API runs in Sweden by default, or the US on its US endpoint; which one Inworld calls is not published (Inworld does call Mistral's own API: the router reports the attempt as `mistral/mistral-large-3` on its own credentials). The meter's range spans both electricity mixes (`zones` in `export.py`) |
 | ElevenLabs | `x-region` header per response; US by default, EU/India/Singapore on enterprise plans |
 | Soniox | US by default; EU and Japan available |
 

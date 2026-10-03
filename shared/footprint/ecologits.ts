@@ -49,7 +49,8 @@ export interface EcologitsModel {
     basis: ModelBasis;
     usageMeasure: "output_tokens" | "audio_seconds";
     tokensPerUnit: number;
-    datacenterZone: string;
+    /** Where it may run (EcoLogits' zones); with more than one, the range spans them. */
+    datacenterZones: string[];
     /** Billions, [low, high]. */
     activeParameters: [number, number];
     totalParameters: [number, number];

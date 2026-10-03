@@ -191,14 +191,10 @@ export function heardVenueRows(venue: UsageTotalsRow[], meeting: MeterState["mee
   });
 }
 
-/** How long a model counts as active after it was last called. */
-export const ACTIVE_WINDOW_MS = 60_000;
-
-/** Models called within the last minute, most recent first. */
-export function activeModels(rows: UsageTotalsRow[], now: number): UsageTotalsRow[] {
+/** The models a meeting has used, once each, the most recently used first. */
+export function modelsUsed(rows: UsageTotalsRow[]): UsageTotalsRow[] {
   const latest = new Map<string, UsageTotalsRow>();
   for (const row of rows) {
-    if (now - Date.parse(row.lastUsedAt) > ACTIVE_WINDOW_MS) continue;
     const key = `${row.provider}|${row.model}`;
     const seen = latest.get(key);
     if (!seen || Date.parse(row.lastUsedAt) > Date.parse(seen.lastUsedAt)) latest.set(key, row);

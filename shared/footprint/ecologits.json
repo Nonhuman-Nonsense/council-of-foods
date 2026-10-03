@@ -20,7 +20,10 @@
       "basis": "ecologits",
       "usageMeasure": "output_tokens",
       "tokensPerUnit": 1,
-      "datacenterZone": "SWE",
+      "datacenterZones": [
+        "SWE",
+        "USA"
+      ],
       "activeParameters": [
         41,
         41
@@ -40,13 +43,13 @@
           "energy": 1.1855246555412148e-06,
           "gwp": 4.180159935438323e-08,
           "adpe": 9.21271209821078e-14,
-          "wcf": 7.24247232110262e-06
+          "wcf": 3.805162134826422e-06
         },
         "perGenerationSecond": {
           "energy": 1.2083333333084922e-05,
           "gwp": 3.030224999985584e-06,
           "adpe": 1.4680403895862087e-10,
-          "wcf": 7.381812499968671e-05
+          "wcf": 3.8783708332905945e-05
         },
         "embodiedPerGenerationSecond": {
           "energy": 0.0,
@@ -61,14 +64,14 @@
         "firstTokenSeconds": 0.64,
         "perToken": {
           "energy": 2.3710493110824295e-06,
-          "gwp": 8.360319870876647e-08,
-          "adpe": 1.842542419642156e-13,
+          "gwp": 9.11431355180086e-07,
+          "adpe": 2.3366690960717344e-13,
           "wcf": 1.448494464220524e-05
         },
         "perGenerationSecond": {
           "energy": 2.4166666666169845e-05,
-          "gwp": 6.060449999971168e-06,
-          "adpe": 2.9360807791724174e-10,
+          "gwp": 1.44979999998149e-05,
+          "adpe": 2.9411171125060687e-10,
           "wcf": 0.00014763624999937342
         },
         "embodiedPerGenerationSecond": {
@@ -80,7 +83,8 @@
         "gpus": 32
       },
       "assumptions": [
-        "Routed through Inworld to Mistral's own API; EcoLogits' Mistral data-centre profile applies.",
+        "Routed through Inworld to Mistral's own API (Inworld reports the attempt as mistral/mistral-large-3 on its own credentials); EcoLogits' Mistral data-centre profile applies.",
+        "Mistral's API runs in Sweden by default and in the US on its US endpoint; which Inworld uses is not published, so the range spans both electricity mixes.",
         "EcoLogits listed Mistral Large 3 with Mistral Large 2's size until 0.11.2, which took Mistral's published 675B total / 41B active mixture-of-experts after we reported it.",
         "Served with 8-bit (FP8, published) to 16-bit weights: EcoLogits sizes the GPU fleet by memory, so this halves or doubles the GPUs a request occupies (16 to 32 H100-class GPUs). EcoLogits itself assumes 16-bit."
       ],
@@ -88,6 +92,7 @@
         "The model architecture is multimodal, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-multimodal"
       ],
       "sources": [
+        "https://help.mistral.ai/en/articles/156206-when-using-mistral-ai-s-api-where-is-my-data-stored",
         "https://github.com/mlco2/ecologits/pull/262",
         "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512-NVFP4"
       ],
@@ -102,14 +107,14 @@
             ],
             "gwp": [
               1.5569140993543832e-06,
-              3.1138281987087664e-06
+              8.160431355180085e-06
             ],
             "adpe": [
               7.349414660030732e-11,
-              1.4698829320061463e-10
+              1.4728952253492425e-10
             ],
             "wcf": [
-              4.415153482110261e-05,
+              2.3197016301493086e-05,
               8.830306964220522e-05
             ]
           },
@@ -142,14 +147,14 @@
             ],
             "gwp": [
               1.0762738974175329e-05,
-              2.1525477948350657e-05
+              7.995125420720344e-05
             ],
             "adpe": [
               4.440972017152356e-10,
-              8.881944034304712e-10
+              8.916818101361896e-10
             ],
             "wcf": [
-              0.0005111532678441048,
+              0.0002685576103930569,
               0.0010223065356882097
             ]
           },
@@ -182,14 +187,14 @@
             ],
             "gwp": [
               1.823575224175329e-05,
-              3.647150448350658e-05
+              0.00037182154207203433
             ],
             "adpe": [
               1.1025286787216832e-10,
-              2.2050573574433664e-10
+              2.4052261946818646e-10
             ],
             "wcf": [
-              0.002933897990941048,
+              0.0015414567080972357,
               0.005867795981882096
             ]
           },
@@ -222,14 +227,14 @@
             ],
             "gwp": [
               7.73251397417533e-05,
-              0.0001546502794835066
+              0.0006545325420720345
             ],
             "adpe": [
               2.972931627565852e-09,
-              5.945863255131704e-09
+              5.975700988855554e-09
             ],
             "wcf": [
-              0.004373351428441048,
+              0.0022977390205972358,
               0.008746702856882097
             ]
           },
@@ -262,14 +267,14 @@
             ],
             "gwp": [
               0.0004643206677087665,
-              0.000928641335417533
+              0.003644391430360172
             ],
             "adpe": [
               1.8628713696729054e-08,
-              3.725742739345811e-08
+              3.7419529220744025e-08
             ],
             "wcf": [
-              0.02375945386720524,
+              0.012483109384652843,
               0.04751890773441048
             ]
           },
@@ -300,7 +305,9 @@
       "basis": "ecologits",
       "usageMeasure": "output_tokens",
       "tokensPerUnit": 1,
-      "datacenterZone": "USA",
+      "datacenterZones": [
+        "USA"
+      ],
       "activeParameters": [
         44,
         132
@@ -576,7 +583,9 @@
       "basis": "guessed",
       "usageMeasure": "audio_seconds",
       "tokensPerUnit": 50,
-      "datacenterZone": "USA",
+      "datacenterZones": [
+        "USA"
+      ],
       "activeParameters": [
         8.8,
         8.8
@@ -637,13 +646,14 @@
       },
       "assumptions": [
         "Inworld TTS is an autoregressive SpeechLM generating 50 audio tokens per second of speech (TTS-1 technical report).",
-        "Runs on Google Cloud, region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed.",
+        "Runs on Google Cloud in Inworld's default US deployment (api.inworld.ai; EU and India only on enterprise contracts), cloud region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed.",
         "Same size as TTS-1-Max (8.8B, dense); TTS-1.5 size is unpublished."
       ],
       "warnings": [],
       "sources": [
         "https://arxiv.org/abs/2507.21138",
-        "https://cloud.google.com/customers/inworld"
+        "https://cloud.google.com/customers/inworld",
+        "https://docs.inworld.ai/portal/regions"
       ],
       "samples": [
         {
@@ -854,7 +864,9 @@
       "basis": "guessed",
       "usageMeasure": "audio_seconds",
       "tokensPerUnit": 50,
-      "datacenterZone": "USA",
+      "datacenterZones": [
+        "USA"
+      ],
       "activeParameters": [
         1.6,
         1.6
@@ -915,13 +927,14 @@
       },
       "assumptions": [
         "Inworld TTS is an autoregressive SpeechLM generating 50 audio tokens per second of speech (TTS-1 technical report).",
-        "Runs on Google Cloud, region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed.",
+        "Runs on Google Cloud in Inworld's default US deployment (api.inworld.ai; EU and India only on enterprise contracts), cloud region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed.",
         "Same size as TTS-1 (1.6B, dense); TTS-1.5 size is unpublished."
       ],
       "warnings": [],
       "sources": [
         "https://arxiv.org/abs/2507.21138",
-        "https://cloud.google.com/customers/inworld"
+        "https://cloud.google.com/customers/inworld",
+        "https://docs.inworld.ai/portal/regions"
       ],
       "samples": [
         {
@@ -1132,7 +1145,9 @@
       "basis": "guessed",
       "usageMeasure": "audio_seconds",
       "tokensPerUnit": 50,
-      "datacenterZone": "USA",
+      "datacenterZones": [
+        "USA"
+      ],
       "activeParameters": [
         1.6,
         8.8
@@ -1193,13 +1208,14 @@
       },
       "assumptions": [
         "Inworld TTS is an autoregressive SpeechLM generating 50 audio tokens per second of speech (TTS-1 technical report).",
-        "Runs on Google Cloud, region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed.",
+        "Runs on Google Cloud in Inworld's default US deployment (api.inworld.ai; EU and India only on enterprise contracts), cloud region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed.",
         "Size unpublished: the range of TTS-1 and TTS-1-Max (1.6\u20138.8B) is assumed."
       ],
       "warnings": [],
       "sources": [
         "https://arxiv.org/abs/2507.21138",
-        "https://cloud.google.com/customers/inworld"
+        "https://cloud.google.com/customers/inworld",
+        "https://docs.inworld.ai/portal/regions"
       ],
       "samples": [
         {
@@ -1410,7 +1426,9 @@
       "basis": "guessed",
       "usageMeasure": "audio_seconds",
       "tokensPerUnit": 50,
-      "datacenterZone": "USA",
+      "datacenterZones": [
+        "USA"
+      ],
       "activeParameters": [
         0.6,
         2.0
@@ -1683,13 +1701,297 @@
         }
       ]
     },
+    "inworld|inworld/inworld-stt-1": {
+      "ecologitsModel": null,
+      "role": "listening",
+      "basis": "guessed",
+      "usageMeasure": "audio_seconds",
+      "tokensPerUnit": 50,
+      "datacenterZones": [
+        "USA"
+      ],
+      "activeParameters": [
+        0.6,
+        2.0
+      ],
+      "totalParameters": [
+        0.6,
+        2.0
+      ],
+      "quantizationBits": [
+        16,
+        16
+      ],
+      "low": {
+        "secondsPerToken": 0.039844408859939465,
+        "firstTokenSeconds": 0.0,
+        "perToken": {
+          "energy": 4.454931348154667e-08,
+          "gwp": 1.712475610230654e-08,
+          "adpe": 4.390334843606425e-15,
+          "wcf": 1.803629636253368e-07
+        },
+        "perGenerationSecond": {
+          "energy": 7.09635416661235e-07,
+          "gwp": 4.355442708319717e-07,
+          "adpe": 9.186499765644556e-12,
+          "wcf": 2.873039713536818e-06
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 1.6276041666666663e-07,
+          "adpe": 9.116565195332316e-12,
+          "wcf": 0.0
+        },
+        "gpus": 1
+      },
+      "high": {
+        "secondsPerToken": 0.04079432119314898,
+        "firstTokenSeconds": 0.0,
+        "perToken": {
+          "energy": 4.541823907322069e-08,
+          "gwp": 1.7458771099746035e-08,
+          "adpe": 4.475967460665899e-15,
+          "wcf": 1.8388090773347988e-07
+        },
+        "perGenerationSecond": {
+          "energy": 7.09635416661235e-07,
+          "gwp": 4.355442708319717e-07,
+          "adpe": 9.186499765644556e-12,
+          "wcf": 2.8730397135081095e-06
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 1.6276041666666663e-07,
+          "adpe": 9.116565195332316e-12,
+          "wcf": 0.0
+        },
+        "gpus": 1
+      },
+      "assumptions": [
+        "Inworld publishes no size or architecture for STT-1: assumed in the range of open speech-recognition models, like Soniox (0.6\u20132B).",
+        "Modelled as 50 tokens per audio second (Whisper's encoder frame rate), with generation capped at real time since recognition is streamed.",
+        "Runs on Google Cloud in Inworld's default US deployment (api.inworld.ai; EU and India only on enterprise contracts), cloud region unpublished: EcoLogits' google_genai data-centre profile (USA) is assumed."
+      ],
+      "warnings": [],
+      "sources": [
+        "https://docs.inworld.ai/stt/overview",
+        "https://docs.inworld.ai/portal/regions",
+        "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2",
+        "https://huggingface.co/openai/whisper-large-v3"
+      ],
+      "samples": [
+        {
+          "units": 1,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              2.582283382410667e-06,
+              2.6257296619943676e-06
+            ],
+            "gwp": [
+              1.0740099405319937e-06,
+              1.0907106904039682e-06
+            ],
+            "adpe": [
+              4.81276662500273e-12,
+              4.817048255855704e-12
+            ],
+            "wcf": [
+              1.0454668038037674e-05,
+              1.0630565243444827e-05
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              8.138020833333333e-08,
+              8.138020833333333e-08
+            ],
+            "adpe": [
+              4.558282597666159e-12,
+              4.558282597666159e-12
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 40,
+          "requestSeconds": 3.0,
+          "impacts": {
+            "energy": [
+              9.122753321309333e-05,
+              9.296538439644138e-05
+            ],
+            "gwp": [
+              3.555614501711308e-05,
+              3.622417501199207e-05
+            ],
+            "adpe": [
+              3.6340168984147305e-11,
+              3.6511434218266254e-11
+            ],
+            "wcf": [
+              0.0003693450463912986,
+              0.0003763809346075848
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              4.8828125e-07,
+              4.8828125e-07
+            ],
+            "adpe": [
+              2.7349695585996957e-11,
+              2.7349695585996957e-11
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              0.0008913410873392667,
+              0.0009087195991727471
+            ],
+            "gwp": [
+              0.00034271289418154744,
+              0.00034939319413033733
+            ],
+            "adpe": [
+              9.23999467549509e-11,
+              9.411259909614039e-11
+            ],
+            "wcf": [
+              0.003608695792363507,
+              0.003679054674526368
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              8.138020833333333e-08,
+              8.138020833333333e-08
+            ],
+            "adpe": [
+              4.558282597666159e-12,
+              4.558282597666159e-12
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 20.0,
+          "impacts": {
+            "energy": [
+              0.0009051789779642667,
+              0.0009225574897977471
+            ],
+            "gwp": [
+              0.0003512060074627975,
+              0.00035788630741158736
+            ],
+            "adpe": [
+              2.715366921850249e-10,
+              2.7324934452621435e-10
+            ],
+            "wcf": [
+              0.00366472006677757,
+              0.0037350789489404308
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              3.2552083333333335e-06,
+              3.2552083333333335e-06
+            ],
+            "adpe": [
+              1.823313039066464e-10,
+              1.823313039066464e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 2000,
+          "requestSeconds": null,
+          "impacts": {
+            "energy": [
+              0.007282431716470684,
+              0.007436733419075479
+            ],
+            "gwp": [
+              0.003447876010599408,
+              0.00352265039779569
+            ],
+            "adpe": [
+              3.704209874976966e-08,
+              3.792329895411685e-08
+            ],
+            "wcf": [
+              0.029483753264253433,
+              0.030108461260837133
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              0.0006485092587880773,
+              0.0006639700715030758
+            ],
+            "adpe": [
+              3.632441510411148e-08,
+              3.719040887566696e-08
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    },
     "elevenlabs|eleven_flash_v2_5": {
       "ecologitsModel": null,
       "role": "speaking",
       "basis": "guessed",
       "usageMeasure": "audio_seconds",
       "tokensPerUnit": 50,
-      "datacenterZone": "NLD",
+      "datacenterZones": [
+        "NLD"
+      ],
       "activeParameters": [
         1.6,
         8.8

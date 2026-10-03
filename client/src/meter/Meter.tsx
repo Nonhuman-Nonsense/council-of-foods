@@ -7,12 +7,12 @@ import { MINERAL_PLACES, OUTSIDE_THE_NUMBERS } from "@shared/footprint/counting"
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
 import { WORLD_FIGURES } from "@shared/footprint/world";
 import {
-  activeModels,
   countedOf,
   footprintOf,
   formatRange,
   heardVenueRows,
   isMeetingActive,
+  modelsUsed,
   playedRows,
   roomFootprintOf,
   toDisplayRange,
@@ -29,7 +29,7 @@ import { useMeterFeed } from "./useMeterFeed";
  * dwarfs them, and what no figure includes. Copy and layout are to be tuned on the real display.
  */
 
-type Status = "At least";
+type Status = "Estimated";
 
 /** How long each rotating line stays up. */
 const ROTATE_MS = 9_000;
@@ -129,17 +129,13 @@ function modelName(model: string): string {
   return model.split("/").pop() ?? model;
 }
 
-/**
- * Models called in the last minute — when they are called, which runs ahead of what is heard.
- */
-function ActiveModels({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
-  const active = activeModels(rows, useNow(5_000));
-  if (active.length === 0) {
-    return <p className="meter-dim meter-small meter-wide">No model called in the last minute.</p>;
-  }
+/** The models the meeting has used, the most recently used first: what is working on it now. */
+function ModelsUsed({ rows }: { rows: UsageTotalsRow[] }): ReactElement | null {
+  const used = modelsUsed(rows);
+  if (used.length === 0) return null;
   return (
     <ul className="meter-list meter-wide">
-      {active.map((row) => {
+      {used.map((row) => {
         const entry = findEcologitsModel(row.provider, row.model);
         return (
           <li key={`${row.provider}|${row.model}`}>
@@ -147,7 +143,7 @@ function ActiveModels({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
               {modelName(row.model)}
               {entry ? <span className="meter-dim"> · {entry.role}</span> : null}
             </span>
-            <span className="meter-dim">{entry ? zoneName(entry.datacenterZone) : "unknown"}</span>
+            <span className="meter-dim">{entry ? zoneName(entry.datacenterZones) : "unknown"}</span>
           </li>
         );
       })}
@@ -169,17 +165,13 @@ function Impacts({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
 
 /**
  * The current meeting: what the providers bill for, exactly, then what that costs in the data
- * centres, at least — as far as the room has heard — and the models working on it now.
+ * centres, at least — as far as the room has heard — and the models it has used.
  */
-function CurrentMeeting({ meeting, rows, activeRows }: {
-  meeting: MeterMeeting;
-  rows: UsageTotalsRow[];
-  activeRows: UsageTotalsRow[];
-}): ReactElement {
+function CurrentMeeting({ meeting, rows }: { meeting: MeterMeeting; rows: UsageTotalsRow[] }): ReactElement {
   const counted = countedOf(rows);
   const active = isMeetingActive(meeting, useNow(5_000));
   return (
-    <Section title={active ? "Current meeting" : "Last meeting"} status="At least" className="meter-grid meter-grid--three">
+    <Section title={active ? "Current meeting" : "Last meeting"} status="Estimated" className="meter-grid meter-grid--three">
       <Metric label="Text">
         <NumberFlow value={counted.tokensWritten} />
         <span className="meter-unit">tokens</span>
@@ -193,7 +185,7 @@ function CurrentMeeting({ meeting, rows, activeRows }: {
         <span className="meter-unit">min</span>
       </Metric>
       <Impacts rows={rows} />
-      {active ? <ActiveModels rows={activeRows} /> : null}
+      <ModelsUsed rows={rows} />
     </Section>
   );
 }
@@ -212,13 +204,13 @@ function MineralPlace(): ReactElement {
 }
 
 /**
- * Training, in grams and litres so the length of the numbers shows its scale against the
- * figures above. Never divided per meeting: nobody publishes how many answers a model serves.
- * Makers who publish nothing get an empty slot.
+ * Training, as Mistral publishes it, beside empty slots for the makers that publish nothing.
+ * Never divided per meeting: nobody publishes how many answers a model serves.
  */
 function Training(): ReactElement {
-  const grams = (kg: number) => formatRange({ low: kg * 1000, high: kg * 1000, unit: "g" }, 3);
-  const litres = (l: number) => formatRange({ low: l, high: l, unit: "L" }, 3);
+  const tonnes = (kg: number) => formatRange({ low: kg / 1000, high: kg / 1000, unit: "t" }, 3);
+  const litres = (l: number) =>
+    l >= 1e6 ? `${formatRange({ low: l / 1e6, high: l / 1e6, unit: "" }, 3).trim()} million L` : formatRange({ low: l, high: l, unit: "L" }, 3);
   return (
     <Section title="Training the models" className="meter-stack">
       <div className="meter-table">
@@ -228,7 +220,7 @@ function Training(): ReactElement {
         {TRAINING_DISCLOSURES.map((entry) => entry.disclosed ? (
           <Fragment key={entry.model}>
             <span className="meter-dim">{entry.disclosed.figuresFor}*</span>
-            <span className="meter-bright meter-num">{grams(entry.disclosed.gwpKgCo2e)}</span>
+            <span className="meter-bright meter-num">{tonnes(entry.disclosed.gwpKgCo2e)}</span>
             <span className="meter-bright meter-num">{litres(entry.disclosed.waterL)}</span>
           </Fragment>
         ) : (
@@ -296,12 +288,12 @@ export function Meter(): ReactElement {
   return (
     <main className="meter">
       {demo ? <div className="meter-demo">DEMO DATA</div> : null}
-      <h1 className="meter-title">The Cost of AI</h1>
+      <h1 className="meter-title">AI Energy &amp; Water Use</h1>
       {state.meeting ? (
-        <CurrentMeeting meeting={state.meeting} rows={heard} activeRows={atVenue ? state.venue : state.global} />
+        <CurrentMeeting meeting={state.meeting} rows={heard} />
       ) : null}
       {venueName ? (
-        <Section title={`Since opening at ${venueName}`} status="At least" className="meter-stack">
+        <Section title={`Since opening at ${venueName}`} status="Estimated" className="meter-stack">
           <div className="meter-grid meter-grid--three">
             <Impacts rows={venueHeard} />
           </div>
@@ -310,8 +302,8 @@ export function Meter(): ReactElement {
         </Section>
       ) : null}
       <Training />
-      <AroundTheWorld />
       <Outside />
+      <AroundTheWorld />
       <footer className="meter-footer">
         <div>
           Estimates with EcoLogits {ECOLOGITS_VERSION}. Ranges, because nobody knows the exact figure, and

@@ -11,7 +11,7 @@ import {
   type EcologitsModel,
   type ModelBasis,
 } from "@shared/footprint/ecologits";
-import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED, PUBLISHED_COUNTS } from "@shared/footprint/counting";
+import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED, OUTSIDE_THE_NUMBERS, PUBLISHED_COUNTS } from "@shared/footprint/counting";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
 import { WORLD_FIGURES } from "@shared/footprint/world";
 import { countedOf, footprintOf, formatRange, gpuTimeOf, guessedShareOf, toDisplayRange } from "./meterState";
@@ -82,7 +82,7 @@ function ModelEntry({ id, model }: { id: string; model: EcologitsModel }): React
         <dt>Known from</dt>
         <dd>{BASIS_TEXT[model.basis]}</dd>
         <dt>Assumed location</dt>
-        <dd>{zoneName(model.datacenterZone)}</dd>
+        <dd>{zoneName(model.datacenterZones)}</dd>
         <dt>Size</dt>
         <dd>{formatParameters(model)}</dd>
         <dt>Energy {reference.label}</dt>
@@ -200,6 +200,25 @@ function Minerals(): ReactElement {
           <Sources urls={place.sources} />
         </Card>
       ))}
+    </section>
+  );
+}
+
+/** The costs outside the figures that a published study has put a size on. */
+function OutsideEstimates(): ReactElement {
+  return (
+    <section>
+      <h2>Outside these numbers, where someone has measured</h2>
+      <p>
+        Most of what the screen leaves out has no published figure. Two have one, each from a single study and
+        not of this council's own use: they say roughly how far above the screen's figures the truth lies.
+      </p>
+      {OUTSIDE_THE_NUMBERS.map(({ item, estimate }) => estimate ? (
+        <Card key={item} title={item} subtitle={estimate.figure}>
+          <p>{estimate.note}</p>
+          <Sources urls={estimate.sources} />
+        </Card>
+      ) : null)}
     </section>
   );
 }
@@ -386,6 +405,7 @@ export function Methodology(): ReactElement {
       </section>
 
       <Training />
+      <OutsideEstimates />
       <AroundTheWorld />
       <AllCouncils />
 

@@ -7,7 +7,7 @@ describe("meter model info", () => {
     "describes $id's role and place for visitors",
     ({ id, model }) => {
       expect(MODEL_ROLES[id]).toBeDefined();
-      expect(ZONE_NAMES[model.datacenterZone]).toBeDefined();
+      for (const zone of model.datacenterZones) expect(ZONE_NAMES[zone]).toBeDefined();
     },
   );
 });

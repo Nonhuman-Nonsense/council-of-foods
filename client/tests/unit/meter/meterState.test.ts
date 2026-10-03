@@ -3,7 +3,6 @@ import type { MeterUsageEvent } from "@shared/MeterTypes";
 import { estimateGpuSeconds, estimateImpacts, findEcologitsModel } from "@shared/footprint/ecologits";
 import { ROOM_POWER_SILENT_MS, type RoomPowerReading } from "@shared/MeterTypes";
 import {
-  activeModels,
   applyMeetingProgress,
   applyRoomPower,
   applySetupStarted,
@@ -17,6 +16,7 @@ import {
   heardVenueRows,
   isMeetingActive,
   MEETING_IDLE_MS,
+  modelsUsed,
   playedRows,
   roomFootprintOf,
   toDisplayRange,
@@ -158,7 +158,7 @@ describe("meter state", () => {
     expect(applyMeetingProgress(state, progress, "museum-oslo").meeting).toMatchObject(expected);
   });
 
-  it("lists models called in the last minute, most recent first, once each", () => {
+  it("lists the models a meeting used, most recently used first, once each", () => {
     const now = Date.parse(TS);
     const at = (secondsAgo: number) => new Date(now - secondsAgo * 1000).toISOString();
     const rows = [
@@ -168,9 +168,10 @@ describe("meter state", () => {
       { provider: "inworld", model: "soniox/stt-rt-v4", requests: 1, measures: {}, lastUsedAt: at(90) },
     ];
 
-    expect(activeModels(rows, now).map((r) => [r.model, r.lastUsedAt])).toEqual([
+    expect(modelsUsed(rows).map((r) => [r.model, r.lastUsedAt])).toEqual([
       ["mistral/mistral-large-3", at(5)],
       ["inworld-tts-1.5-max", at(20)],
+      ["soniox/stt-rt-v4", at(90)],
     ]);
   });
 

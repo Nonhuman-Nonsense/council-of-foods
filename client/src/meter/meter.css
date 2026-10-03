@@ -43,7 +43,7 @@ html[data-rotate="-90"] #root {
   display: flex;
   flex-direction: column;
   /* Room between sections, so each reads as its own block. */
-  gap: 10cqw;
+  gap: 12cqw;
   padding: 7cqw 6cqw;
   --meter-unit: 1cqw;
 }
