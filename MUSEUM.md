@@ -39,13 +39,69 @@ Arduino button ──USB──► bridge daemon (launchd on install Mac) ──l
 
 ---
 
-## 1. Browser
+## 1. Browser: the kiosk windows
 
-The app does **not** call `requestFullscreen()`. Use Chrome or OS kiosk mode on
-the install Mac so the visitor sees only the council UI.
+The app does **not** call `requestFullscreen()`. Chrome's kiosk mode keeps it full
+screen, so the visitor sees only the council UI. Use the deployed URL for this install
+(production or staging); language follows the URL prefix (`/en`, `/sv`, …) like the
+public web app.
 
-Open the deployed URL for this install (production or staging). Language follows
-the URL prefix (`/en`, `/sv`, …) like the public web app.
+[museum/kiosk/](museum/kiosk/) runs the council window, and the
+[meter](#meter-screen-second-display) on a second screen, as launchd agents of the
+logged-in user:
+
+```bash
+museum/kiosk/install.sh --council-url https://<host>/sv --meter-url "https://<host>/meter?venue=<venue-id>"
+```
+
+Leave out `--meter-url` for a single screen. Run it again to change a setting or to
+update. No `sudo` needed.
+
+Each window, at login:
+
+1. **Waits for its screen:** the council takes the main screen (the one with the menu
+   bar), the meter the other one. Where they sit in Displays → Arrange does not matter.
+2. **Waits for the server** to answer `/health`, so it never opens on Chrome's error page.
+3. **Opens Chrome in kiosk mode** on that screen, in a Chrome profile of its own (in
+   `~/Library/Application Support/council-kiosk/`), starting from a single tab.
+
+When Chrome closes, for whatever reason, it opens again 10 s later. If the meter's
+screen goes away (switched off, unplugged), its window closes, instead of macOS moving
+it on top of the council, and opens again when the screen is back.
+
+| | |
+|---|---|
+| Use the Mac (`#staff`, Settings) | `museum/kiosk/stop.sh`; the windows come back with `museum/kiosk/start.sh` or a restart |
+| Remove | `museum/kiosk/uninstall.sh` (keeps the profiles; `--purge` removes them) |
+| Logs | `~/Library/Logs/council-kiosk-council.log`, `council-kiosk-meter.log` |
+| Try it on a desk | `--windowed`: ordinary windows instead of kiosk |
+
+The council's `#staff` settings and microphone permission belong to its kiosk profile.
+After the first install, `stop.sh`, then open that profile at the staff page and set
+it up (and allow the microphone once, on the first meeting):
+
+```bash
+open -na "Google Chrome" --args --user-data-dir="$HOME/Library/Application Support/council-kiosk/council-chrome" "https://<host>/#staff"
+```
+
+Quit that Chrome, then `start.sh`. Extra Chrome flags for the council go in
+`--council-flags "..."`.
+
+### The Mac itself
+
+Once, in System Settings:
+
+- **Users & Groups:** log in automatically, as the user the kiosk is installed for.
+- **Energy:** start up automatically after a power failure (or `sudo pmset autorestart 1`);
+  prevent automatic sleeping when the display is off.
+- **Lock Screen:** turn the display off **Never**; no screen saver.
+- **General → Software Update → Automatic updates:** off, so the Mac never restarts into
+  an update during opening hours.
+- **Notifications:** Focus on, or notifications off, so nothing slides over the screens.
+- **General → Login Items:** nothing that opens Chrome (an old `council-meter.command`
+  would open a second meter), and turn off reopening windows when logging back in.
+  Under **Allow in the Background**, leave the kiosk windows on: macOS announces them
+  once at install ("can run in the background"), and turned off they never start.
 
 ---
 
@@ -204,28 +260,11 @@ council.
 
 1. **Rotate the display in macOS:** System Settings → Displays → select the meter
    screen → **Rotation** 90° (or 270°, whichever puts the image upright on how it
-   hangs). Under **Arrange**, note where the meter screen sits relative to the main
-   display.
-2. **Keep both screens awake:** System Settings → Lock Screen → turn display off
-   **Never**; Energy → prevent automatic sleeping when the display is off.
-3. **Start the meter window.** A separate `--user-data-dir` makes it a second Chrome
-   instance, so its flags aren't swallowed by the council's window:
-
-   ```bash
-   open -na "Google Chrome" --args \
-     --user-data-dir="$HOME/Library/Application Support/council-meter-chrome" \
-     --kiosk --noerrdialogs --disable-session-crashed-bubble \
-     --window-position=1920,0 \
-     "https://<host>/meter?venue=<venue-id>"
-   ```
-
-   `--window-position` must land on the meter screen: its top-left corner in the
-   **Arrange** layout, in points. For a meter screen placed right of a main display
-   1920 points wide, that is `1920,0`. `--kiosk` then fills that screen.
-4. **Start it at login:** save the command in `~/council-meter.command`, make it
-   executable (`chmod +x ~/council-meter.command`), and add it under System Settings
-   → General → Login Items → **Open at Login**.
-5. **Check:** numbers move during a meeting (or plugs report), the QR code opens the
+   hangs).
+2. **Open it there:** install the [kiosk windows](#1-browser-the-kiosk-windows) with
+   `--meter-url "https://<host>/meter?venue=<venue-id>"`. The meter finds this screen by
+   itself.
+3. **Check:** numbers move during a meeting (or plugs report), the QR code opens the
    methodology page on a phone, and the pointer is hidden on the meter.
 
 The meter looks after itself: when its connection comes back after a network drop
@@ -300,14 +339,14 @@ Optional category toggles on `#staff` for field debugging (`localStorage`-backed
 
 ### Voice-only kiosk (no USB button)
 
-1. Chrome kiosk → deployed URL  
+1. [Kiosk windows](#1-browser-the-kiosk-windows) → deployed URL  
 2. `#staff` → **Museum**  
 3. Hide staff URL from visitors; use the mode switch button for recovery  
 
 ### Physical talk button (recommended for council meetings)
 
 1. Flash firmware → install bridge (`launchd`) → verify `curl http://127.0.0.1:8765/health`  
-2. Chrome kiosk → deployed URL  
+2. [Kiosk windows](#1-browser-the-kiosk-windows) → deployed URL  
 3. `#staff` → **Museum** + **Hardware button**  
 4. Confirm bridge **Connected** and LED **pulse** on the button  
 5. Enable **Mode switch button** for staff  
@@ -356,8 +395,10 @@ Use the hardware checklist in
 5. Press button → LED and talk path work in a meeting  
 6. Unplug/replug USB → recovers without staff action  
 7. Meter screen upright, full screen, numbers moving; room plugs listed if installed  
+8. Restart the Mac → both windows come back on their screens, untouched  
 
-Bridge logs: `/var/log/council-button-bridge.log`
+Bridge logs: `/var/log/council-button-bridge.log`; kiosk logs:
+`~/Library/Logs/council-kiosk-*.log`
 
 ---
 
@@ -387,7 +428,8 @@ Everything above recovers failures that happen **while the app is running** —
 socket drops, a failed generation, a deploy that briefly 502s. The client probes
 `/health` before reloading so it never reloads into a dead origin.
 
-Nothing in the app can recover the layer below it: a Chrome `ERR_*` page, a
+The [kiosk windows](#1-browser-the-kiosk-windows) reopen Chrome when it closes or
+crashes, but nothing yet recovers the layer in between: a Chrome `ERR_*` page, a
 Cloudflare 502/522 served instead of the app, or a hung tab. No client code is
 running there, so no client fix reaches it. Recovering those needs a host-level
 watchdog on the install machine that reloads the Chrome tab when the origin is
