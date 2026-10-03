@@ -4,6 +4,7 @@ import { METER_METHODOLOGY_PATH } from "@shared/MeterTypes";
 import { Meter } from "./Meter";
 import { MeterErrorBoundary } from "./MeterErrorBoundary";
 import { Methodology } from "./Methodology";
+import { startKioskHeartbeat } from "@/kioskHeartbeat";
 import { scheduleNightlyReload } from "./reload";
 import "./meter.css";
 
@@ -25,7 +26,10 @@ if (!isMethodology && (rotate === "90" || rotate === "-90")) {
   document.documentElement.dataset.rotate = rotate;
 }
 // The meter runs unattended for months; the methodology page is a visitor's phone.
-if (!isMethodology) scheduleNightlyReload();
+if (!isMethodology) {
+  scheduleNightlyReload();
+  startKioskHeartbeat(() => true);
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

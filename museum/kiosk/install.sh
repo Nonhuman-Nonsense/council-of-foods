@@ -105,7 +105,7 @@ stop_agent() {
   local service
   service="gui/$(id -u)/com.council.kiosk-$1"
   launchctl bootout "$service" 2>/dev/null || true
-  for _ in $(seq 1 20); do
+  for _ in $(seq 1 30); do
     launchctl print "$service" >/dev/null 2>&1 || return 0
     sleep 0.5
   done

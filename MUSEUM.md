@@ -69,6 +69,14 @@ When Chrome closes, for whatever reason, it opens again 10 s later. If the meter
 screen goes away (switched off, unplugged), its window closes, instead of macOS moving
 it on top of the council, and opens again when the screen is back.
 
+**Watchdog.** In museum and presenter mode, and always on the meter, the page ticks a
+counter in its title every 10 s (the `kioskHeartbeat` capability; a kiosk never shows
+the title). The window script reads it every 30 s from Chrome's debugging port (9222
+for the council, 9223 for the meter; this Mac only). A page that ticked and then stood
+still for 2 minutes has crashed (`Aw, Snap!`), hung, or been replaced by an error page,
+so Chrome restarts. A page that never ticked, like the council in web mode before
+`#staff` is set up, is left alone.
+
 | | |
 |---|---|
 | Use the Mac (`#staff`, Settings) | `museum/kiosk/stop.sh`; the windows come back with `museum/kiosk/start.sh` or a restart |
@@ -95,6 +103,7 @@ Once, in System Settings:
 - **Energy:** start up automatically after a power failure (or `sudo pmset autorestart 1`);
   prevent automatic sleeping when the display is off.
 - **Lock Screen:** turn the display off **Never**; no screen saver.
+- **Wallpaper:** plain black, so a window between restarts leaves the screen black.
 - **General → Software Update → Automatic updates:** off, so the Mac never restarts into
   an update during opening hours.
 - **Notifications:** Focus on, or notifications off, so nothing slides over the screens.
@@ -422,21 +431,19 @@ Open the dev URL at `/#staff`, set **Museum** (or **Presenter**) +
 
 ---
 
-## 7. Known gap: failures the app cannot reach
+## 7. What recovers what
 
-Everything above recovers failures that happen **while the app is running** —
-socket drops, a failed generation, a deploy that briefly 502s. The client probes
-`/health` before reloading so it never reloads into a dead origin.
+| Failure | Recovered by |
+|---|---|
+| Socket drop, failed generation, server restart or deploy | The app: reconnects, retries, and reloads once `/health` answers ([RESILIENCE.md](RESILIENCE.md)) |
+| Meter: deploy, crash while drawing, months of uptime | The meter: reloads on reconnect, 30 s after a crash, and nightly at 04:00 |
+| Crashed or hung tab, Chrome error page, Cloudflare 502 page | The kiosk watchdog: restarts Chrome when the heartbeat stops |
+| Chrome quits, crashes or hangs | The kiosk window: opens Chrome again, once the server answers |
+| Meter screen switched off or unplugged | The kiosk window: closes the meter until the screen is back |
+| Power cut, Mac restart | The Mac: starts after a power failure, logs in, opens the windows |
 
-The [kiosk windows](#1-browser-the-kiosk-windows) reopen Chrome when it closes or
-crashes, but nothing yet recovers the layer in between: a Chrome `ERR_*` page, a
-Cloudflare 502/522 served instead of the app, or a hung tab. No client code is
-running there, so no client fix reaches it. Recovering those needs a host-level
-watchdog on the install machine that reloads the Chrome tab when the origin is
-unreachable — planned, not built.
+Every reload and reopen waits for `/health` first, so nothing lands on Chrome's error
+page while the server is down; the screens wait, black, instead.
 
-The design work for that (watchdog placement, launchd install, deploy-window
-ops, open questions) is in
-[docs/museum-kiosk-resilience-plan.md](docs/museum-kiosk-resilience-plan.md),
-the one engineering plan still worth returning to. Until it ships, a wedged
-install needs a human.
+What none of this reaches: a Mac that hangs, a screen that stays black while still
+connected, and the network or server being down for good. Those need a person.

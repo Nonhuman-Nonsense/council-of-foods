@@ -6,8 +6,14 @@ set -euo pipefail
 APP_DIR="$HOME/Library/Application Support/council-kiosk"
 AGENTS_DIR="$HOME/Library/LaunchAgents"
 
+# Stopping returns before the window has closed; wait, so nothing still writes to the profiles.
 for role in council meter; do
-  launchctl bootout "gui/$(id -u)/com.council.kiosk-$role" 2>/dev/null || true
+  service="gui/$(id -u)/com.council.kiosk-$role"
+  launchctl bootout "$service" 2>/dev/null || true
+  for _ in $(seq 1 30); do
+    launchctl print "$service" >/dev/null 2>&1 || break
+    sleep 0.5
+  done
   rm -f "$AGENTS_DIR/com.council.kiosk-$role.plist"
 done
 

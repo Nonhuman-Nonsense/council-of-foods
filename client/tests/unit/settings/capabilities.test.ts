@@ -30,6 +30,7 @@ describe("capabilitiesFor", () => {
         typedSetup: true,
         installationReload: false,
         printSummary: false,
+        kioskHeartbeat: false,
       },
     },
     {
@@ -54,6 +55,7 @@ describe("capabilitiesFor", () => {
         typedSetup: false,
         installationReload: true,
         printSummary: true,
+        kioskHeartbeat: true,
       },
     },
     {
@@ -78,6 +80,7 @@ describe("capabilitiesFor", () => {
         typedSetup: true,
         installationReload: true,
         printSummary: false,
+        kioskHeartbeat: true,
       },
     },
   ];

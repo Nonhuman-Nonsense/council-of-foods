@@ -118,6 +118,12 @@ export type Capabilities = {
    * and nobody wants the printer going mid-talk.
    */
   printSummary: boolean;
+  /**
+   * Tick a counter in the page title, which a kiosk never shows, so the kiosk
+   * window's watchdog (museum/kiosk) can tell a live page from a crashed or hung
+   * one and restart Chrome. A visitor's own browser tab would show it ticking.
+   */
+  kioskHeartbeat: boolean;
 };
 
 const WEB: Capabilities = {
@@ -140,6 +146,7 @@ const WEB: Capabilities = {
   typedSetup: true,
   installationReload: false,
   printSummary: false,
+  kioskHeartbeat: false,
 };
 
 const MUSEUM: Capabilities = {
@@ -162,6 +169,7 @@ const MUSEUM: Capabilities = {
   typedSetup: false,
   installationReload: true,
   printSummary: true,
+  kioskHeartbeat: true,
 };
 
 /**
