@@ -48,6 +48,10 @@ html[data-rotate="-90"] #root {
 }
 
 .meter h2 {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: calc(var(--meter-unit) * 2);
   margin: 0 0 calc(var(--meter-unit) * 3);
   font-size: calc(var(--meter-unit) * 4);
   font-weight: normal;
@@ -58,13 +62,39 @@ html[data-rotate="-90"] #root {
   padding-bottom: calc(var(--meter-unit) * 1.5);
 }
 
-.meter-scope {
+/* How a figure is known: measured, counted, estimated. */
+.meter-status {
+  flex: none;
+  padding: 0.15em 0.6em;
+  border: 1px solid #5a564c;
+  border-radius: 999px;
+  font-size: 0.7em;
+  letter-spacing: 0.08em;
+  color: #c9c4b6;
+}
+
+.meter-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: calc(var(--meter-unit) * 4) calc(var(--meter-unit) * 3);
 }
-.meter-scope h2 {
+.meter-grid--three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.meter-grid h2,
+.meter-wide {
   grid-column: 1 / -1;
+}
+.meter-grid h2 {
+  margin-bottom: 0;
+}
+
+.meter-stack {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--meter-unit) * 3);
+}
+.meter-stack h2 {
   margin-bottom: 0;
 }
 
@@ -78,8 +108,16 @@ html[data-rotate="-90"] #root {
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
 }
-.meter-scope--large .meter-value {
-  font-size: calc(var(--meter-unit) * 11);
+.meter-large .meter-value {
+  font-size: calc(var(--meter-unit) * 10);
+}
+
+.meter-range-value {
+  white-space: nowrap;
+}
+.meter-dash {
+  margin: 0 0.1em;
+  color: #9c9788;
 }
 
 .meter-unit {
@@ -88,13 +126,21 @@ html[data-rotate="-90"] #root {
   color: #c9c4b6;
 }
 
-.meter-range {
+/* What a figure leaves out. */
+.meter-note {
+  margin-top: calc(var(--meter-unit) * 0.8);
   font-size: calc(var(--meter-unit) * 2.8);
   color: #6f6b60;
 }
 
-.meter-plugs {
-  grid-column: 1 / -1;
+.meter-guessed {
+  margin: 0;
+  font-size: calc(var(--meter-unit) * 3.4);
+  font-style: italic;
+  color: #c9c4b6;
+}
+
+.meter-list {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -103,37 +149,34 @@ html[data-rotate="-90"] #root {
   gap: calc(var(--meter-unit) * 1.5);
   font-size: calc(var(--meter-unit) * 3.2);
 }
-.meter-plugs li {
+.meter-list li {
   display: flex;
   justify-content: space-between;
+  gap: calc(var(--meter-unit) * 2);
 }
 
-.meter-models ul {
-  list-style: none;
+.meter-place-line,
+.meter-counting {
   margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: calc(var(--meter-unit) * 2);
-  font-size: calc(var(--meter-unit) * 3.4);
+  font-size: calc(var(--meter-unit) * 3.6);
+  animation: meter-fade-in 1.2s ease-out;
 }
-.meter-models li {
-  display: flex;
-  justify-content: space-between;
-  gap: calc(var(--meter-unit) * 2);
-}
-.meter-place {
-  color: #9c9788;
-  text-align: right;
-}
-
-.meter-training-values {
+.meter-counting {
   display: flex;
   flex-direction: column;
   gap: calc(var(--meter-unit) * 1);
 }
-.meter-training .meter-value {
-  font-size: calc(var(--meter-unit) * 6);
+@keyframes meter-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.meter-dim {
+  color: #9c9788;
+}
+.meter-small {
+  margin: 0;
+  font-size: calc(var(--meter-unit) * 2.8);
 }
 
 .meter-footer {

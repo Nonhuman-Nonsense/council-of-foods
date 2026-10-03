@@ -6,20 +6,13 @@ import {
   type EcologitsModel,
 } from "@shared/footprint/ecologits";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
-import { toDisplayRange, type DisplayRange } from "./meterState";
+import { formatRange, toDisplayRange } from "./meterState";
 import { MODEL_ROLES, zoneName } from "./modelInfo";
 
 /**
  * The methodology page behind the meter's QR code: every assumption and source the numbers
  * rest on, generated from the same table the meter computes with, so the two cannot drift.
  */
-
-function formatRange(range: DisplayRange): string {
-  const digits = (n: number) => n.toPrecision(2);
-  return range.high > range.low * 1.001
-    ? `${digits(range.low)}–${digits(range.high)} ${range.unit}`
-    : `${digits(range.central)} ${range.unit}`;
-}
 
 function formatParameters(model: EcologitsModel): string {
   const range = ([low, high]: [number, number]) => (low === high ? `${low}B` : `${low}–${high}B`);
