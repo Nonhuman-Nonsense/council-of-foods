@@ -2,8 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
     ecologitsSamples,
     estimateEcologitsImpacts,
+    estimateEcologitsManufacturing,
+    estimateGpuSeconds,
     estimateImpacts,
+    estimateManufacturing,
     findEcologitsModel,
+    HARDWARE,
     IMPACTS,
     listEcologitsModels,
 } from "@shared/footprint/ecologits.js";
@@ -20,19 +24,34 @@ describe("EcoLogits footprint table", () => {
     );
 
     it.each(cases)("reproduces EcoLogits for $key at $label", ({ model, sample }) => {
-        const impacts = estimateEcologitsImpacts(
-            model,
-            sample.units,
-            1,
-            sample.requestSeconds ?? Number.POSITIVE_INFINITY,
-        );
+        const cap = sample.requestSeconds ?? Number.POSITIVE_INFINITY;
+        const impacts = estimateEcologitsImpacts(model, sample.units, 1, cap);
+        const manufacturing = estimateEcologitsManufacturing(model, sample.units, 1, cap);
 
         for (const impact of IMPACTS) {
-            const [low, high] = sample.impacts[impact];
-            expectSame(impacts[impact].low, low);
-            expectSame(impacts[impact].high, high);
+            expectSame(impacts[impact].low, sample.impacts[impact][0]);
+            expectSame(impacts[impact].high, sample.impacts[impact][1]);
+            expectSame(manufacturing[impact].low, sample.manufacturing[impact][0]);
+            expectSame(manufacturing[impact].high, sample.manufacturing[impact][1]);
         }
     });
+
+    // EcoLogits spreads one GPU's and one server's manufacturing over the GPU's lifetime: so
+    // the minerals of any usage, divided by the GPU time it occupied, is the same for every
+    // model. If it is not, the GPU time is not measuring what the mineral figure is built on.
+    it.each(listEcologitsModels().map(([key, model]) => ({ key, model })))(
+        "puts $key's minerals on the GPU time it occupied",
+        ({ model }) => {
+            const usage = { measures: { [model.usageMeasure]: 400 }, requests: 3 };
+            const minerals = estimateManufacturing(model, usage).adpe;
+            const gpuSeconds = estimateGpuSeconds(model, usage);
+            // EcoLogits 0.11.1: a server without GPUs 0.37 kg Sb eq, shared by 8 GPUs; an H100 0.00895 kg Sb eq.
+            const perGpuSecond = (0.37 / 8 + 0.00895) / HARDWARE.lifetimeSeconds;
+
+            expectSame(minerals.low, gpuSeconds.low * perGpuSecond);
+            expectSame(minerals.high, gpuSeconds.high * perGpuSecond);
+        },
+    );
 
     it.each([
         { key: "inworld|inworld-tts-1.5-max", measures: { audio_seconds: 30 }, units: 30, cap: 30 },
