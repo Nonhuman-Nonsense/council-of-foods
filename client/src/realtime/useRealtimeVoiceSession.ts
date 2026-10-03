@@ -129,6 +129,8 @@ export type UseRealtimeVoiceSessionParams = {
   triggerGreetingOnReady: boolean;
   /** Bearer auth for bootstrap + call (meta-agent live key). */
   authHeaders?: Record<string, string>;
+  /** Setup-agent: the visit's setup, continued across reconnects (see setupSession). */
+  setupSession?: { get: () => string | undefined; set: (setupId: string) => void };
   /** Push-to-talk: mic track starts disabled; open via `setMicEnabled`. */
   pttMic?: boolean;
   /**
@@ -259,6 +261,7 @@ export function useRealtimeVoiceSession(
     toolHandlers,
     triggerGreetingOnReady,
     authHeaders,
+    setupSession,
     pttMic = false,
     deferMic = false,
     trackAgentSpeaking = false,
@@ -516,8 +519,9 @@ export function useRealtimeVoiceSession(
       // resolved instantly by the browser — there is no reason to block on the
       // bootstrap network round-trip (up to 15 s) before surfacing the error.
       const venueId = getVenueId();
+      const setupId = setupSession?.get();
       const bootstrapPromise = fetchRealtimeBootstrap(
-        { feature, language, ...(venueId ? { venueId } : {}) },
+        { feature, language, ...(venueId ? { venueId } : {}), ...(setupId ? { setupId } : {}) },
         controller.signal,
         authHeaders,
       );
@@ -552,6 +556,7 @@ export function useRealtimeVoiceSession(
       }
 
       const { provider, session: defaults, iceServers, usageToken } = bootstrapValue;
+      if (bootstrapValue.setupId) setupSession?.set(bootstrapValue.setupId);
       const reportUsage = createRealtimeUsageReporter(usageToken);
       if (micStreamValue) setMicTracksEnabled(micStreamValue, !pttMic);
 
@@ -988,6 +993,7 @@ export function useRealtimeVoiceSession(
     buildSessionConfig,
     triggerGreetingOnReady,
     authHeaders,
+    setupSession,
     resetSessionUiState,
     cleanup,
     scheduleRetry,

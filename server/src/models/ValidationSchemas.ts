@@ -59,6 +59,7 @@ export const CreateMeetingSchema: z.ZodType<CreateMeetingBody> = z.object({
     humanName: z.string().min(1).optional(),
     /** Checked against COUNCIL_VENUES when the meeting is created; an unknown venue is dropped. */
     venueId: z.string().max(64).optional(),
+    setupId: z.string().max(100).optional(),
 });
 
 // 1. start_conversation — serverOptions is only applied when socket environment is prototype (see SocketManager / MeetingLifecycleHandler)

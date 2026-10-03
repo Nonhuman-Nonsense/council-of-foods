@@ -66,9 +66,14 @@ describe("meter state", () => {
       expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)], meeting: { meetingId: 6, maximumPlayedIndex: -1, totals: [row(1, 100)] } },
     },
     {
-      name: "keeps setup usage without a meeting out of the meeting",
-      event: usage({ venueId: "museum-oslo", feature: "setup-agent" }),
-      expected: { ...atMeeting5, global: [row(2, 200)], venue: [row(2, 200)] },
+      name: "starts over, before the meeting exists, when a visitor's setup begins",
+      event: usage({ venueId: "museum-oslo", feature: "setup-agent", setupId: "visit" }),
+      expected: {
+        ...atMeeting5,
+        global: [row(2, 200)],
+        venue: [row(2, 200)],
+        meeting: { meetingId: null, setupId: "visit", previousMeetingId: 5, maximumPlayedIndex: -1, totals: [row(1, 100)] },
+      },
     },
   ])("$name", ({ event, expected }) => {
     expect(applyUsageEvent(atMeeting5, event, "museum-oslo")).toEqual(expected);
@@ -95,6 +100,18 @@ describe("meter state", () => {
 
     expect(countedOf(playedRows(state.meeting)).tokensWritten).toBe(33);
     expect(countedOf(state.venue).tokensWritten).toBe(33);
+  });
+
+  it("keeps a setup's usage in the meeting it leads to, and the previous meeting's out", () => {
+    const venue = "museum-oslo";
+    let state = applyUsageEvent(atMeeting5, usage({ venueId: venue, feature: "setup-agent", setupId: "visit", measures: { output_tokens: 7 } }), venue);
+    state = applyUsageEvent(state, usage({ venueId: venue, meetingId: 5, messageIndex: 0 }), venue);
+    state = applyMeetingProgress(state, { meetingId: 6, venueId: venue, maximumPlayedIndex: -1 }, venue);
+    state = applyUsageEvent(state, usage({ venueId: venue, feature: "setup-agent", setupId: "visit", meetingId: 6, measures: { output_tokens: 1 } }), venue);
+
+    expect(state.meeting).toMatchObject({ meetingId: 6, setupId: "visit" });
+    expect(state.meeting).not.toHaveProperty("previousMeetingId");
+    expect(countedOf(playedRows(state.meeting)).tokensWritten).toBe(8);
   });
 
   it.each([

@@ -86,6 +86,16 @@ const DEMO_PLUGS = [
 /** Replies are generated this many messages ahead of what has been played, like the council. */
 const DEMO_AHEAD = 2;
 
+/** The visitor talks to the setup agent this many ticks before the meeting is created. */
+const DEMO_SETUP_TICKS = 4;
+
+/** One exchange with the setup agent, before the meeting exists. */
+const DEMO_SETUP_TURN: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">[] = [
+  { feature: "setup-agent", provider: "inworld", model: "mistral/mistral-large-3", measures: { input_tokens: 1500, output_tokens: 60 } },
+  { feature: "setup-agent", provider: "inworld", model: "inworld-tts-1.5-max", measures: { characters: 140, audio_seconds: 7 } },
+  { feature: "setup-agent", provider: "inworld", model: "soniox/stt-rt-v4", measures: { audio_seconds: 5 } },
+];
+
 function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => MeterState) => void): () => void {
   let tick = 0;
   const startedAt = Date.now();
@@ -102,15 +112,25 @@ function startDemoFeed(venueId: string, setState: (update: (s: MeterState) => Me
       setState((current) => applyRoomPower(current, reading, venueId));
     }
     const ts = new Date().toISOString();
+    const setupId = "demo-setup";
+    // The setup comes first, before the meeting exists; its usage then joins meeting 1.
+    if (tick < DEMO_SETUP_TICKS) {
+      for (const call of DEMO_SETUP_TURN) {
+        setState((current) => applyUsageEvent(current, { ...call, venueId, setupId, ts }, venueId));
+      }
+      tick++;
+      return;
+    }
     const usage = (call: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">, messageIndex?: number): MeterUsageEvent => ({
       ...call,
       venueId,
       meetingId: 1,
+      setupId,
       ...(messageIndex !== undefined ? { messageIndex } : {}),
       ts,
     });
     // Each tick writes the next message and plays the one DEMO_AHEAD behind it.
-    const message = tick;
+    const message = tick - DEMO_SETUP_TICKS;
     for (const call of DEMO_TURN) {
       setState((current) => applyUsageEvent(current, usage(call, message), venueId));
     }

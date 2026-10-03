@@ -1,6 +1,7 @@
 import {
   ROOM_POWER_SILENT_MS,
   type MeetingProgress,
+  type MeterMeeting,
   type MeterSnapshot,
   type MeterUsageEvent,
   type RoomPowerReading,
@@ -54,39 +55,73 @@ function addToRows(rows: UsageTotalsRow[], event: MeterUsageEvent, perMessage = 
 }
 
 /**
+ * Whether `meetingId` is a meeting after the one shown. A setup in progress is followed by the
+ * first meeting newer than the venue's last one before it: the meeting the setup led to.
+ */
+function isNewerMeeting(meeting: MeterMeeting | null, meetingId: number): boolean {
+  if (!meeting) return true;
+  return meetingId > (meeting.meetingId ?? meeting.previousMeetingId ?? -Infinity);
+}
+
+/** A new visitor's setup has begun: a new meeting, without its id until it is created. */
+function setupMeeting(previous: MeterMeeting | null, setupId: string): MeterMeeting {
+  const previousMeetingId = previous?.meetingId ?? previous?.previousMeetingId;
+  return {
+    meetingId: null,
+    setupId,
+    ...(previousMeetingId !== undefined ? { previousMeetingId } : {}),
+    maximumPlayedIndex: -1,
+    totals: [],
+  };
+}
+
+/** The meeting a setup led to, now that it exists: the setup's usage stays in it. */
+function adopt(meeting: MeterMeeting, meetingId: number): MeterMeeting {
+  const { previousMeetingId: _previous, ...rest } = meeting;
+  return { ...rest, meetingId };
+}
+
+/** The meeting shown once `event` is counted in it, if it belongs there. */
+function meetingWith(meeting: MeterMeeting | null, event: MeterUsageEvent): MeterMeeting | null {
+  const add = (target: MeterMeeting) => ({ ...target, totals: addToRows(target.totals, event, true) });
+
+  if (event.meetingId === undefined) {
+    if (!event.setupId) return meeting;
+    return add(meeting?.setupId === event.setupId ? meeting : setupMeeting(meeting, event.setupId));
+  }
+  if (meeting?.meetingId === event.meetingId) return add(meeting);
+  if (!isNewerMeeting(meeting, event.meetingId)) return meeting;
+  if (meeting?.meetingId === null) return add(adopt(meeting, event.meetingId));
+  return add({ meetingId: event.meetingId, maximumPlayedIndex: -1, totals: [] });
+}
+
+/**
  * Adds one usage event. Everything counts globally; the venue and its current meeting only
- * count their own. A newer meeting at the venue replaces the current one.
+ * count their own. A new setup at the venue, or a newer meeting, replaces the current one.
  */
 export function applyUsageEvent(state: MeterState, event: MeterUsageEvent, venueId: string | undefined): MeterState {
   const global = addToRows(state.global, event);
   if (!venueId || event.venueId !== venueId) {
     return { ...state, global };
   }
-
-  const venue = addToRows(state.venue, event);
-  let meeting = state.meeting;
-  if (event.meetingId !== undefined) {
-    if (!meeting || event.meetingId > meeting.meetingId) {
-      meeting = { meetingId: event.meetingId, maximumPlayedIndex: -1, totals: addToRows([], event, true) };
-    } else if (event.meetingId === meeting.meetingId) {
-      meeting = { ...meeting, totals: addToRows(meeting.totals, event, true) };
-    }
-  }
-  return { ...state, global, venue, meeting };
+  return { ...state, global, venue: addToRows(state.venue, event), meeting: meetingWith(state.meeting, event) };
 }
 
 /** Moves the venue's current meeting on as the visitor's screen plays it; a newer meeting replaces it. */
 export function applyMeetingProgress(state: MeterState, progress: MeetingProgress, venueId: string | undefined): MeterState {
   if (!venueId || progress.venueId !== venueId) return state;
   const meeting = state.meeting;
-  if (!meeting || progress.meetingId > meeting.meetingId) {
-    return { ...state, meeting: { meetingId: progress.meetingId, maximumPlayedIndex: progress.maximumPlayedIndex, totals: [] } };
+  if (meeting?.meetingId === progress.meetingId) {
+    return {
+      ...state,
+      meeting: { ...meeting, maximumPlayedIndex: Math.max(meeting.maximumPlayedIndex, progress.maximumPlayedIndex) },
+    };
   }
-  if (progress.meetingId !== meeting.meetingId) return state;
-  return {
-    ...state,
-    meeting: { ...meeting, maximumPlayedIndex: Math.max(meeting.maximumPlayedIndex, progress.maximumPlayedIndex) },
-  };
+  if (!isNewerMeeting(meeting, progress.meetingId)) return state;
+  const next = meeting?.meetingId === null
+    ? adopt(meeting, progress.meetingId)
+    : { meetingId: progress.meetingId, maximumPlayedIndex: -1, totals: [] };
+  return { ...state, meeting: { ...next, maximumPlayedIndex: progress.maximumPlayedIndex } };
 }
 
 /**

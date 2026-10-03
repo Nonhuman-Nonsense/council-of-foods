@@ -5,6 +5,8 @@ import { v4 as uuidv4 } from "uuid";
 import { InternalServerError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
 import { resolveVenueId } from "@utils/venues.js";
+import { linkSetupUsage } from "@services/UsageService.js";
+import { linkSetupGrants } from "./realtimeUsage.js";
 
 /**
  * Create a new meeting record (DB only).
@@ -42,6 +44,12 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
     if (result.insertedId == null) {
         await Logger.error("createMeeting", "Meeting insert did not return an id");
         throw new InternalServerError();
+    }
+    if (setup.setupId) {
+        // The setup conversation is where this meeting began: its usage, and anything its
+        // agent still says, counts in the meeting's footprint.
+        linkSetupGrants(setup.setupId, result.insertedId);
+        void linkSetupUsage(setup.setupId, result.insertedId);
     }
     return { meetingId: result.insertedId.toString(), liveKey: meeting.liveKey };
 }

@@ -70,7 +70,7 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
   not be written.
 - **Realtime reports** are authorised by a `usageToken` from `POST /api/realtime/bootstrap`
   (`server/src/api/realtimeUsage.ts`): random, in memory, 4 h, bound to the session's feature,
-  meeting and venue; at most 2,000 reports per token; each part clamped to plausible maxima by
+  meeting (or setup) and venue; at most 2,000 reports per token; each part clamped to plausible maxima by
   `parseRealtimeUsage`. Enough to stop casual inflation without accounts. The client
   (`client/src/realtime/realtimeUsageReporter.ts`) posts fire-and-forget with `keepalive`; it is
   not a reconciled socket intent, so RESILIENCE.md does not apply.
@@ -178,12 +178,12 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
   5. **Hardware** (*estimated*): GPU time the meeting occupied (`estimateGpuSeconds`: generation
      time × GPUs ÷ batch size) — what EcoLogits divides the hardware's minerals by — with the
      documented mining places in rotation. The Sb eq figure itself is on the methodology page.
-  6. **Who's counting**: one answer's water as counted by Google, Mistral and this screen, each
-     with what it includes (`shared/footprint/counting.ts`).
-  7. **Not counted** and **Not disclosed**, with the one published training figure.
-  8. **Since opening at <venue>**: the same estimates for the whole exhibition, counted as they
+  6. **Since opening at <venue>**: the same estimates for the whole exhibition, counted as they
      happen.
-  9. A QR code to the methodology page.
+  7. **Not counted or disclosed**: what no figure includes and what the companies do not say
+     (`shared/footprint/counting.ts`), with the one published training figure. How Google and
+     Mistral each count one answer is on the methodology page.
+  8. A QR code to the methodology page.
 
   **The current meeting follows playback.** Replies are generated a few messages ahead and played
   gradually, so raw usage runs ahead of what the room has heard. Usage is tagged with the
@@ -192,6 +192,14 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
   per message, and the server pushes `meeting-progress` whenever the meeting's
   `maximumPlayedIndex` advances. `playedRows` counts messages up to that index; untagged live
   usage (realtime agents, visitor questions) counts at once.
+
+  **The meeting starts with its setup.** The setup agent talks to the visitor before the meeting
+  exists, so its bootstrap names a `setupId` (`setupIdFor`), which tags the session's usage. A
+  reconnect sends it back and keeps it; creating the meeting sends it too, and the server gives
+  the setup's events and live grants the new `meetingId` (`linkSetupUsage`, `linkSetupGrants`).
+  The meter starts a new current meeting at a new setup's first usage and hands it the first
+  newer meeting id it sees; the snapshot shows a setup in progress when it is newer than the
+  venue's latest meeting. A setup the visitor walks away from stays in the venue's totals only.
 
   Estimates are only ever shown as ranges — both ends, two significant figures, no midpoint:
   EcoLogits' ends are bounds from extreme inputs, not a distribution. Sized in container units

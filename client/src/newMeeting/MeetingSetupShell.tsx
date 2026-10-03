@@ -10,6 +10,7 @@ import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
 import { getVenueId } from "@/settings/councilSettings";
+import { setupSession } from "@setupAgent/setupSession";
 
 export interface MeetingSetupShellProps {
   topicSelection: Topic | null;
@@ -52,6 +53,7 @@ export default function MeetingSetupShell({
       setStep("topic");
       setLastUserEvent(null);
       useMeetingSetupStore.getState().resetStore();
+      setupSession.clear();
     }
   }, [location.pathname]);
 
@@ -103,7 +105,9 @@ export default function MeetingSetupShell({
         language: i18n.language,
         ...(visitorName.trim() ? { humanName: visitorName.trim() } : {}),
         ...(getVenueId() ? { venueId: getVenueId() } : {}),
+        ...(setupSession.get() ? { setupId: setupSession.get() } : {}),
       });
+      setupSession.clear();
       setMeetingliveKey(liveKey);
       navigate(meetingPath(Number(meetingId)));
     } catch (e) {

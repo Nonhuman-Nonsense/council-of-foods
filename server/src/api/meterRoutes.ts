@@ -9,12 +9,13 @@ import {
     METER_ROOM_POWER_EVENT,
     METER_USAGE_EVENT,
     type MeetingProgress,
+    type MeterMeeting,
     type MeterSnapshot,
     type MeterUsageEvent,
     type RoomPowerReading,
 } from "@shared/MeterTypes.js";
 import type { UsageEvent } from "@shared/UsageTypes.js";
-import { meetingsCollection } from "@services/DbService.js";
+import { meetingsCollection, usageEventsCollection } from "@services/DbService.js";
 import { getUsageTotals } from "@services/UsageService.js";
 import { getRoomPower } from "@services/RoomPowerService.js";
 import { meterEvents } from "@services/meterEvents.js";
@@ -29,15 +30,42 @@ import { findVenue, resolveVenueId } from "@utils/venues.js";
  * neither needs authentication.
  */
 
-export async function getMeterSnapshot(venueId: string | undefined): Promise<MeterSnapshot> {
-    const latestMeeting = venueId
-        ? await meetingsCollection.findOne({ venueId }, { sort: { _id: -1 }, projection: { _id: 1, maximumPlayedIndex: 1 } })
-        : null;
+/**
+ * The venue's current meeting: a visitor's setup still in progress, once it is newer than the
+ * latest meeting, or else that meeting.
+ */
+async function currentMeeting(venueId: string): Promise<MeterMeeting | null> {
+    const latestMeeting = await meetingsCollection.findOne(
+        { venueId },
+        { sort: { _id: -1 }, projection: { _id: 1, maximumPlayedIndex: 1, date: 1 } },
+    );
+    const latestSetup = await usageEventsCollection?.findOne(
+        { venueId, setupId: { $exists: true }, meetingId: { $exists: false } },
+        { sort: { ts: -1 }, projection: { setupId: 1, ts: 1 } },
+    );
 
-    const [global, venue, meetingTotals, room] = await Promise.all([
+    if (latestSetup?.setupId && (!latestMeeting || latestSetup.ts > new Date(latestMeeting.date))) {
+        return {
+            meetingId: null,
+            setupId: latestSetup.setupId,
+            ...(latestMeeting ? { previousMeetingId: latestMeeting._id } : {}),
+            maximumPlayedIndex: -1,
+            totals: await getUsageTotals({ setupId: latestSetup.setupId }),
+        };
+    }
+    if (!latestMeeting) return null;
+    return {
+        meetingId: latestMeeting._id,
+        maximumPlayedIndex: latestMeeting.maximumPlayedIndex ?? -1,
+        totals: await getUsageTotals({ meetingId: latestMeeting._id }, { byMessage: true }),
+    };
+}
+
+export async function getMeterSnapshot(venueId: string | undefined): Promise<MeterSnapshot> {
+    const [global, venue, meeting, room] = await Promise.all([
         getUsageTotals(),
         venueId ? getUsageTotals({ venueId }) : Promise.resolve([]),
-        latestMeeting ? getUsageTotals({ meetingId: latestMeeting._id }, { byMessage: true }) : Promise.resolve([]),
+        venueId ? currentMeeting(venueId) : Promise.resolve(null),
         venueId ? getRoomPower(venueId) : Promise.resolve([]),
     ]);
 
@@ -45,9 +73,7 @@ export async function getMeterSnapshot(venueId: string | undefined): Promise<Met
         global,
         venue,
         venueName: venueId ? findVenue(venueId)?.name ?? venueId : null,
-        meeting: latestMeeting
-            ? { meetingId: latestMeeting._id, maximumPlayedIndex: latestMeeting.maximumPlayedIndex ?? -1, totals: meetingTotals }
-            : null,
+        meeting,
         room,
     };
 }

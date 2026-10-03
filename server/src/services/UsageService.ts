@@ -57,6 +57,19 @@ export async function recordUsage(record: UsageRecord): Promise<void> {
     meterEvents.emit("usage", event);
 }
 
+/**
+ * Gives a setup's usage the meeting it led to, so the meeting's totals include the conversation
+ * that set it up. Side channel, like recording: never throws.
+ */
+export async function linkSetupUsage(setupId: string, meetingId: number): Promise<void> {
+    if (!usageEventsCollection) return;
+    try {
+        await usageEventsCollection.updateMany({ setupId, meetingId: { $exists: false } }, { $set: { meetingId } });
+    } catch (error) {
+        void Logger.warn("usage", `Failed to link setup usage to meeting ${meetingId}`, { error, from: { meetingId } });
+    }
+}
+
 interface ChatCompletionUsage {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -175,7 +188,7 @@ export function parseRealtimeUsage(usage: unknown): RealtimeUsagePart[] {
  * installation scale, and any total can be recomputed from the event log.
  */
 export async function getUsageTotals(
-    filter: { venueId?: string; meetingId?: number } = {},
+    filter: { venueId?: string; meetingId?: number; setupId?: string } = {},
     { byMessage = false }: { byMessage?: boolean } = {},
 ): Promise<UsageTotalsRow[]> {
     const events = usageEventsCollection;

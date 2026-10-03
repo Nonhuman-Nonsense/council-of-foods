@@ -85,6 +85,25 @@ describe("meter", () => {
         });
     });
 
+    it("snapshots a setup newer than the venue's latest meeting as its current meeting", async () => {
+        await meetingsCollection.insertOne(MockFactory.createStoredMeeting({
+            _id: 21, liveKey: "key-21", venueId: "museum-oslo", date: new Date(Date.now() - 60_000).toISOString(),
+        }));
+        await recordUsage(dialogue({ meetingId: 21, venueId: "museum-oslo" }));
+        const { meetingId: _none, ...setup } = dialogue({ feature: "setup-agent", venueId: "museum-oslo", setupId: "visit-2" });
+        await recordUsage(setup);
+
+        const { meeting } = await getMeterSnapshot("museum-oslo");
+
+        expect(meeting).toEqual({
+            meetingId: null,
+            setupId: "visit-2",
+            previousMeetingId: 21,
+            maximumPlayedIndex: -1,
+            totals: [expect.objectContaining({ requests: 1, measures: { input_tokens: 100, output_tokens: 40 } })],
+        });
+    });
+
     describe("live push", () => {
         let httpServer: http.Server;
         let unregister: () => void;

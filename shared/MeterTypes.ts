@@ -41,6 +41,24 @@ export interface MeetingProgress {
     maximumPlayedIndex: number;
 }
 
+/**
+ * The meeting the meter shows: from the moment the setup agent first answers a visitor, before
+ * the meeting itself exists, until the next visitor's setup begins.
+ */
+export interface MeterMeeting {
+    /** Null while the visitor is still setting the meeting up. */
+    meetingId: number | null;
+    /** The setup conversation that began it, if there was one. */
+    setupId?: string;
+    /**
+     * While setting up: the venue's latest meeting before this one. A newer meeting is the one
+     * this setup led to; an older one's late usage is not this meeting's.
+     */
+    previousMeetingId?: number;
+    maximumPlayedIndex: number;
+    totals: UsageTotalsRow[];
+}
+
 /** `GET /api/meter?venue=<id>` */
 export interface MeterSnapshot {
     /** Every council, everywhere. */
@@ -49,8 +67,8 @@ export interface MeterSnapshot {
     venue: UsageTotalsRow[];
     /** The venue's display name, if one was requested. */
     venueName: string | null;
-    /** The venue's most recent meeting, if it has had one: usage per model and message. */
-    meeting: { meetingId: number; maximumPlayedIndex: number; totals: UsageTotalsRow[] } | null;
+    /** The venue's current meeting, if it has had one: usage per model and message. */
+    meeting: MeterMeeting | null;
     /** The venue's room electricity, one entry per plug. */
     room: RoomPowerReading[];
 }

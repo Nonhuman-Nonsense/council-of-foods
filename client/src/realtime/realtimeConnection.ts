@@ -488,7 +488,8 @@ export async function fetchRealtimeBootstrap(
   const session = parseRealtimeSessionServerDefaults(data?.session, "Realtime bootstrap");
   const iceServers = Array.isArray(data?.iceServers) ? (data.iceServers as IceServer[]) : [];
   const usageToken = typeof data?.usageToken === "string" ? data.usageToken : undefined;
-  return { provider: data.provider ?? "inworld", iceServers, session, usageToken };
+  const setupId = typeof data?.setupId === "string" ? data.setupId : undefined;
+  return { provider: data.provider ?? "inworld", iceServers, session, usageToken, ...(setupId ? { setupId } : {}) };
 }
 
 async function exchangeSdp(

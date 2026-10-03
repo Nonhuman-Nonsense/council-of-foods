@@ -2,8 +2,8 @@ import NumberFlow from "@number-flow/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useState, type ReactElement, type ReactNode } from "react";
 import type { RoomPowerReading, UsageTotalsRow } from "@shared/MeterTypes";
-import { ECOLOGITS_VERSION, estimateImpacts, findEcologitsModel } from "@shared/footprint/ecologits";
-import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED, PUBLISHED_COUNTS } from "@shared/footprint/counting";
+import { ECOLOGITS_VERSION, findEcologitsModel } from "@shared/footprint/ecologits";
+import { MINERAL_PLACES, NOT_COUNTED, NOT_DISCLOSED } from "@shared/footprint/counting";
 import { TRAINING_DISCLOSURES } from "@shared/footprint/training";
 import {
   activeModels,
@@ -243,63 +243,23 @@ function Hardware({ rows }: { rows: UsageTotalsRow[] }): ReactElement {
   );
 }
 
-/** Who's counting: one answer's water, by each source's own boundary. */
-function WhosCounting(): ReactElement | null {
-  const dialogue = findEcologitsModel("inworld", "mistral/mistral-large-3");
-  if (!dialogue) return null;
-  const water = estimateImpacts(dialogue, { measures: { output_tokens: 400 }, requests: 1 }).wcf;
-  const rows = [
-    ...PUBLISHED_COUNTS.flatMap((count) =>
-      count.perAnswer.waterMl === undefined
-        ? []
-        : [{ who: count.who, includes: count.waterIncludes, value: formatRange({ low: count.perAnswer.waterMl, high: count.perAnswer.waterMl, unit: "mL" }, 3) }],
-    ),
-    { who: "This screen", includes: "cooling and power stations", value: formatRange(toDisplayRange("wcf", water)) },
-  ];
-  return (
-    <Section title="Who's counting" className="meter-stack">
-      <p className="meter-label">Water for one answer, counted three ways</p>
-      <ul className="meter-list">
-        {rows.map((row) => (
-          <li key={row.who}>
-            <span>
-              {row.who}
-              <span className="meter-dim"> · {row.includes}</span>
-            </span>
-            <span>{row.value}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="meter-dim meter-small">Each figure depends on where someone decided to stop counting.</p>
-    </Section>
-  );
-}
-
-/** What no figure here includes, and what the companies do not say. */
+/** What no figure here includes, and what the companies do not say, under one heading. */
 function Uncounted(): ReactElement {
   const training = TRAINING_DISCLOSURES.find((entry) => entry.disclosed)?.disclosed;
   const silent = [...new Set(TRAINING_DISCLOSURES.filter((entry) => !entry.disclosed).map((entry) => entry.maker))];
   return (
-    <>
-      <Section title="Not counted" className="meter-stack">
-        <ul className="meter-list meter-small">
-          {NOT_COUNTED.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-        {training ? (
-          <p className="meter-small">
-            The one training figure published, Mistral Large 2:{" "}
-            {formatRange(toDisplayRange("gwp", { low: training.gwpKgCo2e, high: training.gwpKgCo2e }), 3)} and{" "}
-            {formatRange(toDisplayRange("wcf", { low: training.waterL, high: training.waterL }), 3)} of water.
-          </p>
-        ) : null}
-      </Section>
-      <Section title="Not disclosed" className="meter-stack">
-        <ul className="meter-list meter-small">
-          {NOT_DISCLOSED.map((item) => <li key={item}>{item}</li>)}
-        </ul>
-        <p className="meter-dim meter-small">Training never disclosed by {silent.join(", ")}.</p>
-      </Section>
-    </>
+    <Section title="Not counted or disclosed" className="meter-stack">
+      <ul className="meter-list meter-small">
+        {[...NOT_COUNTED, ...NOT_DISCLOSED].map((item) => <li key={item}>{item}</li>)}
+        <li>
+          Training: only Mistral publishes it
+          {training
+            ? ` — Large 2, ${formatRange(toDisplayRange("gwp", { low: training.gwpKgCo2e, high: training.gwpKgCo2e }), 3)} and ${formatRange(toDisplayRange("wcf", { low: training.waterL, high: training.waterL }), 3)} of water`
+            : ""}
+          . Not disclosed by {silent.join(", ")}.
+        </li>
+      </ul>
+    </Section>
   );
 }
 
@@ -324,11 +284,10 @@ export function Meter(): ReactElement {
           <Hardware rows={heard} />
         </>
       ) : null}
-      <WhosCounting />
-      <Uncounted />
       {venueId || demo ? (
         <Datacentre title={`Since opening at ${state.venueName ?? venueId ?? "this venue"}`} rows={state.venue} />
       ) : null}
+      <Uncounted />
       <footer className="meter-footer">
         <div>
           Estimates with EcoLogits {ECOLOGITS_VERSION}, shown as ranges because nobody knows the exact figure.

@@ -50,6 +50,11 @@ export interface UsageRecord {
      */
     messageIndex?: number;
     venueId?: string;
+    /**
+     * The setup-agent conversation the usage was for. It starts before any meeting exists, so its
+     * usage is tagged with this and given the meeting's id once the meeting is created.
+     */
+    setupId?: string;
 }
 
 export interface UsageEvent extends UsageRecord {

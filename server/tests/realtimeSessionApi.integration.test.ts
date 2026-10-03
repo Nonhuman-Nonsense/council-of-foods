@@ -189,6 +189,7 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(await res.json()).toEqual({
             provider: "inworld",
             usageToken: expect.any(String),
+            setupId: expect.any(String),
             iceServers: [{ urls: ["stun:guide.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
@@ -214,6 +215,7 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(await res.json()).toEqual({
             provider: "inworld",
             usageToken: expect.any(String),
+            setupId: expect.any(String),
             iceServers: [{ urls: ["stun:guide-sv.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
@@ -395,7 +397,7 @@ describe("POST /api/realtime/* (integration)", () => {
             await usageEventsCollection?.deleteMany({});
         });
 
-        async function bootstrap(body: Record<string, unknown>, liveKey?: string): Promise<string> {
+        async function bootstrapSession(body: Record<string, unknown>, liveKey?: string): Promise<{ usageToken: string; setupId?: string }> {
             const res = await fetch(`${base()}/api/realtime/bootstrap`, {
                 method: "POST",
                 headers: {
@@ -405,7 +407,11 @@ describe("POST /api/realtime/* (integration)", () => {
                 body: JSON.stringify(body),
             });
             expect(res.status).toBe(200);
-            return (await res.json()).usageToken;
+            return res.json();
+        }
+
+        async function bootstrap(body: Record<string, unknown>, liveKey?: string): Promise<string> {
+            return (await bootstrapSession(body, liveKey)).usageToken;
         }
 
         function report(usageToken: string, usage: unknown) {
@@ -424,8 +430,8 @@ describe("POST /api/realtime/* (integration)", () => {
             });
         }
 
-        it("records a setup-agent session's usage under the venue it names", async () => {
-            const usageToken = await bootstrap({ feature: "setup-agent", language: "en", venueId: "museum-oslo" });
+        it("records a setup-agent session's usage under the venue it names and its setup", async () => {
+            const { usageToken, setupId } = await bootstrapSession({ feature: "setup-agent", language: "en", venueId: "museum-oslo" });
 
             expect((await report(usageToken, greetingUsage)).status).toBe(204);
 
@@ -436,6 +442,7 @@ describe("POST /api/realtime/* (integration)", () => {
                     model: "google-ai-studio/gemini-2.5-flash",
                     measures: { input_tokens: 3142, output_tokens: 131, reasoning_tokens: 70 },
                     venueId: "museum-oslo",
+                    setupId,
                 },
                 {
                     feature: "setup-agent",
@@ -443,8 +450,37 @@ describe("POST /api/realtime/* (integration)", () => {
                     model: "inworld-tts-1.5-max",
                     measures: { characters: 261, audio_seconds: 13.64 },
                     venueId: "museum-oslo",
+                    setupId,
                 },
             ]));
+        });
+
+        it("keeps a setup across reconnects and gives its usage to the meeting it leads to", async () => {
+            const first = await bootstrapSession({ feature: "setup-agent", language: "en" });
+            const reconnect = await bootstrapSession({ feature: "setup-agent", language: "en", setupId: first.setupId });
+            expect(reconnect.setupId).toBe(first.setupId);
+
+            await report(first.usageToken, { stt: { model: "soniox/stt-rt-v4", audio_seconds: 2 } });
+            await storedEvents(1);
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...validCreateBody(), setupId: first.setupId }),
+            });
+            const { meetingId } = await createRes.json();
+            // The agent still finishing its sentence after the handover.
+            await report(reconnect.usageToken, { stt: { model: "soniox/stt-rt-v4", audio_seconds: 1 } });
+
+            const events = await vi.waitFor(async () => {
+                const linked = await usageEventsCollection!.find({ setupId: first.setupId, meetingId: Number(meetingId) }).toArray();
+                expect(linked).toHaveLength(2);
+                return linked;
+            });
+            expect(events.map((event) => event.measures.audio_seconds).sort()).toEqual([1, 2]);
+
+            // A setup that has led to a meeting is over: the next visitor gets a new one.
+            const next = await bootstrapSession({ feature: "setup-agent", language: "en", setupId: first.setupId });
+            expect(next.setupId).not.toBe(first.setupId);
         });
 
         it("tags a meeting session's usage with that meeting and its venue", async () => {

@@ -25,6 +25,8 @@ interface UsageGrant {
     feature: RealtimeFeature;
     meetingId?: number;
     venueId?: string;
+    /** Setup-agent: the visit's setup, until its meeting exists (then both are set). */
+    setupId?: string;
     expiresAt: number;
     reports: number;
 }
@@ -32,7 +34,7 @@ interface UsageGrant {
 const grants = new Map<string, UsageGrant>();
 
 export function grantRealtimeUsageToken(
-    grant: Pick<UsageGrant, "feature" | "meetingId" | "venueId">,
+    grant: Pick<UsageGrant, "feature" | "meetingId" | "venueId" | "setupId">,
     now: number = Date.now(),
 ): string {
     for (const [token, existing] of grants) {
@@ -45,6 +47,30 @@ export function grantRealtimeUsageToken(
     const token = randomUUID();
     grants.set(token, { ...grant, expiresAt: now + USAGE_TOKEN_TTL_MS, reports: 0 });
     return token;
+}
+
+/**
+ * The setup a setup-agent session belongs to: the one it asks to continue, when that is still
+ * live and has not yet led to a meeting (a reconnect mid-setup), or else a new one.
+ */
+export function setupIdFor(requested: string | undefined, now: number = Date.now()): string {
+    if (requested) {
+        for (const grant of grants.values()) {
+            if (grant.setupId === requested && grant.meetingId === undefined && grant.expiresAt > now) {
+                return requested;
+            }
+        }
+    }
+    return randomUUID();
+}
+
+/** The setup has led to this meeting: whatever its sessions report from now on is the meeting's. */
+export function linkSetupGrants(setupId: string, meetingId: number): void {
+    for (const grant of grants.values()) {
+        if (grant.setupId === setupId && grant.meetingId === undefined) {
+            grant.meetingId = meetingId;
+        }
+    }
 }
 
 export function clearRealtimeUsageGrantsForTests(): void {
@@ -80,6 +106,7 @@ export function registerRealtimeUsageRoutes(app: Express): void {
                     ...part,
                     ...(grant.meetingId !== undefined ? { meetingId: grant.meetingId } : {}),
                     ...(grant.venueId ? { venueId: grant.venueId } : {}),
+                    ...(grant.setupId ? { setupId: grant.setupId } : {}),
                 });
             }
         }
