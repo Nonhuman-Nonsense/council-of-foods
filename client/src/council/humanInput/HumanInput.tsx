@@ -8,7 +8,7 @@ import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
 import Lottie from 'react-lottie-player';
 import loading from "@assets/animations/loading.json";
 import { bootstrapHumanInputRealtimeSession } from "@api/realtimeSession";
-import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
+import { createMicTimeCounter, createRealtimeUsageReporter, transcriptionModelOf, type MicTimeCounter } from "@realtime/realtimeUsageReporter";
 import { log } from "@/logger";
 import {
   createRealtimeConnection,
@@ -180,19 +180,8 @@ export function scrollTextareaToBottom(textarea: HTMLTextAreaElement) {
   textarea.scrollTop = textarea.scrollHeight;
 }
 
-function readTranscriptionModel(session: Record<string, unknown>): string {
-  const audio = session.audio;
-  if (!audio || typeof audio !== "object") return "";
-  const input = (audio as { input?: unknown }).input;
-  if (!input || typeof input !== "object") return "";
-  const transcription = (input as { transcription?: unknown }).transcription;
-  if (!transcription || typeof transcription !== "object") return "";
-  const model = (transcription as { model?: unknown }).model;
-  return typeof model === "string" ? model : "";
-}
-
 function readBootstrapSessionSummary(session: Record<string, unknown>): Record<string, unknown> {
-  const model = readTranscriptionModel(session);
+  const model = transcriptionModelOf(session);
   let transcriptionLanguage = "";
   let transcriptionPrompt = "";
 
@@ -316,6 +305,8 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   const inputAudioActiveRef = useRef<boolean>(false);
   const realtimeProviderRef = useRef<RealtimeProvider>("inworld");
   const transcriptionModelRef = useRef<string>("");
+  /** Times the open microphone: the speech to text the footprint meter counts. */
+  const micTimeRef = useRef<MicTimeCounter | null>(null);
   const completedTranscriptKeysRef = useRef<Set<string>>(new Set());
   const connectionRef = useRef<RealtimeConnection | null>(null);
   const startAbortRef = useRef<AbortController | null>(null);
@@ -395,6 +386,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
   useEffect(() => {
     return () => {
       clearFinishingTimers();
+      micTimeRef.current?.close();
       startAbortRef.current?.abort();
       startAbortRef.current = null;
       connectionRef.current?.close();
@@ -554,6 +546,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
 
   function closeRealtimeConnection() {
     clearFinishingTimers();
+    micTimeRef.current?.close();
     connectionRef.current?.close();
     connectionRef.current = null;
     setMicStream(null);
@@ -585,7 +578,9 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
       const sessionForDc = bootstrap.session;
       const reportUsage = createRealtimeUsageReporter(bootstrap.usageToken);
       realtimeProviderRef.current = bootstrap.provider;
-      transcriptionModelRef.current = readTranscriptionModel(bootstrap.session);
+      transcriptionModelRef.current = transcriptionModelOf(bootstrap.session);
+      micTimeRef.current?.close();
+      micTimeRef.current = createMicTimeCounter(reportUsage, transcriptionModelRef.current);
       hiLog("bootstrap-ok", {
         provider: bootstrap.provider,
         language: i18n.language,
@@ -618,12 +613,11 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
         },
         onRemoteTrack: () => undefined,
         onEvent: (event) => {
-          // Transcription is billed; forward whatever usage the provider attaches.
+          // A transcription-only session has no response.done, and Inworld attaches no usage to
+          // anything else; the meter counts the open microphone instead (micTimeRef). Logged in
+          // case that changes.
           const usage = (event as { usage?: unknown } | null)?.usage;
-          if (usage !== undefined) {
-            hiLog("usage", { type: dcEventType(event), usage });
-            reportUsage(usage);
-          }
+          if (usage !== undefined) hiLog("usage", { type: dcEventType(event), usage });
           if (!isHumanInputRealtimeEvent(event)) {
             const type = dcEventType(event);
             const error = dcEventError(event);
@@ -721,6 +715,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     tracks.forEach(track => {
       track.enabled = true;
     });
+    micTimeRef.current?.open();
     setMicStream(connectionRef.current.micStream);
     hiLog("record-start", {
       language: i18n.language,
@@ -762,6 +757,7 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     connectionRef.current.micStream?.getAudioTracks().forEach(track => {
       track.enabled = false;
     });
+    micTimeRef.current?.close();
     setMicStream(null);
 
     const hadSpeech = inputAudioActiveRef.current;

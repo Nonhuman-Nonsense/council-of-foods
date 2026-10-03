@@ -38,3 +38,62 @@ export function createRealtimeUsageReporter(usageToken: string | undefined): Rea
         });
     };
 }
+
+/** The transcription model a realtime session's config names (`audio.input.transcription.model`), or "". */
+export function transcriptionModelOf(session: Record<string, unknown> | null | undefined): string {
+    const audio = session?.audio;
+    if (!audio || typeof audio !== "object") return "";
+    const input = (audio as { input?: unknown }).input;
+    if (!input || typeof input !== "object") return "";
+    const transcription = (input as { transcription?: unknown }).transcription;
+    if (!transcription || typeof transcription !== "object") return "";
+    const model = (transcription as { model?: unknown }).model;
+    return typeof model === "string" ? model : "";
+}
+
+/** How often an open microphone's time so far is reported, so the meter moves while someone talks. */
+export const MIC_TIME_FLUSH_MS = 15_000;
+
+export interface MicTimeCounter {
+    /** The microphone is sending audio. Opening twice is one opening. */
+    open(): void;
+    /** It stopped: reports the time since the last report. */
+    close(): void;
+}
+
+/**
+ * Counts speech to text by how long the microphone is open, for transcription-only sessions
+ * (visitor input). They never create a response, and Inworld puts usage on nothing else — checked
+ * against the live API in October 2026 — so the meter counts the audio the provider is sent. The
+ * agents' sessions need none of this: each `response.done` carries the speech Inworld transcribed.
+ */
+export function createMicTimeCounter(
+    report: RealtimeUsageReporter,
+    model: string,
+    now: () => number = () => Date.now(),
+): MicTimeCounter {
+    let since: number | null = null;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const flush = () => {
+        if (since === null) return;
+        const at = now();
+        const seconds = (at - since) / 1000;
+        since = at;
+        if (model && seconds > 0) report({ stt: { model, audio_seconds: seconds } });
+    };
+
+    return {
+        open() {
+            if (since !== null) return;
+            since = now();
+            timer = setInterval(flush, MIC_TIME_FLUSH_MS);
+        },
+        close() {
+            if (timer !== null) clearInterval(timer);
+            timer = null;
+            flush();
+            since = null;
+        },
+    };
+}

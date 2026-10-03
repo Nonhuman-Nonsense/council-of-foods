@@ -407,7 +407,8 @@ export function Methodology(): ReactElement {
 
       <ul className="method-glance">
         <li>
-          <strong>Counted</strong> — the text, speech and listening the AI providers bill for. Exact.
+          <strong>Counted</strong> — the text, speech and listening the AI providers bill for. Visitors' input,
+          for which the provider reports nothing, is counted as the time the microphone is open.
         </li>
         <li>
           <strong>Estimated</strong> — energy, water and carbon, with the open method{" "}

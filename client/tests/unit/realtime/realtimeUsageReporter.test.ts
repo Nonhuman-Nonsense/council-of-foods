@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { councilFetch } from "@/api/http";
-import { createRealtimeUsageReporter } from "@/realtime/realtimeUsageReporter";
+import {
+  createMicTimeCounter,
+  createRealtimeUsageReporter,
+  MIC_TIME_FLUSH_MS,
+} from "@/realtime/realtimeUsageReporter";
 
 vi.mock("@/api/http", () => ({ councilFetch: vi.fn() }));
 
@@ -43,5 +47,47 @@ describe("realtime usage reporter", () => {
 
     expect(() => createRealtimeUsageReporter("token-1")(greeting)).not.toThrow();
     await Promise.resolve();
+  });
+});
+
+describe("speech to text by microphone time", () => {
+  const model = "inworld/inworld-stt-1";
+
+  it("reports the time the microphone was open, while open and when it closes", () => {
+    vi.useFakeTimers();
+    try {
+      const report = vi.fn();
+      const counter = createMicTimeCounter(report, model);
+
+      counter.open();
+      vi.advanceTimersByTime(MIC_TIME_FLUSH_MS);
+      counter.open();
+      vi.advanceTimersByTime(4_000);
+      counter.close();
+      counter.close();
+      vi.advanceTimersByTime(MIC_TIME_FLUSH_MS);
+
+      expect(report.mock.calls.map(([usage]) => usage)).toEqual([
+        { stt: { model, audio_seconds: MIC_TIME_FLUSH_MS / 1000 } },
+        { stt: { model, audio_seconds: 4 } },
+      ]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("reports nothing for a session that names no transcription model", () => {
+    vi.useFakeTimers();
+    try {
+      const report = vi.fn();
+      const counter = createMicTimeCounter(report, "");
+      counter.open();
+      vi.advanceTimersByTime(5_000);
+      counter.close();
+
+      expect(report).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

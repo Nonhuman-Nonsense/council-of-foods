@@ -60,8 +60,16 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 | Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Voices (`tts`) | `AudioSystem`, per freshly generated chunk | Inworld `inworld-tts-1.5-max` / `inworld-tts-2`; ElevenLabs `eleven_flash_v2_5` (forest); OpenAI `gpt-4o-mini-tts` (unused) | `characters`, `audio_seconds`; ElevenLabs also `region` from its `x-region` header |
 | Whisper timing fallback (`subtitle-timing`) | `AudioSystem` | `whisper-1` | `audio_seconds` |
-| Setup agent, meta agent | browser ↔ Inworld realtime; the client posts each `response.done` usage to `POST /api/usage/realtime` | `gemini-2.5-flash` + Inworld TTS + `soniox/stt-rt-v4` | one event per part: LLM tokens, TTS characters + audio seconds, STT audio seconds |
-| Human input | same route, any data-channel event carrying `usage` | `gemini-2.5-flash` + `soniox/stt-rt-v4` | as above — **shape unverified** (open item) |
+| Setup agent, meta agent | browser ↔ Inworld realtime; the client posts each `response.done` usage to `POST /api/usage/realtime` | `gemini-2.5-flash` + Inworld TTS + the session's transcription model | one event per part: LLM tokens, TTS characters + audio seconds, STT audio seconds |
+| Human input | same route; the client times how long the microphone is open (`createMicTimeCounter`) and posts it as an `stt` part every 15 s while open and on closing | the session's transcription model (`soniox/stt-rt-v4`, `inworld/inworld-stt-1`) | `audio_seconds` |
+
+  Human input is a transcription-only session (`create_response: false`): it never creates a
+  response, so there is no `response.done`, and Inworld puts usage on no other event. A probe of
+  the live API with the server's own session configs (October 2026) confirmed it: the human-input
+  session sent no usage at all, while the agents' `response.done` carried
+  `stt: { audio_seconds: 4.0 }` for 3.9 s of speech followed by 2 s of silence — the speech, not
+  the stream. So the agents keep Inworld's figure, and human input counts the open microphone,
+  which includes the silence while the button is held.
 
 - **Storage:** `usage_events` only (`shared/UsageTypes.ts`): `{ ts, feature, provider, model,
   measures, region?, meetingId?, venueId? }`, indexed on `ts`, `venueId`, `meetingId`. Totals —
@@ -168,7 +176,7 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
 - **Screen**, under the title "AI Energy & Water Use". Sections with estimates are tagged
   *Estimated*; the estimates are floors as well as ranges, so what lies outside them gets as much
   room as what is inside:
-  1. **Current meeting**: what the providers bill for, exactly (`countedOf`, by each model's
+  1. **Current meeting**: what the providers bill for (`countedOf`, by each model's
      `role`) — text in tokens, text to speech and speech to text in minutes — then energy, water
      and carbon for the meeting, then the models it has used (`modelsUsed`), one per line with
      role and assumed country, the most recently used first. After three quiet minutes it is
@@ -267,8 +275,8 @@ documented, citable impacts on local communities, and without claiming which min
 - Review the mining places' wording (`shared/footprint/counting.ts`) before the opening.
 - Comparisons that make numbers tangible (one per metric, true at both small and large scale).
 - Minerals and places content, with reviewed wording about affected communities.
-- Human input: confirm in a dev log (`[HI] usage`) that its transcription usage arrives;
-  otherwise it goes uncounted.
+- Human input's speech to text is counted by microphone time, since Inworld reports none for
+  transcription-only sessions; switch to their figure if they start reporting it.
 - Input (prefill) tokens are not modelled (EcoLogits limitation).
 - Drop the unused `usage_totals` collection left from the first version.
 - Later: a live map of probable data-centre regions; a mining-sites layer; backfilling past
