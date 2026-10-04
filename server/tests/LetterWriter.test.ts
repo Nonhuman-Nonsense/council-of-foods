@@ -8,6 +8,7 @@ import {
     parseHumanHandling,
     selectAuthor,
     selectLetterForm,
+    selectLetterReach,
     humanFirstName,
     draftLetter,
     finishLetter,
@@ -102,12 +103,19 @@ describe("parsePlanAnswer", () => {
         ["a fenced object", "```json\n" + json + "\n```"],
         ["an object with text around it", "Here is my plan:\n" + json + "\nThank you."],
         ["an id in another case", json.replace("skogsstyrelsen", "Skogsstyrelsen")],
+        ["an answer that starts over after an incomplete object", `{"recipientId": "sveaskog", "points": ["x"]}\n\n\`\`\`json\n${json}\n\`\`\``],
+        ["a key with a stray space", json.replace(`"spokenText"`, `" spokenText"`)],
     ])("reads %s", (_label, raw) => {
         expect(parsePlanAnswer(raw, offered)).toEqual({
             recipientId: "skogsstyrelsen",
             points: ["a", "b"],
             spokenText: "I will write.",
         });
+    });
+
+    it("reads braces and quotes inside the text as text", () => {
+        const raw = `{"recipientId": "skogsstyrelsen", "points": ["count {all} of it", "say \\"no\\" }"], "spokenText": "I will write."}`;
+        expect(parsePlanAnswer(raw, offered).points).toEqual(["count {all} of it", 'say "no" }']);
     });
 
     it.each([
@@ -190,6 +198,15 @@ describe("planLetter", () => {
         await expect(planLetter(ctx, "reindeer", [])).rejects.toBeInstanceOf(LetterStepError);
         expect(generate).not.toHaveBeenCalled();
     });
+
+    it("shows the author what the latest letters asked, and only the latest", async () => {
+        const { ctx, generate } = context([good]);
+        const recentAsks = Array.from({ length: 40 }, (_, i) => `ask number ${i + 1}.`);
+        await planLetter(ctx, "reindeer", offered, { reach: "rethink", angles: ["time", "voice"], recentAsks });
+        const sent = generate.mock.calls[0][2] as string;
+        expect(sent).toContain("ask number 40.");
+        expect(sent).not.toContain("ask number 1.");
+    });
 });
 
 describe("humanFirstName", () => {
@@ -219,12 +236,30 @@ describe("selectLetterForm", () => {
     });
 });
 
+describe("selectLetterReach", () => {
+    const sequence = (...values: number[]) => () => values.shift() ?? 0;
+
+    it("offers a rethink two different angles, whatever the draw", () => {
+        for (let first = 0; first < 1; first += 0.1) {
+            for (let second = 0; second < 1; second += 0.1) {
+                const { reach, angles } = selectLetterReach(sequence(0, first, second));
+                expect(reach).toBe("rethink");
+                expect(new Set(angles).size).toBe(2);
+            }
+        }
+    });
+
+    it("offers a next step no angles", () => {
+        expect(selectLetterReach(sequence(0.99))).toEqual({ reach: "step", angles: [] });
+    });
+});
+
 describe("draftLetter", () => {
     const answer = "Subject: Fifty metres\n\nDear Sveaskog,\nPlease stop.\n\nReindeer";
 
     it("returns the parsed draft for the author and recipient chosen", async () => {
         const { ctx } = context([answer]);
-        const draft = await draftLetter(ctx, { authorId: "reindeer", recipient: recipient("sveaskog"), points: ["stop"], form: "requests" });
+        const draft = await draftLetter(ctx, { authorId: "reindeer", recipient: recipient("sveaskog"), points: ["stop"], form: "requests", asksReply: false });
         expect(draft).toMatchObject({
             form: "requests",
             authorId: "reindeer",
@@ -237,7 +272,7 @@ describe("draftLetter", () => {
     it("gives the model the points and what is on record about the recipient", async () => {
         const facts = [{ text: "On 16 June 2026 you voted yes to MJU29.", source: "https://data.riksdagen.se/x", checked: "2026-10-04" }];
         const { ctx, generate } = context([answer]);
-        await draftLetter(ctx, { authorId: "reindeer", recipient: recipient("sveaskog", { facts }), points: ["stop the felling"], form: "requests" });
+        await draftLetter(ctx, { authorId: "reindeer", recipient: recipient("sveaskog", { facts }), points: ["stop the felling"], form: "requests", asksReply: false });
         const sent = generate.mock.calls[0][2] as string;
         expect(sent).toContain("stop the felling");
         expect(sent).toContain("On 16 June 2026 you voted yes to MJU29.");
@@ -247,6 +282,7 @@ describe("draftLetter", () => {
 describe("finishLetter", () => {
     const draft = {
         form: "appeal" as const,
+        asksReply: false,
         authorId: "reindeer",
         recipientId: "sveaskog",
         subject: "Fifty metres",

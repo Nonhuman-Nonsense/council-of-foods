@@ -165,6 +165,24 @@ The meeting session never sends. It writes an outbox record; a server worker sen
 - Reply-to encodes the meeting, e.g. `reindeer+1400@…`, so replies can be matched from day one
   even before they are handled.
 
+### What varies between letters
+
+Letters hang side by side, so the server varies them on purpose rather than hoping the model does:
+
+- **Author** — the best-ranked member who has not written one of the last five letters.
+- **Recent asks** — the plan sees what the latest letters asked (the last 24 asks) and asks for
+  something else, or comes at the same matter from another side.
+- **Reach** — about one letter in three asks the recipient to *rethink* how decisions about the
+  land are made with those who live with it, people and beings of the forest, and ends with a first step; the
+  rest ask for a next step inside the recipient's powers, not only to undo a decision.
+- **Form** — what the letter leans towards (requests, appeal, questions, invitation,
+  recognition, note), the one used longest ago next.
+- **Reply** — about half the letters end by asking the recipient to write back.
+
+Every letter is an open letter: written to the recipient, but printed and published with the
+meeting, so it explains what it refers to. Beings whose speech is far from prose (Mountain,
+Wind Turbine) have a note on how their voice holds in a letter.
+
 ### Developing the prompts
 
 The loop is: edit `letterPrompt{En,Sv}.ts`, run the evaluation, read the report.
@@ -264,6 +282,55 @@ samebyar and SSR added.
 
 Simulated over 400 letters with the v3 rankings, a 5-letter rest gives Reindeer 61, Pine 60,
 Salmon 56, Lichen 55, Tree Harvester 53, Bumblebee 49, Mountain 36, Wind Turbine 30.
+
+**4 Oct 2026 — v5–v7: forms, openings, and back to letters.**
+
+- **v5** added letter forms in rotation (requests, appeal, testimony, questions, invitation,
+  recognition, note, then-and-later), so letters side by side differ in what they do.
+- **v6** moved the "Council of Forest meeting #N" sentence out of the opening and told the
+  author not to open with a greeting. The letters got varied openings but stopped reading as
+  letters: no "Dear …", written past the recipient to an audience, sometimes hard to follow.
+- **v7** (replaying v4's plans) fixed the frame: always a salutation, "you" and a signature,
+  "writing to them, not about them"; the meeting number optional; forms reduced to six and
+  given as what the letter *leans towards* inside that frame. Strong letters again. Length
+  ~1,195 on average — accepted.
+
+Seen in v7: 6 of 16 letters were about the forestry law's six weeks becoming three, four of
+them from meetings that never mentioned it — it was the one concrete detail on every MP's
+record — and the ask was mostly "restore the six weeks", which a 308–21 vote makes a dead end.
+
+**4 Oct 2026 — v8–v9: open letters, recent asks, rethinks** (v7's authors and human additions,
+planned again in meeting order).
+
+Changes: the plan sees the latest letters' asks and asks something else; one letter in three
+asks the recipient to *rethink* rather than take a next step; an open letter that explains what
+it refers to; about half ask for a reply; Mountain and Wind Turbine have letter-voice notes;
+every MP's forestry-law fact describes the whole law (notices separated from consultation,
+three weeks instead of six, appeals to the courts, a cap on species surveys).
+
+- **Six weeks:** still mentioned in 4 of 16, but as context — no letter asks to restore it.
+  Lichen to Skogsstyrelsen: check each notice against the samebyar's lichen maps the day it
+  arrives; Pine to an MP: a written question on how anyone can react within three weeks.
+- **Open letter:** terms explained in passing ("samebyar, the Sámi herding communities",
+  "Vindelälven, a free-flowing river"); concrete subject lines.
+- **Mountain** back in stone-speech, readable: "Count in centuries. Count in reindeer lives.
+  Not office terms."
+- **Rethinks (v8)** all became the same template — plan it with samebyar and naturalists, walk
+  one stretch together. **v9** (every letter a rethink) offers two random angles out of six
+  (voice, time, value, kinship, responsibility, standing): the rethinks diverged — who may
+  speak for the forest in court, counting lichen beside timber, deciding on the forest's time.
+- New tic: "X made a fair point, so I do not ask you to stop" in ~6 of 14 — the plan's "answer
+  the other side's fair point" now asks to take it into account without announcing it.
+- Repeats across recipients still happen (late verge mowing to Trafikverket and to Svenska
+  kraftnät, four letters apart) — the recent asks reduce, not prevent, them.
+- Two plan answers failed to parse (a restarted JSON object; a key `" spokenText"`); the parser
+  now takes the last valid object and trims keys.
+
+**v10** (the normal mix: 7 rethinks by chance, 7 replies asked): 16/16 written, 14 different
+recipients, the six weeks in 1 letter, "fair point" in 1. Average 1,211 characters. Bumblebee
+writes "Counzil of Forezt" and "Zkogzrådet" — the eval's council-name check misses those.
+Pine asked Sametinget to draft a model for a sameby as guardian of a forest — the open question
+about handing Sámi recipients tasks is still open.
 
 ### Letter safety
 
@@ -407,15 +474,11 @@ total**.
 
 ## Open questions
 
-- Letters now run ~1,290 characters. Accept it, or hold them nearer 1,000 (shorter to read aloud
-  and to read on paper)?
-- Mountain's letters keep its sound effects. Keep that, or prose with its weight (as in v3)?
 - Letters to samebyar hand them tasks. Tell the author that a letter to a Sámi community
   listens and stands beside them, and asks nothing on the council's behalf?
-- A human's party endorsement ("vote for the Greens") is set apart and printed after a letter to
-  an MP. Keep that, or leave party endorsements out like threats?
-- The footprint meter has no EcoLogits entry for Claude models, so Opus and Sonnet letters are not
-  on the meter yet. Add `inworld|anthropic/claude-opus-5-5` and `…/claude-sonnet-5-5` before opening.
+- A "what they can do" list per recipient (sourced, like the facts), sampled a few at a time so
+  the author does not take the same best example every time — after seeing whether recent asks
+  and the rethink reach are enough.
 - Letters lean on the topic prompts' claim that the Church of Sweden "is stopping" lodgepole
   pine and say it "has" — check the wording in the topic prompts.
 - MEPs have no facts yet (no EU vote export); letters to them say nothing about their record.

@@ -13,13 +13,16 @@
  *                           [--letter-model anthropic/claude-opus-5-5] [--letter-reasoning medium]
  *                           [--weave-model anthropic/claude-sonnet-5-5] [--weave-reasoning low]
  *                           [--recipient-category sami]   (offer only that category, to see such letters)
- *                           [--replay scripts/letters/reports/<earlier>.json]
+ *                           [--reach rethink]   (every letter that reach, to see many of them)
+ *                           [--replay scripts/letters/reports/<earlier>.json [--replan]]
  *
  * --replay keeps an earlier report's authors, recipients, asks and human additions and only writes
- * the letters again, so two prompts can be compared on exactly the same letters.
+ * the letters again, so two prompts can be compared on exactly the same letters. With --replan it
+ * keeps only the authors and additions, and plans again.
  *
  * Authors are ranked for every meeting first, then chosen in meeting order with a running history,
- * as they would be across the exhibition, so the rotation shows in the report.
+ * as they would be across the exhibition, so the rotation shows in the report. Plans run one after
+ * another in meeting order for the same reason: each sees what the letters before it asked.
  *
  * Writes scripts/letters/reports/<time>.html and .json.
  */
@@ -42,11 +45,14 @@ import {
     sortHumanAddition,
     humanFirstName,
     selectLetterForm,
+    selectLetterReach,
+    selectAsksReply,
     type AuthorChoice,
     type AuthorRanking,
     type Letter,
     type LetterContext,
     type LetterPlan,
+    type ReachChoice,
 } from "@logic/letters/LetterWriter.js";
 import { ConversationReasoningSchema } from "@logic/GlobalOptions.js";
 import type { LetterForm } from "@logic/letters/prompts/letterPrompts.js";
@@ -68,6 +74,8 @@ const WEAVE_MODEL = arg("weave-model", "");
 const WEAVE_REASONING = arg("weave-reasoning", "");
 const RECIPIENT_CATEGORY = arg("recipient-category", "");
 const REPLAY = arg("replay", "");
+const REPLAN = process.argv.includes("--replan");
+const REACH = arg("reach", "");
 const REPORTS_DIR = path.join(process.cwd(), "scripts/letters/reports");
 
 /* -------------------------------------------------------------------------- */
@@ -112,12 +120,12 @@ function transcriptOf(meeting: StoredMeeting): string {
 
 const secondsSince = (start: number) => Math.round((Date.now() - start) / 100) / 10;
 
-async function runPlan(ctx: LetterContext, recipients: Recipient[], author: AuthorChoice, rankSeconds: number): Promise<Sample> {
+async function runPlan(ctx: LetterContext, recipients: Recipient[], author: AuthorChoice, rankSeconds: number, recentAsks: string[]): Promise<Sample> {
     const sample: Sample = { author, seconds: { rank: rankSeconds } };
     try {
         const t = Date.now();
         const candidates = candidateRecipients(recipients, ctx.meeting.topic.id, { max: ctx.options.letterMaxCandidates });
-        sample.plan = await planLetter(ctx, author.authorId, candidates);
+        sample.plan = await planLetter(ctx, author.authorId, candidates, { ...reachFor(), recentAsks });
         sample.seconds.plan = secondsSince(t);
         sample.recipient = recipients.find((r) => r.id === sample.plan!.recipientId);
     } catch (error) {
@@ -126,12 +134,33 @@ async function runPlan(ctx: LetterContext, recipients: Recipient[], author: Auth
     return sample;
 }
 
+/** The reach drawn as in the exhibition, or forced with --reach (angles still drawn). */
+function reachFor(): ReachChoice {
+    if (!REACH) return selectLetterReach();
+    if (REACH === "step") return { reach: "step", angles: [] };
+    let draws = 0; // the first draw decides the reach: 0 is a rethink
+    return selectLetterReach(() => (draws++ === 0 ? 0 : Math.random()));
+}
+
+/** Plans in meeting order, each seeing the asks of the letters planned before it, as in the exhibition. */
+async function runPlansInOrder(contexts: LetterContext[], recipients: Recipient[], authors: AuthorChoice[], rankSeconds: number[]): Promise<Sample[]> {
+    const samples: Sample[] = [];
+    const recentAsks: string[] = [];
+    for (const [i, ctx] of contexts.entries()) {
+        const sample = await runPlan(ctx, recipients, authors[i], rankSeconds[i] ?? 0, recentAsks);
+        if (sample.plan) recentAsks.push(...sample.plan.points);
+        console.log(`  planned #${ctx.meeting._id}: ${authors[i].authorId} → ${sample.plan?.recipientId ?? sample.error?.message} (${sample.plan?.reach ?? "-"})`);
+        samples.push(sample);
+    }
+    return samples;
+}
+
 async function runLetter(ctx: LetterContext, sample: Sample, addition: HumanLine, form: LetterForm): Promise<Sample> {
     if (sample.error || !sample.plan || !sample.recipient || !sample.author) return sample;
     let step = "draft";
     try {
         let t = Date.now();
-        const draft = await draftLetter(ctx, { authorId: sample.author.authorId, recipient: sample.recipient, points: sample.plan.points, form });
+        const draft = await draftLetter(ctx, { authorId: sample.author.authorId, recipient: sample.recipient, points: sample.plan.points, form, asksReply: selectAsksReply() });
         sample.seconds.draft = secondsSince(t);
 
         step = "finish";
@@ -191,7 +220,7 @@ function checkSample(result: MeetingResult, sample: Sample): Flag[] {
     if (!letter.subject) flags.push({ severity: "warn", text: "no subject line" });
     if (letter.subject.length > 80) flags.push({ severity: "warn", text: `subject is ${letter.subject.length} characters` });
     if (body.length > 1200) flags.push({ severity: "warn", text: `letter is ${body.length} characters (asked for at most 1200)` });
-    if (letter.form === "note" && body.length > 600) flags.push({ severity: "warn", text: `a note of ${body.length} characters (asked for at most 500)` });
+    if (letter.form === "note" && body.length > 600) flags.push({ severity: "warn", text: `a note of ${body.length} characters (asked for at most 600)` });
     if (/\*\*|^#+\s|__/m.test(body)) flags.push({ severity: "warn", text: "markdown in the letter" });
     if (!/council of (forest|foods)|skogsrådet/i.test(body)) flags.push({ severity: "warn", text: "does not name the council" });
     if (humanWait(sample) > 10) flags.push({ severity: "warn", text: `the human waits ${humanWait(sample).toFixed(1)} s after speaking (target at most 10)` });
@@ -269,6 +298,7 @@ function renderReport(results: MeetingResult[], meta: Record<string, string>): s
     <div><h3>Recipients</h3>${table(counts(ok, (x) => x.s.recipient?.name ?? "?").slice(0, 15), ok.length)}</div>
     <div><h3>Recipient kind</h3>${table(counts(ok, (x) => `${x.s.recipient?.kind} · ${x.s.recipient?.category}`), ok.length)}</div>
     <div><h3>Forms</h3>${table(counts(ok, (x) => x.s.letter!.form), ok.length)}</div>
+    <div><h3>Reach · reply</h3>${table(counts(ok, (x) => `${x.s.plan!.reach ?? "step"} · ${x.s.letter!.asksReply ? "asks a reply" : "no reply asked"}`), ok.length)}</div>
     <div><h3>Human additions</h3>${table(counts(ok, (x) => `${x.r.addition.kind} → ${x.s.letter!.human.handling}`), ok.length)}</div>
     <div><h3>Flags</h3>${table(counts(allFlags, (f) => `${f.severity}: ${f.text.replace(/\d+/g, "#")}`), Math.max(allFlags.length, 1))}</div>
   </div>
@@ -287,9 +317,9 @@ function renderReport(results: MeetingResult[], meta: Record<string, string>): s
   ${flags.length ? `<ul class="flags">${flags.map((f) => `<li class="${f.severity}">${f.severity}: ${esc(f.text)}</li>`).join("")}</ul>` : ""}
   ${s.author ? `<p><b>Author:</b> ${esc(nameOf(r, s.author.authorId))} — ${esc(s.author.reason || "(no reason)")}${s.author.restingAuthors.length ? `<br><span class="dim">resting after a recent letter: ${s.author.restingAuthors.map((id) => esc(nameOf(r, id))).join(", ")}</span>` : ""}<br><span class="dim">ranking: ${s.author.ranking.map((x) => esc(nameOf(r, x.authorId))).join(" › ")}</span></p>` : ""}
   ${recipient ? `<p><b>To:</b> ${esc(recipient.name)}${recipient.organisation ? `, ${esc(recipient.organisation)}` : ""} <span class="dim">(${recipient.kind}, ${esc(recipient.category)})</span><br><span class="dim">why: ${esc(recipient.why ?? "")}</span></p>` : ""}
-  ${s.plan ? `<p><b>Asks:</b></p><ul>${s.plan.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul><p><b>Says aloud:</b> ${esc(s.plan.spokenText)}</p>` : ""}
+  ${s.plan ? `<p><b>Asks</b> <span class="dim">(reach: ${s.plan.reach ?? "step"}${s.plan.angles?.length ? `: ${s.plan.angles.join(" or ")}` : ""})</span><b>:</b></p><ul>${s.plan.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul><p><b>Says aloud:</b> ${esc(s.plan.spokenText)}</p>` : ""}
   <p><b>${esc(r.humanName ?? "The human")} adds</b> <span class="dim">(${r.addition.kind})</span>: ${r.addition.text ? `“${esc(r.addition.text)}”` : "<i>nothing</i>"}${s.letter && s.letter.human.handling !== "none" ? `<br><span class="dim">sorted: <b>${s.letter.human.handling}</b> — ${esc(s.letter.human.reason)}</span>` : ""}</p>
-  ${s.letter ? `<p class="dim">Form: <b>${s.letter.form}</b></p><div class="letter"><div class="subject">${esc(s.letter.subject || "(no subject)")}</div><div class="body">${esc(s.letter.body)}</div>${s.letter.humanNote ? `<div class="note">${esc(s.letter.humanNote)}</div>` : ""}<div class="footer">${esc(s.letter.footer)}</div><div class="dim">${s.letter.humanContributed ? "would be sent" : "would not be sent"}</div></div>` : ""}
+  ${s.letter ? `<p class="dim">Form: <b>${s.letter.form}</b>${s.letter.asksReply ? " · asks for a reply" : ""}</p><div class="letter"><div class="subject">${esc(s.letter.subject || "(no subject)")}</div><div class="body">${esc(s.letter.body)}</div>${s.letter.humanNote ? `<div class="note">${esc(s.letter.humanNote)}</div>` : ""}<div class="footer">${esc(s.letter.footer)}</div><div class="dim">${s.letter.humanContributed ? "would be sent" : "would not be sent"}</div></div>` : ""}
   ${s.error ? `<pre class="error">${esc(s.error.message)}\n\n${esc(s.error.raw ?? "")}</pre>` : ""}
   <details><summary>Transcript</summary><pre>${esc(r.transcript)}</pre></details>
   <details><summary>Prompts and raw answers</summary>
@@ -387,7 +417,7 @@ async function main() {
         // The earlier report's choices, unchanged: only the letters are written again.
         const earlier = JSON.parse(await readFile(REPLAY, "utf8")) as { results: Array<MeetingResult> };
         const byMeeting = new Map(earlier.results.map((r) => [r.meetingId, r]));
-        const planned = results.map((result): Sample => {
+        const replayed = results.map((result): Sample => {
             const before = byMeeting.get(result.meetingId)?.samples[0];
             if (!before?.author || !before.plan) {
                 return { seconds: { rank: 0 }, error: { step: "replay", message: "no plan in the earlier report" } };
@@ -400,6 +430,10 @@ async function main() {
                 seconds: { rank: before.seconds?.rank ?? 0, plan: before.seconds?.plan },
             };
         });
+        // --replan: the same authors and additions, planned again.
+        const planned = REPLAN && replayed.every((sample) => sample.author)
+            ? await runPlansInOrder(contexts, recipients, replayed.map((sample) => sample.author!), replayed.map((sample) => sample.seconds.rank))
+            : replayed;
         const recentForms: string[] = [];
         const forms = planned.map(() => {
             const form = selectLetterForm(recentForms);
@@ -428,7 +462,7 @@ async function main() {
             recent.push(choice.authorId);
             return choice;
         });
-        const planned = await pooled(contexts, (ctx, i) => runPlan(ctx, recipients, authors[i], rankSeconds[i]));
+        const planned = await runPlansInOrder(contexts, recipients, authors, rankSeconds);
         // Forms in meeting order too, each the one used longest ago.
         const recentForms: string[] = [];
         const forms = planned.map(() => {
@@ -456,7 +490,7 @@ async function main() {
         label: LABEL,
         model: `letters: ${options.letterModel}${options.letterReasoning !== "none" ? ` (${options.letterReasoning})` : ""} · weave: ${options.letterWeaveModel} (${options.letterWeaveReasoning}) · council: ${options.conversationModel}`,
         git,
-        source: (IDS.length ? `meetings ${IDS.join(", ")}` : `tag "${TAG}"`) + (RECIPIENT_CATEGORY ? ` · only ${RECIPIENT_CATEGORY} recipients` : "") + (REPLAY ? ` · replaying ${path.basename(REPLAY)}` : ""),
+        source: (IDS.length ? `meetings ${IDS.join(", ")}` : `tag "${TAG}"`) + (RECIPIENT_CATEGORY ? ` · only ${RECIPIENT_CATEGORY} recipients` : "") + (REACH ? ` · every letter: ${REACH}` : "") + (REPLAY ? ` · ${REPLAN ? "replanning" : "replaying"} ${path.basename(REPLAY)}` : ""),
     };
     await mkdir(REPORTS_DIR, { recursive: true });
     const base = path.join(REPORTS_DIR, `${time}${LABEL ? `-${LABEL.replace(/[^\w-]+/g, "-")}` : ""}`);

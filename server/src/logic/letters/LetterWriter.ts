@@ -10,7 +10,7 @@ import { requestSpeakerClassifierCompletion } from "@logic/SpeakerClassifierBase
 import { getSender, isMailConfigured } from "@services/MailService.js";
 import { Logger } from "@utils/Logger.js";
 import { buildLetterFooter } from "./footer.js";
-import { LETTER_FORMS, letterPrompts, type LetterForm } from "./prompts/letterPrompts.js";
+import { LETTER_FORMS, RETHINK_ANGLES, letterPrompts, type LetterForm, type LetterReach, type RethinkAngle } from "./prompts/letterPrompts.js";
 import { HUMAN_HANDLINGS, humanSortingPrompt, type HumanHandling } from "./prompts/humanSorting.js";
 
 /**
@@ -51,6 +51,12 @@ export class LetterStepError extends Error {
 /** How often a step whose answer does not parse is sampled again before giving up. */
 const PARSE_ATTEMPTS = 3;
 const AUTHOR_MAX_TOKENS = 400;
+/** How many of the latest letters' asks the author sees, so it asks something else. */
+const RECENT_ASKS_SHOWN = 24;
+/** How often a letter reaches past a next step and asks the recipient to rethink (see LETTER_REACHES). */
+const RETHINK_SHARE = 1 / 3;
+/** How often a letter ends by asking the recipient to write back. */
+const REPLY_SHARE = 1 / 2;
 const SORTING_MAX_TOKENS = 80;
 /** Placeholder names that mean the human gave none. */
 const NO_NAME = new Set(["visitor", "human", "besökare", "människa", "guest", "gäst"]);
@@ -219,6 +225,8 @@ export async function pickAuthor(ctx: LetterContext, recentAuthors: string[] = [
 /* -------------------------------------------------------------------------- */
 
 export interface LetterPlan {
+    reach: LetterReach;
+    angles: RethinkAngle[];
     recipientId: string;
     points: string[];
     spokenText: string;
@@ -238,18 +246,54 @@ function stripCodeFence(text: string): string {
     return text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
 }
 
+/** Every balanced top-level `{…}` in the text, in order, skipping braces inside strings. */
+function jsonObjects(text: string): string[] {
+    const objects: string[] = [];
+    let depth = 0;
+    let start = -1;
+    let inString = false;
+    for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        if (inString) {
+            if (char === "\\") i++;
+            else if (char === '"') inString = false;
+        } else if (char === '"') {
+            if (depth > 0) inString = true;
+        } else if (char === "{") {
+            if (depth++ === 0) start = i;
+        } else if (char === "}" && depth > 0 && --depth === 0) {
+            objects.push(text.slice(start, i + 1));
+        }
+    }
+    return objects;
+}
+
+/** Keys as the model meant them: `" spokenText"` is spokenText. */
+function trimmedKeys(value: unknown): unknown {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return value;
+    return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key.trim(), inner]));
+}
+
 /**
- * Reads the plan's JSON answer. Tolerates a code fence and text around the object, and an id
- * written with different case, but never a recipient off the list: that is the one rule the
- * letter cannot bend.
+ * Reads the plan's JSON answer. Tolerates a code fence and text around the object, a model that
+ * starts over (the last complete object wins), stray spaces in keys and an id written with
+ * different case — but never a recipient off the list: that is the one rule the letter cannot bend.
  */
 export function parsePlanAnswer(raw: string, candidates: Recipient[]): Pick<LetterPlan, "recipientId" | "points" | "spokenText"> {
-    const text = stripCodeFence(raw);
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start === -1 || end <= start) throw new Error("no JSON object in the answer");
+    const objects = jsonObjects(raw);
+    if (objects.length === 0) throw new Error("no JSON object in the answer");
 
-    const answer = PlanAnswerSchema.parse(JSON.parse(text.slice(start, end + 1)));
+    let answer: z.infer<typeof PlanAnswerSchema> | undefined;
+    let problem: unknown;
+    for (const object of objects.reverse()) {
+        try {
+            answer = PlanAnswerSchema.parse(trimmedKeys(JSON.parse(object)));
+            break;
+        } catch (error) {
+            problem ??= error;
+        }
+    }
+    if (!answer) throw problem;
     const wanted = answer.recipientId.trim().toLowerCase();
     const recipient = candidates.find((candidate) => candidate.id.toLowerCase() === wanted);
     if (!recipient) throw new Error(`recipient "${answer.recipientId}" is not on the list offered`);
@@ -286,10 +330,29 @@ function authorOf(meeting: StoredMeeting, authorId: string): Character {
     return author;
 }
 
+export interface ReachChoice {
+    reach: LetterReach;
+    /** For a rethink, two different angles to take one of; empty for a next step. */
+    angles: RethinkAngle[];
+}
+
+/** Most letters ask for a next step; about one in three asks the recipient to rethink, from one of two angles. */
+export function selectLetterReach(random: () => number = Math.random): ReachChoice {
+    if (random() >= RETHINK_SHARE) return { reach: "step", angles: [] };
+    const first = Math.floor(random() * RETHINK_ANGLES.length);
+    const second = (first + 1 + Math.floor(random() * (RETHINK_ANGLES.length - 1))) % RETHINK_ANGLES.length;
+    return { reach: "rethink", angles: [RETHINK_ANGLES[first], RETHINK_ANGLES[second]] };
+}
+
+/**
+ * `recentAsks` are the asks of the installation's latest letters, oldest first; the latest
+ * {@link RECENT_ASKS_SHOWN} are shown, so the letters on the wall do not all ask the same thing.
+ */
 export async function planLetter(
     ctx: LetterContext,
     authorId: string,
     candidates: Recipient[],
+    choices: ReachChoice & { recentAsks: string[] } = { reach: "step", angles: [], recentAsks: [] },
 ): Promise<LetterPlan> {
     const { meeting, options, dialogGenerator } = ctx;
     const author = authorOf(meeting, authorId);
@@ -301,6 +364,9 @@ export async function planLetter(
         beingName: author.name,
         recipientList: formatCandidateList(candidates),
         humanName: humanFirstName(meeting),
+        reach: choices.reach,
+        angles: choices.angles,
+        recentAsks: choices.recentAsks.slice(-RECENT_ASKS_SHOWN),
     });
     const remembered = spokenMeeting(meeting);
 
@@ -311,7 +377,7 @@ export async function planLetter(
             author, remembered, instruction, options.letterPlanLength, `${author.name}'s letter plan`,
         ));
         try {
-            return { ...parsePlanAnswer(raw, candidates), prompt: instruction, raw, attempts: attempt };
+            return { reach: choices.reach, angles: choices.angles, ...parsePlanAnswer(raw, candidates), prompt: instruction, raw, attempts: attempt };
         } catch (error) {
             lastProblem = (error as Error).message;
             Logger.warn("letters", `plan answer unusable (attempt ${attempt}/${PARSE_ATTEMPTS}): ${lastProblem}`, {
@@ -347,9 +413,15 @@ export function selectLetterForm(recentForms: string[], random: () => number = M
     return [...rotated].sort((a, b) => lastUse(a) - lastUse(b))[0];
 }
 
+/** Whether a letter ends by asking the recipient to write back: about half do. */
+export function selectAsksReply(random: () => number = Math.random): boolean {
+    return random() < REPLY_SHARE;
+}
+
 /** A letter before the human has answered: complete, and sendable as it stands if they add nothing. */
 export interface LetterDraft {
     form: LetterForm;
+    asksReply: boolean;
     authorId: string;
     recipientId: string;
     subject: string;
@@ -444,13 +516,15 @@ function recipientDisplayName(recipient: Recipient): string {
 
 export async function draftLetter(
     ctx: LetterContext,
-    input: { authorId: string; recipient: Recipient; points: string[]; form: LetterForm },
+    input: { authorId: string; recipient: Recipient; points: string[]; form: LetterForm; asksReply: boolean },
 ): Promise<LetterDraft> {
     const { meeting, options, dialogGenerator } = ctx;
     const author = authorOf(meeting, input.authorId);
 
     const instruction = letterPrompts(meeting.language).draft({
         form: input.form,
+        asksReply: input.asksReply,
+        authorId: author.id,
         beingName: author.name,
         recipientName: recipientDisplayName(input.recipient),
         recipientWhy: input.recipient.why ?? input.recipient.remit,
@@ -466,7 +540,7 @@ export async function draftLetter(
     const { subject, body } = parseLetterAnswer(raw);
     if (body === "") throw new LetterStepError("letter", "the letter came back empty", raw);
 
-    return { form: input.form, authorId: author.id, recipientId: input.recipient.id, subject, body, prompt: instruction, raw };
+    return { form: input.form, asksReply: input.asksReply, authorId: author.id, recipientId: input.recipient.id, subject, body, prompt: instruction, raw };
 }
 
 /**
