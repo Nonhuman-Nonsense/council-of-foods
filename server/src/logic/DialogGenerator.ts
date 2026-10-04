@@ -100,6 +100,8 @@ export class DialogGenerator {
             messages: ChatCompletionMessageParam[];
             maxCompletionTokens: number;
             stop?: string[];
+            /** Defaults to the conversation model and its reasoning setting. */
+            model?: { model: string; reasoning: GlobalOptions["conversationReasoning"] };
         },
         postProcess: (completion: ConversationCompletionResult) => T,
         ctx: {
@@ -128,6 +130,7 @@ export class DialogGenerator {
                 request.messages,
                 request.maxCompletionTokens,
                 request.stop,
+                request.model,
             );
 
             // Every attempt is paid for, including the empty ones.
@@ -333,12 +336,13 @@ export class DialogGenerator {
         messages: ChatCompletionMessageParam[],
         maxCompletionTokens: number,
         stop?: string[],
+        model?: { model: string; reasoning: GlobalOptions["conversationReasoning"] },
     ): Promise<ConversationCompletionResult> {
         return withNetworkRetry(() => this.services.conversationService.createChatCompletion({
-            model: this.serverOptions.conversationModel,
+            model: model?.model ?? this.serverOptions.conversationModel,
             maxCompletionTokens,
             temperature: this.serverOptions.temperature,
-            reasoning: this.serverOptions.conversationReasoning,
+            reasoning: model?.reasoning ?? this.serverOptions.conversationReasoning,
             stop,
             messages,
         }), "DialogGenerator");
@@ -422,6 +426,45 @@ export class DialogGenerator {
             Logger.error("DialogGenerator", "Error during chair interjection", { error, from: { meetingId: meeting._id } });
             throw error;
         }
+    }
+
+    /**
+     * One step of a being's letter (see logic/letters): the whole meeting from `speaker`'s side,
+     * with its own character prompt as the system message, then `instruction`. Returns the raw
+     * text — the letter writer parses it — and the finish reason, so a cut-off answer can be
+     * told apart from a malformed one. Runs on the letter model, which may not be the one the
+     * council speaks with.
+     */
+    async generateInCharacter(
+        speaker: Character,
+        meeting: StoredMeeting,
+        instruction: string,
+        maxTokens: number,
+        operation: string,
+        options: {
+            /** Without the meeting, the speaker has only its own prompt and the topic: for quick rewrites. */
+            withConversation?: boolean;
+            model?: { model: string; reasoning: GlobalOptions["conversationReasoning"] };
+        } = {},
+    ): Promise<{ text: string; finishReason: string | null }> {
+        const conversation = options.withConversation === false ? [] : meeting.conversation;
+        const messages = this.buildMessageStack(speaker, conversation, meeting, undefined, false);
+        messages.push({ role: "system", content: instruction });
+
+        let finishReason: string | null = null;
+        const result = await this.completeWithRetry(
+            {
+                messages,
+                maxCompletionTokens: maxTokens,
+                model: options.model ?? { model: this.serverOptions.letterModel, reasoning: this.serverOptions.letterReasoning },
+            },
+            (completion) => {
+                finishReason = completion.finishReason;
+                return { response: (completion.content ?? "").trim() };
+            },
+            { operation, feature: "summary", meeting, messageIndex: meeting.conversation.length },
+        );
+        return { text: result.response, finishReason };
     }
 
     /**

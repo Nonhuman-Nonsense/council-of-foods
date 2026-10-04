@@ -26,6 +26,8 @@
     "test:coverage": "npm run test -- --coverage",
     "footprint:check": "node ../scripts/ecologits/update.mjs --check",
     "footprint:update": "node ../scripts/ecologits/update.mjs",
+    "letters:corpus": "cross-env NODE_ENV=production tsx scripts/letters/generateCorpus.ts",
+    "letters:eval": "cross-env NODE_ENV=production tsx scripts/letters/evalLetters.ts",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "docker": "node scripts/docker.mjs",

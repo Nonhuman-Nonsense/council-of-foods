@@ -40,6 +40,16 @@
     "sv": "Förvänta dig svenskt tal."
   },
   "audioConcurrency": 10,
+  "meetingEnding": "protocol",
+  "letterSiteUrl": "https://council-of-foods.com",
+  "letterMaxCandidates": 40,
+  "letterModel": "anthropic/claude-opus-5-5",
+  "letterReasoning": "medium",
+  "letterWeaveModel": "anthropic/claude-sonnet-5-5",
+  "letterWeaveReasoning": "low",
+  "letterPlanLength": 4000,
+  "letterWriteLength": 6000,
+  "letterAuthorCooldown": 5,
   "humanInputRealtime": {
     "languages": {
       "en": {
