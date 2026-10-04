@@ -124,14 +124,14 @@ Subject: <subject line>
         humanApart: (text, humanName) =>
             `${humanName ? `${humanName}, a human who took part in the meeting,` : "A human who took part in the meeting"} asked to add, in their own words:\n“${text}”`,
 
-        footer: ({ beingName, meetingId, meetingUrl, contactEmail, humanContributed }) => [
+        footer: ({ beingName, meetingId, meetingUrl, humanContributed }) => [
             "—",
             `This letter was written by ${beingName}, a voice in Council of Foods — an artwork in which AI-driven foods hold a meeting about the broken food system. It was composed by a language model at the end of meeting #${meetingId}, and sent without being edited by us.`,
             ...(humanContributed
                 ? ["A human taking part in the meeting was asked what they wanted to add, and their words are part of it."]
                 : []),
             `The meeting can be heard and read in full here: ${meetingUrl}`,
-            `Council of Foods is made by Nonhuman Nonsense. To receive no further letters, say so in a reply or write to ${contactEmail}.`,
+            `Council of Foods is made by Nonhuman Nonsense. To receive no further letters, reply and say so.`,
         ].join("\n\n"),
     };
 }

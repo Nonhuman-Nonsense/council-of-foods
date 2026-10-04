@@ -20,9 +20,25 @@ export type Email = {
     subject: string;
     text: string;
     attachments?: EmailAttachment[];
+    /** Who it is from, when not COUNCIL_MAIL_FROM — a letter comes from the being that wrote it. */
+    sender?: Sender;
+    replyTo?: string;
+    /** Brevo tags, to find the email again in Brevo's records (see {@link findSentByTag}). */
+    tags?: string[];
 };
 
 export type Sender = { name: string; email: string };
+
+/**
+ * Brevo answered, and refused: the email was not sent. Anything else that goes wrong — a
+ * timeout, a dropped connection — leaves it unknown whether it was.
+ */
+export class BrevoRefusedError extends Error {
+    constructor(readonly status: number, detail: string) {
+        super(`Brevo refused email (${status}): ${detail.slice(0, 500)}`);
+        this.name = "BrevoRefusedError";
+    }
+}
 
 export class MailNotConfiguredError extends Error {
     constructor() {
@@ -58,9 +74,10 @@ export function initMail(): void {
     }
 }
 
-export async function sendEmail(email: Email): Promise<void> {
+/** Sends, and returns Brevo's message id for the email. */
+export async function sendEmail(email: Email): Promise<string | null> {
     const apiKey = config.COUNCIL_BREVO_API_KEY;
-    if (!apiKey || !config.COUNCIL_MAIL_FROM) throw new MailNotConfiguredError();
+    if (!apiKey || (!config.COUNCIL_MAIL_FROM && !email.sender)) throw new MailNotConfiguredError();
 
     const response = await fetch(BREVO_SEND_URL, {
         method: "POST",
@@ -70,8 +87,10 @@ export async function sendEmail(email: Email): Promise<void> {
             "api-key": apiKey,
         },
         body: JSON.stringify({
-            sender: getSender(),
+            sender: email.sender ?? getSender(),
             to: email.to.map((address) => ({ email: address })),
+            ...(email.replyTo ? { replyTo: { email: email.replyTo } } : {}),
+            ...(email.tags?.length ? { tags: email.tags } : {}),
             subject: email.subject,
             textContent: email.text,
             ...(email.attachments?.length ? { attachment: email.attachments } : {}),
@@ -81,6 +100,27 @@ export async function sendEmail(email: Email): Promise<void> {
 
     if (!response.ok) {
         const detail = await response.text().catch(() => "");
-        throw new Error(`Brevo refused email (${response.status}): ${detail.slice(0, 500)}`);
+        throw new BrevoRefusedError(response.status, detail);
     }
+    const body = await response.json().catch(() => null) as { messageId?: string } | null;
+    return body?.messageId ?? null;
+}
+
+const BREVO_EVENTS_URL = "https://api.brevo.com/v3/smtp/statistics/events";
+
+/**
+ * Whether Brevo sent an email with this tag in the last 30 days: its message id, or null when
+ * it has no record of one. Throws when Brevo cannot be asked.
+ */
+export async function findSentByTag(tag: string): Promise<string | null> {
+    const apiKey = config.COUNCIL_BREVO_API_KEY;
+    if (!apiKey) throw new MailNotConfiguredError();
+    const url = `${BREVO_EVENTS_URL}?${new URLSearchParams({ tags: tag, days: "30", limit: "10" })}`;
+    const response = await fetch(url, {
+        headers: { Accept: "application/json", "api-key": apiKey },
+        signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`Brevo events (${response.status}): ${(await response.text().catch(() => "")).slice(0, 300)}`);
+    const body = await response.json() as { events?: Array<{ messageId?: string }> };
+    return body.events?.find((event) => event.messageId)?.messageId ?? null;
 }

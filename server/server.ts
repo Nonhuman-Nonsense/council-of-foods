@@ -10,6 +10,7 @@ import { initReporting } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
 import { initMail } from '@services/MailService.js';
+import { startLetterOutbox } from '@logic/letters/outboxWorker.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 import {
@@ -52,6 +53,7 @@ try {
   initMail();
   await initDb();
   initOpenAI();
+  startLetterOutbox();
 } catch (e) {
   await Logger.error("init", "Startup failed.", { error: e });
   process.exit(1);

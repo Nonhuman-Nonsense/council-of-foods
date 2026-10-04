@@ -24,6 +24,13 @@ export const EnvSchema = z.object({
     COUNCIL_BREVO_API_KEY: unsetIfBlank(z.string()),
     /** e.g. `Council of Foods <council@council-of-foods.com>`; the name also titles emails. */
     COUNCIL_MAIL_FROM: unsetIfBlank(z.string().regex(/^.+<[^<>\s]+@[^<>\s]+>$/, "expected Name <address>")),
+    /**
+     * Whether meetings' letters go out (docs/council-letters.md): `off` queues them and sends
+     * nothing (the default, and the kill switch), `test` sends every letter to
+     * COUNCIL_LETTERS_TEST_TO instead of its recipient, `live` sends to the recipient.
+     */
+    COUNCIL_LETTERS: unsetIfBlank(z.enum(["off", "test", "live"])),
+    COUNCIL_LETTERS_TEST_TO: unsetIfBlank(z.email()),
     // One key for an installation's devices: the bridge (printer alerts) and the room power plugs.
     COUNCIL_INSTALLATION_KEY: unsetIfBlank(z.string().min(16)),
     // Where installations run: printer alert addresses, opening hours, room power plugs.

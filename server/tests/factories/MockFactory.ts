@@ -165,6 +165,10 @@ export const MockFactory = {
             letterPlanLength: 50,
             letterWriteLength: 50,
             letterAuthorCooldown: 3,
+            letterSenderDomain: "example.org",
+            letterReplyDomain: "reply.example.org",
+            letterSenderAddresses: { treeharvester: "tree.harvester" },
+            letterDailyLimit: 5,
             ...overrides,
         }) as GlobalOptions,
 

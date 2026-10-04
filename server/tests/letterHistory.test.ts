@@ -17,7 +17,7 @@ describe("letterHistory", () => {
             { authorId: "pine", form: "note", points: ["c"] },
             { authorId: "reindeer", form: "appeal", points: ["a", "b"] },
         ];
-        const history = letterHistory(newestFirst, [], recipients, now);
+        const history = letterHistory(newestFirst, [], [], recipients, now);
         expect(history.recentAuthors).toEqual(["reindeer", "pine"]);
         expect(history.recentForms).toEqual(["appeal", "note"]);
         expect(history.recentAsks).toEqual(["a", "b", "c"]);
@@ -27,8 +27,12 @@ describe("letterHistory", () => {
         ["a person who received a letter, however long ago", "mp-anna", hoursAgo(24 * 60), true],
         ["an institution that received one today", "skogsstyrelsen", hoursAgo(3), true],
         ["an institution whose last letter is more than a day old", "skogsstyrelsen", hoursAgo(25), false],
-    ])("decides whether to exclude %s", (_label, recipientId, finishedAt, excluded) => {
-        const history = letterHistory([], [{ recipientId, finishedAt }], recipients, now);
+    ])("decides whether to exclude %s", (_label, recipientId, sentAt, excluded) => {
+        const history = letterHistory([], [{ recipientId, sentAt: new Date(sentAt) }], [], recipients, now);
         expect(history.exclude.has(recipientId)).toBe(excluded);
+    });
+
+    it("excludes whoever is on the blocklist, letter or not", () => {
+        expect(letterHistory([], [], ["skogsstyrelsen"], recipients, now).exclude.has("skogsstyrelsen")).toBe(true);
     });
 });

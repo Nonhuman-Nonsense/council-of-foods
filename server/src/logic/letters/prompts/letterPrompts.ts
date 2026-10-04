@@ -64,7 +64,6 @@ export interface FooterParams {
     beingName: string;
     meetingId: number;
     meetingUrl: string;
-    contactEmail: string;
     /** Whether a human's words are part of the letter. */
     humanContributed: boolean;
 }

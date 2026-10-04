@@ -7,7 +7,6 @@ import type { Recipient } from "./recipients.js";
 import { z } from "zod";
 import { formatMeetingDate } from "@shared/topicPrompt.js";
 import { requestSpeakerClassifierCompletion } from "@logic/SpeakerClassifierBase.js";
-import { getSender, isMailConfigured } from "@services/MailService.js";
 import { Logger } from "@utils/Logger.js";
 import { buildLetterFooter } from "./footer.js";
 import { LETTER_FORMS, letterPrompts, type LetterForm } from "./prompts/letterPrompts.js";
@@ -485,9 +484,6 @@ export async function sortHumanAddition(ctx: LetterContext, addition: string): P
     return { text, ...parseHumanHandling(raw), raw };
 }
 
-function contactEmail(): string {
-    return isMailConfigured() ? getSender().email : "[CONTACT_EMAIL]";
-}
 
 function recipientDisplayName(recipient: Recipient): string {
     return recipient.organisation ? `${recipient.name}, ${recipient.organisation}` : recipient.name;
@@ -578,7 +574,6 @@ export async function finishLetter(
             meetingId: meeting._id,
             beingName: author.name,
             humanContributed,
-            contactEmail: contactEmail(),
         }),
         human: { ...human, handling },
         humanContributed,

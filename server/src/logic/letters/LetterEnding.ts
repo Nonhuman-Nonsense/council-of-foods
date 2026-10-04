@@ -22,6 +22,7 @@ import {
 } from "./LetterWriter.js";
 import { candidateRecipients, loadRecipients, loadTopicIds, type Recipient } from "./recipients.js";
 import { loadLetterHistory, type LetterHistory } from "./history.js";
+import { letterBlocklistCollection, lettersCollection } from "@services/DbService.js";
 
 /**
  * The letter ending of a meeting (docs/council-letters.md → "The meeting ending"), on top of
@@ -67,7 +68,11 @@ export class LetterEnding {
 
     private async recipientsAndHistory(meeting: StoredMeeting): Promise<{ recipients: Recipient[]; history: LetterHistory }> {
         const recipients = await loadRecipients(await loadTopicIds());
-        const history = await loadLetterHistory(this.manager.services.meetingsCollection, recipients, {
+        const history = await loadLetterHistory({
+            meetings: this.manager.services.meetingsCollection,
+            letters: lettersCollection,
+            blocklist: letterBlocklistCollection,
+        }, recipients, {
             now: new Date(),
             excludeMeetingId: meeting._id,
         });

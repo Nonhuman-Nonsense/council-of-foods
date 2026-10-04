@@ -50,6 +50,10 @@
   "letterPlanLength": 4000,
   "letterWriteLength": 6000,
   "letterAuthorCooldown": 5,
+  "letterSenderDomain": "council-of-foods.com",
+  "letterReplyDomain": "reply.council-of-foods.com",
+  "letterSenderAddresses": {},
+  "letterDailyLimit": 60,
   "humanInputRealtime": {
     "languages": {
       "en": {
