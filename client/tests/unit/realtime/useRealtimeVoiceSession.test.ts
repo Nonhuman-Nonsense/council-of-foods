@@ -804,6 +804,164 @@ describe("useRealtimeVoiceSession", () => {
     expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
   });
 
+  /**
+   * A network that blocks WebRTC still completes the SDP exchange — ICE fails
+   * ~20s later. Counting that as a working session reset the retry budget every
+   * time round, so the visitor reconnected forever into a silent agent.
+   */
+  describe("a session whose media never starts", () => {
+    /** Connection mock that never opens its data channel, and hands back its onClose. */
+    function connectionThatNeverOpens() {
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onClose }: { onClose: (reason: string) => void }) => {
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "connecting", send: vi.fn() },
+          };
+        },
+      );
+      return () => closeConnection;
+    }
+
+    it("stays connecting until the data channel opens", async () => {
+      let openChannel: (() => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
+        openChannel = onOpen;
+        return {
+          close: vi.fn(),
+          micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+          dc: { readyState: "connecting", send: vi.fn() },
+        };
+      });
+
+      const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+      await waitFor(() => expect(openChannel).toBeDefined());
+      expect(result.current.connectionState).toBe("connecting");
+
+      act(() => openChannel?.());
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    it("spends the retry budget and switches off instead of reconnecting forever", async () => {
+      const getClose = connectionThatNeverOpens();
+      const onExhausted = vi.fn();
+
+      const { result } = renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+          onExhausted,
+        })
+      );
+
+      for (let i = 0; i < 4; i++) {
+        await waitFor(() => expect(getClose()).toBeDefined());
+        const close = getClose()!;
+        mockCreateRealtimeConnection.mockClear();
+        act(() => close("pc_failed"));
+        if (i < 3) await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+      }
+
+      await waitFor(() => expect(onExhausted).toHaveBeenCalledOnce());
+      expect(result.current.connectionState).toBe("idle");
+      // One report for the whole episode: the attempts are summarised by the
+      // giving-up report rather than each sending its own warning.
+      expect(reportRealtimeIssue).toHaveBeenCalledOnce();
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "retry-exhausted" })
+      );
+    });
+
+    it("keeps its heartbeat when retries are unlimited, since no summary is coming", async () => {
+      const getClose = connectionThatNeverOpens();
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: Infinity, giveUpSilently: false },
+        })
+      );
+
+      await waitFor(() => expect(getClose()).toBeDefined());
+      act(() => getClose()!("pc_failed"));
+
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "connection-lost" })
+      );
+    });
+
+    it("keeps reconnecting past the budget once a session has really worked", async () => {
+      // The mock in beforeEach opens the channel, so every attempt counts as a
+      // working session — a mid-session drop must still get a fresh budget.
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onOpen, onClose }: { onOpen: () => void; onClose: (reason: string) => void }) => {
+          onOpen();
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "open", send: vi.fn() },
+          };
+        },
+      );
+      const onExhausted = vi.fn();
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+          onExhausted,
+        })
+      );
+
+      for (let i = 0; i < 5; i++) {
+        await waitFor(() => expect(closeConnection).toBeDefined());
+        const close = closeConnection!;
+        closeConnection = undefined;
+        act(() => close("pc_failed"));
+      }
+
+      await waitFor(() => expect(closeConnection).toBeDefined());
+      expect(onExhausted).not.toHaveBeenCalled();
+      // A session that worked and then dropped is a real visitor losing a live
+      // agent — still worth reporting, on the usual thinning schedule.
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "connection-lost" })
+      );
+    });
+  });
+
+  it("gives up quietly without retrying when the session is refused", async () => {
+    mockClassifyRealtimeError.mockReturnValue("refused");
+    mockFetchRealtimeBootstrap.mockRejectedValue(
+      Object.assign(new Error("Realtime bootstrap failed (403): "), { name: "RealtimeHttpError" })
+    );
+    const onExhausted = vi.fn();
+    const onFatalError = vi.fn();
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: true },
+        onExhausted,
+        onFatalError,
+      })
+    );
+
+    await waitFor(() => {
+      expect(onExhausted).toHaveBeenCalledOnce();
+    });
+    expect(onFatalError).not.toHaveBeenCalled();
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledOnce();
+    expect(result.current.connectionState).toBe("idle");
+    expect(reportRealtimeIssue).toHaveBeenCalledWith(expect.objectContaining({ kind: "refused" }));
+  });
+
   it("stays connecting while waiting out a capacity refusal", async () => {
     // The mic button's spinner reads `connectionState`, and a capacity wait is
     // now minutes rather than seconds — so the session must read as connecting

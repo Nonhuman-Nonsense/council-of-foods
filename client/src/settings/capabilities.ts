@@ -88,6 +88,12 @@ export type Capabilities = {
    */
   voiceSetupAgent: boolean;
   /**
+   * The setup agent connects only once someone shows a sign of life on the page
+   * (a pointer move, touch, scroll or key), so crawlers and prerendered pages
+   * never open a realtime session. An installation has nobody to wait for.
+   */
+  agentWaitsForVisitor: boolean;
+  /**
    * Human panelists are added and described by hand. Where they cannot be,
    * panelists go in by name alone, the visitor is added as one automatically,
    * and the lineup is ordered for the screen instead.
@@ -105,6 +111,26 @@ export type Capabilities = {
    * language, or a reload into a server that is still coming back up.
    */
   installationReload: boolean;
+  /**
+   * Print each live meeting's protocol on the installation's printer, through
+   * the local bridge, once staff have switched printing on. A museum visitor
+   * takes the protocol home on paper; at a screening the audience is shown it,
+   * and nobody wants the printer going mid-talk.
+   */
+  printSummary: boolean;
+  /**
+   * Tick a counter in the page title, which a kiosk never shows, so the kiosk
+   * window's watchdog (museum/kiosk) can tell a live page from a crashed or hung
+   * one and restart Chrome. A visitor's own browser tab would show it ticking.
+   */
+  kioskHeartbeat: boolean;
+  /**
+   * A meeting that ends in a letter may send it by email (docs/council-letters.md), when the
+   * human was there to answer. Only the museum: on the web anyone could write to real people
+   * from their sofa, and a screening's letters are a demonstration. Elsewhere the letter is
+   * still written and shown, marked unsent.
+   */
+  sendsLetters: boolean;
 };
 
 const WEB: Capabilities = {
@@ -123,8 +149,12 @@ const WEB: Capabilities = {
   micToggleButton: true,
   latchOnTap: true,
   voiceSetupAgent: false,
+  agentWaitsForVisitor: true,
   typedSetup: true,
   installationReload: false,
+  printSummary: false,
+  kioskHeartbeat: false,
+  sendsLetters: false,
 };
 
 const MUSEUM: Capabilities = {
@@ -143,8 +173,12 @@ const MUSEUM: Capabilities = {
   micToggleButton: false,
   latchOnTap: false,
   voiceSetupAgent: true,
+  agentWaitsForVisitor: false,
   typedSetup: false,
   installationReload: true,
+  printSummary: true,
+  kioskHeartbeat: true,
+  sendsLetters: true,
 };
 
 /**
@@ -152,6 +186,12 @@ const MUSEUM: Capabilities = {
  * on its own, because the person standing next to it is talking and the screen
  * must wait for them. Chrome, teleprompter, meta agent, push-to-talk and
  * self-healing are the museum's.
+ *
+ * It doesn't print protocols either: a screening shows the protocol to the
+ * room, and a printer starting up mid-talk only interrupts.
+ *
+ * Nor does it send letters: a screening's letter is a demonstration, not one
+ * written with a visitor.
  *
  * Adding human panelists is the exception: a presenter has a keyboard, and
  * putting people on the council by hand is part of showing the piece off. The
@@ -165,6 +205,8 @@ const PRESENTER: Capabilities = {
   autoReturnToLanding: false,
   autoplay: false,
   typedSetup: true,
+  printSummary: false,
+  sendsLetters: false,
 };
 
 const CAPABILITIES: Record<AppMode, Capabilities> = {

@@ -276,6 +276,21 @@ summary is regenerated automatically by the existing "missing audio" reconnect s
 special case was needed there, because "does this message have audio" doesn't care why the
 audio is missing.
 
+### The letter ending's markers
+
+A meeting that ends in a letter (`meetingEnding: "letter"`, docs/council-letters.md) uses the
+same pattern twice more before `summary_pending`. The closing line is written with
+`letter_pending` (and the chosen author on `meeting.letter`); the loop resolves it
+(`ANNOUNCE_LETTER`, ahead of pause and raised hand like `GENERATE_SUMMARY`) into the author's
+announcement plus `awaiting_letter_addition`, in one write. That marker is Kind A for the client:
+`submit_human_message` / `skip_human_turn` replace it with `summary_pending`, in one write with
+the human's answer on `meeting.letter` (their words go into the letter, not the conversation), and `GENERATE_SUMMARY` writes the letter as the summary. Work
+started early to save time (the plan during the closing line, the draft during the announcement)
+lives only in the session; a new session simply plans or drafts again, so recovery is still the
+one code path. Both letter markers are kept on resume and dropped from replay, like
+`summary_pending`. `isConcluding()` (`shared/meetingEnding.ts`) is the one list of markers after
+which a meeting only finishes.
+
 ### The resume vs. replay trap
 
 `stripAwaitingHumanTail` is shared by two callers with **opposite correctness requirements**,

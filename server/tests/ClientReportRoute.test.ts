@@ -37,6 +37,11 @@ describe('ClientReportBody schema', () => {
         expect(result.success).toBe(false);
     });
 
+    it('accepts a body from an older client without interaction signals', () => {
+        const result = ClientReportBody.safeParse({ message: 'boom', source: 'window.onerror', url: 'http://x/' });
+        expect(result.success).toBe(true);
+    });
+
     it('rejects a missing message', () => {
         const result = ClientReportBody.safeParse({ source: 'window.onerror' });
         expect(result.success).toBe(false);
@@ -76,7 +81,29 @@ describe('buildClientErrorReport', () => {
             source: 'window.onerror',
             url: 'http://council-of-foods.com/meeting/42',
         });
-        expect(report.message).toBe('[CLIENT TERMINAL] boom (http://council-of-foods.com/meeting/42)');
+        expect(report.message.split('\n')[0]).toBe('[CLIENT TERMINAL] boom (http://council-of-foods.com/meeting/42)');
+    });
+
+    it.each([
+        { name: 'visitor who interacted', interacted: true, webdriver: false, present: [], absent: ['[no-interaction]', '[webdriver]'] },
+        { name: 'crawler that never interacted', interacted: false, webdriver: false, present: ['[no-interaction]'], absent: ['[webdriver]'] },
+        { name: 'headless browser', interacted: true, webdriver: true, present: ['[webdriver]'], absent: ['[no-interaction]'] },
+        { name: 'older client without signals', interacted: undefined, webdriver: undefined, present: [], absent: ['[no-interaction]', '[webdriver]'] },
+    ])('tags the client line for a $name', ({ interacted, webdriver, present, absent }) => {
+        const report = buildClientErrorReport(
+            { message: 'boom', source: 'window.onerror', interacted, webdriver },
+            'Mozilla/5.0 (compatible; Googlebot/2.1)',
+        );
+        const clientLine = report.message.split('\n')[1];
+        expect(clientLine).toContain('UA: Mozilla/5.0 (compatible; Googlebot/2.1)');
+        for (const tag of present) expect(clientLine).toContain(tag);
+        for (const tag of absent) expect(clientLine).not.toContain(tag);
+    });
+
+    it('truncates a very long user agent', () => {
+        const report = buildClientErrorReport({ message: 'boom', source: 'window.onerror' }, 'A'.repeat(1000));
+        expect(report.message).not.toContain('A'.repeat(201));
+        expect(report.message).toContain('A'.repeat(200));
     });
 });
 

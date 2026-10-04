@@ -25,6 +25,11 @@ describe("getParticipationPhase", () => {
     expect(getParticipationPhase("playing", messages, 0)).toBe("warm");
   });
 
+  it("returns warm while a being announces its letter, before the human is asked to add to it", () => {
+    const messages = [msg("message"), msg("awaiting_letter_addition")];
+    expect(getParticipationPhase("playing", messages, 0)).toBe("warm");
+  });
+
   it("returns warm during invitation (first-time raise hand case)", () => {
     const messages = [msg("message"), msg("invitation"), msg("awaiting_human_question")];
     // playingNowIndex = 1 (invitation is playing), N+1 = awaiting

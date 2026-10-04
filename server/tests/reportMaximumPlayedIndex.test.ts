@@ -3,6 +3,8 @@ import { meetingsCollection } from "@services/DbService.js";
 import { clearLiveSessionRegistryForTests, tryAcquireLiveSession } from "@logic/liveSessionRegistry.js";
 import { createTestManager } from "./commonSetup.js";
 import { MockFactory } from "./factories/MockFactory.js";
+import { meterEvents } from "@services/meterEvents.js";
+import type { MeetingProgress } from "@shared/MeterTypes.js";
 
 const SPEAKER_ID = "speaker1";
 
@@ -36,6 +38,31 @@ describe("report_maximum_played_index (MeetingManager)", () => {
         expect(updateSpy).toHaveBeenCalledWith({ _id: 501 }, { $max: { maximumPlayedIndex: 2 } });
         expect(meeting.maximumPlayedIndex).toBe(2);
         expect(startSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("tells footprint meters how far the meeting has played", async () => {
+        vi.spyOn(meetingsCollection, "updateOne").mockResolvedValue({ acknowledged: true } as never);
+        const { manager, mockSocket } = createTestManager();
+        mockSocket.id = "holder-socket";
+        const meeting = MockFactory.createStoredMeeting({
+            _id: 502,
+            venueId: "museum-oslo",
+            conversation: [
+                { id: "a", type: "message", speaker: SPEAKER_ID, text: "1" },
+                { id: "b", type: "message", speaker: SPEAKER_ID, text: "2" },
+            ],
+        });
+        manager.meeting = meeting;
+        tryAcquireLiveSession(502, "holder-socket", meeting.liveKey);
+        vi.spyOn(manager, "startLoop").mockImplementation(() => {});
+        const seen: MeetingProgress[] = [];
+        const listener = (progress: MeetingProgress) => seen.push(progress);
+        meterEvents.on("meetingProgress", listener);
+
+        await manager.handleEvent("report_maximum_played_index", { index: 1 });
+        meterEvents.off("meetingProgress", listener);
+
+        expect(seen).toEqual([{ meetingId: 502, venueId: "museum-oslo", maximumPlayedIndex: 1 }]);
     });
 
     it("does not update when socket is not the live session holder", async () => {

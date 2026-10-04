@@ -79,6 +79,32 @@ export const GlobalOptionsSchema = z.object({
     speakerClassifierModel: z.string(),
     directedSpeakerRouting: z.boolean(),
     autoplayEarliestMeetingDate: z.string(),
+    /**
+     * How a meeting ends: a protocol read by the chair, or a letter one of the beings sends.
+     * See docs/council-letters.md.
+     */
+    meetingEnding: z.enum(["protocol", "letter"]),
+    /** Public site the letter footer links a meeting from: `<site>/<lang>/meeting/<id>`. */
+    letterSiteUrl: z.string(),
+    /** Most recipients offered to the author at once, mixed across categories (see candidateRecipients). */
+    letterMaxCandidates: z.number().int().positive(),
+    /**
+     * The model the author plans and writes the letter with — a letter goes to a real person, so
+     * it can be a stronger model than the council speaks with. Through the same router.
+     */
+    letterModel: z.string(),
+    letterReasoning: ConversationReasoningSchema,
+    /**
+     * Folds the human's addition into the drafted letter once they have spoken — the only letter
+     * step the human waits for, so a fast model; it only rewrites, with the meeting left out.
+     */
+    letterWeaveModel: z.string(),
+    letterWeaveReasoning: ConversationReasoningSchema,
+    /** Token budgets for the plan and the letter, including any thinking. Prompts are in logic/letters/prompts. */
+    letterPlanLength: z.number(),
+    letterWriteLength: z.number(),
+    /** An author sits out this many letters after writing one, so the letters come from many voices. */
+    letterAuthorCooldown: z.number().int().nonnegative(),
 });
 
 export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;

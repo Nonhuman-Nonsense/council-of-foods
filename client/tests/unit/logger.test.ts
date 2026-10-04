@@ -133,14 +133,14 @@ describe("installGlobalErrorHandlers", () => {
   // Captures the registered 'error' handler directly instead of using real window
   // listeners, since installGlobalErrorHandlers has no teardown and listeners would
   // otherwise accumulate on the shared jsdom `window` across tests/module reloads.
-  async function installAndCaptureErrorHandler() {
+  async function installAndCaptureErrorHandler(type: "error" | "unhandledrejection" = "error") {
     vi.stubEnv("PROD", true);
     vi.resetModules();
     const addEventListenerSpy = vi.spyOn(window, "addEventListener");
     const { installGlobalErrorHandlers } = await import("@/logger");
     installGlobalErrorHandlers();
-    const handler = addEventListenerSpy.mock.calls.find(([type]) => type === "error")?.[1] as (
-      event: ErrorEvent,
+    const handler = addEventListenerSpy.mock.calls.find(([registered]) => registered === type)?.[1] as (
+      event: { message?: string; reason?: unknown },
     ) => void;
     addEventListenerSpy.mockRestore();
     return handler;
@@ -163,15 +163,33 @@ describe("installGlobalErrorHandlers", () => {
     fetchSpy.mockRestore();
   });
 
-  it("drops known-noise messages like the in-app-browser webkit bridge", async () => {
+  // Host-environment noise, not bugs in our code: an in-app browser's bridge,
+  // a browser extension, and autoplay policy refusing someone's play().
+  it.each([
+    {
+      name: "in-app browser webkit bridge",
+      type: "error" as const,
+      event: { message: "undefined is not an object (evaluating 'window.webkit.messageHandlers')" },
+    },
+    {
+      name: "browser extension messaging",
+      type: "unhandledrejection" as const,
+      event: { reason: new Error("No Listener: tabs:outgoing.message.ready") },
+    },
+    {
+      name: "Safari autoplay refusal",
+      type: "unhandledrejection" as const,
+      event: {
+        reason: new Error(
+          "The play method is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.",
+        ),
+      },
+    },
+  ])("drops known noise: $name", async ({ type, event }) => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
-    const handler = await installAndCaptureErrorHandler();
+    const handler = await installAndCaptureErrorHandler(type);
 
-    handler(
-      new ErrorEvent("error", {
-        message: "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
-      }),
-    );
+    handler(event);
 
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();

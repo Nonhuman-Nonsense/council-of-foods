@@ -29,6 +29,8 @@ import {
 } from "@realtime/inworldSubtitleTrack";
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
 import { log, summarizeLogPayload } from "@/logger";
+import { getVenueId } from "@/settings/councilSettings";
+import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
 
 function realtimeDebugLog(...args: unknown[]): void {
   const [first, ...rest] = args;
@@ -127,6 +129,8 @@ export type UseRealtimeVoiceSessionParams = {
   triggerGreetingOnReady: boolean;
   /** Bearer auth for bootstrap + call (meta-agent live key). */
   authHeaders?: Record<string, string>;
+  /** Setup-agent: the visit's setup, continued across reconnects (see setupSession). */
+  setupSession?: { get: () => string | undefined; set: (setupId: string) => void };
   /** Push-to-talk: mic track starts disabled; open via `setMicEnabled`. */
   pttMic?: boolean;
   /**
@@ -174,7 +178,8 @@ export type UseRealtimeVoiceSessionParams = {
   /** Called when connection is re-established after having been lost. */
   onConnectionRestored?: () => void;
   /**
-   * Called when retries are exhausted and `giveUpSilently` is true (web mode).
+   * Called when retries are exhausted and `giveUpSilently` is true (web mode),
+   * or when the server refuses the session outright (web mode, no retries).
    * Lets the caller return to a clean idle state so the user can manually retry.
    */
   onExhausted?: () => void;
@@ -256,6 +261,7 @@ export function useRealtimeVoiceSession(
     toolHandlers,
     triggerGreetingOnReady,
     authHeaders,
+    setupSession,
     pttMic = false,
     deferMic = false,
     trackAgentSpeaking = false,
@@ -291,6 +297,7 @@ export function useRealtimeVoiceSession(
   const [providerBusy, setProviderBusy] = useState(false);
 
   const connectionRef = useRef<RealtimeConnection | null>(null);
+
   const audioElementRef = useRef(audioElement);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
@@ -320,6 +327,14 @@ export function useRealtimeVoiceSession(
   const retryAttemptsRef = useRef(0);
   /** True once onConnectionLost has been called and onConnectionRestored not yet. */
   const hasNotifiedLostRef = useRef(false);
+  /**
+   * The data channel opened, so this session genuinely worked. An SDP exchange
+   * that returns proves nothing: on a network that blocks WebRTC, ICE fails
+   * ~20s later and the peer connection never carries anything. Counting that as
+   * connected armed the mic and the talk button on a dead session, and reset the
+   * retry budget every time round, so the visitor looped forever.
+   */
+  const dcOpenedRef = useRef(false);
 
   const handlersRef = useRef(toolHandlers);
   const instructionsRef = useRef(instructions);
@@ -401,6 +416,7 @@ export function useRealtimeVoiceSession(
       alignmentRafRef.current = null;
     }
     subtitleTrackRef.current = null;
+    dcOpenedRef.current = false;
     responseAudioAnchorCtxSecRef.current = null;
     responseTransitionPendingRef.current = false;
     eventLoopRef.current = null;
@@ -442,8 +458,8 @@ export function useRealtimeVoiceSession(
       reportRealtimeIssue({
         feature,
         kind: "retry-exhausted",
-        message: `Realtime agent gave up after ${attempt} reconnect attempts`,
-        detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false },
+        message: `Realtime agent gave up after ${attempt} reconnect attempts${policy?.giveUpSilently ? ", switched off" : ""}`,
+        detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false, everOpened: dcOpenedRef.current },
       });
       if (policy?.giveUpSilently) {
         setConnectionState("idle");
@@ -467,6 +483,20 @@ export function useRealtimeVoiceSession(
     }, delay);
   }, [feature]);
 
+  /**
+   * The session is live: the data channel is open *and* the connection is
+   * stored. Only now does the retry budget reset and the UI say ready.
+   */
+  const markSessionLive = useCallback(() => {
+    log.event("REALTIME", "ready", { feature });
+    if (hasNotifiedLostRef.current) {
+      hasNotifiedLostRef.current = false;
+      onConnectionRestoredRef.current?.();
+    }
+    retryAttemptsRef.current = 0;
+    setConnectionState("ready");
+  }, [feature]);
+
   const start = useCallback(async () => {
     if (connectionRef.current || abortRef.current) return;
 
@@ -476,6 +506,7 @@ export function useRealtimeVoiceSession(
     const isStale = () => myAttempt !== attemptRef.current;
 
     resetSessionUiState();
+    dcOpenedRef.current = false;
     setConnectionState("connecting");
     setError(null);
     setHasReceivedAudioPart(false);
@@ -487,8 +518,10 @@ export function useRealtimeVoiceSession(
       // the success path. But await mic first: a mic failure is always fatal and
       // resolved instantly by the browser — there is no reason to block on the
       // bootstrap network round-trip (up to 15 s) before surfacing the error.
+      const venueId = getVenueId();
+      const setupId = setupSession?.get();
       const bootstrapPromise = fetchRealtimeBootstrap(
-        { feature, language },
+        { feature, language, ...(venueId ? { venueId } : {}), ...(setupId ? { setupId } : {}) },
         controller.signal,
         authHeaders,
       );
@@ -522,7 +555,9 @@ export function useRealtimeVoiceSession(
         return;
       }
 
-      const { provider, session: defaults, iceServers } = bootstrapValue;
+      const { provider, session: defaults, iceServers, usageToken } = bootstrapValue;
+      if (bootstrapValue.setupId) setupSession?.set(bootstrapValue.setupId);
+      const reportUsage = createRealtimeUsageReporter(usageToken);
       if (micStreamValue) setMicTracksEnabled(micStreamValue, !pttMic);
 
       serverDefaultsRef.current = defaults;
@@ -749,6 +784,8 @@ export function useRealtimeVoiceSession(
             realtimeDebugLog("[SUBS] response.created — audio may still be draining, waiting for confirmed silence");
           },
           onResponseDone: (info) => {
+            // Billed whether or not this attempt is still current.
+            reportUsage(info?.usage);
             const cancelled = info?.status === "cancelled" || info?.status === "failed";
             // Transition state, not display state: this decides whether the
             // next transition may trust the playback clock, so it is tracked
@@ -828,6 +865,12 @@ export function useRealtimeVoiceSession(
         },
         onOpen: () => {
           if (isStale()) return;
+          dcOpenedRef.current = true;
+          // `onOpen` can land either side of the SDP exchange resolving, and
+          // the connection is only stored after it does. Whichever happens
+          // second marks the session live, so `ready` never arrives before
+          // there is a connection for the mic to attach to.
+          if (connectionRef.current) markSessionLive();
           loop.configureSession(buildSessionConfig(), {
             triggerGreetingOnReady,
             holdGreeting: !audibleRef.current,
@@ -838,16 +881,30 @@ export function useRealtimeVoiceSession(
           log.event("REALTIME", "connection closed", { feature, reason });
           if (reason === "pc_failed" || reason === "dc_error") {
             log.event("ERROR", "realtime connection lost", { feature, reason });
-            reportRealtimeIssue({
-              feature,
-              kind: "connection-lost",
-              message: `Realtime connection lost (${reason}), reconnecting`,
-              code: reason,
-            });
-            // Mid-session drop: reset attempt counter (was connected successfully)
-            // then tear down and retry.
+            // Don't report an attempt a summary is already coming for: a
+            // bounded budget ends in one `retry-exhausted` report, so a visitor
+            // whose network blocks WebRTC costs one message instead of four.
+            // An installation retries forever — no summary ever comes, so its
+            // heartbeat is the only sign the kiosk is wedged.
+            const summaryComing =
+              !dcOpenedRef.current && retryPolicyRef.current?.maxRetries !== Infinity;
+            if (!summaryComing) {
+              reportRealtimeIssue({
+                feature,
+                kind: "connection-lost",
+                message: dcOpenedRef.current
+                  ? `Realtime connection lost (${reason}), reconnecting`
+                  : `Realtime connection failed before media started (${reason}), retrying`,
+                code: reason,
+                detail: { everOpened: dcOpenedRef.current },
+              });
+            }
+            // A session that really worked gets a fresh retry budget; one that
+            // never carried media spends the budget it started with, so a
+            // visitor whose network blocks WebRTC stops rather than looping.
+            const everOpened = dcOpenedRef.current;
             cleanup();
-            scheduleRetry(true);
+            scheduleRetry(everOpened);
           }
         },
       });
@@ -859,17 +916,11 @@ export function useRealtimeVoiceSession(
 
       activeConn = conn;
       connectionRef.current = conn;
-      log.event("REALTIME", "ready", { feature, provider });
+      log.event("REALTIME", "connection established", { feature, provider });
 
-      // Successful connection — notify restoration if previously lost.
-      if (hasNotifiedLostRef.current) {
-        hasNotifiedLostRef.current = false;
-        onConnectionRestoredRef.current?.();
-      }
-      retryAttemptsRef.current = 0;
-
-      setConnectionState("ready");
       setProviderBusy(false);
+      // The channel may already have opened while the exchange was resolving.
+      if (dcOpenedRef.current) markSessionLive();
     } catch (e) {
       // Only *our* controller firing means "we cancelled this, drop it". A
       // network timeout also surfaces as an AbortError from fetch, and treating
@@ -899,6 +950,17 @@ export function useRealtimeVoiceSession(
           reason: e instanceof MicrophoneUnavailableError ? e.reason : "unknown",
           message: msg,
         });
+      } else if (kind === "refused") {
+        // Retrying won't change the answer, and the app works without the
+        // agent: go quiet the same way running out of retries does.
+        reportRealtimeIssue({
+          feature,
+          kind: "refused",
+          message: `Realtime session refused, giving up: ${msg}`,
+          code: "start-refused",
+        });
+        setConnectionState("idle");
+        onExhaustedRef.current?.();
       } else if (kind === "capacity") {
         // Busy, not broken: wait longer and try more times before going quiet.
         setProviderBusy(true);
@@ -931,9 +993,11 @@ export function useRealtimeVoiceSession(
     buildSessionConfig,
     triggerGreetingOnReady,
     authHeaders,
+    setupSession,
     resetSessionUiState,
     cleanup,
     scheduleRetry,
+    markSessionLive,
   ]);
 
   // Keep startRef current so retry timers always call the latest start.

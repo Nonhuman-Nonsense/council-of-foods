@@ -21,6 +21,8 @@ import {
     type PendingIntent,
 } from "./pendingIntentStore";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
+import { isConcluding } from "@shared/meetingEnding";
+import { awaitingTypeFor, councilStateForHumanTurn, humanTurnModeOf, type HumanTurnMode } from "./humanTurn";
 import { useDocumentVisibility } from "@/utils";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
@@ -413,8 +415,7 @@ export function useCouncilMachine({
             pendingIntent.meetingId === currentMeetingId &&
             playNextIndex + 1 === pendingIntent.index &&
             textMessages[playNextIndex]?.type === 'invitation' &&
-            textMessages[pendingIntent.index]?.type ===
-                (pendingIntent.mode === 'panelist' ? 'awaiting_human_panelist' : 'awaiting_human_question')
+            textMessages[pendingIntent.index]?.type === awaitingTypeFor(pendingIntent.mode)
         ) {
             setPlayingNowIndex(playNextIndex);
             setPlayNextIndex(pendingIntent.index);
@@ -447,8 +448,9 @@ export function useCouncilMachine({
             return;
         }
 
-        //If we have reached a human question (live only)
-        if (councilState !== 'human_input' && textMessages[playNextIndex]?.type === 'awaiting_human_question') {
+        //If we have reached a human question, or the human's addition to a letter (live only)
+        const waitingFor = humanTurnModeOf(textMessages[playNextIndex]);
+        if (councilState !== 'human_input' && (waitingFor === 'question' || waitingFor === 'letter')) {
             setCouncilState('human_input');
             return;
         }
@@ -559,7 +561,7 @@ export function useCouncilMachine({
      * Shared by the direct submit path and the human-draft reconciler retry, so
      * a resubmission after a self-heal behaves identically to the first attempt.
      */
-    function performHumanSubmit(text: string, mode: "question" | "panelist", speaker?: string) {
+    function performHumanSubmit(text: string, mode: HumanTurnMode, speaker?: string) {
         if (mode === "panelist") {
             // speaker is always supplied by callers when mode is "panelist"
             // (captured from the awaiting_human_panelist message's speaker).
@@ -571,8 +573,10 @@ export function useCouncilMachine({
         const now = textMessages[playingNowIndex]?.type === 'invitation' ? playingNowIndex - 1 : playingNowIndex;
         const next = textMessages[playingNowIndex]?.type === 'invitation' ? playNextIndex - 1 : playNextIndex;
         // Slice target intentionally differs by mode (matches pre-existing,
-        // pre-intent behavior): panelist truncates to `next`, question to `now`.
-        setTextMessages((prevMessages) => prevMessages.slice(0, mode === "panelist" ? next : now));
+        // pre-intent behavior): panelist truncates to `next`, question to `now`. A letter
+        // addition keeps the author's announcement and drops only the marker: the server
+        // writes summary_pending in its place, then the letter.
+        setTextMessages((prevMessages) => prevMessages.slice(0, mode === "question" ? now : next));
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
         if (mode === "question") {
@@ -611,14 +615,15 @@ export function useCouncilMachine({
             });
             performHumanSubmit(newTopic, "panelist", pendingMessage.speaker);
         } else {
+            const mode = humanTurnModeOf(textMessages[playNextIndex]) === "letter" ? "letter" : "question";
             setPendingIntent({
                 kind: "human-draft",
                 meetingId: currentMeetingId,
                 text: newTopic,
-                mode: "question",
+                mode,
                 index: playNextIndex,
             });
-            performHumanSubmit(newTopic, "question");
+            performHumanSubmit(newTopic, mode);
         }
     }
 
@@ -631,8 +636,18 @@ export function useCouncilMachine({
      * the resilience plan for why this matters: a shared apply helper must
      * never depend on state a caller "just" set up.
      */
-    function performSkipTurn(speaker: string) {
+    function performSkipTurn(speaker: string, mode: HumanTurnMode) {
         if (socketRef.current) socketRef.current.emit("skip_human_turn");
+
+        // A skipped letter addition leaves no "skipped" message: the server writes
+        // summary_pending in the marker's place, then the letter. Drop the marker and wait,
+        // as after a submit — a local placeholder here would be stepped past, and the letter
+        // arriving at the marker's index would then never be reached.
+        if (mode === "letter") {
+            setTextMessages((prevMessages) => prevMessages.slice(0, playNextIndex));
+            calculateNextAction();
+            return;
+        }
 
         const now =
             textMessages[playingNowIndex]?.type === "invitation" ? playingNowIndex - 1 : playingNowIndex;
@@ -657,10 +672,10 @@ export function useCouncilMachine({
     }
 
     function handleOnAbandonHumanTurn() {
-        const expectedType =
-            councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
         const awaitingMsg = textMessages[playNextIndex];
-        if (awaitingMsg?.type !== expectedType) {
+        const mode = humanTurnModeOf(awaitingMsg);
+        if (mode === null || councilStateForHumanTurn(mode) !== councilState) {
+            const expectedType = councilState === "human_panelist" ? "awaiting_human_panelist" : "awaiting_human_question or awaiting_letter_addition";
             const detail = `Internal state mismatch: expected ${expectedType} before abandoning human turn.`;
             console.error(detail);
             setUnrecoverableError({
@@ -681,11 +696,11 @@ export function useCouncilMachine({
         setPendingIntent({
             kind: "skip-turn",
             meetingId: currentMeetingId,
-            mode: awaitingMsg.type === "awaiting_human_panelist" ? "panelist" : "question",
+            mode,
             index: playNextIndex,
             speaker,
         });
-        performSkipTurn(speaker);
+        performSkipTurn(speaker, mode);
     }
 
     function declineOverlay() {
@@ -871,17 +886,14 @@ export function useCouncilMachine({
             setCanRaiseHand(false);
             return;
         }
-        // Once the meeting is concluding (closing line + summary_pending) or concluded (summary),
-        // it is finished — hide raise-hand. The marker is broadcast atomically with the closing
-        // line, so this hides the button from the moment the conclusion begins. The server also
-        // rejects late raise-hand requests, so this is purely the UX half of that gate.
-        const isConcluding = textMessages.some(
-            (msg) => msg.type === 'summary_pending' || msg.type === 'summary'
-        );
+        // Once the meeting is concluding (closing line + summary_pending or a letter's markers) or
+        // concluded (summary), it is finished — hide raise-hand. The marker is broadcast atomically
+        // with the closing line, so this hides the button from the moment the conclusion begins.
+        // The server also rejects late raise-hand requests, so this is purely the UX half of that gate.
         setCanRaiseHand(
             (councilState === 'playing' || councilState === 'waiting') &&
             playingNowIndex === maximumPlayedIndex &&
-            !isConcluding
+            !isConcluding(textMessages)
         );
     }, [councilState, playingNowIndex, maximumPlayedIndex, liveKey, textMessages]);
 
@@ -939,8 +951,7 @@ export function useCouncilMachine({
                 // draft answers must still be there. Checked against the captured
                 // index rather than the array end, so it survives the invitation
                 // being skipped/replayed ahead of it.
-                const expectedType =
-                    intent.mode === "panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+                const expectedType = awaitingTypeFor(intent.mode);
                 const awaitingMsg = textMessages[intent.index];
                 if (awaitingMsg?.type !== expectedType) {
                     // Fulfilled: either the original submit already landed (the
@@ -956,8 +967,7 @@ export function useCouncilMachine({
                 // councilState to catch back up to human_input/human_panelist
                 // before auto-submitting, so we never submit underneath a
                 // still-replaying invitation.
-                const expectedState = intent.mode === "panelist" ? "human_panelist" : "human_input";
-                if (councilState !== expectedState) return;
+                if (councilState !== councilStateForHumanTurn(intent.mode)) return;
 
                 performHumanSubmit(intent.text, intent.mode, intent.speaker);
                 break;
@@ -988,8 +998,7 @@ export function useCouncilMachine({
                 // Precondition (same shape as human-draft): the awaiting sentinel
                 // this skip resolves must still be there, checked against the
                 // captured index.
-                const expectedType =
-                    intent.mode === "panelist" ? "awaiting_human_panelist" : "awaiting_human_question";
+                const expectedType = awaitingTypeFor(intent.mode);
                 const awaitingMsg = textMessages[intent.index];
                 if (awaitingMsg?.type !== expectedType) {
                     // Fulfilled: either the original skip already landed (the
@@ -1017,10 +1026,9 @@ export function useCouncilMachine({
                     return;
                 }
 
-                const expectedState = intent.mode === "panelist" ? "human_panelist" : "human_input";
-                if (councilState !== expectedState) return;
+                if (councilState !== councilStateForHumanTurn(intent.mode)) return;
 
-                performSkipTurn(intent.speaker);
+                performSkipTurn(intent.speaker, intent.mode);
                 break;
             }
         }

@@ -1,7 +1,14 @@
+import { mkdtemp, rm } from "node:fs/promises";
 import net from "node:net";
+import os from "node:os";
+import path from "node:path";
 import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import type { BridgeConfig } from "../src/config.js";
 import { MockSerialManager } from "../src/mockSerialManager.js";
+import { AlertMonitor } from "../src/alertMonitor.js";
+import { MockPrinter } from "../src/printer.js";
+import type { PrintRuntime } from "../src/printRoutes.js";
+import { PrintSpool } from "../src/printSpool.js";
 import { WsServer } from "../src/wsServer.js";
 
 export function getFreePort(): Promise<number> {
@@ -48,6 +55,13 @@ export type TestBridge = {
   simulateUsbReconnect: (pressed?: boolean) => void;
   getWrittenLines: () => string[];
   clearWrittenLines: () => void;
+  printUrl: string;
+  /** Present when started with `print: true`. */
+  alerts: () => AlertMonitor | null;
+  /** Present when started with `print: true`. */
+  printer: MockPrinter | null;
+  /** Spool folder; survives restart() so a restart sees what was left on disk. */
+  spoolDir: string | null;
   restart: () => Promise<void>;
   stop: () => Promise<void>;
 };
@@ -55,6 +69,8 @@ export type TestBridge = {
 export type StartTestBridgeOptions = {
   /** When false, bridge starts with no USB device until simulateUsbReconnect(). */
   serialConnected?: boolean;
+  /** Run the print spool against a mock printer in a temp folder. */
+  print?: boolean;
 };
 
 function createTestConfig(port: number): BridgeConfig {
@@ -67,6 +83,23 @@ function createTestConfig(port: number): BridgeConfig {
     reconnectBaseMs: 500,
     reconnectMaxMs: 10_000,
     mockSerial: true,
+    printEnabled: false,
+    printSpoolDir: "",
+    printer: null,
+    mockPrinter: null,
+    printMaxBytes: 1024 * 1024,
+    printRetryBaseMs: 20,
+    printRetryMaxMs: 100,
+    printStatusIntervalMs: 50,
+    printNotPrintingAfterMs: 300,
+    alertGraceMs: 100,
+    alertReminderMs: 60 * 60_000,
+    alertOpeningReminderGapMs: 60 * 60_000,
+    alertTickMs: 25,
+    alertVenueRefreshMs: 60 * 60_000,
+    alertRetryBaseMs: 50,
+    alertRetryMaxMs: 200,
+    alertTestIntervalMs: 60_000,
   };
 }
 
@@ -127,19 +160,59 @@ export async function startTestBridge(
   const healthUrl = `http://${host}:${port}/health`;
   const wsUrl = `ws://${host}:${port}/v1/button`;
   const simulateButtonUrl = `http://${host}:${port}/v1/test/simulate-button`;
+  const printUrl = `http://${host}:${port}/v1/print`;
+  const spoolDir = options.print ? await mkdtemp(path.join(os.tmpdir(), "bridge-print-")) : null;
+  const printer = spoolDir ? new MockPrinter(path.join(spoolDir, "mock-printed")) : null;
 
   const runtime = {
     port,
     host,
     serial: new MockSerialManager(),
     server: null as WsServer | null,
+    print: null as PrintRuntime | null,
   };
 
   async function boot(connectSerial = serialConnected): Promise<void> {
     runtime.serial = new MockSerialManager();
-    runtime.server = new WsServer(createTestConfig(runtime.port), runtime.serial, (clientCount) => {
-      notifyNoClientIfSerialOpen(runtime.serial, clientCount);
-    });
+    const config = createTestConfig(runtime.port);
+    runtime.print = null;
+    if (spoolDir && printer) {
+      const spool = new PrintSpool({
+        dir: spoolDir,
+        printer,
+        retryBaseMs: config.printRetryBaseMs,
+        retryMaxMs: config.printRetryMaxMs,
+        statusIntervalMs: config.printStatusIntervalMs,
+        notPrintingAfterMs: config.printNotPrintingAfterMs,
+      });
+      await spool.start();
+      const alerts = new AlertMonitor({
+        spool,
+        stateFile: path.join(spoolDir, "alerts-state.json"),
+        installationFile: path.join(spoolDir, "installation.json"),
+        host: "test-mac",
+        timings: {
+          graceMs: config.alertGraceMs,
+          reminderMs: config.alertReminderMs,
+          openingReminderGapMs: config.alertOpeningReminderGapMs,
+        },
+        tickMs: config.alertTickMs,
+        venueRefreshMs: config.alertVenueRefreshMs,
+        deliveryRetryBaseMs: config.alertRetryBaseMs,
+        deliveryRetryMaxMs: config.alertRetryMaxMs,
+        testAlertIntervalMs: config.alertTestIntervalMs,
+      });
+      await alerts.start();
+      runtime.print = { spool, mockPrinter: printer, alerts };
+    }
+    runtime.server = new WsServer(
+      config,
+      runtime.serial,
+      (clientCount) => {
+        notifyNoClientIfSerialOpen(runtime.serial, clientCount);
+      },
+      runtime.print,
+    );
     wireSerialToServer(runtime.serial, runtime.server);
     if (connectSerial) {
       runtime.serial.start();
@@ -162,10 +235,16 @@ export async function startTestBridge(
     simulateUsbReconnect: (pressed = false) => runtime.serial.simulateUsbReconnect(pressed),
     getWrittenLines: () => runtime.serial.getWrittenLines(),
     clearWrittenLines: () => runtime.serial.clearWrittenLines(),
+    printUrl,
+    alerts: () => runtime.print?.alerts ?? null,
+    printer,
+    spoolDir,
     restart: async () => {
       if (runtime.server) {
         await runtime.server.stop();
       }
+      await runtime.print?.alerts?.stop();
+      await runtime.print?.spool.stop();
       await runtime.serial.stop();
       await boot(true);
     },
@@ -174,7 +253,12 @@ export async function startTestBridge(
         await runtime.server.stop();
         runtime.server = null;
       }
+      await runtime.print?.alerts?.stop();
+      await runtime.print?.spool.stop();
       await runtime.serial.stop();
+      if (spoolDir) {
+        await rm(spoolDir, { recursive: true, force: true });
+      }
     },
   };
 }

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Staff from '@main/overlay/Staff';
 import '@testing-library/jest-dom';
-import type { SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
+import type { BridgeAlertsHealth, BridgePrintHealth, SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
 
 const museumButtonState = {
   bridgeStatus: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error',
@@ -21,6 +21,8 @@ const bridgeHealthState: {
   serialMessage: string;
   expectedVendorId: string | null;
   scannedPorts: UsbPortInfo[];
+  print: BridgePrintHealth | null;
+  alerts: BridgeAlertsHealth | null;
 } = {
   status: 'running',
   serial: 'connected',
@@ -30,6 +32,8 @@ const bridgeHealthState: {
   serialMessage: 'Council button connected at /dev/cu.usbmodem1',
   expectedVendorId: '2341',
   scannedPorts: [],
+  print: null,
+  alerts: null,
 };
 
 vi.mock('react-i18next', () => ({
@@ -70,6 +74,38 @@ vi.mock('@/museum/button/useButton', () => ({
   }),
 }));
 
+const mockCreateProtocolPdf = vi.fn();
+const mockSendTestPage = vi.fn();
+
+vi.mock('@council/protocol/protocolPdf', () => ({
+  createProtocolPdf: (...args: unknown[]) => mockCreateProtocolPdf(...args),
+}));
+
+vi.mock('@/museum/print/printClient', () => ({
+  sendTestPage: (...args: unknown[]) => mockSendTestPage(...args),
+}));
+
+vi.mock('@council/protocol/ProtocolDocument', () => ({
+  default: ({ ref, summaryText }: { ref: React.Ref<HTMLDivElement>; summaryText: string }) => (
+    <div ref={ref} data-testid="staff-test-page-document">{summaryText}</div>
+  ),
+}));
+
+const mockFetchVenues = vi.fn();
+const mockChooseAlertVenue = vi.fn();
+const mockSendTestAlert = vi.fn();
+const mockSaveInstallationKey = vi.fn();
+
+vi.mock('@api/venues', () => ({
+  fetchVenues: (...args: unknown[]) => mockFetchVenues(...args),
+}));
+
+vi.mock('@/museum/print/alertsClient', () => ({
+  chooseAlertVenue: (...args: unknown[]) => mockChooseAlertVenue(...args),
+  sendTestAlert: (...args: unknown[]) => mockSendTestAlert(...args),
+  saveInstallationKey: (...args: unknown[]) => mockSaveInstallationKey(...args),
+}));
+
 describe('Staff overlay', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -86,6 +122,12 @@ describe('Staff overlay', () => {
     bridgeHealthState.serialMessage = 'Council button connected at /dev/cu.usbmodem1';
     bridgeHealthState.expectedVendorId = '2341';
     bridgeHealthState.scannedPorts = [];
+    bridgeHealthState.print = null;
+    bridgeHealthState.alerts = null;
+    mockFetchVenues.mockReset().mockResolvedValue([{ id: 'example-museum', name: 'Example Museum' }]);
+    mockChooseAlertVenue.mockReset().mockResolvedValue(undefined);
+    mockSendTestAlert.mockReset();
+    mockSaveInstallationKey.mockReset().mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -93,9 +135,10 @@ describe('Staff overlay', () => {
     museumButtonState.bridgeError = null;
   });
 
-  it('renders the installation panel: mode row plus the independent staff aids', () => {
+  it('renders the mode panel with its screen aids, and the installation panel with its features', () => {
     render(<Staff />);
     expect(screen.getByText('staff.title')).toBeInTheDocument();
+    expect(screen.getByText('staff.panels.mode')).toBeInTheDocument();
     expect(screen.getByText('staff.panels.installation')).toBeInTheDocument();
     expect(screen.getByText('staff.web')).toBeInTheDocument();
     expect(screen.getByText('staff.museum')).toBeInTheDocument();
@@ -260,7 +303,7 @@ describe('Staff overlay', () => {
 
     const toggle = screen.getByTestId('staff-ptt-hardware-toggle');
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByTestId('staff-button-status')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('staff-bridge-daemon-status')).not.toBeInTheDocument();
   });
 
   it('persists hardware enablement and shows button status panel', () => {
@@ -269,7 +312,7 @@ describe('Staff overlay', () => {
 
     fireEvent.click(screen.getByTestId('staff-ptt-hardware-toggle'));
     expect(localStorage.getItem('councilPttHardwareEnabled')).toBe('true');
-    expect(screen.getByTestId('staff-button-status')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-bridge-daemon-status')).toBeInTheDocument();
   });
 
   it('shows button status panel in web mode when hardware is enabled', () => {
@@ -279,7 +322,7 @@ describe('Staff overlay', () => {
 
     render(<Staff />);
 
-    expect(screen.getByTestId('staff-button-status')).toBeInTheDocument();
+    expect(screen.getByTestId('staff-bridge-daemon-status')).toBeInTheDocument();
     expect(screen.getByTestId('staff-bridge-app-status')).toHaveTextContent(
       'staff.button.app.connected',
     );
@@ -347,5 +390,291 @@ describe('Staff overlay', () => {
 
     fireEvent.click(screen.getByText('staff.panels.details'));
     expect(screen.getByTestId('staff-button-usb-hint')).toBeInTheDocument();
+  });
+
+  describe('printing', () => {
+    const readyPrint: BridgePrintHealth = {
+      enabled: true,
+      printer: { name: 'Museum_Printer', state: 'idle', alerts: [], message: null },
+      pending: 0,
+      lastError: null,
+      lastPrintedAt: null,
+    };
+
+    it('persists the print summaries toggle and shows the printer status only while on', () => {
+      bridgeHealthState.print = readyPrint;
+      render(<Staff />);
+      expect(screen.queryByTestId('staff-print-printer-status')).not.toBeInTheDocument();
+
+      const toggle = screen.getByTestId('staff-print-summaries-toggle');
+      fireEvent.click(toggle);
+
+      expect(localStorage.getItem('councilPrintSummariesEnabled')).toBe('true');
+      expect(toggle).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getByTestId('staff-print-printer-status')).toHaveTextContent(
+        'Museum_Printer — staff.print.printer.idle',
+      );
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('0');
+
+      fireEvent.click(toggle);
+      expect(screen.queryByTestId('staff-print-printer-status')).not.toBeInTheDocument();
+    });
+
+    it('shares one bridge status with the hardware button', () => {
+      localStorage.setItem('councilPttHardwareEnabled', 'true');
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = readyPrint;
+
+      render(<Staff />);
+
+      expect(screen.getAllByTestId('staff-bridge-daemon-status')).toHaveLength(1);
+      expect(screen.getByTestId('staff-button-usb-status')).toBeInTheDocument();
+      expect(screen.getByTestId('staff-print-printer-status')).toBeInTheDocument();
+    });
+
+    it('shows only printer chips when printing is on without the hardware button', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = readyPrint;
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-bridge-daemon-status')).toBeInTheDocument();
+      expect(screen.queryByTestId('staff-button-usb-status')).not.toBeInTheDocument();
+      expect(screen.getByTestId('staff-print-printer-status')).toBeInTheDocument();
+    });
+
+    it.each([
+      { name: 'bridge not running', status: 'not_running', print: null, expected: 'staff.print.printer.unavailable' },
+      { name: 'bridge predates printing', status: 'running', print: null, expected: 'staff.print.printer.outdated' },
+      { name: 'printing off on the bridge', status: 'running', print: { enabled: false }, expected: 'staff.print.printer.disabled' },
+      {
+        name: 'no default printer',
+        status: 'running',
+        print: { ...readyPrint, printer: { name: null, state: 'unknown', alerts: [], message: 'No default printer' } },
+        expected: 'staff.print.printer.noDefault',
+      },
+      {
+        name: 'printer stopped',
+        status: 'running',
+        print: { ...readyPrint, printer: { name: 'Museum_Printer', state: 'stopped', alerts: ['media-empty-error'], message: 'Media Empty' } },
+        expected: 'Museum_Printer — staff.print.printer.stopped',
+      },
+    ] as const)('shows the printer as: $name', ({ status, print, expected }) => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.status = status;
+      bridgeHealthState.print = print as BridgePrintHealth | null;
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-printer-status')).toHaveTextContent(expected);
+    });
+
+    it('says what needs attention, counting protocols waiting in the printer too', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = {
+        ...readyPrint,
+        printer: { name: 'Museum_Printer', state: 'idle', alerts: ['media-empty-error'], message: null, queuedJobs: 2, oldestJobAt: '2026-09-16T12:00:00.000Z' },
+        pending: 1,
+        attention: { reason: 'media-empty', since: '2026-09-16T12:00:00.000Z' },
+      };
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-attention')).toHaveTextContent('out of paper');
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('3');
+    });
+
+    it('shows no attention chip while the printer is fine', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = { ...readyPrint, attention: null };
+
+      render(<Staff />);
+
+      expect(screen.queryByTestId('staff-print-attention')).not.toBeInTheDocument();
+    });
+
+    it('surfaces why the printer is stuck in the details', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      bridgeHealthState.print = {
+        ...readyPrint,
+        printer: { name: 'Museum_Printer', state: 'stopped', alerts: ['media-empty-error'], message: 'Media Empty' },
+        pending: 2,
+        lastError: 'lp: printer is offline',
+      };
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-print-pending')).toHaveTextContent('2');
+      const lines = screen.getAllByTestId('staff-print-detail-line').map((line) => line.textContent);
+      expect(lines).toEqual(['Media Empty', 'Printer alerts: media-empty-error', 'Last error: lp: printer is offline']);
+    });
+
+    it('prints a test page through the same PDF path and reports the result', async () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      const blob = new Blob(['%PDF-']);
+      mockCreateProtocolPdf.mockResolvedValue({ output: () => blob });
+      mockSendTestPage.mockResolvedValue('queued');
+
+      render(<Staff />);
+      fireEvent.click(screen.getByTestId('staff-print-test-page'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('staff-print-test-page-result')).toHaveTextContent(
+          'staff.print.testPageResult.queued',
+        );
+      });
+      expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'));
+      expect(mockSendTestPage).toHaveBeenCalledWith(blob);
+    });
+
+    it('explains that only museum mode prints', () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      render(<Staff />);
+      expect(screen.getByTestId('staff-print-mode-hint')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('app-mode-museum'));
+      expect(screen.queryByTestId('staff-print-mode-hint')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('printer alert emails', () => {
+    const venue = { id: 'example-museum', name: 'Example Museum', recipients: ['s***@example-museum.org'] };
+    const alerts = (overrides: Partial<BridgeAlertsHealth> = {}): BridgeAlertsHealth => ({
+      server: window.location.origin,
+      venue: null,
+      open: null,
+      phase: 'ok',
+      lastSentAt: null,
+      lastError: null,
+      undelivered: false,
+      ...overrides,
+    });
+
+    beforeEach(() => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+    });
+
+    it.each([
+      { name: 'no key', server: null, status: 'missing', canEnter: true },
+      { name: "another server's key", server: 'https://council-of-foods.com', status: 'otherServer', canEnter: true },
+      { name: 'a version without installation keys', server: undefined, status: 'outdated', canEnter: false },
+    ])('with $name on the bridge, asks for the key and leaves the bridge alone', async ({ server, status, canEnter }) => {
+      bridgeHealthState.alerts = alerts({ server });
+
+      render(<Staff />);
+      const picker = screen.getByTestId('staff-venue');
+      await waitFor(() => expect(picker).not.toBeDisabled());
+      fireEvent.change(picker, { target: { value: 'example-museum' } });
+
+      expect(screen.getByTestId('staff-installation-key-status')).toHaveTextContent(`staff.installationKey.status.${status}`);
+      expect(screen.queryByTestId('staff-installation-key') !== null).toBe(canEnter);
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.noKey');
+      expect(screen.queryByTestId('staff-alerts-test')).not.toBeInTheDocument();
+      expect(localStorage.getItem('councilVenueId')).toBe('example-museum');
+      expect(mockChooseAlertVenue).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      { name: 'accepted', outcome: () => undefined, fieldAfter: '', status: 'staff.installationKey.status.saved' },
+      {
+        name: 'refused',
+        outcome: () => mockSaveInstallationKey.mockRejectedValue(new Error('the server did not accept this installation key')),
+        fieldAfter: ' the-key ',
+        status: 'staff.installationKey.notSaved: the server did not accept this installation key',
+      },
+    ])('hands the key to the bridge and reports it $name', async ({ outcome, fieldAfter, status }) => {
+      const reported = () =>
+        screen.queryByTestId('staff-installation-key-error') ?? screen.getByTestId('staff-installation-key-status');
+      outcome();
+      bridgeHealthState.alerts = alerts({ server: null });
+
+      render(<Staff />);
+      const input = screen.getByTestId('staff-installation-key');
+      fireEvent.change(input, { target: { value: ' the-key ' } });
+      fireEvent.click(screen.getByTestId('staff-installation-key-save'));
+
+      await waitFor(() => expect(reported()).toHaveTextContent(status));
+      expect(mockSaveInstallationKey).toHaveBeenCalledWith('the-key');
+      if (fieldAfter) expect(input).toHaveValue(fieldAfter);
+      else expect(screen.queryByTestId('staff-installation-key')).not.toBeInTheDocument();
+    });
+
+    it('hides a saved key behind Change, and Cancel puts it back', () => {
+      bridgeHealthState.alerts = alerts();
+
+      render(<Staff />);
+      expect(screen.getByTestId('staff-installation-key-status')).toHaveTextContent('staff.installationKey.status.saved');
+      expect(screen.queryByTestId('staff-installation-key')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('staff-installation-key-change'));
+      expect(screen.getByTestId('staff-installation-key')).toBeInTheDocument();
+      expect(screen.queryByTestId('staff-installation-key-change')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('staff-installation-key-cancel'));
+      expect(screen.queryByTestId('staff-installation-key')).not.toBeInTheDocument();
+    });
+
+    it('sends printer alerts for the venue chosen for the installation, and only then offers a test', async () => {
+      bridgeHealthState.alerts = alerts();
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.chooseVenue');
+      expect(screen.getByTestId('staff-alerts-test')).toBeDisabled();
+      const picker = screen.getByTestId('staff-venue');
+      await waitFor(() => expect(picker).not.toBeDisabled());
+
+      fireEvent.change(picker, { target: { value: 'example-museum' } });
+      await waitFor(() => expect(mockChooseAlertVenue).toHaveBeenCalledWith('example-museum'));
+    });
+
+    it("adopts the bridge's venue when the installation has none yet", async () => {
+      bridgeHealthState.alerts = alerts({ venue });
+
+      render(<Staff />);
+
+      await waitFor(() => expect(screen.getByTestId('staff-venue')).toHaveValue('example-museum'));
+      expect(localStorage.getItem('councilVenueId')).toBe('example-museum');
+      expect(mockChooseAlertVenue).not.toHaveBeenCalled();
+    });
+
+    it("moves the bridge to the installation's venue when they differ", async () => {
+      localStorage.setItem('councilVenueId', 'example-museum');
+      bridgeHealthState.alerts = alerts({ venue: { ...venue, id: 'other-museum', name: 'Other Museum' } });
+
+      render(<Staff />);
+
+      await waitFor(() => expect(mockChooseAlertVenue).toHaveBeenCalledWith('example-museum'));
+      expect(mockChooseAlertVenue).toHaveBeenCalledTimes(1);
+    });
+
+    it('shows the chosen venue, who is emailed and why alerts are failing', () => {
+      bridgeHealthState.print = { enabled: true, printer: null, pending: 0, lastError: null, lastPrintedAt: null };
+      bridgeHealthState.alerts = alerts({ venue, lastError: 'council server unreachable' });
+
+      render(<Staff />);
+
+      expect(screen.getByTestId('staff-alerts-status')).toHaveTextContent('staff.alerts.status.failing');
+      const lines = screen.getAllByTestId('staff-print-detail-line').map((line) => line.textContent);
+      expect(lines).toContain('Alert emails go to s***@example-museum.org');
+      expect(lines).toContain('Alert error: council server unreachable');
+    });
+
+    it.each([
+      { name: 'delivered', outcome: () => mockSendTestAlert.mockResolvedValue(undefined), expected: 'staff.alerts.testResult.sent' },
+      {
+        name: 'refused',
+        outcome: () => mockSendTestAlert.mockRejectedValue(new Error('a test alert was just sent')),
+        expected: 'staff.alerts.testResult.failed: a test alert was just sent',
+      },
+    ])('reports a test alert that was $name', async ({ outcome, expected }) => {
+      outcome();
+      bridgeHealthState.alerts = alerts({ venue });
+
+      render(<Staff />);
+      fireEvent.click(screen.getByTestId('staff-alerts-test'));
+
+      await waitFor(() => expect(screen.getByTestId('staff-alerts-test-result')).toHaveTextContent(expected));
+    });
   });
 });

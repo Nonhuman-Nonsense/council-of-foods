@@ -4,6 +4,7 @@ import type { RealtimeTool, ToolHandler } from "@realtime/realtimeTools";
 import { setConnectionError, setUnrecoverableError } from "@main/overlay/errorStore";
 import { useAutoplayAllowed } from "@/audio/canAutoplay";
 import { VISITOR_SILENT_SAFE_TOOLS } from "./setupAgentTools";
+import { setupSession } from "./setupSession";
 import { log } from "@/logger";
 
 /** What the agent's instructions are allowed to depend on. */
@@ -190,6 +191,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
   const session = useRealtimeVoiceSession({
     feature: "setup-agent",
+    setupSession,
     language,
     instructions,
     tools,

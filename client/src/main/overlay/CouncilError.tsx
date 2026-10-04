@@ -1,11 +1,8 @@
 import { useTranslation } from "react-i18next";
 import errorIcon from "@assets/error.png?inline";
 import AutoButton from "@/AutoButton";
-import {
-  HEALTH_RETRY_SECONDS,
-  probeOriginHealth,
-  restartNow,
-} from "@/navigation";
+import { HEALTH_RETRY_SECONDS, probeOriginHealth } from "@/health";
+import { restartNow } from "@/navigation";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import type { UnrecoverableError } from "./errorStore";
 import { errorCopy } from "./errorCopy";

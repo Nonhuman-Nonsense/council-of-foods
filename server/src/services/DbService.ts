@@ -1,4 +1,4 @@
-import type { StoredMeeting, StoredAudio, Counter } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio, Counter, StoredRoomPower, StoredRoomPowerHour, StoredUsageEvent } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
@@ -16,6 +16,9 @@ let activeConnectionKey: string | null = null;
 export let meetingsCollection: Collection<StoredMeeting>;
 export let audioCollection: Collection<StoredAudio>;
 export let counters: Collection<Counter>;
+export let usageEventsCollection: Collection<StoredUsageEvent> | undefined;
+export let roomPowerCollection: Collection<StoredRoomPower> | undefined;
+export let roomPowerHoursCollection: Collection<StoredRoomPowerHour> | undefined;
 
 export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
   // Config is already validated by the time we import this, but allow overrides for testing
@@ -40,10 +43,17 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   meetingsCollection = db.collection<StoredMeeting>("meetings");
   audioCollection = db.collection<StoredAudio>("audio");
   counters = db.collection<Counter>("counters");
+  const usageEvents = db.collection<StoredUsageEvent>("usage_events");
+  usageEventsCollection = usageEvents;
+  roomPowerCollection = db.collection<StoredRoomPower>("room_power");
+  const roomPowerHours = db.collection<StoredRoomPowerHour>("room_power_hours");
+  roomPowerHoursCollection = roomPowerHours;
   activeConnectionKey = connectionKey;
 
   await initializeCounters();
   await ensureMeetingIndexes();
+  await ensureUsageIndexes(usageEvents);
+  await roomPowerHours.createIndex({ venueId: 1, hour: 1 }, { name: "room_power_hours_venueId_hour" });
   Logger.info("init", "Database ready.");
 };
 
@@ -100,6 +110,15 @@ const ensureMeetingIndexes = async (): Promise<void> => {
   }
 };
 
+const ensureUsageIndexes = async (events: Collection<StoredUsageEvent>): Promise<void> => {
+  // createIndex is idempotent. Totals are keyed by _id, so only the event log needs indexes.
+  await events.createIndex({ ts: 1 }, { name: "usage_ts" });
+  await events.createIndex({ meetingId: 1 }, { name: "usage_meetingId", sparse: true });
+  await events.createIndex(
+    { venueId: 1, ts: 1 }, { name: "usage_venueId_ts", sparse: true }
+  );
+};
+
 export const closeDb = async (): Promise<void> => {
   if (!mongoClient) {
     return;
@@ -108,6 +127,9 @@ export const closeDb = async (): Promise<void> => {
   await mongoClient.close();
   mongoClient = null;
   activeConnectionKey = null;
+  usageEventsCollection = undefined;
+  roomPowerCollection = undefined;
+  roomPowerHoursCollection = undefined;
 };
 
 const initializeCounters = async (): Promise<void> => {

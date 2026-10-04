@@ -5,7 +5,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source=launchd-helpers.sh
 source "$SCRIPT_DIR/launchd-helpers.sh"
 
-INSTALL_DIR="/usr/local/lib/council-button-bridge"
 LOG_OUT="/var/log/council-button-bridge.log"
 LOG_ERR="/var/log/council-button-bridge.err.log"
 PURGE_LOGS=0
@@ -57,7 +56,8 @@ fi
 echo "Removing launchd plist..."
 sudo rm -f "$PLIST_DST"
 
-echo "Removing install directory..."
+echo "Removing install directory (including printed protocols)..."
+remove_print_spool_links
 sudo rm -rf "$INSTALL_DIR"
 
 if [[ $PURGE_LOGS -eq 1 ]]; then

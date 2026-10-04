@@ -57,7 +57,8 @@ describe("realtimeErrorReporting", () => {
         { kind: "provider-error" as const, severity: "warning", clientImpact: "none" },
         { kind: "connection-lost" as const, severity: "warning", clientImpact: "none" },
         { kind: "turn-recovered" as const, severity: "warning", clientImpact: "none" },
-        { kind: "retry-exhausted" as const, severity: "error", clientImpact: "terminal" },
+        { kind: "retry-exhausted" as const, severity: "error", clientImpact: "none" },
+        { kind: "refused" as const, severity: "error", clientImpact: "none" },
     ])("reports $kind as $severity/$clientImpact", ({ kind, severity, clientImpact }) => {
         reportRealtimeIssue({ feature: "setup-agent", kind, message: "boom" });
 

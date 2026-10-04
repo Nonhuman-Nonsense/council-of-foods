@@ -3,6 +3,10 @@ import express from "express";
 import http from "http";
 import { registerMeetingRoutes } from "@api/meetingRoutes.js";
 import { registerRealtimeRoutes } from "@api/realtimeSession.js";
+import { clearRealtimeUsageGrantsForTests, registerRealtimeUsageRoutes } from "@api/realtimeUsage.js";
+import { meetingsCollection, usageEventsCollection } from "@services/DbService.js";
+import { meterEvents } from "@services/meterEvents.js";
+import { getMeterSnapshot } from "@api/meterRoutes.js";
 import { cacheControlPrivateNoStoreApi } from "@utils/httpCache.js";
 import { UpstreamHttpError } from "@utils/NetworkUtils.js";
 import { CapacityError } from "@models/Errors.js";
@@ -42,6 +46,7 @@ describe("POST /api/realtime/* (integration)", () => {
         app.use("/api", cacheControlPrivateNoStoreApi);
         registerMeetingRoutes(app, "test");
         registerRealtimeRoutes(app);
+        registerRealtimeUsageRoutes(app);
         httpServer = http.createServer(app);
         port = await new Promise((resolve, reject) => {
             httpServer.listen(0, "127.0.0.1", () => {
@@ -121,6 +126,7 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({
             provider: "inworld",
+            usageToken: expect.any(String),
             iceServers: [],
             session: { type: "realtime" },
         });
@@ -184,6 +190,8 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({
             provider: "inworld",
+            usageToken: expect.any(String),
+            setupId: expect.any(String),
             iceServers: [{ urls: ["stun:guide.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
@@ -208,6 +216,8 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({
             provider: "inworld",
+            usageToken: expect.any(String),
+            setupId: expect.any(String),
             iceServers: [{ urls: ["stun:guide-sv.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
@@ -302,6 +312,7 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(res.status).toBe(200);
         expect(await res.json()).toEqual({
             provider: "inworld",
+            usageToken: expect.any(String),
             iceServers: [{ urls: ["stun:meta.example.com"] }],
             session: { type: "realtime", output_modalities: ["audio", "text"] },
         });
@@ -368,6 +379,159 @@ describe("POST /api/realtime/* (integration)", () => {
         expect(vi.mocked(createRealtimeCall)).toHaveBeenCalledWith({
             sdp: "offer",
             session: { type: "realtime" },
+        });
+    });
+
+    describe("POST /api/usage/realtime", () => {
+        /** One Inworld realtime `response.done` usage, as the setup agent logs it. */
+        const greetingUsage = {
+            total_tokens: 3273,
+            input_tokens: 3142,
+            output_tokens: 131,
+            input_token_details: { text_tokens: 3142 },
+            output_token_details: { text_tokens: 131, reasoning_tokens: 70 },
+            llm: { model: "google-ai-studio/gemini-2.5-flash" },
+            tts: { model: "inworld-tts-1.5-max", characters: 261, audio_seconds: 13.64 },
+        };
+
+        beforeEach(async () => {
+            clearRealtimeUsageGrantsForTests();
+            await usageEventsCollection?.deleteMany({});
+        });
+
+        async function bootstrapSession(body: Record<string, unknown>, liveKey?: string): Promise<{ usageToken: string; setupId?: string }> {
+            const res = await fetch(`${base()}/api/realtime/bootstrap`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(liveKey ? { Authorization: `Bearer ${liveKey}` } : {}),
+                },
+                body: JSON.stringify(body),
+            });
+            expect(res.status).toBe(200);
+            return res.json();
+        }
+
+        async function bootstrap(body: Record<string, unknown>, liveKey?: string): Promise<string> {
+            return (await bootstrapSession(body, liveKey)).usageToken;
+        }
+
+        function report(usageToken: string, usage: unknown) {
+            return fetch(`${base()}/api/usage/realtime`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ usageToken, usage }),
+            });
+        }
+
+        async function storedEvents(count: number) {
+            return vi.waitFor(async () => {
+                const events = await usageEventsCollection!.find({}, { projection: { _id: 0, ts: 0 } }).toArray();
+                expect(events).toHaveLength(count);
+                return events;
+            });
+        }
+
+        it("records a setup-agent session's usage under the venue it names and its setup", async () => {
+            const { usageToken, setupId } = await bootstrapSession({ feature: "setup-agent", language: "en", venueId: "museum-oslo" });
+
+            expect((await report(usageToken, greetingUsage)).status).toBe(204);
+
+            expect(await storedEvents(2)).toEqual(expect.arrayContaining([
+                {
+                    feature: "setup-agent",
+                    provider: "inworld",
+                    model: "google-ai-studio/gemini-2.5-flash",
+                    measures: { input_tokens: 3142, output_tokens: 131, reasoning_tokens: 70 },
+                    venueId: "museum-oslo",
+                    setupId,
+                },
+                {
+                    feature: "setup-agent",
+                    provider: "inworld",
+                    model: "inworld-tts-1.5-max",
+                    measures: { characters: 261, audio_seconds: 13.64 },
+                    venueId: "museum-oslo",
+                    setupId,
+                },
+            ]));
+        });
+
+        it("keeps a setup across reconnects and gives its usage to the meeting it leads to", async () => {
+            const first = await bootstrapSession({ feature: "setup-agent", language: "en" });
+            const reconnect = await bootstrapSession({ feature: "setup-agent", language: "en", setupId: first.setupId });
+            expect(reconnect.setupId).toBe(first.setupId);
+
+            await report(first.usageToken, { stt: { model: "soniox/stt-rt-v4", audio_seconds: 2 } });
+            await storedEvents(1);
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ ...validCreateBody(), setupId: first.setupId }),
+            });
+            const { meetingId } = await createRes.json();
+            // The agent still finishing its sentence after the handover.
+            await report(reconnect.usageToken, { stt: { model: "soniox/stt-rt-v4", audio_seconds: 1 } });
+
+            const events = await vi.waitFor(async () => {
+                const linked = await usageEventsCollection!.find({ setupId: first.setupId, meetingId: Number(meetingId) }).toArray();
+                expect(linked).toHaveLength(2);
+                return linked;
+            });
+            expect(events.map((event) => event.measures.audio_seconds).sort()).toEqual([1, 2]);
+
+            // A setup that has led to a meeting is over: the next visitor gets a new one.
+            const next = await bootstrapSession({ feature: "setup-agent", language: "en", setupId: first.setupId });
+            expect(next.setupId).not.toBe(first.setupId);
+        });
+
+        it("tells the venue's meters when a new setup starts, not when one reconnects", async () => {
+            const started: unknown[] = [];
+            const listener = (setup: unknown) => started.push(setup);
+            meterEvents.on("setupStarted", listener);
+            try {
+                const first = await bootstrapSession({ feature: "setup-agent", language: "en", venueId: "museum-oslo" });
+                await bootstrapSession({ feature: "setup-agent", language: "en", venueId: "museum-oslo", setupId: first.setupId });
+
+                expect(started).toEqual([{ venueId: "museum-oslo", setupId: first.setupId }]);
+                expect((await getMeterSnapshot("museum-oslo")).meeting).toMatchObject({ meetingId: null, setupId: first.setupId, totals: [] });
+            } finally {
+                meterEvents.off("setupStarted", listener);
+            }
+        });
+
+        it("tags a meeting session's usage with that meeting and its venue", async () => {
+            const liveKey = await createMeetingAndKey();
+            const meeting = await meetingsCollection.findOne({ liveKey });
+            await meetingsCollection.updateOne({ liveKey }, { $set: { venueId: "museum-oslo" } });
+            const usageToken = await bootstrap({ feature: "meta-agent", language: "en" }, liveKey);
+
+            await report(usageToken, { stt: { model: "soniox/stt-rt-v4", audio_seconds: 2.879 } });
+
+            expect(await storedEvents(1)).toEqual([{
+                feature: "meta-agent",
+                provider: "inworld",
+                model: "soniox/stt-rt-v4",
+                measures: { audio_seconds: 2.879 },
+                meetingId: meeting!._id,
+                venueId: "museum-oslo",
+            }]);
+        });
+
+        it("rejects reports without a token the server handed out", async () => {
+            const res = await report("forged-token", greetingUsage);
+
+            expect(res.status).toBe(403);
+            expect(await usageEventsCollection!.countDocuments()).toBe(0);
+        });
+
+        it("clamps a response's usage to plausible limits", async () => {
+            const usageToken = await bootstrap({ feature: "setup-agent", language: "en" });
+
+            await report(usageToken, { tts: { model: "inworld-tts-1.5-max", characters: 1e12, audio_seconds: -5 } });
+
+            const [event] = await storedEvents(1);
+            expect(event.measures).toEqual({ characters: 50_000 });
         });
     });
 });

@@ -51,6 +51,10 @@ export class HumanInputHandler {
         Logger.info("humanInput", `human input on index ${m.conversation.length - 1} `, { from: manager });
 
         const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type === "awaiting_letter_addition") {
+            await this.resolveLetterAddition(m, payload.text);
+            return;
+        }
         if (lastMessage?.type !== 'awaiting_human_question') {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
             // Server is not in the right state to accept this; discard gracefully.
@@ -178,6 +182,37 @@ export class HumanInputHandler {
     }
 
     /**
+     * The human's answer to the author's "would you like to add something?" — their words, or
+     * `null` when they skipped or walked away. Their words go straight into the letter, not into
+     * the conversation (nobody reads them back first): `awaiting_letter_addition` becomes
+     * `summary_pending` in one write with the answer and whether they were there to give it —
+     * only then is the letter printed and sent. The run loop then finishes the letter.
+     */
+    private async resolveLetterAddition(m: StoredMeeting, text: string | null): Promise<void> {
+        const { manager } = this;
+        m.conversation[m.conversation.length - 1] = { type: "summary_pending" };
+        const answer = { present: text !== null, ...(text !== null ? { addition: text } : {}) };
+        if (m.letter) m.letter = { ...m.letter, ...answer };
+        Logger.info("humanInput", text === null ? "letter addition skipped" : "letter addition received", { from: manager });
+
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            {
+                $set: {
+                    conversation: m.conversation,
+                    "letter.present": answer.present,
+                    ...(answer.addition !== undefined ? { "letter.addition": answer.addition } : {}),
+                },
+            },
+        );
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
+
+        manager.isPaused = false;
+        manager.handRaised = false;
+        manager.startLoop();
+    }
+
+    /**
      * Skips the visitor's turn when they abandon input (e.g. museum idle timeout).
      * Validates awaiting state, replaces invitation+awaiting with a skipped marker, resumes the loop.
      */
@@ -187,6 +222,10 @@ export class HumanInputHandler {
         if (!m) return;
 
         const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type === "awaiting_letter_addition") {
+            await this.resolveLetterAddition(m, null);
+            return;
+        }
         if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
             Logger.staleEvent("humanInput", "skip_human_turn", `expected awaiting human input but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });

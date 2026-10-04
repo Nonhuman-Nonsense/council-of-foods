@@ -9,6 +9,8 @@ import { Logger } from "@utils/Logger.js";
 import { GlobalOptions } from "./GlobalOptions.js";
 import type { ConversationCompletionResult, ConversationService } from "@services/ConversationService.js";
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { recordUsage, usageTagsFor } from "@services/UsageService.js";
+import type { UsageFeature } from "@shared/UsageTypes.js";
 
 /**
  * How many times a single generation may be sampled before giving up. A model
@@ -98,12 +100,18 @@ export class DialogGenerator {
             messages: ChatCompletionMessageParam[];
             maxCompletionTokens: number;
             stop?: string[];
+            /** Defaults to the conversation model and its reasoning setting. */
+            model?: { model: string; reasoning: GlobalOptions["conversationReasoning"] };
         },
         postProcess: (completion: ConversationCompletionResult) => T,
         ctx: {
             /** Names the generation in logs and in the error a caller sees. */
             operation: string;
+            /** What the generation is for, in the footprint meter's usage log. */
+            feature: UsageFeature;
             meeting: StoredMeeting;
+            /** Conversation position the generation will take, for the meter's playback count. */
+            messageIndex: number;
             /**
              * Interrupts (hand raise, pause, teardown), checked between attempts.
              * Aborting returns an empty response, so only pass one from a caller
@@ -114,7 +122,7 @@ export class DialogGenerator {
             shouldAbort?: () => boolean;
         },
     ): Promise<{ id: string | null } & T> {
-        const { operation, meeting, shouldAbort } = ctx;
+        const { operation, feature, meeting, messageIndex, shouldAbort } = ctx;
         let lastEmpty: { id: string | null } & T | null = null;
 
         for (let attempt = 1; attempt <= GENERATION_ATTEMPTS; attempt++) {
@@ -122,7 +130,13 @@ export class DialogGenerator {
                 request.messages,
                 request.maxCompletionTokens,
                 request.stop,
+                request.model,
             );
+
+            // Every attempt is paid for, including the empty ones.
+            if (completion.usage) {
+                void recordUsage({ feature, ...completion.usage, ...usageTagsFor(meeting, messageIndex) });
+            }
 
             if (completion.content) {
                 const processed = postProcess(completion);
@@ -322,12 +336,13 @@ export class DialogGenerator {
         messages: ChatCompletionMessageParam[],
         maxCompletionTokens: number,
         stop?: string[],
+        model?: { model: string; reasoning: GlobalOptions["conversationReasoning"] },
     ): Promise<ConversationCompletionResult> {
         return withNetworkRetry(() => this.services.conversationService.createChatCompletion({
-            model: this.serverOptions.conversationModel,
+            model: model?.model ?? this.serverOptions.conversationModel,
             maxCompletionTokens,
             temperature: this.serverOptions.temperature,
-            reasoning: this.serverOptions.conversationReasoning,
+            reasoning: model?.reasoning ?? this.serverOptions.conversationReasoning,
             stop,
             messages,
         }), "DialogGenerator");
@@ -360,7 +375,7 @@ export class DialogGenerator {
                         currentSpeakerIndex,
                         completion.finishReason,
                     ),
-                { operation: `${speaker.name}'s turn`, meeting, shouldAbort },
+                { operation: `${speaker.name}'s turn`, feature: "dialogue", meeting, messageIndex: meeting.conversation.length, shouldAbort },
             );
         } catch (error) {
             //Just log and rethrow
@@ -404,13 +419,52 @@ export class DialogGenerator {
                         0,
                         completion.finishReason,
                     ),
-                { operation: "chair interjection", meeting },
+                { operation: "chair interjection", feature: "dialogue", meeting, messageIndex: index },
             );
         } catch (error) {
             //Just log and rethrow
             Logger.error("DialogGenerator", "Error during chair interjection", { error, from: { meetingId: meeting._id } });
             throw error;
         }
+    }
+
+    /**
+     * One step of a being's letter (see logic/letters): the whole meeting from `speaker`'s side,
+     * with its own character prompt as the system message, then `instruction`. Returns the raw
+     * text — the letter writer parses it — and the finish reason, so a cut-off answer can be
+     * told apart from a malformed one. Runs on the letter model, which may not be the one the
+     * council speaks with.
+     */
+    async generateInCharacter(
+        speaker: Character,
+        meeting: StoredMeeting,
+        instruction: string,
+        maxTokens: number,
+        operation: string,
+        options: {
+            /** Without the meeting, the speaker has only its own prompt and the topic: for quick rewrites. */
+            withConversation?: boolean;
+            model?: { model: string; reasoning: GlobalOptions["conversationReasoning"] };
+        } = {},
+    ): Promise<{ text: string; finishReason: string | null }> {
+        const conversation = options.withConversation === false ? [] : meeting.conversation;
+        const messages = this.buildMessageStack(speaker, conversation, meeting, undefined, false);
+        messages.push({ role: "system", content: instruction });
+
+        let finishReason: string | null = null;
+        const result = await this.completeWithRetry(
+            {
+                messages,
+                maxCompletionTokens: maxTokens,
+                model: options.model ?? { model: this.serverOptions.letterModel, reasoning: this.serverOptions.letterReasoning },
+            },
+            (completion) => {
+                finishReason = completion.finishReason;
+                return { response: (completion.content ?? "").trim() };
+            },
+            { operation, feature: "summary", meeting, messageIndex: meeting.conversation.length },
+        );
+        return { text: result.response, finishReason };
     }
 
     /**
@@ -421,6 +475,8 @@ export class DialogGenerator {
         documentPrompt: string,
         meeting: StoredMeeting,
         maxTokens: number,
+        /** Where the document will sit in the conversation (the summary marker's index). */
+        messageIndex: number = meeting.conversation.length,
     ): Promise<DocumentResponse> {
         try {
             const chair = meeting.characters[0];
@@ -443,7 +499,7 @@ export class DialogGenerator {
                         completion.finishReason,
                     );
                 },
-                { operation: "summary document", meeting },
+                { operation: "summary document", feature: "summary", meeting, messageIndex },
             );
 
             const trimmedNote = result.trimmed

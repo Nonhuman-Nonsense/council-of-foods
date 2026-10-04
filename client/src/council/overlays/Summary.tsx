@@ -3,8 +3,7 @@ import { useNavigate } from "react-router";
 import { useMobile, dvh } from "@/utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
-import { jsPDF } from "jspdf";
-import { useTranslation, Trans } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { useRouting } from "@/navigation";
 import { useErrorStore } from "@main/overlay/errorStore";
@@ -20,10 +19,11 @@ import {
   useAudioSyncedScroll,
   type SummaryPlaybackState,
 } from "@council/summaryScrollSync";
-import { externalLinks } from "@/i18n/externalLinks";
 import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
-import councilLogo from "@assets/logos/council_logo.png";
+import Disclaimer from "@council/protocol/Disclaimer";
+import ProtocolDocument from "@council/protocol/ProtocolDocument";
+import { createProtocolPdf } from "@council/protocol/protocolPdf";
 
 export interface SummaryData {
   text: string;
@@ -44,7 +44,7 @@ interface SummaryProps {
  * 
  * Core Logic:
  * - Renders markdown summary provided by server.
- * - Uses `jspdf` to generate a printable PDF from a hidden HTML element (`PDFToPrint`).
+ * - Downloads a PDF of the hidden {@link ProtocolDocument} via `createProtocolPdf`.
  */
 function Summary({
   summary,
@@ -168,18 +168,9 @@ function Summary({
   }, [isButtonSummaryMode, summary.text, isMobile]);
 
   const handleCreatePdf = (): void => {
-    import("../../Tinos.js").then(() => {
-      const pdf = new jsPDF("p", "pt", "a4");
-      pdf.setFont("Tinos");
-      if (protocolRef.current) {
-        pdf.html(protocolRef.current, {
-          callback: function (_doc: jsPDF) {
-            pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
-          },
-          autoPaging: 'text',
-          margin: [50, 50, 50, 50]
-        });
-      }
+    if (!protocolRef.current) return;
+    void createProtocolPdf(protocolRef.current).then((pdf) => {
+      pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
     });
   };
 
@@ -288,60 +279,9 @@ function Summary({
 
       {/* Hidden PDF Template */}
       {showDownload && <div style={{ position: 'absolute', top: '0', display: 'none' }}>
-        <div ref={protocolRef} style={{
-          position: 'absolute',
-          top: '0',
-          left: 0,
-          backgroundColor: 'white',
-          color: 'black',
-          textAlign: 'left',
-          fontFamily: '"Tinos", sans-serif',
-          fontStyle: 'normal',
-          overflow: 'hidden',
-          width: "480px"
-        }}>
-          <div style={{ width: "100%" }}>
-            <hr />
-            <div style={{ height: "52px", position: 'relative' }}>
-              <img style={{ width: '70px' }} src={councilLogo} alt="council of foods logo" />
-              <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('app.council').toUpperCase()}</h2>
-              <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('app.meeting')} #{meetingId}</h3>
-              <QRCodeCanvas value={window.location.href} style={{ position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
-            </div>
-            <hr />
-            <div id="printed-style">
-              {/* Ensure synchronous parsing for type safety */}
-              {parse(marked.parse(summary.text, { async: false }) as string)}
-              <hr /><br />
-              <Disclaimer />
-            </div>
-          </div>
-        </div>
+        <ProtocolDocument ref={protocolRef} summaryText={summary.text} meetingId={meetingId} />
       </div>}
     </>
-  );
-}
-
-function Disclaimer() {
-  const { t } = useTranslation();
-
-  return (
-    <div>
-      <p>{t("disclaimer.intro")}</p>
-      <br />
-      <ol>
-        <li>{t("disclaimer.items.misinformation")}</li>
-        <li>{t("disclaimer.items.notResearch")}</li>
-        <li>{t("disclaimer.items.takeAction")}</li>
-      </ol>
-      <br />
-      <p>
-        <Trans i18nKey="disclaimer.attribution" components={externalLinks} />
-      </p>
-      <br />
-      <p>{t("disclaimer.moreInfo")}</p>
-      <br />
-    </div>
   );
 }
 

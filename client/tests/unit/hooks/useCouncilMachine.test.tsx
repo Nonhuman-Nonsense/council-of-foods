@@ -1535,6 +1535,68 @@ describe('useCouncilMachine', () => {
         });
     });
 
+    describe('letter addition (a meeting ending in a letter)', () => {
+        const marker = { type: 'awaiting_letter_addition', speaker: 'Frank', text: '' };
+        const letterSummary = {
+            id: 'letter-1', type: 'summary', speaker: 'reindeer', text: 'Dear Skogsstyrelsen …', sentences: [],
+            letter: {
+                authorId: 'reindeer', authorName: 'Reindeer', recipientName: 'Skogsstyrelsen', recipientOrganisation: null,
+                subject: 'Three weeks', body: 'Dear Skogsstyrelsen …', humanNote: null, footer: 'Footer',
+                present: false, send: false, sendReason: 'the human did not answer',
+            },
+        };
+        const render = () => renderHook(() =>
+            useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Frank' } as any),
+        );
+
+        it('asks the human through the usual human input, and submits their words as a letter addition', () => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            act(() => { result.current.actions.handleOnSubmitHumanMessage('Please listen.'); });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Please listen.' });
+            expect(result.current.state.textMessages).toEqual([]);
+            expect(result.current.state.councilState).toBe('loading');
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('reaches the letter after a skip: the letter arrives where the marker was', () => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+
+            act(() => { result.current.actions.handleOnAbandonHumanTurn(); });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+            expect(result.current.state.textMessages).toEqual([]); // no local "skipped" placeholder to step past
+            act(() => { socketHandlers.onConversationUpdate?.([letterSummary]); });
+            expect(result.current.state.councilState).toBe('summary');
+        });
+
+        it.each([
+            ['submit', 'submit_human_message', { text: 'Please listen.' }],
+            ['skip', 'skip_human_turn', undefined],
+        ] as const)('retries a %s lost to a disconnect once the resumed meeting still asks', (action, event, payload) => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+            act(() => { socketHandlers.simulateReconnect(); });
+
+            act(() => {
+                if (action === 'submit') result.current.actions.handleOnSubmitHumanMessage('Please listen.');
+                else result.current.actions.handleOnAbandonHumanTurn();
+            });
+            expect(usePendingIntentStore.getState().intent).toMatchObject({ mode: 'letter' });
+            mockSocketEmit.mockClear();
+
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith(event, ...(payload ? [payload] : []));
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+    });
+
     describe('resolve-extension intent reconciler', () => {
         it('does not double-fire in the connected happy path (extend)', () => {
             const { result } = renderHook(() =>

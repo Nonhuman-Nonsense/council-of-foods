@@ -3,6 +3,13 @@ import { hasLiveSession } from "@logic/liveSessionRegistry.js";
 
 const MEETING_INCOMPLETE_MESSAGE: MeetingIncompleteMessage = { type: "meeting_incomplete" };
 
+/** Durable markers only a live session resolves: kept on resume, dropped from read-only replay. */
+const OWED_BY_A_LIVE_SESSION: ReadonlySet<Message["type"] | undefined> = new Set([
+    "summary_pending",
+    "letter_pending",
+    "awaiting_letter_addition",
+]);
+
 function computeCapIndex(meeting: Meeting): number {
     const conv = meeting.conversation ?? [];
     const len = conv.length;
@@ -27,10 +34,12 @@ function sliceConversation(meeting: Meeting): Message[] {
 
 /** Pop tail while last message is a live human-wait placeholder or a dangling `invitation`.
  *
- *  IMPORTANT: this deliberately does NOT strip `summary_pending`. That marker means "the server
- *  still owes a summary here", and `buildResumeConversation` feeds directly back into the DB on
- *  resume — stripping it would drop the marker so the resumed live session never finishes the
- *  conclude. Replay (read-only) strips it separately; see `buildReplayMeetingManifest`. */
+ *  IMPORTANT: this deliberately does NOT strip `summary_pending`, `letter_pending` or
+ *  `awaiting_letter_addition`. Each means "the server still owes something here" (a summary, a
+ *  letter's announcement, the human's answer to it), and `buildResumeConversation` feeds directly
+ *  back into the DB on resume — stripping one would drop the marker so the resumed live session
+ *  never finishes the conclude. (A raised hand is different: the visitor raises it again.) Replay
+ *  (read-only) strips them separately; see `buildReplayMeetingManifest`. */
 export function stripAwaitingHumanTail(messages: Message[]): void {
     while (messages.length > 0) {
         const t = messages[messages.length - 1]?.type;
@@ -104,11 +113,11 @@ export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
 
     stripAwaitingHumanTail(conversation);
 
-    // Replay is read-only: a not-yet-generated summary can never be produced here, so drop a
-    // trailing summary_pending marker and let it fall through to `meeting_incomplete` below —
-    // rather than handing the client a summary placeholder that would sit in Loading forever.
-    // (Resume deliberately keeps the marker; see stripAwaitingHumanTail's note.)
-    while (conversation.length > 0 && conversation[conversation.length - 1]?.type === "summary_pending") {
+    // Replay is read-only: a not-yet-generated summary, a letter's announcement or a human's
+    // answer can never be produced here, so drop those trailing markers and let it fall through to
+    // `meeting_incomplete` below — rather than handing the client a placeholder that would sit in
+    // Loading forever. (Resume deliberately keeps them; see stripAwaitingHumanTail's note.)
+    while (conversation.length > 0 && OWED_BY_A_LIVE_SESSION.has(conversation[conversation.length - 1]?.type)) {
         conversation.pop();
     }
 

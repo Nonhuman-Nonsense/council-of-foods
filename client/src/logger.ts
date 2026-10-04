@@ -2,6 +2,7 @@ import {
   getDevLogEnabled,
   isDevLogCategoryEnabled,
 } from "@/settings/councilSettings";
+import { hasSignOfLife } from "@/signOfLife";
 
 export const DEV_LOG_CATEGORIES = [
   "API",
@@ -12,6 +13,7 @@ export const DEV_LOG_CATEGORIES = [
   "BUTTON",
   "META",
   "AUTOPLAY",
+  "PRINT",
   "SYSTEM",
   "ERROR",
 ] as const;
@@ -38,6 +40,7 @@ const CATEGORY_STYLE: Record<LogCategory, string> = {
   BUTTON: "color: #10b981; font-weight: bold;",
   META: "color: #ec4899; font-weight: bold;",
   AUTOPLAY: "color: #f59e0b; font-weight: bold;",
+  PRINT: "color: #64748b; font-weight: bold;",
   SYSTEM: "color: #6b7280; font-weight: bold;",
   ERROR: "color: #ef4444; font-weight: bold;",
 };
@@ -51,6 +54,7 @@ const CATEGORY_ICON: Record<LogCategory, string> = {
   BUTTON: "🔘",
   META: "🪑",
   AUTOPLAY: "🔁",
+  PRINT: "🖨️",
   SYSTEM: "⚙️",
   ERROR: "❌",
 };
@@ -212,6 +216,9 @@ function postClientReport(
       severity: meta?.severity,
       clientImpact: meta?.clientImpact,
       url: window.location.href,
+      // Lets ErrorBot tell a visitor from a crawler.
+      interacted: hasSignOfLife(),
+      webdriver: navigator.webdriver === true,
       cause: cause === undefined ? undefined : serializeClientCause(cause),
     }),
     keepalive: true,
@@ -236,7 +243,13 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 // Known-harmless noise injected by host environments, not bugs in our code — e.g. an
 // in-app browser's (Instagram/TikTok/Facebook) native bridge script throwing because its
 // own window.webkit.messageHandlers object isn't present in this context.
-const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [/webkit\.messageHandlers/i];
+const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [
+  /webkit\.messageHandlers/i,
+  // A browser extension's messaging bridge failing inside our page.
+  /No Listener: tabs:/i,
+  // Safari's autoplay policy refusing someone's play() — ours all handle it; never actionable.
+  /play method is not allowed by the user agent/i,
+];
 
 // Caps how many distinct window-level errors get reported per page load, and skips exact
 // repeats — protects against a broken interval/loop flooding the report endpoint, since

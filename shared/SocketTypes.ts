@@ -29,6 +29,12 @@ export interface CreateMeetingBody {
     language: string;
     /** Audience member name learned during voice setup (optional). */
     humanName?: string;
+    /** Venue chosen on #staff for this installation; tags the meeting's AI usage. */
+    venueId?: string;
+    /** The setup-agent conversation that led to this meeting; its usage joins the meeting. */
+    setupId?: string;
+    /** The app mode's `sendsLetters` capability: whether this meeting's letter may go out. */
+    sendsLetters?: boolean;
 }
 
 export interface ResumeMeetingResponse {

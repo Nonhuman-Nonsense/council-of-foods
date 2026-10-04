@@ -1,12 +1,15 @@
-import type { Message } from '@shared/ModelTypes.js';
+import type { Character, Message } from '@shared/ModelTypes.js';
 import type { ConcludeMeetingMessage, SetupOptions } from '@shared/SocketTypes.js';
 import type { ILifecycleContext, IMeetingContext, IMeetingState } from "@interfaces/MeetingInterfaces.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import removeMd from 'remove-markdown';
-import type { StoredMeeting } from "@models/DBModels.js";
+import type { MeetingLetter, StoredMeeting } from "@models/DBModels.js";
 import { isCompleteReplayManifest } from "../api/replayManifest.js";
+import { announceMeetingProgress } from "@services/meterEvents.js";
+import { LetterEnding } from "@logic/letters/LetterEnding.js";
+import { letterPrompts } from "@logic/letters/prompts/letterPrompts.js";
 
 /**
  * Promotes a concluded meeting to `meetingComplete: true` — but only once its replay manifest
@@ -45,9 +48,12 @@ export async function promoteMeetingCompleteIfReady(
  */
 export class MeetingLifecycleHandler {
     manager: ILifecycleContext;
+    /** The letter ending (meetingEnding "letter"); see docs/council-letters.md. */
+    letterEnding: LetterEnding;
 
     constructor(meetingManager: ILifecycleContext) {
         this.manager = meetingManager;
+        this.letterEnding = new LetterEnding(meetingManager);
     }
 
     /**
@@ -96,10 +102,19 @@ export class MeetingLifecycleHandler {
             Logger.info("lifecycle", 'conclude meeting without query_extension sentinel (hard cap auto conclude)', { from: manager });
         }
 
+        // A meeting ending in a letter picks its author first, so the chair's closing line can hand
+        // over to them ("but before we go, I think Reindeer wants to send an email"). The letter's
+        // plan starts here too, and is written while the closing line is.
+        const author = manager.serverOptions.meetingEnding === "letter"
+            ? await this.letterEnding.chooseAuthor()
+            : null;
+        if (!manager.isActive) return;
+
         const chair = m.characters[0];
         const closingIndex = m.conversation.length;
         const closingPrompt = manager.serverOptions.concludeMeetingPrompt[m.language]
-            .replaceAll("[MEETING_ID]", String(m._id));
+            .replaceAll("[MEETING_ID]", String(m._id))
+            + (author ? ` ${letterPrompts(m.language).bridge({ authorName: author.name })}` : "");
         const {
             response: closingText,
             id: closingId,
@@ -132,15 +147,18 @@ export class MeetingLifecycleHandler {
         // its next iteration (decideNextAction → GENERATE_SUMMARY). Because the marker is
         // durable, a disconnect anywhere in the conclude recovers cleanly — resume sees the
         // marker and regenerates the summary, with no duplicate closing line.
+        // With a letter, the marker is `letter_pending` (the author announces next) and the author
+        // is saved in the same write, so a reconnect continues with the same author.
         m.conversation.push(closingMessage);
-        m.conversation.push({ type: "summary_pending" });
+        m.conversation.push(author ? { type: "letter_pending" } : { type: "summary_pending" });
+        if (author) m.letter = { authorId: author.id };
         Logger.info("lifecycle", `closing statement generated on index ${closingIndex}`, { from: manager });
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
 
         await manager.services.meetingsCollection.updateOne(
             { _id: m._id },
-            { $set: { conversation: m.conversation } }
+            { $set: { conversation: m.conversation, ...(author ? { letter: m.letter } : {}) } }
         );
 
         manager.audioSystem.queueAudioGeneration(
@@ -151,10 +169,48 @@ export class MeetingLifecycleHandler {
             manager.serverOptions
         );
 
-        // Kick the loop so it picks up the summary_pending marker and generates the summary.
+        // Kick the loop so it picks up the marker and generates the announcement or the summary.
         // Auto-conclude (loop-driven) is already running, so this just latches a wake; the
         // socket-driven conclude re-enters the loop once its transition settles.
         manager.startLoop();
+    }
+
+    /**
+     * Resolves a trailing `letter_pending`: the author announces the letter and the human is asked
+     * to add something. Driven by the run loop (ANNOUNCE_LETTER), on the happy path and on resume.
+     */
+    async announceLetter(): Promise<void> {
+        await this.letterEnding.announce();
+    }
+
+    /** The chair's protocol of the meeting, the summary of a meeting that does not end in a letter. */
+    private async writeProtocol(date: string): Promise<{ summary: Message; reader: Character; spoken: string }> {
+        const { manager } = this;
+        const m = manager.meeting!;
+        const chair = m.characters[0];
+        const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language]
+            .replace("[DATE]", date)
+            .replace("[MEETING_ID]", String(m._id));
+        const { response, id, trimmed } = await manager.dialogGenerator.generateDocument(
+            summaryPrompt,
+            m,
+            manager.serverOptions.summarizeMeetingLength,
+            m.conversation.findIndex((msg) => msg.type === "summary_pending"),
+        );
+        return {
+            summary: {
+                id: id || "",
+                speaker: chair.id,
+                text: response,
+                type: "summary",
+                sentences: [],
+                trimmed,
+                pretrimmed: undefined,
+            },
+            reader: chair,
+            // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
+            spoken: removeMd(response),
+        };
     }
 
     /**
@@ -172,30 +228,13 @@ export class MeetingLifecycleHandler {
         // spending an LLM call.
         if (m.conversation.findIndex((msg) => msg.type === "summary_pending") === -1) return;
 
-        const chair = m.characters[0];
-        const summaryPrompt = manager.serverOptions.summarizeMeetingPrompt[m.language]
-            .replace("[DATE]", date)
-            .replace("[MEETING_ID]", String(m._id));
-        const { response, id, trimmed } = await manager.dialogGenerator.generateDocument(
-            summaryPrompt,
-            m,
-            manager.serverOptions.summarizeMeetingLength,
-        );
-
+        // A meeting that ended in a letter has the letter as its summary, read by its author;
+        // otherwise the chair reads the protocol.
+        const written: { summary: Message; reader: Character; spoken: string; letter?: MeetingLetter } = m.letter
+            ? await this.letterEnding.writeSummary()
+            : await this.writeProtocol(date);
         if (!manager.isActive) return;
-
-        // Strip markdown formatting for TTS (prevents reading "**banana**" as "asterisk banana asterisk")
-        const textForAudio = removeMd(response);
-
-        const summary: Message = {
-            id: id || "",
-            speaker: chair.id,
-            text: response,
-            type: "summary",
-            sentences: [],
-            trimmed,
-            pretrimmed: undefined,
-        };
+        const { summary, reader, spoken: textForAudio } = written;
 
         // Replace the marker in place so the summary occupies the same (tail) index. Removing
         // the marker as soon as we have the TEXT means the client shows the summary immediately;
@@ -207,6 +246,7 @@ export class MeetingLifecycleHandler {
         if (summaryIndex === -1) return;
         m.conversation[summaryIndex] = summary;
         m.maximumPlayedIndex = summaryIndex;
+        if (written.letter) m.letter = written.letter;
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
         Logger.info("lifecycle", `summary generated on index ${summaryIndex}`, { from: manager });
@@ -217,9 +257,11 @@ export class MeetingLifecycleHandler {
                 $set: {
                     conversation: m.conversation,
                     maximumPlayedIndex: summaryIndex,
+                    ...(written.letter ? { letter: written.letter } : {}),
                 },
             },
         );
+        announceMeetingProgress(m);
 
         const audioMessage = {
             ...summary,
@@ -234,7 +276,7 @@ export class MeetingLifecycleHandler {
         // summary + any trailing message audio before we promote meetingComplete.
         manager.audioSystem.queueAudioGeneration(
             audioMessage as AudioMessage,
-            chair,
+            reader,
             m,
             manager.environment,
             manager.serverOptions,

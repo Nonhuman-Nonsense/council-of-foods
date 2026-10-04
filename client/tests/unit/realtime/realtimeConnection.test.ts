@@ -524,12 +524,18 @@ describe("realtimeConnection", () => {
 });
 
 describe("classifyRealtimeError", () => {
-  it("marks 4xx HTTP errors as fatal", () => {
-    expect(classifyRealtimeError(new RealtimeHttpError(400, "bad"))).toBe("fatal");
-    expect(classifyRealtimeError(new RealtimeHttpError(401, "unauth"))).toBe("fatal");
-    expect(classifyRealtimeError(new RealtimeHttpError(403, "forbidden"))).toBe("fatal");
-    expect(classifyRealtimeError(new RealtimeHttpError(404, "not found"))).toBe("fatal");
-    expect(classifyRealtimeError(new RealtimeHttpError(422, "unprocessable"))).toBe("fatal");
+  // A refused agent must not take the website down with it; an installation
+  // without its agent is genuinely broken and must surface as terminal.
+  it.each([
+    { name: "400", err: new RealtimeHttpError(400, "bad") },
+    { name: "401", err: new RealtimeHttpError(401, "unauth") },
+    { name: "403", err: new RealtimeHttpError(403, "forbidden") },
+    { name: "404", err: new RealtimeHttpError(404, "not found") },
+    { name: "499", err: new RealtimeHttpError(499, "") },
+    { name: "invalid bootstrap shape", err: new Error("Realtime bootstrap: response invalid") },
+  ])("marks $name as refused on web and fatal in museum", ({ err }) => {
+    expect(classifyRealtimeError(err)).toBe("refused");
+    expect(classifyRealtimeError(err, { selfHealing: true })).toBe("fatal");
   });
 
   it("marks 5xx HTTP errors as retryable", () => {
@@ -541,10 +547,6 @@ describe("classifyRealtimeError", () => {
   // Busy and broken want different waits, so they must not classify alike.
   it("marks a 503 as capacity rather than a plain retryable failure", () => {
     expect(classifyRealtimeError(new RealtimeHttpError(503, "at capacity"))).toBe("capacity");
-  });
-
-  it("marks invalid bootstrap shape as fatal", () => {
-    expect(classifyRealtimeError(new Error("Realtime bootstrap: response invalid"))).toBe("fatal");
   });
 
   it("marks a legacy mic NotAllowedError as unavailable on web, fatal in museum", () => {

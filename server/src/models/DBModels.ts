@@ -1,5 +1,8 @@
 import type { Audio, BaseMeeting } from '@shared/ModelTypes.js';
+import type { UsageEvent } from '@shared/UsageTypes.js';
 import type { Document } from "mongodb";
+import type { LetterForm } from '@logic/letters/prompts/letterPrompts.js';
+import type { HumanHandling } from '@logic/letters/prompts/humanSorting.js';
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.
@@ -7,6 +10,81 @@ import type { Document } from "mongodb";
 // Additional fields for the stored meeting, never sent to the client
 export interface StoredMeeting extends BaseMeeting, Document {
     liveKey: string;
+    /** Venue the meeting ran at, if staff chose one. Tags the meeting's AI usage. */
+    venueId?: string;
+    /** Whether this meeting's letter may go out by email: an installation's yes, the web's no. */
+    sendsLetters?: boolean;
+    /** The letter a meeting ending in one is writing, then wrote. See docs/council-letters.md. */
+    letter?: MeetingLetter;
+}
+
+/**
+ * The letter as it is written, saved step by step so a reconnect resumes where it stopped: the
+ * author when the closing line is said, the plan with the announcement, the draft when ready,
+ * the human's answer when given, and everything else once finished. Earlier letters are read
+ * back for what the next one should not repeat, and for who has already received one.
+ */
+export interface MeetingLetter {
+    authorId: string;
+    recipientId?: string;
+    points?: string[];
+    form?: LetterForm;
+    asksReply?: boolean;
+    draft?: { subject: string; body: string };
+    /** Whether the human answered when asked to add something (false: skipped or walked away). */
+    present?: boolean;
+    /** What they said, as they said it. */
+    addition?: string;
+    /** Set once the letter is finished. */
+    finishedAt?: string;
+    subject?: string;
+    body?: string;
+    humanNote?: string | null;
+    footer?: string;
+    handling?: HumanHandling | "none";
+    humanContributed?: boolean;
+    send?: boolean;
+    sendReason?: string | null;
+}
+
+export interface StoredUsageEvent extends UsageEvent, Document {}
+
+/** Latest reading of one room power plug at one venue; `_id` is `<venueId>|<plug>`. */
+export interface StoredRoomPower extends Document {
+    _id: string;
+    venueId: string;
+    plug: number;
+    /** The Shelly reporting as this plug number. */
+    deviceId: string;
+    label: string;
+    watts: number;
+    /** Accumulated energy since first report, Wh. */
+    energyWh: number;
+    /** The plug's counter at the last report, to accumulate deltas across its resets. */
+    lastCounterWh: number;
+    /** The plug's uptime at the last report, to tell a restart (and counter reset) for certain. */
+    lastUptimeSeconds?: number;
+    /** Energy the last report added, Wh; what that report adds to its hour. */
+    lastDeltaWh: number;
+    updatedAt: Date;
+}
+
+/** One plug's electricity at a venue in one hour (UTC); `_id` is `<venueId>|<plug>|<hour ISO>`. */
+export interface StoredRoomPowerHour extends Document {
+    _id: string;
+    venueId: string;
+    plug: number;
+    /** The Shelly reporting as this plug number at its latest report in this hour. */
+    deviceId: string;
+    /** The plug's label at its latest report in this hour. */
+    label: string;
+    /** Start of the hour. */
+    hour: Date;
+    /** Energy used in this hour, Wh. */
+    energyWh: number;
+    maxWatts: number;
+    /** Reports received in this hour; few or none means the plug was offline. */
+    reports: number;
 }
 
 export type SubtitleTimingType = 'whisper' | 'inworld' | 'elevenlabs' | 'estimated' | undefined;
