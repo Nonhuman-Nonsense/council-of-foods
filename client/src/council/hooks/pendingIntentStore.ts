@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import type { HumanTurnMode } from "./humanTurn";
 
 // ---------------------------------------------------------------------------
 // Intent types — discriminated union.
@@ -20,7 +21,7 @@ export type HumanDraftIntent = {
     kind: "human-draft";
     meetingId: number;
     text: string;
-    mode: "question" | "panelist";
+    mode: HumanTurnMode;
     /** Position of the awaiting_* sentinel this draft answers, captured at submit time. */
     index: number;
     /** Character id being answered on behalf of — panelist mode only. */
@@ -40,7 +41,7 @@ export type ResolveExtensionIntent = {
 export type SkipTurnIntent = {
     kind: "skip-turn";
     meetingId: number;
-    mode: "question" | "panelist";
+    mode: HumanTurnMode;
     /** Position of the awaiting_* sentinel this skip resolves, captured at abandon time. */
     index: number;
     /** Speaker name/id credited on the resulting "skipped" marker. */

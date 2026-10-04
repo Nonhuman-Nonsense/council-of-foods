@@ -9,7 +9,7 @@ import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
 import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
-import { getVenueId } from "@/settings/councilSettings";
+import { getVenueId, useCouncilSettings } from "@/settings/councilSettings";
 import { setupSession } from "@setupAgent/setupSession";
 
 export interface MeetingSetupShellProps {
@@ -37,6 +37,7 @@ export default function MeetingSetupShell({
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
   const { newMeetingPath, meetingPath } = useRouting();
+  const { capabilities } = useCouncilSettings();
 
   const [step, setStep] = useState<"topic" | "characters">(() =>
     topicSelection != null ? "characters" : "topic"
@@ -106,6 +107,7 @@ export default function MeetingSetupShell({
         ...(visitorName.trim() ? { humanName: visitorName.trim() } : {}),
         ...(getVenueId() ? { venueId: getVenueId() } : {}),
         ...(setupSession.get() ? { setupId: setupSession.get() } : {}),
+        sendsLetters: capabilities.sendsLetters,
       });
       setupSession.clear();
       setMeetingliveKey(liveKey);

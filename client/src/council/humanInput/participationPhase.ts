@@ -8,7 +8,7 @@ export type ParticipationPhase = "off" | "warm" | "active";
  * while the previous speaker is playing), or actively open for input.
  *
  * "warm" fires when the message immediately after what is currently playing is an
- * awaiting_human_* marker — covering both the first-time invitation case (invitation
+ * awaiting_human_* or awaiting_letter_addition marker — covering both the first-time invitation case (invitation
  * at N, awaiting at N+1) and direct mic turns (any speaker at N, awaiting at N+1).
  */
 export function getParticipationPhase(
@@ -23,7 +23,8 @@ export function getParticipationPhase(
   const upcoming = textMessages[playingNowIndex + 1];
   if (
     upcoming?.type === "awaiting_human_question" ||
-    upcoming?.type === "awaiting_human_panelist"
+    upcoming?.type === "awaiting_human_panelist" ||
+    upcoming?.type === "awaiting_letter_addition"
   ) {
     return "warm";
   }

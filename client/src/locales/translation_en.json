@@ -33,7 +33,8 @@
   },
   "human": {
     "placeholder": "Type your question or start recording...",
-    "panelist": "What does {{name}} have to say about this?"
+    "panelist": "What does {{name}} have to say about this?",
+    "letter": "Add something to {{name}}'s email, or just say no..."
   },
   "ptt": {
     "holdToSpeak": "Push the button to speak",
@@ -253,6 +254,12 @@
     "body": "This meeting is currently in session somewhere else,\ncheck back later to see if it finished, or start a new meeting.",
     "goBack": "Go back",
     "startNew": "Start new meeting"
+  },
+  "letter": {
+    "from": "From",
+    "to": "To",
+    "subject": "Subject",
+    "unsent": "This letter was written, but not sent."
   },
   "summary": {
     "download": "Download PDF",

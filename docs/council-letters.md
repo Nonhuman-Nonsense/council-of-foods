@@ -146,13 +146,12 @@ closing line with the bridge, letter_pending          + meeting.letter = { autho
 - `meeting.letter` (server only, never sent to a client: it holds the human's words as said) is
   what the next letters read back: recent authors, forms and asks for variety, sent letters
   for the limits.
-- `isConcluding(conversation)` in `shared/meetingEnding.ts` replaces the server's copied marker
-  lists (`HandRaisingHandler`, `ConnectionHandler`); `useCouncilMachine` and `buttonStore` get it
-  in step 4.
+- `isConcluding(conversation)` in `shared/meetingEnding.ts` replaces the copied marker lists
+  (`HandRaisingHandler`, `ConnectionHandler`, `useCouncilMachine`).
 - `submit_human_message` / `skip_human_turn` accept `awaiting_letter_addition`; resume keeps
   both letter markers, read-only replay drops them.
-- Meeting creation takes `sendsLetters` (default false); the client passes its capability in
-  step 4.
+- Meeting creation takes `sendsLetters` (default false); the client passes its capability:
+  the museum yes, the web and a presented screening no.
 
 ### Outbox
 
@@ -550,8 +549,11 @@ Everything is live on 10 October, sending included. Each step ends tested and us
    the markers in *State machine*, letter on `summary` read by its author, `isConcluding`,
    human input reused for the addition, "decline" in the sorting, `sendsLetters` at creation.
    Tests in `server/tests/LetterEnding.test.js`, including resume at every marker.
-4. **Client.** Letter on the summary page, print and PDF; letter wording in human input;
-   `sendsLetters` capability passed at meeting creation.
+4. ~~**Client.**~~ Built 4 Oct 2026: `awaiting_letter_addition` is a `human_input` turn (intent
+   mode `letter`; a skip leaves no local placeholder), letter wording in human input, the
+   letter laid out as the summary document (from / to / subject / body / footer) for the page,
+   the PDF and the printer, printed only if the human was there to answer; `sendsLetters`
+   (museum only) passed at meeting creation.
 5. **Outbox and sending.** Collection, worker, once-ever and capped limits, per-being sender,
    plus-addressed reply-to, footer, `COUNCIL_LETTERS` mode. Run in `test` mode end to end, then
    `live` on opening day with a slow ramp.

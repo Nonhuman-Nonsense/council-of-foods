@@ -258,6 +258,8 @@ interface HumanInputProps {
   /** "warm" = pre-connect silently; "active" = show UI */
   phase: ParticipationPhase;
   isPanelist: boolean;
+  /** The being whose letter the human is asked to add to, when that is the turn. */
+  letterAuthorName?: string | null;
   currentSpeakerName: string;
   onSubmitHumanMessage: (text: string) => void;
   /** Museum idle timeout: visitor released the button without submitting. */
@@ -284,7 +286,7 @@ type TextareaStyle = Omit<React.CSSProperties, 'height'> & { height?: number };
  * - **Lifecycle**: The component auto-connects on mount and auto-reconnects if the
  *   connection drops (state returns to "idle"). Cleanup on unmount closes everything.
  */
-function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey }: HumanInputProps): React.ReactElement | null {
+function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, onSubmitHumanMessage, onAbandonHumanTurn, liveKey }: HumanInputProps): React.ReactElement | null {
   const { capabilities } = useCouncilSettings();
   /**
    * Push-to-talk drives the turn: the hardware button owns the mic and the LED,
@@ -970,7 +972,9 @@ function HumanInput({ phase, isPanelist, currentSpeakerName, onSubmitHumanMessag
     ? t("ptt.humanPlaceholder")
     : isPanelist
       ? t("human.panelist", { name: currentSpeakerName })
-      : t("human.placeholder");
+      : letterAuthorName
+        ? t("human.letter", { name: letterAuthorName })
+        : t("human.placeholder");
 
   return (<>
     <div style={wrapperStyle}>

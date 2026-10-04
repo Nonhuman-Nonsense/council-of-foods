@@ -10,6 +10,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./humanInput/HumanInput";
 import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
+import { summaryDocument } from "@council/protocol/summaryDocument";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import { HttpStatusError } from "@api/http";
@@ -224,6 +225,15 @@ function Council({
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
+  // At the end of a meeting ending in a letter, the human is asked to add to the letter the
+  // being just announced: the message before the marker is that announcement.
+  const letterMarkerIndex = [playNextIndex, playingNowIndex + 1].find(
+    (index) => textMessages[index]?.type === "awaiting_letter_addition",
+  );
+  const letterAuthor = letterMarkerIndex === undefined ? undefined : textMessages[letterMarkerIndex - 1];
+  const letterAuthorName = letterAuthor && isSpeakerMessage(letterAuthor)
+    ? participants.find((p) => p.id === letterAuthor.speaker)?.name ?? null
+    : null;
   // The chair's invitation to a human turn is playing. The button belongs to the
   // imminent human turn during this window, not the meta-agent — see MeetingMetaAgent.
   const invitationPlaying = textMessages[playingNowIndex]?.type === "invitation";
@@ -285,6 +295,7 @@ function Council({
           phase={participationPhase}
           liveKey={liveKey}
           isPanelist={councilState === 'human_panelist'}
+          letterAuthorName={letterAuthorName}
           currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
           onSubmitHumanMessage={handleOnSubmitHumanMessage}
           onAbandonHumanTurn={handleOnAbandonHumanTurn}
@@ -316,7 +327,7 @@ function Council({
               onConcludeMeeting={handleOnConcludeMeeting}
               proceedWithHumanName={handleHumanNameEntered}
               onDismiss={declineOverlay}
-              summary={{ text: summary?.text || "" }}
+              summary={{ text: summaryDocument(summary, t) }}
               meetingId={currentMeetingId}
               participants={participants}
               audioContext={audioContext}
