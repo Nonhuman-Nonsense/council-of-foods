@@ -86,7 +86,7 @@ export const GlobalOptionsSchema = z.object({
     meetingEnding: z.enum(["protocol", "letter"]),
     /** Public site the letter footer links a meeting from: `<site>/<lang>/meeting/<id>`. */
     letterSiteUrl: z.string(),
-    /** Most recipients offered to the author at once, shuffled, so the prompt stays a choice. */
+    /** Most recipients offered to the author at once, mixed across categories (see candidateRecipients). */
     letterMaxCandidates: z.number().int().positive(),
     /**
      * The model the author plans and writes the letter with — a letter goes to a real person, so

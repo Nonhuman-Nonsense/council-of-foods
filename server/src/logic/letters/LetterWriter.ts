@@ -10,7 +10,7 @@ import { requestSpeakerClassifierCompletion } from "@logic/SpeakerClassifierBase
 import { getSender, isMailConfigured } from "@services/MailService.js";
 import { Logger } from "@utils/Logger.js";
 import { buildLetterFooter } from "./footer.js";
-import { LETTER_FORMS, RETHINK_ANGLES, letterPrompts, type LetterForm, type LetterReach, type RethinkAngle } from "./prompts/letterPrompts.js";
+import { LETTER_FORMS, letterPrompts, type LetterForm } from "./prompts/letterPrompts.js";
 import { HUMAN_HANDLINGS, humanSortingPrompt, type HumanHandling } from "./prompts/humanSorting.js";
 
 /**
@@ -53,8 +53,6 @@ const PARSE_ATTEMPTS = 3;
 const AUTHOR_MAX_TOKENS = 400;
 /** How many of the latest letters' asks the author sees, so it asks something else. */
 const RECENT_ASKS_SHOWN = 24;
-/** How often a letter reaches past a next step and asks the recipient to rethink (see LETTER_REACHES). */
-const RETHINK_SHARE = 1 / 3;
 /** How often a letter ends by asking the recipient to write back. */
 const REPLY_SHARE = 1 / 2;
 const SORTING_MAX_TOKENS = 80;
@@ -225,8 +223,6 @@ export async function pickAuthor(ctx: LetterContext, recentAuthors: string[] = [
 /* -------------------------------------------------------------------------- */
 
 export interface LetterPlan {
-    reach: LetterReach;
-    angles: RethinkAngle[];
     recipientId: string;
     points: string[];
     spokenText: string;
@@ -309,8 +305,7 @@ export function formatCandidateList(candidates: Recipient[]): string {
     return candidates
         .map((candidate) => {
             const name = candidate.organisation ? `${candidate.name} (${candidate.organisation})` : candidate.name;
-            const record = candidate.facts.length ? candidate.facts.map((fact) => fact.text).join(" / ") : "nothing";
-            return `${candidate.id} | ${name} | decides on: ${candidate.remit} | why: ${candidate.why ?? candidate.remit} | on record: ${record}`;
+            return `${candidate.id} | ${name} | decides on: ${candidate.remit} | why: ${candidate.why ?? candidate.remit}`;
         })
         .join("\n");
 }
@@ -330,20 +325,6 @@ function authorOf(meeting: StoredMeeting, authorId: string): Character {
     return author;
 }
 
-export interface ReachChoice {
-    reach: LetterReach;
-    /** For a rethink, two different angles to take one of; empty for a next step. */
-    angles: RethinkAngle[];
-}
-
-/** Most letters ask for a next step; about one in three asks the recipient to rethink, from one of two angles. */
-export function selectLetterReach(random: () => number = Math.random): ReachChoice {
-    if (random() >= RETHINK_SHARE) return { reach: "step", angles: [] };
-    const first = Math.floor(random() * RETHINK_ANGLES.length);
-    const second = (first + 1 + Math.floor(random() * (RETHINK_ANGLES.length - 1))) % RETHINK_ANGLES.length;
-    return { reach: "rethink", angles: [RETHINK_ANGLES[first], RETHINK_ANGLES[second]] };
-}
-
 /**
  * `recentAsks` are the asks of the installation's latest letters, oldest first; the latest
  * {@link RECENT_ASKS_SHOWN} are shown, so the letters on the wall do not all ask the same thing.
@@ -352,7 +333,7 @@ export async function planLetter(
     ctx: LetterContext,
     authorId: string,
     candidates: Recipient[],
-    choices: ReachChoice & { recentAsks: string[] } = { reach: "step", angles: [], recentAsks: [] },
+    recentAsks: string[] = [],
 ): Promise<LetterPlan> {
     const { meeting, options, dialogGenerator } = ctx;
     const author = authorOf(meeting, authorId);
@@ -364,9 +345,7 @@ export async function planLetter(
         beingName: author.name,
         recipientList: formatCandidateList(candidates),
         humanName: humanFirstName(meeting),
-        reach: choices.reach,
-        angles: choices.angles,
-        recentAsks: choices.recentAsks.slice(-RECENT_ASKS_SHOWN),
+        recentAsks: recentAsks.slice(-RECENT_ASKS_SHOWN),
     });
     const remembered = spokenMeeting(meeting);
 
@@ -377,7 +356,7 @@ export async function planLetter(
             author, remembered, instruction, options.letterPlanLength, `${author.name}'s letter plan`,
         ));
         try {
-            return { reach: choices.reach, angles: choices.angles, ...parsePlanAnswer(raw, candidates), prompt: instruction, raw, attempts: attempt };
+            return { ...parsePlanAnswer(raw, candidates), prompt: instruction, raw, attempts: attempt };
         } catch (error) {
             lastProblem = (error as Error).message;
             Logger.warn("letters", `plan answer unusable (attempt ${attempt}/${PARSE_ATTEMPTS}): ${lastProblem}`, {

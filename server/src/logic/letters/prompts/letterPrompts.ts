@@ -16,32 +16,13 @@ export interface AuthorPromptParams {
 
 export interface PlanPromptParams {
     beingName: string;
-    /** One recipient per line: `id | name | decides on | why | on record`. */
+    /** One recipient per line: `id | name | decides on | why`. Their record is only shown when writing. */
     recipientList: string;
     /** The human taking part, by first name, when they gave one. */
     humanName: string | null;
-    /** How far this letter's asks reach: see {@link LETTER_REACHES}. */
-    reach: LetterReach;
-    /** For a rethink: the angles offered, of which the author takes the one that fits. Empty otherwise. */
-    angles: RethinkAngle[];
     /** What the installation's latest letters asked, oldest first, so this one asks something else. */
     recentAsks: string[];
 }
-
-/**
- * How far a letter's asks reach. Most ask for a next step inside the recipient's own powers;
- * some ask them to rethink how decisions about the forest are made with the beings who live in
- * it — and still end in something they can do. Chosen by chance (see selectLetterReach).
- */
-export const LETTER_REACHES = ["step", "rethink"] as const;
-export type LetterReach = (typeof LETTER_REACHES)[number];
-
-/**
- * What a rethink can be about. Two are offered at random to each rethinking letter, so the
- * rethinks do not all settle on the same answer (in testing: "plan it together with the samebyar").
- */
-export const RETHINK_ANGLES = ["voice", "time", "value", "kinship", "responsibility", "standing"] as const;
-export type RethinkAngle = (typeof RETHINK_ANGLES)[number];
 
 /**
  * What a letter leans towards, inside the fixed frame of a letter (salutation, "you", signature).

@@ -127,8 +127,10 @@ export async function loadRecipients(knownTopicIds: string[], dir = RECIPIENTS_D
  * topic, and not excluded (a person who already received their one letter, an institution at
  * its cap). A visitor's own question is relevant to everyone.
  *
- * Shuffled and capped, so a long list stays a real choice for the model rather than a wall of
- * text it skims from the top.
+ * A short, mixed offer: one from each category in turn (an MP, an agency, a company, a
+ * municipality, a researcher, a newsroom, a Sámi community …), each picked at random, until
+ * `max`. The hundred MPs no longer crowd out the rest, and a short list keeps the author's
+ * attention on the meeting rather than on the list.
  */
 export function candidateRecipients(
     recipients: Recipient[],
@@ -143,9 +145,26 @@ export function candidateRecipients(
             && (topicId === CUSTOM_TOPIC_ID || recipient.topics.includes(topicId)),
     );
 
-    for (let i = eligible.length - 1; i > 0; i--) {
-        const j = Math.floor(random() * (i + 1));
-        [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+    const byCategory = new Map<string, Recipient[]>();
+    for (const recipient of shuffled(eligible, random)) {
+        byCategory.set(recipient.category, [...(byCategory.get(recipient.category) ?? []), recipient]);
     }
-    return eligible.slice(0, options.max);
+    const queues = shuffled([...byCategory.values()], random);
+    const offer: Recipient[] = [];
+    while (offer.length < options.max && queues.some((queue) => queue.length > 0)) {
+        for (const queue of queues) {
+            const next = queue.shift();
+            if (next && offer.length < options.max) offer.push(next);
+        }
+    }
+    return offer;
+}
+
+function shuffled<T>(items: T[], random: () => number): T[] {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+        const j = Math.floor(random() * (i + 1));
+        [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
 }

@@ -87,4 +87,14 @@ describe("candidateRecipients", () => {
     it("caps the offer so a long list stays a choice", () => {
         expect(candidateRecipients(list, CUSTOM_TOPIC_ID, { max: 2 })).toHaveLength(2);
     });
+
+    it("offers one from each category before a second from any", () => {
+        const mixed = [
+            ...Array.from({ length: 10 }, (_, i) => entry({ id: `mp-${i}`, category: "parliament" })),
+            entry({ id: "agency", category: "agency" }),
+            entry({ id: "company", category: "company" }),
+        ];
+        const offer = candidateRecipients(mixed, "forestry", { max: 3 });
+        expect(offer.map((r) => r.category).sort()).toEqual(["agency", "company", "parliament"]);
+    });
 });

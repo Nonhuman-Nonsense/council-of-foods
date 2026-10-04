@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { LETTER_FORMS, LETTER_REACHES, RETHINK_ANGLES, letterPrompts, type DraftPromptParams, type PlanPromptParams } from "@logic/letters/prompts/letterPrompts.js";
+import { LETTER_FORMS, letterPrompts, type DraftPromptParams, type PlanPromptParams } from "@logic/letters/prompts/letterPrompts.js";
 
 /**
  * Not the wording — that changes with every round of evaluation — but that what the letter
  * writer passes in actually reaches the model in every language.
  */
-const planParams: PlanPromptParams = { beingName: "Reindeer", recipientList: "x", humanName: null, reach: "step", angles: [], recentAsks: [] };
+const planParams: PlanPromptParams = { beingName: "Reindeer", recipientList: "x", humanName: null, recentAsks: [] };
 const draftParams: DraftPromptParams = {
     form: "requests", asksReply: false, authorId: "reindeer", beingName: "Reindeer", recipientName: "Sveaskog",
     recipientWhy: "", recipientFacts: [], points: [], meetingId: 1, date: "",
@@ -26,15 +26,6 @@ describe.each(["en", "sv"])("letter prompts (%s)", (language) => {
 
     it("shows the author what the latest letters asked", () => {
         expect(prompts.plan({ ...planParams, recentAsks: ["File a motion to restore the six weeks."] })).toContain("File a motion to restore the six weeks.");
-    });
-
-    it("gives every reach its own instruction", () => {
-        expect(new Set(LETTER_REACHES.map((reach) => prompts.plan({ ...planParams, reach }))).size).toBe(LETTER_REACHES.length);
-    });
-
-    it("gives every rethink angle its own instruction", () => {
-        const plan = (angle: (typeof RETHINK_ANGLES)[number]) => prompts.plan({ ...planParams, reach: "rethink", angles: [angle] });
-        expect(new Set(RETHINK_ANGLES.map(plan)).size).toBe(RETHINK_ANGLES.length);
     });
 
     it("gives the author the recipient, what is on record, the points and the meeting", () => {

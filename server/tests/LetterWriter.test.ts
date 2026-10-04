@@ -8,7 +8,6 @@ import {
     parseHumanHandling,
     selectAuthor,
     selectLetterForm,
-    selectLetterReach,
     humanFirstName,
     draftLetter,
     finishLetter,
@@ -202,7 +201,7 @@ describe("planLetter", () => {
     it("shows the author what the latest letters asked, and only the latest", async () => {
         const { ctx, generate } = context([good]);
         const recentAsks = Array.from({ length: 40 }, (_, i) => `ask number ${i + 1}.`);
-        await planLetter(ctx, "reindeer", offered, { reach: "rethink", angles: ["time", "voice"], recentAsks });
+        await planLetter(ctx, "reindeer", offered, recentAsks);
         const sent = generate.mock.calls[0][2] as string;
         expect(sent).toContain("ask number 40.");
         expect(sent).not.toContain("ask number 1.");
@@ -233,24 +232,6 @@ describe("selectLetterForm", () => {
     it("takes the form used longest ago once all have been used", () => {
         const recent = [...LETTER_FORMS.slice(3), ...LETTER_FORMS.slice(0, 3)];
         expect(selectLetterForm(recent, noRotation)).toBe(LETTER_FORMS[3]);
-    });
-});
-
-describe("selectLetterReach", () => {
-    const sequence = (...values: number[]) => () => values.shift() ?? 0;
-
-    it("offers a rethink two different angles, whatever the draw", () => {
-        for (let first = 0; first < 1; first += 0.1) {
-            for (let second = 0; second < 1; second += 0.1) {
-                const { reach, angles } = selectLetterReach(sequence(0, first, second));
-                expect(reach).toBe("rethink");
-                expect(new Set(angles).size).toBe(2);
-            }
-        }
-    });
-
-    it("offers a next step no angles", () => {
-        expect(selectLetterReach(sequence(0.99))).toEqual({ reach: "step", angles: [] });
     });
 });
 

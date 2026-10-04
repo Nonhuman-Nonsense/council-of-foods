@@ -172,15 +172,18 @@ Letters hang side by side, so the server varies them on purpose rather than hopi
 - **Author** — the best-ranked member who has not written one of the last five letters.
 - **Recent asks** — the plan sees what the latest letters asked (the last 24 asks) and asks for
   something else, or comes at the same matter from another side.
-- **Reach** — about one letter in three asks the recipient to *rethink* how decisions about the
-  land are made with those who live with it, people and beings of the forest, and ends with a first step; the
-  rest ask for a next step inside the recipient's powers, not only to undo a decision.
+- **Recipients offered** — filtered by topic, then one from each category in turn (an MP, an
+  agency, a company, a municipality, a researcher, a newsroom, a Sámi community …), at most
+  `letterMaxCandidates` (16). The plan sees only what each decides on and why; their record is
+  shown when the letter is written.
 - **Form** — what the letter leans towards (requests, appeal, questions, invitation,
   recognition, note), the one used longest ago next.
 - **Reply** — about half the letters end by asking the recipient to write back.
 
-Every letter is an open letter: written to the recipient, but printed and published with the
-meeting, so it explains what it refers to. Beings whose speech is far from prose (Mountain,
+The plan starts from the meeting — what was said here that someone outside most needs to hear —
+and the letter tells the recipient what was said and by whom. Every letter is an open letter:
+written to the recipient, but printed and published with the meeting, so it explains what it
+refers to. Beings whose speech is far from prose (Mountain,
 Wind Turbine) have a note on how their voice holds in a letter.
 
 ### Developing the prompts
@@ -332,6 +335,21 @@ writes "Counzil of Forezt" and "Zkogzrådet" — the eval's council-name check m
 Pine asked Sametinget to draft a model for a sameby as guardian of a forest — the open question
 about handing Sámi recipients tasks is still open.
 
+Read against the transcripts, v10 had drifted from its meetings: Salmon wrote about the Baltic
+quota after a biodiversity meeting that never mentioned it, Bumblebee about felling notices after
+a Sámi land rights meeting. Only 18 of the letters' 64 numbers came from the meeting; the rest
+from the recipient list (25,000 of the plan's 28,000 characters, with "why" lines that argue a
+case), the topic and the being's own prompt. And the prompt had grown by correction: asks of
+~400 characters each, as long together as the letter, inside a ~5,000-character checklist.
+
+**v11 — from the meeting** (same meetings, authors and additions as v10). The rethink and its
+angles removed — a rethink belongs in the meeting's own prompts, not injected at the end; the
+plan starts from what was said, asks are one short sentence each, and recipients are offered 16
+at a time, one per category in turn, without their record. The letter tells what was said at the
+meeting and by whom. Every letter now refers to the meeting (v10: 11 of 16); asks 126 characters
+(v10: 402); plan prompt ~8,600 characters (v10: ~32,000); "I write to you because" gone. Every
+letter states the meeting number and date — kept. ~9 of 16 still over 1,200 characters.
+
 ### Letter safety
 
 - Visitor text is passed to the letter call as quoted content, not instructions.
@@ -476,9 +494,8 @@ total**.
 
 - Letters to samebyar hand them tasks. Tell the author that a letter to a Sámi community
   listens and stands beside them, and asks nothing on the council's behalf?
-- A "what they can do" list per recipient (sourced, like the facts), sampled a few at a time so
-  the author does not take the same best example every time — after seeing whether recent asks
-  and the rethink reach are enough.
+- Some recipients' `why` lines argue a case ("so the three-week notice period … is yours to
+  administer") rather than state a role; rewrite them as plain roles if letters lean on them.
 - Letters lean on the topic prompts' claim that the Church of Sweden "is stopping" lodgepole
   pine and say it "has" — check the wording in the topic prompts.
 - MEPs have no facts yet (no EU vote export); letters to them say nothing about their record.
