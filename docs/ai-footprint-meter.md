@@ -57,6 +57,8 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 | Feature | Where it is recorded | Provider → model (current config) | Measures |
 |---|---|---|---|
 | Council dialogue, chair (`dialogue`), summary (`summary`) | `DialogGenerator.completeWithRetry`, every attempt | Inworld router → `mistral/mistral-large-3` | input / output / cached / reasoning tokens |
+| Letters: plan, draft and weave (`summary`) | `DialogGenerator.generateInCharacter` | Inworld router → `anthropic/claude-opus-5-5` (plan, draft), `anthropic/claude-sonnet-5-5` (weave) | input / output / reasoning tokens |
+| Letters: author ranking, sorting the human's words (`classifier`) | `LetterWriter` via `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Voices (`tts`) | `AudioSystem`, per freshly generated chunk | Inworld `inworld-tts-1.5-max` / `inworld-tts-2`; ElevenLabs `eleven_flash_v2_5` (forest); OpenAI `gpt-4o-mini-tts` (unused) | `characters`, `audio_seconds`; ElevenLabs also `region` from its `x-region` header |
 | Whisper timing fallback (`subtitle-timing`) | `AudioSystem` | `whisper-1` | `audio_seconds` |

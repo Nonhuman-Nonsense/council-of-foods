@@ -97,6 +97,27 @@ MODELS = {
         "basis": "ecologits",
         "assumptions": ["Routed through Inworld to Google AI Studio; EcoLogits' Google data-centre profile applies."],
     },
+    # The letters (server/src/logic/letters): Opus plans and drafts, Sonnet weaves in the human's words.
+    "inworld|anthropic/claude-opus-5-5": {
+        "ecologits": ("anthropic", "claude-opus-5-5"),
+        "role": "writing",
+        "basis": "ecologits",
+        "assumptions": [
+            "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
+            "Anthropic publishes no model size; EcoLogits' own estimate for the model is used, with its range.",
+            "Reasoning tokens are billed and counted as output tokens.",
+        ],
+    },
+    "inworld|anthropic/claude-sonnet-5-5": {
+        "ecologits": ("anthropic", "claude-sonnet-5-5"),
+        "role": "writing",
+        "basis": "ecologits",
+        "assumptions": [
+            "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
+            "Anthropic publishes no model size; EcoLogits' own estimate for the model is used, with its range.",
+            "Reasoning tokens are billed and counted as output tokens.",
+        ],
+    },
     "inworld|inworld-tts-1.5-max": {
         "custom": {"parameters": 8.8, "datacenter": "google_genai"},
         "usageMeasure": "audio_seconds",

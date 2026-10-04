@@ -577,6 +577,566 @@
         }
       ]
     },
+    "inworld|anthropic/claude-opus-5-5": {
+      "ecologitsModel": "anthropic/claude-opus-5-5",
+      "role": "writing",
+      "basis": "ecologits",
+      "usageMeasure": "output_tokens",
+      "tokensPerUnit": 1,
+      "datacenterZones": [
+        "USA"
+      ],
+      "activeParameters": [
+        70,
+        200
+      ],
+      "totalParameters": [
+        670,
+        670
+      ],
+      "quantizationBits": [
+        16,
+        16
+      ],
+      "low": {
+        "secondsPerToken": 0.013245033112582849,
+        "firstTokenSeconds": 3.43,
+        "perToken": {
+          "energy": 2.8039422842592637e-06,
+          "gwp": 1.077835414069261e-06,
+          "adpe": 2.7632851211375047e-13,
+          "wcf": 9.11664276334835e-06
+        },
+        "perGenerationSecond": {
+          "energy": 2.2708333333389188e-05,
+          "gwp": 1.3937416666852765e-05,
+          "adpe": 2.9396799250068053e-10,
+          "wcf": 7.383310416612817e-05
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 5.208333333333332e-06,
+          "adpe": 2.917300862506341e-10,
+          "wcf": 0.0
+        },
+        "gpus": 32
+      },
+      "high": {
+        "secondsPerToken": 0.013245033112582849,
+        "firstTokenSeconds": 3.43,
+        "perToken": {
+          "energy": 5.632951908016177e-06,
+          "gwp": 2.1653067134414185e-06,
+          "adpe": 5.551274105349943e-13,
+          "wcf": 2.257921336943796e-05
+        },
+        "perGenerationSecond": {
+          "energy": 2.3750000000842247e-05,
+          "gwp": 1.4337833333844872e-05,
+          "adpe": 2.94070648750757e-10,
+          "wcf": 9.519987500177443e-05
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 5.208333333333332e-06,
+          "adpe": 2.917300862506341e-10,
+          "wcf": 0.0
+        },
+        "gpus": 32
+      },
+      "assumptions": [
+        "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
+        "Anthropic publishes no model size; EcoLogits' own estimate for the model is used, with its range.",
+        "Reasoning tokens are billed and counted as output tokens."
+      ],
+      "warnings": [
+        "The model architecture has not been released, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-not-released",
+        "The model architecture is multimodal, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-multimodal"
+      ],
+      "sources": [],
+      "samples": [
+        {
+          "units": 1,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              1.4158108950925932e-05,
+              1.7507951908016177e-05
+            ],
+            "gwp": [
+              8.046543747402595e-06,
+              9.334223380108086e-06
+            ],
+            "adpe": [
+              1.4726032476243082e-10,
+              1.4759045178585207e-10
+            ],
+            "wcf": [
+              4.603319484668168e-05,
+              7.017915086943795e-05
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              2.6041666666666666e-06,
+              2.6041666666666666e-06
+            ],
+            "adpe": [
+              1.4586504312531708e-10,
+              1.4586504312531708e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 40,
+          "requestSeconds": 3.0,
+          "impacts": {
+            "energy": [
+              0.00018028269137037055,
+              0.0002965680763206471
+            ],
+            "gwp": [
+              8.492566656277044e-05,
+              0.00012962576853765677
+            ],
+            "adpe": [
+              8.929571179864526e-10,
+              9.044170426733024e-10
+            ],
+            "wcf": [
+              0.000586165023033934,
+              0.0011887681597775185
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              1.5625e-05,
+              1.5625e-05
+            ],
+            "adpe": [
+              8.751902587519026e-10,
+              8.751902587519026e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              0.001132931080370372,
+              0.0022650557632064713
+            ],
+            "gwp": [
+              0.00043810287396103766,
+              0.0008732916020432343
+            ],
+            "adpe": [
+              2.575154010958173e-10,
+              3.6908628858931484e-10
+            ],
+            "wcf": [
+              0.0036835736574226735,
+              0.009079285285275185
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              2.6041666666666666e-06,
+              2.6041666666666666e-06
+            ],
+            "adpe": [
+              1.4586504312531708e-10,
+              1.4586504312531708e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 20.0,
+          "impacts": {
+            "energy": [
+              0.0013197755478096657,
+              0.0024604710777760075
+            ],
+            "gwp": [
+              0.0005527801228959163,
+              0.0009912634846149782
+            ],
+            "adpe": [
+              2.67628793700683e-09,
+              2.788703481485013e-09
+            ],
+            "wcf": [
+              0.004291073416427917,
+              0.009862591117700681
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              4.5458402317880796e-05,
+              4.5458402317880796e-05
+            ],
+            "adpe": [
+              2.5462240567701875e-09,
+              2.5462240567701875e-09
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 2000,
+          "requestSeconds": null,
+          "impacts": {
+            "energy": [
+              0.006287319405714995,
+              0.011976505388880038
+            ],
+            "gwp": [
+              0.0025726792578129147,
+              0.004759602349741557
+            ],
+            "adpe": [
+              9.34819882792545e-09,
+              9.908868106566364e-09
+            ],
+            "wcf": [
+              0.020442376892972916,
+              0.04800681330350341
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              0.00015583367825607063,
+              0.00015583367825607063
+            ],
+            "adpe": [
+              8.728583500492237e-09,
+              8.728583500492237e-09
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    },
+    "inworld|anthropic/claude-sonnet-5-5": {
+      "ecologitsModel": "anthropic/claude-sonnet-5-5",
+      "role": "writing",
+      "basis": "ecologits",
+      "usageMeasure": "output_tokens",
+      "tokensPerUnit": 1,
+      "datacenterZones": [
+        "USA"
+      ],
+      "activeParameters": [
+        29,
+        88
+      ],
+      "totalParameters": [
+        293,
+        293
+      ],
+      "quantizationBits": [
+        16,
+        16
+      ],
+      "low": {
+        "secondsPerToken": 0.01098901098901095,
+        "firstTokenSeconds": 3.35,
+        "perToken": {
+          "energy": 9.948174363166594e-07,
+          "gwp": 3.824078225201239e-07,
+          "adpe": 9.803925834900679e-14,
+          "wcf": 3.2345156434077437e-06
+        },
+        "perGenerationSecond": {
+          "energy": 1.135416666657976e-05,
+          "gwp": 6.9687083333115475e-06,
+          "adpe": 1.469839962503129e-10,
+          "wcf": 3.691655208306408e-05
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 2.604166666666666e-06,
+          "adpe": 1.4586504312531706e-10,
+          "wcf": 0.0
+        },
+        "gpus": 16
+      },
+      "high": {
+        "secondsPerToken": 0.01098901098901095,
+        "firstTokenSeconds": 3.35,
+        "perToken": {
+          "energy": 1.6532317123835574e-06,
+          "gwp": 6.355022702402395e-07,
+          "adpe": 1.629259852553996e-13,
+          "wcf": 6.626840099576868e-06
+        },
+        "perGenerationSecond": {
+          "energy": 1.1874999999961783e-05,
+          "gwp": 7.1689166666927656e-06,
+          "adpe": 1.4703532437532372e-10,
+          "wcf": 4.759993749996853e-05
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 2.604166666666666e-06,
+          "adpe": 1.4586504312531706e-10,
+          "wcf": 0.0
+        },
+        "gpus": 16
+      },
+      "assumptions": [
+        "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
+        "Anthropic publishes no model size; EcoLogits' own estimate for the model is used, with its range.",
+        "Reasoning tokens are billed and counted as output tokens."
+      ],
+      "warnings": [
+        "The model architecture has not been released, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-not-released",
+        "The model architecture is multimodal, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-multimodal"
+      ],
+      "sources": [],
+      "samples": [
+        {
+          "units": 1,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              6.671900769649993e-06,
+              7.590731712383557e-06
+            ],
+            "gwp": [
+              3.86676198918679e-06,
+              4.219960603573572e-06
+            ],
+            "adpe": [
+              7.359003738350755e-11,
+              7.368058817291394e-11
+            ],
+            "wcf": [
+              2.169279168507441e-05,
+              3.0426808849576865e-05
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              1.3020833333333333e-06,
+              1.3020833333333333e-06
+            ],
+            "adpe": [
+              7.293252156265854e-11,
+              7.293252156265854e-11
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 40,
+          "requestSeconds": 3.0,
+          "impacts": {
+            "energy": [
+              7.385519745266638e-05,
+              0.0001017542684953423
+            ],
+            "gwp": [
+              3.6202437900804956e-05,
+              4.692684080960958e-05
+            ],
+            "adpe": [
+              4.4487355908491157e-10,
+              4.476230125361673e-10
+            ],
+            "wcf": [
+              0.00024013028198630976,
+              0.0004078734164830747
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              7.8125e-06,
+              7.8125e-06
+            ],
+            "adpe": [
+              4.375951293759513e-10,
+              4.375951293759513e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              0.0004036040578599971,
+              0.000667230184953423
+            ],
+            "gwp": [
+              0.0001564474831747162,
+              0.0002577853664294292
+            ],
+            "adpe": [
+              1.1270770146476125e-10,
+              1.3868805628981837e-10
+            ],
+            "wcf": [
+              0.0013122645334047642,
+              0.002674536008580747
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              1.3020833333333333e-06,
+              1.3020833333333333e-06
+            ],
+            "adpe": [
+              7.293252156265854e-11,
+              7.293252156265854e-11
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 20.0,
+          "impacts": {
+            "energy": [
+              0.00048587185776842196,
+              0.0007532717371512252
+            ],
+            "gwp": [
+              0.0002069399869064012,
+              0.00030972850054115074
+            ],
+            "adpe": [
+              1.1776955907795588e-09,
+              1.2040478488927339e-09
+            ],
+            "wcf": [
+              0.0015797472654503228,
+              0.003019426324961242
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              2.017084478021978e-05,
+              2.017084478021978e-05
+            ],
+            "adpe": [
+              1.1298129191964807e-09,
+              1.1298129191964807e-09
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 2000,
+          "requestSeconds": null,
+          "impacts": {
+            "energy": [
+              0.0022772134555087767,
+              0.003607233685756126
+            ],
+            "gwp": [
+              0.0009413192428653394,
+              0.0014525790193724204
+            ],
+            "adpe": [
+              3.918892404143545e-09,
+              4.049965897834422e-09
+            ],
+            "wcf": [
+              0.007404054529334948,
+              0.014459292462306208
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              6.595839056776557e-05,
+              6.595839056776557e-05
+            ],
+            "adpe": [
+              3.6944730181031555e-09,
+              3.6944730181031555e-09
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    },
     "inworld|inworld-tts-1.5-max": {
       "ecologitsModel": null,
       "role": "speaking",
