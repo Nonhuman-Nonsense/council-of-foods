@@ -33,6 +33,8 @@ const LETTER_VOICES: Record<string, string> = {};
 
 export function buildEnLetterPrompts(): LetterPrompts {
     return {
+        bridge: ({ authorName }) => `Then, after those words, add one short sentence in your own words saying that before everyone goes, ${authorName} wants to send an email — for example: "But before we go, I think ${authorName} wants to send an email."`,
+
         author: ({ candidates }) => `The meeting is over. One member of the council will now write a letter on the council's behalf, to someone outside this room who can act on what was discussed.
 
 Rank every candidate by how much they have to say in such a letter: whose home, body or way of life the decisions fall on, whose concern was left unresolved, who has something concrete to ask for. That is not always the most articulate member — a quiet one with a lot to lose can be the best author. Do not include the chair.

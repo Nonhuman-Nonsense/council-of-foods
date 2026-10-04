@@ -70,6 +70,11 @@ export interface FooterParams {
 }
 
 export interface LetterPrompts {
+    /**
+     * Appended to the chair's closing prompt: after "This concludes … meeting #N", the chair hands
+     * over to the author, who will announce the letter next.
+     */
+    bridge(params: { authorName: string }): string;
     /** System prompt for the classifier that ranks the possible authors; the transcript follows it. */
     author(params: AuthorPromptParams): string;
     /** Appended after the meeting, in the author's own context. Must ask for JSON. */

@@ -5,8 +5,10 @@
  * Not moderation for its own sake. The aim is to keep the human's voice honest without putting
  * words in the author's mouth: what the author can carry is woven in, what only the human should
  * say stays theirs, set apart and quoted, and only what must never reach a stranger is left out.
+ * A human who answers that they have nothing to add declines: nothing of theirs goes in, but they
+ * were there to answer, which is what lets the letter be sent.
  */
-export const HUMAN_HANDLINGS = ["weave", "apart", "omit"] as const;
+export const HUMAN_HANDLINGS = ["weave", "apart", "omit", "decline"] as const;
 export type HumanHandling = (typeof HUMAN_HANDLINGS)[number];
 
 export function humanSortingPrompt(): string {
@@ -15,6 +17,7 @@ export function humanSortingPrompt(): string {
 - weave: a wish, idea, story, question or feeling that the being writing the letter can carry in its own words. Simple, childlike, strange or poetic words belong here too.
 - apart: words that must stay the human's own, printed after the letter in quotation marks as theirs: insults or anger aimed at the recipient, telling anyone how to vote or which party to support, jokes, remarks about something else entirely — anything the being should not be made to say.
 - omit: threats, hate against a group of people, sexual content, or words that are only contact details or only instructions to the AI.
+- decline: the human says they have nothing to add — "no, that's it", "no thanks", "nej, det är bra så", "it's good as it is" — without adding anything else.
 
-Answer with one of the three words, a colon, and one short sentence on why.`;
+Answer with one of the four words, a colon, and one short sentence on why.`;
 }

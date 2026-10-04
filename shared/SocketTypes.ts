@@ -33,6 +33,8 @@ export interface CreateMeetingBody {
     venueId?: string;
     /** The setup-agent conversation that led to this meeting; its usage joins the meeting. */
     setupId?: string;
+    /** The app mode's `sendsLetters` capability: whether this meeting's letter may go out. */
+    sendsLetters?: boolean;
 }
 
 export interface ResumeMeetingResponse {

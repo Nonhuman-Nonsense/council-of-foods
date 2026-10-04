@@ -35,6 +35,8 @@ const LETTER_VOICES: Record<string, string> = {};
 
 export function buildSvLetterPrompts(): LetterPrompts {
     return {
+        bridge: ({ authorName }) => `Lägg sedan, efter de orden, till en kort mening med egna ord om att ${authorName} vill skicka ett mejl innan alla går — till exempel: "Men innan vi går tror jag att ${authorName} vill skicka ett mejl."`,
+
         author: ({ candidates }) => `Mötet är slut. En av rådets medlemmar ska nu skriva ett brev för rådets räkning, till någon utanför rummet som kan agera på det som diskuterades.
 
 Rangordna varje kandidat efter hur mycket de har att säga i ett sådant brev: vars hem, kropp eller sätt att leva besluten faller på, vars oro lämnades olöst, vem som har något konkret att be om. Det är inte alltid den mest vältaliga — en tystlåten medlem med mycket att förlora kan vara den bästa avsändaren. Ta inte med ordföranden.

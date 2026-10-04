@@ -1,6 +1,8 @@
 import type { Audio, BaseMeeting } from '@shared/ModelTypes.js';
 import type { UsageEvent } from '@shared/UsageTypes.js';
 import type { Document } from "mongodb";
+import type { LetterForm } from '@logic/letters/prompts/letterPrompts.js';
+import type { HumanHandling } from '@logic/letters/prompts/humanSorting.js';
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.
@@ -10,6 +12,39 @@ export interface StoredMeeting extends BaseMeeting, Document {
     liveKey: string;
     /** Venue the meeting ran at, if staff chose one. Tags the meeting's AI usage. */
     venueId?: string;
+    /** Whether this meeting's letter may go out by email: an installation's yes, the web's no. */
+    sendsLetters?: boolean;
+    /** The letter a meeting ending in one is writing, then wrote. See docs/council-letters.md. */
+    letter?: MeetingLetter;
+}
+
+/**
+ * The letter as it is written, saved step by step so a reconnect resumes where it stopped: the
+ * author when the closing line is said, the plan with the announcement, the draft when ready,
+ * the human's answer when given, and everything else once finished. Earlier letters are read
+ * back for what the next one should not repeat, and for who has already received one.
+ */
+export interface MeetingLetter {
+    authorId: string;
+    recipientId?: string;
+    points?: string[];
+    form?: LetterForm;
+    asksReply?: boolean;
+    draft?: { subject: string; body: string };
+    /** Whether the human answered when asked to add something (false: skipped or walked away). */
+    present?: boolean;
+    /** What they said, as they said it. */
+    addition?: string;
+    /** Set once the letter is finished. */
+    finishedAt?: string;
+    subject?: string;
+    body?: string;
+    humanNote?: string | null;
+    footer?: string;
+    handling?: HumanHandling | "none";
+    humanContributed?: boolean;
+    send?: boolean;
+    sendReason?: string | null;
 }
 
 export interface StoredUsageEvent extends UsageEvent, Document {}

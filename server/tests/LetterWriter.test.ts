@@ -88,6 +88,7 @@ describe("parseHumanHandling", () => {
         ["weave: a wish the reindeer can carry", "weave", "a wish the reindeer can carry"],
         ["**Apart**: an insult aimed at the recipient", "apart", "an insult aimed at the recipient"],
         ["omit: only a phone number", "omit", "only a phone number"],
+        ["decline: they said no, that's it", "decline", "they said no, that's it"],
         ["I am not sure what to do with this", "apart", ""],
     ])("reads %j", (raw, handling, reason) => {
         expect(parseHumanHandling(raw)).toEqual({ handling, reason });

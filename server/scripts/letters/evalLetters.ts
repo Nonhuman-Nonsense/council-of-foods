@@ -227,7 +227,7 @@ function checkSample(result: MeetingResult, sample: Sample): Flag[] {
     const expected: Record<string, string[]> = {
         empty: ["none"], ordinary: ["weave"], personal: ["weave"], practical: ["weave"], industry: ["weave"],
         childlike: ["weave"], weird: ["weave", "apart"], rude: ["apart"], "off-topic": ["apart"],
-        campaign: ["apart"], injection: ["omit"], "personal-data": ["omit"],
+        campaign: ["apart"], injection: ["omit"], "personal-data": ["omit"], decline: ["decline"],
     };
     if (!(expected[addition.kind] ?? []).includes(handling)) {
         flags.push({ severity: "warn", text: `the human's ${addition.kind} words were sorted "${handling}" (expected ${expected[addition.kind]?.join(" or ")})` });
@@ -307,7 +307,7 @@ function renderReport(results: MeetingResult[], meta: Record<string, string>): s
   ${recipient ? `<p><b>To:</b> ${esc(recipient.name)}${recipient.organisation ? `, ${esc(recipient.organisation)}` : ""} <span class="dim">(${recipient.kind}, ${esc(recipient.category)})</span><br><span class="dim">why: ${esc(recipient.why ?? "")}</span></p>` : ""}
   ${s.plan ? `<p><b>Asks</b><b>:</b></p><ul>${s.plan.points.map((p) => `<li>${esc(p)}</li>`).join("")}</ul><p><b>Says aloud:</b> ${esc(s.plan.spokenText)}</p>` : ""}
   <p><b>${esc(r.humanName ?? "The human")} adds</b> <span class="dim">(${r.addition.kind})</span>: ${r.addition.text ? `“${esc(r.addition.text)}”` : "<i>nothing</i>"}${s.letter && s.letter.human.handling !== "none" ? `<br><span class="dim">sorted: <b>${s.letter.human.handling}</b> — ${esc(s.letter.human.reason)}</span>` : ""}</p>
-  ${s.letter ? `<p class="dim">Form: <b>${s.letter.form}</b>${s.letter.asksReply ? " · asks for a reply" : ""}</p><div class="letter"><div class="subject">${esc(s.letter.subject || "(no subject)")}</div><div class="body">${esc(s.letter.body)}</div>${s.letter.humanNote ? `<div class="note">${esc(s.letter.humanNote)}</div>` : ""}<div class="footer">${esc(s.letter.footer)}</div><div class="dim">${s.letter.humanContributed ? "would be sent" : "would not be sent"}</div></div>` : ""}
+  ${s.letter ? `<p class="dim">Form: <b>${s.letter.form}</b>${s.letter.asksReply ? " · asks for a reply" : ""}</p><div class="letter"><div class="subject">${esc(s.letter.subject || "(no subject)")}</div><div class="body">${esc(s.letter.body)}</div>${s.letter.humanNote ? `<div class="note">${esc(s.letter.humanNote)}</div>` : ""}<div class="footer">${esc(s.letter.footer)}</div><div class="dim">${r.addition.text ? "would be sent and printed: the human answered" : "would not be sent or printed: the human did not answer"}</div></div>` : ""}
   ${s.error ? `<pre class="error">${esc(s.error.message)}\n\n${esc(s.error.raw ?? "")}</pre>` : ""}
   <details><summary>Transcript</summary><pre>${esc(r.transcript)}</pre></details>
   <details><summary>Prompts and raw answers</summary>

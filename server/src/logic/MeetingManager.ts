@@ -49,15 +49,16 @@ const PLAYBACK_AHEAD_BUFFER = 3;
 export const ABSOLUTE_MAX_CONVERSATION_LENGTH = 35;
 
 interface Decision {
-    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'ANNOUNCE_LETTER' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
 }
 
 function stopsConversationLoop(action: Decision): boolean {
-    // Note: CONCLUDE_MEETING and GENERATE_SUMMARY are NOT terminal. Concluding pushes the
-    // closing line + a `summary_pending` marker; the loop must keep running so the next
-    // iteration picks up that marker (→ GENERATE_SUMMARY) and produces the summary, after
-    // which the tail becomes a real `summary` and rule 1 of decideNextAction returns IDLE.
+    // Note: CONCLUDE_MEETING, ANNOUNCE_LETTER and GENERATE_SUMMARY are NOT terminal. Concluding
+    // pushes the closing line + a `summary_pending` (or `letter_pending`) marker; the loop must
+    // keep running so the next iteration picks up that marker and resolves it. After a letter's
+    // announcement the tail is `awaiting_letter_addition` and rule 1 returns IDLE; after the
+    // summary the tail is a real `summary` and rule 1 returns IDLE too.
     return action.type === 'IDLE'
         || action.type === 'QUERY_EXTENSION';
 }
@@ -414,6 +415,11 @@ export class MeetingManager implements IMeetingManager {
             && meeting.conversation[meeting.conversation.length - 1].type === 'summary_pending') {
             return { type: 'GENERATE_SUMMARY' };
         }
+        // 0b. Likewise a meeting ending in a letter: the author's announcement is owed.
+        if (meeting.conversation.length > 0
+            && meeting.conversation[meeting.conversation.length - 1].type === 'letter_pending') {
+            return { type: 'ANNOUNCE_LETTER' };
+        }
 
         // 0. No work while paused or interrupted.
         if (this.isPaused || this.handRaised) {
@@ -429,7 +435,8 @@ export class MeetingManager implements IMeetingManager {
                 lastMsg.type === 'query_extension' ||
                 lastMsg.type === 'summary' ||
                 lastMsg.type === 'awaiting_human_panelist' ||
-                lastMsg.type === 'awaiting_human_question'
+                lastMsg.type === 'awaiting_human_question' ||
+                lastMsg.type === 'awaiting_letter_addition'
             ) {
                 return { type: 'IDLE' };
             }
@@ -493,6 +500,12 @@ export class MeetingManager implements IMeetingManager {
                 await this.meetingLifecycleHandler.handleConcludeMeeting({ date });
                 return;
             }
+
+            case 'ANNOUNCE_LETTER':
+                // The tail is `letter_pending`: the author announces the letter, then the human
+                // is asked to add something (`awaiting_letter_addition`).
+                await this.meetingLifecycleHandler.announceLetter();
+                return;
 
             case 'GENERATE_SUMMARY': {
                 // The tail is a `summary_pending` marker (from handleConcludeMeeting). Generate

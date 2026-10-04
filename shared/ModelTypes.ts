@@ -90,7 +90,7 @@ export interface CharacterSetupData {
 
 // For Zod validation
 export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending", "letter_pending", "awaiting_letter_addition"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -135,6 +135,30 @@ export interface GeneratedTurnMessage
     extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields, GeneratedDebugFields {
     type: GeneratedTurnType;
     askParticular?: string;
+    /** On a `summary` that is a letter (see docs/council-letters.md): the letter as written. */
+    letter?: LetterView;
+}
+
+/**
+ * The letter a being wrote at the end of a meeting, as the summary page and print show it. The
+ * summary's `text` is what the author reads aloud — the body and any words of the human's set
+ * apart — while the subject, recipient and footer are only shown.
+ */
+export interface LetterView {
+    authorId: string;
+    authorName: string;
+    recipientName: string;
+    recipientOrganisation: string | null;
+    subject: string;
+    body: string;
+    /** The human's own words, set apart after the signature; null when none were. */
+    humanNote: string | null;
+    footer: string;
+    /** The human was there to answer when asked to add something. Only such a letter is printed. */
+    present: boolean;
+    /** Whether the letter goes out by email; `sendReason` says why not when it does not. */
+    send: boolean;
+    sendReason: string | null;
 }
 
 export interface HumanMessage extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields {
@@ -212,12 +236,43 @@ export interface SummaryPendingMessage extends BaseMessage {
     pretrimmed?: never;
 }
 
+/**
+ * Durable "the author still owes its announcement" marker, pushed atomically with the chair's
+ * closing line (which hands over to the author) when a meeting ends in a letter. The run loop
+ * plans the letter and replaces it with the author's announcement and `awaiting_letter_addition`.
+ */
+export interface LetterPendingMessage extends BaseMessage {
+    type: "letter_pending";
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
+/**
+ * The human taking part is asked to add something to the letter. Resolved by
+ * `submit_human_message` or `skip_human_turn`, which push the human's words (or a skip) and
+ * `summary_pending`; the letter then becomes the meeting's summary.
+ */
+export interface AwaitingLetterAdditionMessage extends BaseMessage, SpeakerFields, TextFields {
+    type: "awaiting_letter_addition";
+    id?: never;
+    sentences?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
 export type SpeakerMessage =
     | GeneratedTurnMessage
     | HumanMessage
     | PanelistMessage
     | AwaitingHumanQuestionMessage
-    | AwaitingHumanPanelistMessage;
+    | AwaitingHumanPanelistMessage
+    | AwaitingLetterAdditionMessage;
 
 export type SyntheticMessage =
     | Extract<GeneratedTurnMessage, { type: "skipped" }>
@@ -225,7 +280,9 @@ export type SyntheticMessage =
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
     | QueryExtensionMessage
-    | SummaryPendingMessage;
+    | SummaryPendingMessage
+    | LetterPendingMessage
+    | AwaitingLetterAdditionMessage;
 
 export type Message =
     | GeneratedTurnMessage
@@ -235,7 +292,9 @@ export type Message =
     | AwaitingHumanPanelistMessage
     | MeetingIncompleteMessage
     | QueryExtensionMessage
-    | SummaryPendingMessage;
+    | SummaryPendingMessage
+    | LetterPendingMessage
+    | AwaitingLetterAdditionMessage;
 
 export function isSpeakerMessage(message: Message): message is SpeakerMessage {
     return "speaker" in message;

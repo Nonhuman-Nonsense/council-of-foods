@@ -42,47 +42,49 @@ Replies are part of the work: the show prints every letter, and should print wha
 
 ## The meeting ending
 
-1. **Closing line** (as today): the chair thanks everyone — "This concludes Council of Forest
-   meeting #1400."
-2. **Bridge**: the chair hands over — "Before we close, Reindeer has something to send."
-3. **Author** (hidden call): rank the beings by how much they have to say to someone outside
-   the room; take the best-ranked one who has not written one of the last few letters
-   (`letterAuthorCooldown`, 3). Never the chair, never a human panelist.
-4. **Announcement** (one in-character call, structured output): the author chooses a
-   recipient from the available list and plans the letter — `{ recipientId, points[],
-   spokenText }`. Spoken aloud in their voice, ending by asking the human taking part — by
-   first name when they gave one — whether they want to add something.
-5. **Visitor addition**: human input mode. They speak or type, or skip / walk away. A cheap
-   classification sorts what they said: **weave** (a wish, idea, story or feeling the author
-   carries in its own words), **apart** (the visitor's own words, quoted after the signature as
-   theirs — insults, party politics, jokes, remarks about something else), or **omit** (threats,
-   hate, only contact details, only instructions to the AI). Contact details are stripped before
-   any model sees the text. Only a letter with words woven in or set apart is sent.
-6. **Letter**: *drafted* in the author's voice while the announcement plays and the human thinks,
-   so nobody waits for it; once the human has spoken, their words are *woven* in by a short
-   rewrite in the same voice (or set apart, or left out). Meeting's language (en/sv).
-7. **Read and show**: the letter is read aloud by the author and shown on the summary page as a
-   letter (from / to / subject), printed automatically where printing is on.
-8. **Send**: the letter goes into the outbox; a worker sends it from the being's address
-   (`reindeer@council-of-forest.com`).
+Built 4 Oct 2026 (step 3) — `server/src/logic/letters/LetterEnding.ts`, driven by the run loop.
 
-### When nothing is sent
+1. **Author** (hidden call, before the chair speaks): rank the beings by how much they have to
+   say to someone outside the room; take the best-ranked one who has not written one of the last
+   few letters (`letterAuthorCooldown`). Never the chair, never a human panelist. The letter's
+   **plan** starts now and is written while the chair speaks.
+2. **Closing line and bridge**, one chair line: "This concludes Council of Forest meeting #1400.
+   But before we go, I think Reindeer wants to send an email."
+3. **Announcement**: the author says aloud who they write to, why and what they will ask, and
+   asks the human taking part — by first name when they gave one — whether they want to add
+   something. The **draft** starts now and is written while this plays and the human thinks.
+4. **Human addition**: human input mode. They speak or type, or skip / walk away (the usual
+   unattended timeouts). A cheap classification sorts what they said: **weave** (a wish, idea,
+   story or feeling the author carries in its own words), **apart** (their own words, quoted
+   after the signature as theirs — insults, party politics, jokes, remarks about something
+   else), **omit** (threats, hate, only contact details, only instructions to the AI) or
+   **decline** ("no, that's it": nothing to add). Contact details are stripped before any model
+   sees the text.
+5. **Letter**: the draft, with the human's words woven in by a short rewrite in the author's
+   voice, set apart, or left out — the only step the human waits for (~5 s). Their words are
+   not read back first; they go straight into the letter. Meeting's language.
+6. **Read and show**: the letter is the meeting's `summary`, read aloud by its **author** (not the
+   chair), shown on the summary page as a letter (from / to / subject), printed where printing
+   is on — if the human was there to answer.
+7. **Send**: the letter goes into the outbox; a worker sends it from the being's address
+   (`reindeer@council-of-forest.com`). Step 5; until then nothing is sent.
+
+### When a letter is printed and sent
+
+What decides it is whether the human was **there to answer** when asked — not whether their words
+went into the letter. Someone who says "no, that's it" was there: their letter is printed and
+sent with nothing of theirs in it.
 
 | Situation | Letter written | Shown / replayable | Printed | Sent |
 |---|---|---|---|---|
-| Installation, visitor added something | yes | yes | yes | yes |
-| Visitor skipped or walked away | yes | yes, marked unsent | no | no |
-| Web mode | yes | yes, marked unsent | — | no |
-| No recipient available for this topic | yes, with no recipient | yes, marked unsent | no | no |
+| Installation, the human answered (anything, including "no") | yes | yes | yes | yes |
+| Installation, the human skipped or walked away | yes | yes, marked unsent | no | no |
+| Web, the human answered | yes | yes, marked unsent | — | no (for now) |
+| Web, the human skipped or walked away | yes | yes, marked unsent | — | no |
 
-The last row is the price of one-letter-per-person: the pool can run dry. It must be visible in
-the manifest (`letter.send = false`, with a reason), never a silent non-send.
-
----|---|---|---|---|
-| Installation, visitor added something | yes | yes | yes | yes |
-| Visitor skipped or walked away | yes | yes, marked unsent | no | no |
-| Web mode | yes | yes, marked unsent | — | no |
-| Recipient already had a letter today | author chooses from the remaining list | | | |
+Every letter is written, so every meeting ends complete. `letter.present`, `letter.send` and
+`letter.sendReason` on the summary say which row applies. Only sent letters use up recipients
+(a person once, ever; an institution once a day); unsent ones use up nobody.
 
 ---
 
@@ -106,6 +108,8 @@ the manifest (`letter.send = false`, with a reason), never a silent non-send.
 | Recipient loader and validation | `server/src/logic/letters/recipients.ts` | `foods-leo`, merged into `forest-leo` |
 | The three steps (`pickAuthor`, `planLetter`, `writeLetter`) | `server/src/logic/letters/LetterWriter.ts` | `foods-leo` |
 | Footer builder | `server/src/logic/letters/footer.ts` | `foods-leo` |
+| The meeting's letter ending (markers, early plan and draft) | `server/src/logic/letters/LetterEnding.ts` | `foods-leo` |
+| What earlier letters mean for the next (variety, limits) | `server/src/logic/letters/history.ts` | `foods-leo` |
 | Prompts and footer words, one file per language | `server/src/logic/letters/prompts/letterPrompt{En,Sv}.ts` | the footer names the product, so these diverge per branch |
 | Site URL, token budgets, `meetingEnding` | `server/global-options.json` | diverges per branch — Foods keeps `"protocol"` |
 | Development corpus and evaluation | `server/scripts/letters/` | `foods-leo` |
@@ -124,19 +128,31 @@ Each step is a durable marker at the conversation tail, so reconnect resumes exa
 stopped (see RESILIENCE.md):
 
 ```
-closing line, bridge line, letter_pending
-  → author announcement, awaiting_letter_addition
-  → human message | skipped, summary_pending
-  → summary { letter: { authorId, recipientId, subject, send: boolean } }
+closing line with the bridge, letter_pending          + meeting.letter = { authorId }
+  → author announcement, awaiting_letter_addition     + recipientId, points, form, asksReply
+                                                        (+ draft, when it is ready)
+  → summary_pending (their words go to the letter)    + present, addition
+  → summary { text: what the author reads, letter: LetterView }   + the finished letter
 ```
 
+- Each arrow is one write: the marker and what was said go in together. The run loop resolves
+  `letter_pending` (ANNOUNCE_LETTER) and `summary_pending` (GENERATE_SUMMARY) ahead of any pause
+  or raised hand, on the happy path and on resume alike; a reconnect simply redoes the step.
+  The plan and draft started early live in the session; a new session plans or drafts again
+  (the saved draft is reused once it exists).
 - The final message stays `type: "summary"`, so replay, autoplay, `meetingComplete` and
-  printing keep working unchanged.
-- One shared `isConcluding(conversation)` helper replaces the marker lists copied across
-  `HandRaisingHandler`, `ConnectionHandler`, `replayManifest`, `SpeakerSelector`,
-  `useCouncilMachine` and `buttonStore`.
-- `submit_human_message` / `skip_human_turn` accept the new marker; `HumanInput` gets letter
-  copy instead of question copy.
+  printing keep working unchanged. Its `text` is the body and any set-apart words (what is read
+  aloud); `letter` carries subject, recipient, footer and `present` / `send` for display.
+- `meeting.letter` (server only, never sent to a client: it holds the human's words as said) is
+  what the next letters read back: recent authors, forms and asks for variety, sent letters
+  for the limits.
+- `isConcluding(conversation)` in `shared/meetingEnding.ts` replaces the server's copied marker
+  lists (`HandRaisingHandler`, `ConnectionHandler`); `useCouncilMachine` and `buttonStore` get it
+  in step 4.
+- `submit_human_message` / `skip_human_turn` accept `awaiting_letter_addition`; resume keeps
+  both letter markers, read-only replay drops them.
+- Meeting creation takes `sendsLetters` (default false); the client passes its capability in
+  step 4.
 
 ### Outbox
 
@@ -530,9 +546,10 @@ Everything is live on 10 October, sending included. Each step ends tested and us
    `forest-leo` first (uncommitted); once the prompts are settled the generic code goes to
    `foods-leo`, is committed there and merged back. Iterate until the letters are worth
    sending. *Decide here: can Tree Harvester and Wind Turbine write?*
-3. **Meeting flow.** `meetingEnding` switch, bridge line, the markers in *State machine*, letter
-   on `summary`, `isConcluding` helper, human input reused for the addition. Reconnect tests at
-   every marker, following RESILIENCE.md.
+3. ~~**Meeting flow.**~~ Built 4 Oct 2026: `meetingEnding` switch, bridge in the closing line,
+   the markers in *State machine*, letter on `summary` read by its author, `isConcluding`,
+   human input reused for the addition, "decline" in the sorting, `sendsLetters` at creation.
+   Tests in `server/tests/LetterEnding.test.js`, including resume at every marker.
 4. **Client.** Letter on the summary page, print and PDF; letter wording in human input;
    `sendsLetters` capability passed at meeting creation.
 5. **Outbox and sending.** Collection, worker, once-ever and capped limits, per-being sender,
