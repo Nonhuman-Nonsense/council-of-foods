@@ -23,10 +23,11 @@ export interface PlanPromptParams {
 }
 
 /**
- * The shapes a letter can take. Chosen in rotation (the one used longest ago next), so letters
- * pinned side by side on the wall differ in shape, not only in wording.
+ * What a letter leans towards, inside the fixed frame of a letter (salutation, "you", signature).
+ * Chosen in rotation (the one used longest ago next), so letters pinned side by side differ in
+ * what they do, while all still read as letters to someone.
  */
-export const LETTER_FORMS = ["requests", "appeal", "testimony", "questions", "invitation", "recognition", "note", "then-and-later"] as const;
+export const LETTER_FORMS = ["requests", "appeal", "questions", "invitation", "recognition", "note"] as const;
 export type LetterForm = (typeof LETTER_FORMS)[number];
 
 export interface DraftPromptParams {

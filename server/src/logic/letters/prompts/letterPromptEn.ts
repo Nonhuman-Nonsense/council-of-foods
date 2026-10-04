@@ -3,7 +3,7 @@ import { bullets } from "./format.js";
 
 /**
  * Council of Foods keeps its protocol for now ("meetingEnding": "protocol"): these are working
- * placeholders, so the letter code compiles and is tested here, and Council of Forest replaces
+ * placeholders, so the letter code compiles and is tested here, and Council of Foods replaces
  * them with its own. Rewrite before switching Foods to letters.
  */
 
@@ -18,14 +18,12 @@ const TRUTH_RULES = bullets([
 const human = (name: string | null) => (name ? `${name}, the human taking part` : "the human taking part");
 
 const FORMS: Record<LetterForm, string> = {
-    requests: "Clear requests: say plainly, in a short numbered list, what you ask of them.",
-    appeal: "A personal appeal: no list. Tell them what is at stake for you, and ask, in a few warm or urgent sentences.",
-    testimony: "A testimony: tell, as a witness, one thing you have seen or lived through where you grow, in detail. End with a single request.",
-    questions: "Questions: write mostly in questions they must answer — about what they have done, what they know and what they will do.",
-    invitation: "An invitation: invite them to come and stand where you stand — a place, a season, an hour — and tell what they would see there. Your asks follow from that.",
-    recognition: "Recognition first: begin from something they have done or said that you can honestly credit, or from their own words, and then ask for the next step.",
-    note: "A short note: at most 500 characters. One thing, said well.",
-    "then-and-later": "Then and later: write from what this place was once, and what it will be in fifty or a hundred years if nothing changes — and what they can do now.",
+    requests: "clear requests: say plainly, as a short numbered list, what you ask of them.",
+    appeal: "a personal appeal: no list — what is at stake for you, and what you ask, in a few warm or urgent sentences.",
+    questions: "questions they must answer — about what they have done, what they know and what they will do.",
+    invitation: "an invitation: ask them to come and stand where you stand — a place, a season, an hour — and tell them what they would see there.",
+    recognition: "recognition first: start from something they have done or said that you can honestly credit, then ask for the next step.",
+    note: "a short note: at most 600 characters, one thing said well.",
 };
 
 export function buildEnLetterPrompts(): LetterPrompts {
@@ -68,19 +66,20 @@ ${recipientFacts.length
 What you decided to ask:
 ${bullets(points)}
 
-The shape of this letter — ${FORMS[form]} Use as many of your asks as that shape allows.
-
-Write a real letter from you, in your own voice — your speech habits, images and rhythm, as fully as when you speak in the council:
-- They have never heard of you. Somewhere in the letter, say who you are and that you write after Council of Foods meeting #${meetingId} on ${date} — always "Council of Foods", never just "the council meeting". You need not begin with it: open where your letter is strongest — an image, a memory, a question, their own words, the place. Do not open with a greeting or with your usual habit; if your habit belongs in the letter, let it come later.
+You are writing to them — not about them, and not to an audience. They will read it at their desk. Write a real letter from you, in your own voice — your speech habits, images and rhythm, as fully as when you speak in the council:
+- Begin with a salutation that suits you and them ("Dear …", "To …", or simply their name), speak to them as "you" throughout, and sign with your name.
+- They have never heard of you. Say briefly who you are, in your own way, and that you write from Council of Foods — always "Council of Foods", never just "the council". If you mention the meeting, it was Council of Foods meeting #${meetingId} on ${date}; you need not.
 - Make clear early why you write to them in particular.
+- After the salutation, do not open with your usual habit or a stock phrase; if your habit belongs in the letter, let it come later.
 - Write from your own life: how what was discussed reaches you — your body, your home, your season, your kin — the way someone personally affected speaks when a reporter asks them. Let feeling show where it is true to you and to the moment; do not perform it.
 - If another member of the council is hit harder or knows more, you may let them speak through you — "my friend Bean told the council…" — but only what they actually said in this meeting.
 - You may not be the one most affected. Then write as yourself: what you see from where you stand, what you heard from the others, where you agree and where you do not. You need not speak for anyone but yourself.
-- Choose the register this recipient calls for: a personal appeal to someone who can help, a firm question to someone who decided against you, a colleague's note to someone on your side, a listener's letter to someone whose life the decision falls on. Your asks can be a short list or part of the appeal.
+- Choose the register this recipient calls for: a personal appeal to someone who can help, a firm question to someone who decided against you, a colleague's note to someone on your side, a listener's letter to someone whose life the decision falls on.
 ${TRUTH_RULES}
 - You may be angry at a decision, never contemptuous of the person you write to.
-- Sign with your name.
-- Length: about 900 characters, never more than 1200 — and shorter if your shape asks for it. If you speak in few words, write a sparse letter: under 700 characters. Plain text, no markdown.
+- At most 1200 characters, and shorter if you speak in few words. Plain text, no markdown.
+
+This time, let the letter lean towards ${FORMS[form]}
 
 Answer in exactly this format, starting with the subject line:
 Subject: <subject line, at most 80 characters>

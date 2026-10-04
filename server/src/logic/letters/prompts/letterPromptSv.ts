@@ -9,7 +9,6 @@ import { bullets } from "./format.js";
  * Council of Foods runs in English only; Swedish is kept so both language paths stay tested.
  */
 
-
 /** Regler som både planen och brevet följer: brevet går till en verklig person. */
 const TRUTH_RULES = bullets([
     "Be bara om det mottagaren själv kan göra. Ligger det som mest behövs hos någon annan (riksdagen, regeringen, ett bolag), be dem om den del som är deras: att använda sina egna befogenheter, att lyfta frågan, att utreda den, att svara.",
@@ -21,14 +20,12 @@ const TRUTH_RULES = bullets([
 const human = (name: string | null) => (name ? `${name}, människan som deltar` : "människan som deltar");
 
 const FORMS: Record<LetterForm, string> = {
-    requests: "Tydliga krav: säg rakt ut, i en kort numrerad lista, vad du ber dem om.",
-    appeal: "En personlig vädjan: ingen lista. Berätta vad som står på spel för dig och be dem, i några varma eller angelägna meningar.",
-    testimony: "Ett vittnesmål: berätta, som ett vittne, en sak du har sett eller levt igenom där du växer, i detalj. Avsluta med en enda begäran.",
-    questions: "Frågor: skriv mest i frågor de måste svara på — om vad de har gjort, vad de vet och vad de tänker göra.",
-    invitation: "En inbjudan: bjud in dem att komma och stå där du står — en plats, en årstid, en timme — och berätta vad de skulle se där. Det du ber om följer av det.",
-    recognition: "Erkännande först: börja i något de har gjort eller sagt som du ärligt kan ge dem erkännande för, eller i deras egna ord, och be sedan om nästa steg.",
-    note: "En kort rad: högst 500 tecken. En sak, väl sagd.",
-    "then-and-later": "Då och sedan: skriv utifrån vad den här platsen en gång var, och vad den blir om femtio eller hundra år om ingenting ändras — och vad de kan göra nu.",
+    requests: "tydliga önskemål: säg rakt ut, som en kort numrerad lista, vad du ber dem om.",
+    appeal: "en personlig vädjan: ingen lista — vad som står på spel för dig, och vad du ber om, i några varma eller angelägna meningar.",
+    questions: "frågor de måste svara på — om vad de har gjort, vad de vet och vad de tänker göra.",
+    invitation: "en inbjudan: be dem komma och stå där du står — en plats, en årstid, en timme — och berätta vad de skulle se där.",
+    recognition: "erkännande först: börja i något de har gjort eller sagt som du ärligt kan ge dem erkännande för, och be sedan om nästa steg.",
+    note: "en kort rad: högst 600 tecken, en sak väl sagd.",
 };
 
 export function buildSvLetterPrompts(): LetterPrompts {
@@ -71,19 +68,20 @@ ${recipientFacts.length
 Det du bestämde dig för att be om:
 ${bullets(points)}
 
-Brevets form — ${FORMS[form]} Använd så många av dina önskemål som formen tillåter.
-
-Skriv ett riktigt brev från dig, med din egen röst — ditt sätt att tala, dina bilder och din rytm, lika fullt som när du talar i rådet:
-- De har aldrig hört talas om dig. Någonstans i brevet, säg vem du är och att du skriver efter Council of Foods möte #${meetingId} den ${date} — alltid "Council of Foods", aldrig bara "rådets möte". Du behöver inte börja med det: börja där brevet är som starkast — en bild, ett minne, en fråga, deras egna ord, platsen. Börja inte med en hälsning eller med din vana; hör vanan hemma i brevet, låt den komma senare.
+Du skriver till dem — inte om dem, och inte till en publik. De läser det vid sitt skrivbord. Skriv ett riktigt brev från dig, med din egen röst — ditt sätt att tala, dina bilder och din rytm, lika fullt som när du talar i rådet:
+- Börja med en hälsning som passar dig och dem ("Kära …", "Till …", eller bara deras namn), tilltala dem med "du" eller "ni" hela vägen, och skriv under med ditt namn.
+- De har aldrig hört talas om dig. Säg kort vem du är, på ditt eget sätt, och att du skriver från Council of Foods — alltid "Council of Foods", aldrig bara "rådet". Nämner du mötet var det Council of Foods möte #${meetingId} den ${date}; du behöver inte.
 - Gör tidigt klart varför du skriver just till dem.
+- Börja inte, efter hälsningen, med din vana eller en standardfras; hör vanan hemma i brevet, låt den komma senare.
 - Skriv utifrån ditt eget liv: hur det som diskuterades når dig — din kropp, ditt hem, din årstid, dina närmaste — så som någon som själv drabbats talar när en reporter frågar. Låt känslan synas där den är sann för dig och för stunden; spela den inte.
 - Om en annan medlem i rådet drabbas hårdare eller vet mer får du låta dem tala genom dig — "min vän Bönan sa i rådet…" — men bara det de faktiskt sa på det här mötet.
 - Du är kanske inte den som drabbas mest. Skriv då som dig själv: vad du ser där du står, vad du hörde de andra säga, var du håller med och var du inte gör det. Du behöver inte tala för någon annan än dig själv.
-- Välj den ton mottagaren kräver: en personlig vädjan till någon som kan hjälpa, en bestämd fråga till någon som beslutat emot dig, ett kollegialt brev till någon på din sida, ett lyssnande brev till någon vars liv beslutet faller på. Det du ber om kan vara en kort lista eller en del av vädjan.
+- Välj den ton mottagaren kräver: en personlig vädjan till någon som kan hjälpa, en bestämd fråga till någon som beslutat emot dig, ett kollegialt brev till någon på din sida, ett lyssnande brev till någon vars liv beslutet faller på.
 ${TRUTH_RULES}
 - Du får vara arg på ett beslut, aldrig föraktfull mot den du skriver till.
-- Skriv under med ditt namn.
-- Längd: omkring 900 tecken, aldrig mer än 1200 — och kortare om formen kräver det. Talar du med få ord, skriv ett glest brev: under 700 tecken. Ren text, ingen markdown.
+- Högst 1200 tecken, och kortare om du talar med få ord. Ren text, ingen markdown.
+
+Den här gången, låt brevet luta mot ${FORMS[form]}
 
 Svara exakt i det här formatet, och börja med ämnesraden:
 Ämne: <ämnesrad, högst 80 tecken>

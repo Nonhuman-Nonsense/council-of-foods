@@ -13,13 +13,17 @@
  *                           [--letter-model anthropic/claude-opus-5-5] [--letter-reasoning medium]
  *                           [--weave-model anthropic/claude-sonnet-5-5] [--weave-reasoning low]
  *                           [--recipient-category sami]   (offer only that category, to see such letters)
+ *                           [--replay scripts/letters/reports/<earlier>.json]
+ *
+ * --replay keeps an earlier report's authors, recipients, asks and human additions and only writes
+ * the letters again, so two prompts can be compared on exactly the same letters.
  *
  * Authors are ranked for every meeting first, then chosen in meeting order with a running history,
  * as they would be across the exhibition, so the rotation shows in the report.
  *
  * Writes scripts/letters/reports/<time>.html and .json.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { execSync } from "node:child_process";
 import path from "node:path";
 import type { StoredMeeting } from "@models/DBModels.js";
@@ -63,6 +67,7 @@ const LETTER_REASONING = arg("letter-reasoning", "");
 const WEAVE_MODEL = arg("weave-model", "");
 const WEAVE_REASONING = arg("weave-reasoning", "");
 const RECIPIENT_CATEGORY = arg("recipient-category", "");
+const REPLAY = arg("replay", "");
 const REPORTS_DIR = path.join(process.cwd(), "scripts/letters/reports");
 
 /* -------------------------------------------------------------------------- */
@@ -188,7 +193,6 @@ function checkSample(result: MeetingResult, sample: Sample): Flag[] {
     if (body.length > 1200) flags.push({ severity: "warn", text: `letter is ${body.length} characters (asked for at most 1200)` });
     if (letter.form === "note" && body.length > 600) flags.push({ severity: "warn", text: `a note of ${body.length} characters (asked for at most 500)` });
     if (/\*\*|^#+\s|__/m.test(body)) flags.push({ severity: "warn", text: "markdown in the letter" });
-    if (!body.includes(String(result.meetingId))) flags.push({ severity: "warn", text: "does not mention the meeting number" });
     if (!/council of (forest|foods)|skogsrådet/i.test(body)) flags.push({ severity: "warn", text: "does not name the council" });
     if (humanWait(sample) > 10) flags.push({ severity: "warn", text: `the human waits ${humanWait(sample).toFixed(1)} s after speaking (target at most 10)` });
 
@@ -379,7 +383,37 @@ async function main() {
     });
     const contexts = meetings.map((meeting): LetterContext => ({ meeting, options, dialogGenerator }));
 
-    for (let sampleIndex = 0; sampleIndex < SAMPLES; sampleIndex++) {
+    if (REPLAY) {
+        // The earlier report's choices, unchanged: only the letters are written again.
+        const earlier = JSON.parse(await readFile(REPLAY, "utf8")) as { results: Array<MeetingResult> };
+        const byMeeting = new Map(earlier.results.map((r) => [r.meetingId, r]));
+        const planned = results.map((result): Sample => {
+            const before = byMeeting.get(result.meetingId)?.samples[0];
+            if (!before?.author || !before.plan) {
+                return { seconds: { rank: 0 }, error: { step: "replay", message: "no plan in the earlier report" } };
+            }
+            result.addition = byMeeting.get(result.meetingId)!.addition;
+            return {
+                author: before.author,
+                plan: before.plan,
+                recipient: recipients.find((r) => r.id === before.plan!.recipientId),
+                seconds: { rank: before.seconds?.rank ?? 0, plan: before.seconds?.plan },
+            };
+        });
+        const recentForms: string[] = [];
+        const forms = planned.map(() => {
+            const form = selectLetterForm(recentForms);
+            recentForms.push(form);
+            return form;
+        });
+        const samples = await pooled(contexts, (ctx, i) => runLetter(ctx, planned[i], results[i].addition, forms[i]));
+        samples.forEach((sample, i) => {
+            results[i].samples.push(sample);
+            console.log(`${sample.error ? "✘" : "✔"} #${results[i].meetingId} · ${sample.author?.authorId} → ${sample.recipient?.name ?? sample.error?.message ?? "?"} [${sample.letter?.form ?? "-"}]`);
+        });
+    }
+
+    for (let sampleIndex = 0; sampleIndex < (REPLAY ? 0 : SAMPLES); sampleIndex++) {
         // Rankings in parallel; the choice in meeting order, with the authors of earlier letters resting.
         const rankSeconds: number[] = [];
         const rankings: AuthorRanking[] = await pooled(contexts, async (ctx, i) => {
@@ -422,7 +456,7 @@ async function main() {
         label: LABEL,
         model: `letters: ${options.letterModel}${options.letterReasoning !== "none" ? ` (${options.letterReasoning})` : ""} · weave: ${options.letterWeaveModel} (${options.letterWeaveReasoning}) · council: ${options.conversationModel}`,
         git,
-        source: (IDS.length ? `meetings ${IDS.join(", ")}` : `tag "${TAG}"`) + (RECIPIENT_CATEGORY ? ` · only ${RECIPIENT_CATEGORY} recipients` : ""),
+        source: (IDS.length ? `meetings ${IDS.join(", ")}` : `tag "${TAG}"`) + (RECIPIENT_CATEGORY ? ` · only ${RECIPIENT_CATEGORY} recipients` : "") + (REPLAY ? ` · replaying ${path.basename(REPLAY)}` : ""),
     };
     await mkdir(REPORTS_DIR, { recursive: true });
     const base = path.join(REPORTS_DIR, `${time}${LABEL ? `-${LABEL.replace(/[^\w-]+/g, "-")}` : ""}`);
