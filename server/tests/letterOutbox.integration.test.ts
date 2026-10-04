@@ -30,7 +30,11 @@ const letter = (overrides: Partial<MeetingLetter> = {}): MeetingLetter => ({
 
 async function finishedMeeting(_id: number, overrides: Partial<MeetingLetter> = {}) {
     const meeting = MockFactory.createStoredMeeting({ _id, liveKey: `key-${_id}`, language: "sv", letter: letter(overrides) });
-    meeting.characters = [...meeting.characters, MockFactory.createCharacter({ id: "reindeer", name: "Renen" })];
+    // The author by its name in the meeting's language, whatever the product's own beings are.
+    meeting.characters = [
+        ...meeting.characters.filter((character) => character.id !== "reindeer"),
+        MockFactory.createCharacter({ id: "reindeer", name: "Renen" }),
+    ];
     await meetingsCollection.insertOne(meeting);
 }
 
