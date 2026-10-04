@@ -180,6 +180,14 @@ The browser sends the PDF to the bridge. The bridge keeps it in a folder queue a
 prints it with macOS's own printing, so a crash, a reboot or a printer that is
 off only delays a protocol, never loses it. Each meeting prints once.
 
+In a meeting that ends in a letter, the letter is what prints — and only if the
+visitor was there to answer when asked to add something. **Replies** to the letters
+print here too, as they arrive: the page asks the bridge for new replies to this
+venue's letters once a minute (the bridge asks the council server with the
+installation key, so the key and the venue must be set), prints each once, and
+tells the server. Automatic replies (out of office) are never printed. See
+[docs/council-letters.md](docs/council-letters.md).
+
 The **Bridge** panel on `#staff` shows the printer, how many protocols are
 waiting, and **Needs attention** with the reason when something is wrong: out of
 paper, a jam, a paused queue, or protocols that haven't printed for 10 minutes

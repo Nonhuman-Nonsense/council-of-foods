@@ -8,7 +8,19 @@ export const INSTALLATION_KEY_PATH = "/v1/installation/key";
 export const INSTALLATION_VENUES_PATH = "/v1/installation/venues";
 export const INSTALLATION_VENUE_PATH = "/v1/installation/venue";
 export const ALERT_TEST_PATH = "/v1/alerts/test";
-export const ALERT_PATHS = [INSTALLATION_KEY_PATH, INSTALLATION_VENUES_PATH, INSTALLATION_VENUE_PATH, ALERT_TEST_PATH];
+export const LETTER_REPLIES_PATH = "/v1/installation/letter-replies";
+export const LETTER_REPLY_PRINTED_PATH = "/v1/installation/letter-replies/printed";
+export const ALERT_PATHS = [
+  INSTALLATION_KEY_PATH,
+  INSTALLATION_VENUES_PATH,
+  INSTALLATION_VENUE_PATH,
+  ALERT_TEST_PATH,
+  LETTER_REPLIES_PATH,
+  LETTER_REPLY_PRINTED_PATH,
+];
+
+/** A reply's id, as the council server makes it. */
+export const REPLY_ID_PATTERN = /^[a-f0-9]{24}$/;
 
 function sendJson(res: http.ServerResponse, status: number, body: unknown, cors: Record<string, string>): void {
   res.writeHead(status, { "Content-Type": "application/json", ...cors });
@@ -22,6 +34,8 @@ function sendJson(res: http.ServerResponse, status: number, body: unknown, cors:
  * - `GET  /v1/installation/venues` → `{ venues, current }` (from the council server; addresses masked)
  * - `PUT  /v1/installation/venue {venueId|null}` → choose where alerts go; only listed venues
  * - `POST /v1/alerts/test` → send a test alert to the chosen venue
+ * - `GET  /v1/installation/letter-replies` → replies to the venue's letters, still to print
+ * - `POST /v1/installation/letter-replies/printed {id}` → one is printed
  *
  * None of these can set an address: recipients only come from the server.
  */
@@ -75,6 +89,16 @@ export async function handleAlerts(
       sendJson(res, 200, { ok: true, venue }, cors);
     } else if (pathname === ALERT_TEST_PATH && req.method === "POST") {
       await alerts.sendTest(origin);
+      sendJson(res, 200, { ok: true }, cors);
+    } else if (pathname === LETTER_REPLIES_PATH && req.method === "GET") {
+      sendJson(res, 200, { ok: true, replies: await alerts.letterReplies(origin) }, cors);
+    } else if (pathname === LETTER_REPLY_PRINTED_PATH && req.method === "POST") {
+      const body = (await readJsonBody(req).catch(() => ({}))) as { id?: unknown };
+      if (typeof body.id !== "string" || !REPLY_ID_PATTERN.test(body.id)) {
+        sendJson(res, 400, { ok: false, error: "expected { id }" }, cors);
+        return;
+      }
+      await alerts.markLetterReplyPrinted(body.id, origin);
       sendJson(res, 200, { ok: true }, cors);
     } else {
       sendJson(res, 405, { ok: false, error: "method not allowed" }, cors);

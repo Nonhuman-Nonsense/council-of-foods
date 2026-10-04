@@ -79,6 +79,30 @@ export interface OutboxLetter extends Document {
     brevoMessageId?: string;
 }
 
+/**
+ * An email that came back to a letter's reply address (docs/council-letters.md → Receiving).
+ * Replies and opt-outs are printed at the letter's venue; automatic replies and spam are kept,
+ * never printed.
+ */
+export interface LetterReply extends Document {
+    /** From the email's Message-ID, so Brevo posting it again changes nothing. */
+    _id: string;
+    meetingId: number;
+    recipientId: string;
+    venueId?: string;
+    /** The letter it answers, as it is printed with the reply. */
+    letter: { authorId: string; authorName: string; recipientName: string; subject: string; language: string };
+    /** Who wrote back, by name; their address is kept out of anything printed. */
+    from: { address: string; name: string | null };
+    subject: string;
+    /** What they wrote, without the quoted letter, their signature or contact details. */
+    message: string;
+    receivedAt: Date;
+    kind: "reply" | "opt-out" | "automatic" | "spam";
+    reason?: string;
+    printedAt?: Date;
+}
+
 /** A recipient who may not be written to again: they opted out, or their address bounced. */
 export interface BlockedRecipient extends Document {
     _id: string;

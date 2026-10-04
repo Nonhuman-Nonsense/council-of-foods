@@ -3,6 +3,7 @@ import {
   _resetPrintedMeetingsForTests,
   printProtocolOnce,
   sendProtocolToPrinter,
+  sendReplyToPrinter,
   sendTestPage,
 } from "@/museum/print/printClient";
 
@@ -40,6 +41,14 @@ describe("sending a protocol to the bridge", () => {
       headers: { "Content-Type": "application/pdf" },
       body: pdf,
     });
+  });
+
+  it("posts a reply to a letter under its own id", async () => {
+    fetchMock.mockResolvedValueOnce(reply(202));
+
+    await expect(sendReplyToPrinter("0123456789abcdef01234567", pdf, FAST_RETRY)).resolves.toBe("queued");
+
+    expect(fetchMock.mock.calls[0][0]).toBe("http://127.0.0.1:8765/v1/print?replyId=0123456789abcdef01234567");
   });
 
   it("follows a bridge URL override", async () => {

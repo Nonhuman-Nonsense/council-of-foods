@@ -4,6 +4,7 @@ import type { AlertMonitor } from "./alertMonitor.js";
 import { MOCK_PRINTER_MODES, type MockPrinter, type MockPrinterMode } from "./printer.js";
 import { InvalidPrintJobError, type PrintSpool } from "./printSpool.js";
 import { readJsonBody } from "./testApi.js";
+import { REPLY_ID_PATTERN } from "./alertRoutes.js";
 
 export const PRINT_PATH = "/v1/print";
 export const TEST_PRINTER_PATH = "/v1/test/printer";
@@ -60,7 +61,8 @@ export function testPageJobKey(origin: string | undefined, now = new Date()): st
 }
 
 /**
- * `POST /v1/print?meetingId=<n>` with the PDF as the raw body, or
+ * `POST /v1/print?meetingId=<n>` with the PDF as the raw body,
+ * `POST /v1/print?replyId=<id>` for a reply to one of the letters, or
  * `POST /v1/print?test=1` for a staff test page.
  * 202 queued · 200 duplicate · 400 invalid · 403 origin · 413 too large · 503 printing off.
  */
@@ -95,14 +97,22 @@ export async function handlePrint(
   const params = new URL(req.url ?? "", "http://bridge").searchParams;
   const isTestPage = params.get("test") === "1";
   const meetingId = params.get("meetingId") ?? "";
-  if (!isTestPage && !/^\d{1,12}$/.test(meetingId)) {
+  const replyId = params.get("replyId");
+  if (replyId !== null && !REPLY_ID_PATTERN.test(replyId)) {
+    sendJson(res, 400, { ok: false, error: "expected a reply id" }, cors);
+    return;
+  }
+  if (!isTestPage && replyId === null && !/^\d{1,12}$/.test(meetingId)) {
     sendJson(res, 400, { ok: false, error: "expected numeric meetingId" }, cors);
     return;
   }
 
   try {
     const pdf = await readBody(req, maxBytes);
-    const key = isTestPage ? testPageJobKey(origin) : printJobKey(origin, meetingId);
+    // A reply has a key of its own: the letter of its meeting was printed under the meeting's.
+    const key = isTestPage
+      ? testPageJobKey(origin)
+      : printJobKey(origin, replyId !== null ? `reply-${replyId}` : meetingId);
     const status = await print.spool.enqueue(key, pdf);
     sendJson(res, status === "queued" ? 202 : 200, { ok: true, status }, cors);
   } catch (error) {

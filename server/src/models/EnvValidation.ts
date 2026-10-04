@@ -31,6 +31,8 @@ export const EnvSchema = z.object({
      */
     COUNCIL_LETTERS: unsetIfBlank(z.enum(["off", "test", "live"])),
     COUNCIL_LETTERS_TEST_TO: unsetIfBlank(z.email()),
+    /** In the URLs Brevo posts replies and delivery events to; without it, both are refused. */
+    COUNCIL_LETTERS_WEBHOOK_SECRET: unsetIfBlank(z.string().min(16)),
     // One key for an installation's devices: the bridge (printer alerts) and the room power plugs.
     COUNCIL_INSTALLATION_KEY: unsetIfBlank(z.string().min(16)),
     // Where installations run: printer alert addresses, opening hours, room power plugs.

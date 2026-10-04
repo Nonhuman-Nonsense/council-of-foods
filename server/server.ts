@@ -39,10 +39,13 @@ import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
 import { registerInstallationRoutes } from '@api/installationRoutes.js';
+import { registerLetterInstallationRoutes, registerLetterWebhookRoutes } from '@api/letterRoutes.js';
 
 const environment: string = config.NODE_ENV;
 
 const app = express();
+// Brevo's webhooks bring their own, larger body limit, so they go before the app's parser.
+registerLetterWebhookRoutes(app);
 app.use(express.json());
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
@@ -79,6 +82,7 @@ registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);
 registerInstallationRoutes(app);
+registerLetterInstallationRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {

@@ -300,6 +300,22 @@ export function isSpeakerMessage(message: Message): message is SpeakerMessage {
     return "speaker" in message;
 }
 
+/**
+ * A reply to one of the letters, as an installation prints it (docs/council-letters.md →
+ * Receiving): who wrote back by name — never their address — and the letter it answers.
+ */
+export interface PrintableLetterReply {
+    id: string;
+    meetingId: number;
+    kind: "reply" | "opt-out";
+    fromName: string | null;
+    subject: string;
+    /** Markdown, as Brevo extracts it, without the quoted letter, signature or contact details. */
+    message: string;
+    receivedAt: string;
+    letter: { authorId: string; authorName: string; recipientName: string; subject: string; language: string };
+}
+
 export interface Audio {
     _id: string; // Message ID (UUID)
     date: string; // ISO String

@@ -8,7 +8,7 @@ import {
   type Outgoing,
 } from "./printAlerts.js";
 import type { PrintHealth } from "./printSpool.js";
-import { ServerClient, ServerError, type Venue } from "./serverClient.js";
+import { ServerClient, ServerError, type LetterReplyToPrint, type Venue } from "./serverClient.js";
 
 export type AlertMonitorOptions = {
   spool: { health(): PrintHealth };
@@ -174,6 +174,20 @@ export class AlertMonitor {
     console.log(`[button-bridge/alerts] venue set to ${this.saved.venue?.name ?? "none"}`);
     await this.persist();
     return this.saved.venue;
+  }
+
+  /**
+   * Replies to the chosen venue's letters that are not yet printed. The page renders and prints
+   * them (only a page can draw a PDF), then says so with {@link markLetterReplyPrinted}.
+   */
+  async letterReplies(origin?: string): Promise<LetterReplyToPrint[]> {
+    const server = this.requireServer(origin);
+    const venue = this.saved.venue;
+    return venue ? server.getLetterReplies(venue.id) : [];
+  }
+
+  async markLetterReplyPrinted(id: string, origin?: string): Promise<void> {
+    await this.requireServer(origin).markLetterReplyPrinted(id);
   }
 
   /** Sends a test alert straight away. Rate-limited, since any allowed page can ask. */

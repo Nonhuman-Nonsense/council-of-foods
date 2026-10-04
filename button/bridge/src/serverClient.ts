@@ -19,6 +19,18 @@ export type PrinterAlertPayload = {
   host?: string;
 };
 
+/** A reply to one of the venue's letters, as the server hands it out to be printed. */
+export type LetterReplyToPrint = {
+  id: string;
+  meetingId: number;
+  kind: "reply" | "opt-out";
+  fromName: string | null;
+  subject: string;
+  message: string;
+  receivedAt: string;
+  letter: { authorId: string; authorName: string; recipientName: string; subject: string; language: string };
+};
+
 export class ServerError extends Error {
   constructor(
     message: string,
@@ -52,6 +64,18 @@ export class ServerClient {
 
   async sendPrinterAlert(alert: PrinterAlertPayload): Promise<void> {
     await this.request("POST", "/api/installation/printer-alerts", alert);
+  }
+
+  async getLetterReplies(venueId: string): Promise<LetterReplyToPrint[]> {
+    const body = (await this.request(
+      "GET",
+      `/api/installation/letter-replies?venueId=${encodeURIComponent(venueId)}`,
+    )) as { replies?: LetterReplyToPrint[] };
+    return body.replies ?? [];
+  }
+
+  async markLetterReplyPrinted(id: string): Promise<void> {
+    await this.request("POST", "/api/installation/letter-replies/printed", { id });
   }
 
   private async request(method: string, path: string, body?: unknown): Promise<unknown> {

@@ -255,6 +255,10 @@
     "goBack": "Go back",
     "startNew": "Start new meeting"
   },
+  "letterReply": {
+    "heading": "Reply to {{name}}'s letter · meeting #{{meetingId}}",
+    "optOut": "{{name}} asked to receive no more letters."
+  },
   "letter": {
     "from": "From",
     "to": "To",
