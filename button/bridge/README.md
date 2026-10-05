@@ -143,9 +143,15 @@ The installer also sets up printing:
 - It puts a **Council Print** shortcut to the spool on the logged-in user's Desktop. The
   folder isn't on the Desktop itself, because macOS privacy protection can block the root
   daemon from writing there.
-- It sets `printer-error-policy=retry-job` on the default printer, so CUPS doesn't leave
-  the queue stopped after paper out or a jam. With no default printer it warns, and jobs
-  wait in `pending/` until one is set and the installer is re-run.
+- It makes sure there is a **system-wide** default printer. The daemon runs as root, and
+  choosing a default in System Settings → Printers & Scanners only sets it for the
+  logged-in user (`~/.cups/lpoptions`), so `lp` in the daemon sees none. When only the
+  installing user has a default, the installer makes it the system-wide one with
+  `sudo lpadmin -d <printer>`, and says so.
+- It sets `printer-error-policy=retry-job` on that printer, so CUPS doesn't leave the
+  queue stopped after paper out or a jam. With no default printer at all it warns, and
+  jobs wait in `pending/` until one is set and the installer is re-run (or
+  `sudo lpadmin -d <printer>` is run; `lpstat -e` lists the printers).
 
 There is nothing else to configure. The council server and its installation key come from
 the `#staff` page (see [Alert emails](#alert-emails)).
@@ -256,7 +262,7 @@ comes from `src/printAttention.ts` and is re-checked every 5 s:
 - `stopped`: the print queue is paused.
 - `not-printing`: a protocol has waited 10 minutes, in `pending/` or in the printer's
   queue, whatever the printer says. Many USB printers never report being out of paper.
-- `no-printer`: there's no default printer.
+- `no-printer`: there's no system-wide default printer (see the installer above).
 
 The wording for each reason is in `shared/printerReasons.ts`.
 

@@ -85,6 +85,8 @@ export function parseQueuedJobs(output: string): Pick<PrinterStatus, "queuedJobs
 }
 
 const NO_QUEUE = { queuedJobs: 0, oldestJobAt: null };
+const NO_DEFAULT_MESSAGE =
+  "No system-wide default printer. Re-run the bridge installer, or: sudo lpadmin -d <printer>";
 
 /** Prints through CUPS with `lp`, to `printer` or the system default. */
 export class LpPrinter implements PrinterLike {
@@ -103,8 +105,10 @@ export class LpPrinter implements PrinterLike {
           env: C_LOCALE_ENV,
         });
         name = parseDefaultPrinter(stdout);
+        // `lp` sees the same default, so there is nothing to fall back to: the bridge runs
+        // as root, and a default chosen in System Settings is only that user's.
         if (!name) {
-          return { name: null, state: "unknown", alerts: [], message: "No default printer", ...NO_QUEUE };
+          return { name: null, state: "unknown", alerts: [], message: NO_DEFAULT_MESSAGE, ...NO_QUEUE };
         }
       }
       const [details, queue] = await Promise.all([

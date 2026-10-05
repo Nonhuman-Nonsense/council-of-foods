@@ -177,15 +177,40 @@ remove_print_spool_links() {
   done
 }
 
-# CUPS stops a printer's whole queue on an error (paper out, printer off) and leaves it
-# stopped after the problem is fixed. retry-job keeps the queue running instead.
+# The default printer `lpstat -d` reports, or nothing. Arguments are put in front of it,
+# to run it as someone else.
+default_printer() {
+  { "$@" env LANG=C LC_ALL=C lpstat -d 2>/dev/null || true; } | sed -n 's/^system default destination: *//p'
+}
+
+# The default printer as the daemon sees it: as root, with root's home. Choosing a default
+# in System Settings → Printers & Scanners only sets it for that user (~/.cups/lpoptions),
+# and sudo keeps the user's HOME, so a plain `sudo lpstat -d` would still see it.
+daemon_default_printer() {
+  default_printer sudo env -u LPDEST -u PRINTER HOME=/var/root
+}
+
+# Makes sure the daemon has a default printer: a default only the installing user has is
+# made the system-wide one. CUPS stops a printer's whole queue on an error (paper out,
+# printer off) and leaves it stopped after the problem is fixed; retry-job keeps the queue
+# running instead.
 configure_default_printer() {
   local printer
-  printer="$(LANG=C LC_ALL=C lpstat -d 2>/dev/null | sed -n 's/^system default destination: *//p')"
+  printer="$(daemon_default_printer)"
   if [[ -z "$printer" ]]; then
-    echo "Warning: no default printer. Protocols will wait in $PRINT_SPOOL_DIR/pending until one is set" >&2
-    echo "  (System Settings → Printers & Scanners), then re-run this installer." >&2
-    return 0
+    printer="$(default_printer)"
+    if [[ -z "$printer" ]]; then
+      echo "Warning: no default printer. Protocols will wait in $PRINT_SPOOL_DIR/pending until one is set" >&2
+      echo "  (System Settings → Printers & Scanners), then re-run this installer." >&2
+      echo "  Or set it yourself: sudo lpadmin -d <printer> (lpstat -e lists the printers)." >&2
+      return 0
+    fi
+    if ! sudo lpadmin -d "$printer"; then
+      echo "Warning: $printer is only this user's default printer, which the bridge doesn't see," >&2
+      echo "  and making it the system-wide default failed. Run: sudo lpadmin -d $printer" >&2
+      return 0
+    fi
+    echo "Made $printer the system-wide default printer (it was only this user's default)."
   fi
   if sudo lpadmin -p "$printer" -o printer-error-policy=retry-job; then
     echo "Printer: $printer (retries jobs after errors)"

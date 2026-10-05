@@ -208,9 +208,13 @@ shortcut on the Desktop:
 - **Printer stuck** after paper out or a jam: fix the printer. The installer sets
   it to retry on its own. If the panel still says **Stopped**, resume it in
   System Settings → Printers & Scanners, or run `sudo cupsenable <printer name>`.
-- Printing goes to the Mac's **default printer**. Set a fixed default in System
-  Settings → Printers & Scanners, not "Last printer used", then re-run the bridge
-  installer so the retry setting is applied to it.
+- Printing goes to the Mac's **system-wide default printer**. Choosing a default in
+  System Settings → Printers & Scanners only sets it for that user, and the bridge
+  runs as root, so it doesn't see it. Choose a fixed default there, not "Last printer
+  used", then re-run the bridge installer: it makes that printer the system-wide
+  default and applies the retry setting. To change it without the installer, run
+  `sudo lpadmin -d <printer name>` (`lpstat -e` lists the names); the bridge picks it
+  up within seconds.
 
 ### Printer alert emails
 
@@ -373,9 +377,11 @@ During a live meeting, the button also drives human input and the meta-agent
 
 ### Printed protocols
 
-1. Connect the A4 printer and make it the Mac's default printer
+1. Connect the A4 printer and make it the Mac's default printer (System Settings →
+   Printers & Scanners)
 2. Install (or re-install) the bridge. It sets up the print folder, the Desktop
-   shortcut and the printer's retry setting
+   shortcut, makes the printer the system-wide default (the bridge doesn't see a
+   default that's only yours) and sets its retry setting
 3. `#staff` → **Museum** + **Print summaries**. The Bridge panel shows the printer as **Ready**
 4. **Print test page**, and check a page comes out
 5. Installation panel → **Venue** → choose the museum, and paste the **Installation key**
