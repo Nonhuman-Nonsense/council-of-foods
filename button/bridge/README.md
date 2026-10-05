@@ -276,7 +276,8 @@ decides **who** and sends the email (see `server/README.md`). Nothing here holds
 
 - `src/printAlerts.ts` holds the rules: 2 min grace, a new email when the reason changes,
   reminders every 4 h (only while the venue is open, plus one at opening), and "resolved"
-  after 2 min fixed. A problem that clears before staff were told sends nothing.
+  after 2 min fixed (the server passes that to errorbot only, not staff). A problem that
+  clears before staff were told sends nothing.
 - `src/alertMonitor.ts` runs them every 30 s and posts to `/api/installation/printer-alerts`
   with `X-Installation-Key`, retrying with backoff (30 s up to 10 min) if the server is
   unreachable. Only the newest undelivered alert is kept. The venue and state are saved in

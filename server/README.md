@@ -39,7 +39,7 @@ Email goes through Brevo's transactional API (`MailService`), from `COUNCIL_MAIL
 
 An installation's devices — the bridge on the museum Mac and the room power plugs — call `/api/installation/*` with one shared key, `X-Installation-Key` (`COUNCIL_INSTALLATION_KEY`, 16+ characters; unset → 503). Staff paste it on `#staff`, which hands it to the bridge, and into each plug's script.
 - `GET /api/installation/venues` lists `COUNCIL_VENUES`, with addresses masked, so the bridge can check a venue the staff page hands it.
-- `POST /api/installation/printer-alerts` emails a printer problem, reminder, recovery or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. It's rate-limited to 12 per venue per hour.
+- `POST /api/installation/printer-alerts` emails a printer problem, reminder or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. A recovery goes to ErrorBot only. It's rate-limited to 12 per venue per hour.
 - `POST /api/installation/room-power`: see [Footprint meter](#footprint-meter).
 
 Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to email anyone else. Venues are a JSON array (see `example.env`) and are validated at startup.

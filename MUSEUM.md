@@ -227,7 +227,9 @@ errorbot on Telegram:
   printer. A different problem sends a new email.
 - **Reminder** every 4 hours while it lasts, only during the venue's opening hours,
   plus one when the venue opens.
-- **Working again** once it has stayed fixed for 2 minutes.
+
+Once it has stayed fixed for 2 minutes, only errorbot hears that it works again; staff
+aren't emailed.
 
 **Who gets them:** the installation's **venue**, chosen on `#staff` (Installation panel →
 Venue). The page hands it to the bridge.

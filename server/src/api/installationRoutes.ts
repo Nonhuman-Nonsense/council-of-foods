@@ -59,7 +59,7 @@ export function registerInstallationRoutes(app: Express): void {
             res.status(400).json({ message: `Unknown venue: ${alert.venueId}` });
             return;
         }
-        if (!isMailConfigured()) {
+        if (alert.kind !== "resolved" && !isMailConfigured()) {
             res.status(503).json({ message: "Email is not configured" });
             return;
         }
@@ -67,8 +67,6 @@ export function registerInstallationRoutes(app: Express): void {
             res.status(429).json({ message: "Too many alerts for this venue" });
             return;
         }
-
-        const email = buildPrinterAlertEmail(getSender().name, venue, alert);
 
         // The team's copy. Sent before the email, so a failing send is still seen.
         await sendReport({
@@ -80,8 +78,14 @@ export function registerInstallationRoutes(app: Express): void {
             }${alert.waiting !== undefined ? ` (${alert.waiting} waiting)` : ""}${alert.host ? ` · ${alert.host}` : ""}`,
         });
 
+        // Staff hear when the printer needs them, not when it recovers.
+        if (alert.kind === "resolved") {
+            res.json({ ok: true });
+            return;
+        }
+
         try {
-            await sendEmail(email);
+            await sendEmail(buildPrinterAlertEmail(getSender().name, venue, { ...alert, kind: alert.kind }));
         } catch (error) {
             await sendReport({
                 context: `printer ${venue.id}`,
