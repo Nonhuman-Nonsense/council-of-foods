@@ -3,6 +3,7 @@ import type { BlockedRecipient, OutboxLetter, StoredMeeting } from "@models/DBMo
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { BrevoRefusedError, type Email } from "@services/MailService.js";
 import type { Recipient } from "./recipients.js";
+import { randomBytes } from "node:crypto";
 import { Logger } from "@utils/Logger.js";
 
 /**
@@ -71,9 +72,12 @@ export function letterTag(meetingId: number): string {
     return `letter-${meetingId}`;
 }
 
-/** `reindeer.1400@reply.council-of-forest.com`: a reply tells us which being and which meeting it answers. */
-export function letterReplyTo(options: OutboxDeps["options"], authorId: string, meetingId: number): string {
-    return `${localPart(options, authorId)}.${meetingId}@${options.letterReplyDomain}`;
+/**
+ * `reindeer.1400.9f3ac2e1@reply.council-of-forest.com`: a reply tells us which being and which
+ * meeting it answers, and the letter's own token that it really is a reply to that letter.
+ */
+export function letterReplyTo(options: OutboxDeps["options"], authorId: string, meetingId: number, token: string): string {
+    return `${localPart(options, authorId)}.${meetingId}.${token}@${options.letterReplyDomain}`;
 }
 
 /** The finished letter of a meeting as an outbox record, or null when it is not one to send. */
@@ -86,6 +90,7 @@ export function composeOutboxLetter(
     const letter = meeting.letter;
     if (!letter?.send || !letter.finishedAt || !recipient.email) return null;
     const author = meeting.characters.find((character) => character.id === letter.authorId);
+    const replyToken = randomBytes(4).toString("hex");
     return {
         _id: meeting._id,
         status: "queued",
@@ -93,7 +98,8 @@ export function composeOutboxLetter(
         recipientKind: recipient.kind,
         to: recipient.email,
         from: letterSender(options, letter.authorId, author?.name ?? letter.authorId),
-        replyTo: letterReplyTo(options, letter.authorId, meeting._id),
+        replyTo: letterReplyTo(options, letter.authorId, meeting._id, replyToken),
+        replyToken,
         subject: letter.subject ?? "",
         text: [letter.body, letter.humanNote, letter.footer].filter(Boolean).join("\n\n"),
         ...(meeting.venueId ? { venueId: meeting.venueId } : {}),

@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { isAutomaticReply, meetingOfReplyAddress, parseReplyKind, type InboundEmail } from "@logic/letters/replies.js";
+import { isAutomaticReply, parseReplyAddress, parseReplyKind, type InboundEmail } from "@logic/letters/replies.js";
 
-describe("meetingOfReplyAddress", () => {
+describe("parseReplyAddress", () => {
     it.each([
-        ["reindeer.1400@reply.council-of-forest.com", 1400],
-        ["Tree.Harvester.7@Reply.Council-of-Forest.com", 7],
+        ["reindeer.1400.9f3ac2e1@reply.council-of-forest.com", { meetingId: 1400, token: "9f3ac2e1" }],
+        ["Tree.Harvester.7.9F3AC2E1@Reply.Council-of-Forest.com", { meetingId: 7, token: "9f3ac2e1" }],
+        ["reindeer.1400@reply.council-of-forest.com", { meetingId: 1400, token: null }],
         ["reindeer@reply.council-of-forest.com", null],
-        ["reindeer.1400@council-of-forest.com", null],
+        ["reindeer.1400.9f3ac2e1@council-of-forest.com", null],
         ["hello@nonhuman-nonsense.com", null],
-    ])("reads %s as meeting %s", (address, expected) => {
-        expect(meetingOfReplyAddress(address, "reply.council-of-forest.com")).toBe(expected);
+    ])("reads %s", (address, expected) => {
+        expect(parseReplyAddress(address, "reply.council-of-forest.com")).toEqual(expected);
     });
 });
 

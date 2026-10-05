@@ -78,7 +78,7 @@ describe("letter outbox", () => {
             expect.objectContaining({
                 _id: 1, status: "queued", to: "skogsstyrelsen@example.org",
                 from: { name: "Renen", email: "reindeer@council-of-forest.com" },
-                replyTo: "reindeer.1@reply.council-of-forest.com",
+                replyTo: expect.stringMatching(/^reindeer\.1\.[a-f0-9]{8}@reply\.council-of-forest\.com$/),
             }),
         ]);
     });
@@ -106,7 +106,7 @@ describe("letter outbox", () => {
         expect(outbox.send).toHaveBeenCalledTimes(sends);
         if (to) {
             expect(outbox.send).toHaveBeenCalledWith(expect.objectContaining({
-                to: [to], sender: { name: "Renen", email: "reindeer@council-of-forest.com" }, replyTo: "reindeer.1@reply.council-of-forest.com",
+                to: [to], sender: { name: "Renen", email: "reindeer@council-of-forest.com" }, replyTo: expect.stringMatching(/^reindeer\.1\.[a-f0-9]{8}@reply\.council-of-forest\.com$/),
             }));
         }
         expect(await lettersCollection.findOne({ _id: 1 })).toMatchObject({ status, ...(sends ? { mode } : {}) });

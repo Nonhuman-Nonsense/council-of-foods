@@ -22,6 +22,7 @@ vi.mock("@root/src/config.js", () => ({ config: mockConfig }));
 const { registerLetterInstallationRoutes, registerLetterWebhookRoutes } = await import("@api/letterRoutes.js");
 
 const REPLY_DOMAIN = "reply.council-of-forest.com";
+const TOKEN = "9f3ac2e1";
 
 async function sentLetter(_id: number, overrides: Partial<OutboxLetter> = {}) {
     const meeting = MockFactory.createStoredMeeting({
@@ -32,7 +33,7 @@ async function sentLetter(_id: number, overrides: Partial<OutboxLetter> = {}) {
     await meetingsCollection.insertOne(meeting);
     await lettersCollection.insertOne({
         _id, status: "sent", mode: "live", recipientId: "skogsstyrelsen", recipientKind: "institution", to: "registrator@example.org",
-        from: { name: "Renen", email: "reindeer@council-of-forest.com" }, replyTo: `reindeer.${_id}@${REPLY_DOMAIN}`,
+        from: { name: "Renen", email: "reindeer@council-of-forest.com" }, replyTo: `reindeer.${_id}.${TOKEN}@${REPLY_DOMAIN}`, replyToken: TOKEN,
         subject: "Tre veckor", text: "…", venueId: "havremagasinet", queuedAt: new Date(), sentAt: new Date(), ...overrides,
     });
 }
@@ -40,7 +41,7 @@ async function sentLetter(_id: number, overrides: Partial<OutboxLetter> = {}) {
 const email = (meetingId: number, overrides: Partial<InboundEmail> = {}): InboundEmail => ({
     MessageId: `<reply-${meetingId}-${Math.random()}@skogsstyrelsen.se>`,
     From: { Address: "anna.andersson@skogsstyrelsen.se", Name: "Anna Andersson" },
-    To: [{ Address: `reindeer.${meetingId}@${REPLY_DOMAIN}` }],
+    To: [{ Address: `reindeer.${meetingId}.${TOKEN}@${REPLY_DOMAIN}` }],
     Subject: "Re: Tre veckor",
     ExtractedMarkdownMessage: "Tack för brevet. Ring mig gärna på 070-123 45 67.",
     SpamScore: 1,
@@ -119,6 +120,15 @@ describe("letter replies", () => {
         expect(await letterRepliesCollection.countDocuments()).toBe(0);
     });
 
+    it.each([
+        ["without the letter's token", `reindeer.1400@${REPLY_DOMAIN}`],
+        ["with another token", `reindeer.1400.00000000@${REPLY_DOMAIN}`],
+    ])("drops an email to a guessed address — %s — so nobody can get words printed", async (_label, address) => {
+        await sentLetter(1400);
+
+        expect(await receiveReplies(deps(), [email(1400, { To: [{ Address: address }] })])).toBe(0);
+    });
+
     it("prints a reply once, at its letter's venue — or anywhere when the letter had none", async () => {
         await sentLetter(1, { venueId: "havremagasinet" });
         await sentLetter(2, { venueId: "other-museum" });
@@ -137,10 +147,11 @@ describe("letter replies", () => {
         ["a spam complaint", "spam", "live", "complaint"],
         ["a hard bounce of a test letter", "hard_bounce", "test", null],
         ["a delivery", "delivered", "live", null],
-    ] as const)("%s → blocklist: %s", async (_label, event, mode, reason) => {
+        ["a hard bounce of another email the account sent", "hard_bounce", "live", null, "staff@example-museum.org"],
+    ] as const)("%s → blocklist: %s", async (_label, event, mode, reason, address: string = "registrator@example.org") => {
         await sentLetter(1400, { mode });
 
-        await receiveDeliveryEvents(deps(), [{ event, email: "registrator@example.org", tags: ["letter-1400"] }]);
+        await receiveDeliveryEvents(deps(), [{ event, email: address, tags: ["letter-1400"] }]);
 
         const blocked = await letterBlocklistCollection.findOne({ _id: "skogsstyrelsen" });
         if (reason) expect(blocked).toMatchObject({ reason });

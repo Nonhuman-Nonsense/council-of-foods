@@ -63,6 +63,11 @@ export interface OutboxLetter extends Document {
     to: string;
     from: { name: string; email: string };
     replyTo: string;
+    /**
+     * Random, in the reply address: only an email to the address this letter gave out is taken
+     * as a reply to it, so nobody can get words printed by writing to a guessed address.
+     */
+    replyToken?: string;
     subject: string;
     /** The letter, any words set apart, and the footer. */
     text: string;

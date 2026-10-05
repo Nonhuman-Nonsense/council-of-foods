@@ -12,11 +12,11 @@ const options = {
 
 describe("letter addresses", () => {
     it.each([
-        ["a being by its id", "reindeer", "reindeer@council-of-forest.com", "reindeer.1400@reply.council-of-forest.com"],
-        ["a being with its own address", "treeharvester", "tree.harvester@council-of-forest.com", "tree.harvester.1400@reply.council-of-forest.com"],
+        ["a being by its id", "reindeer", "reindeer@council-of-forest.com", "reindeer.1400.9f3ac2e1@reply.council-of-forest.com"],
+        ["a being with its own address", "treeharvester", "tree.harvester@council-of-forest.com", "tree.harvester.1400.9f3ac2e1@reply.council-of-forest.com"],
     ])("sends %s from its address, with replies coming back to the meeting", (_label, authorId, from, replyTo) => {
         expect(letterSender(options, authorId, "Renen")).toEqual({ name: "Renen", email: from });
-        expect(letterReplyTo(options, authorId, 1400)).toBe(replyTo);
+        expect(letterReplyTo(options, authorId, 1400, "9f3ac2e1")).toBe(replyTo);
     });
 });
 

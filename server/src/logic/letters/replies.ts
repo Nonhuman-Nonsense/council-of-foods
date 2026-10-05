@@ -60,12 +60,15 @@ const addressOf = (mailbox: Mailbox | undefined): string =>
 const nameOf = (mailbox: Mailbox | undefined): string | null =>
     typeof mailbox === "string" ? null : mailbox?.Name?.trim() || null;
 
-/** `tree.harvester.1400@reply.council-of-forest.com` → meeting 1400; null for anything else. */
-export function meetingOfReplyAddress(address: string, replyDomain: string): number | null {
+/**
+ * `tree.harvester.1400.9f3ac2e1@reply.council-of-forest.com` → meeting 1400, token 9f3ac2e1;
+ * null for anything else. (Letters sent before tokens have none.)
+ */
+export function parseReplyAddress(address: string, replyDomain: string): { meetingId: number; token: string | null } | null {
     const [local, domain] = address.trim().toLowerCase().split("@");
     if (!local || domain !== replyDomain.toLowerCase()) return null;
-    const match = /\.(\d{1,12})$/.exec(local);
-    return match ? Number(match[1]) : null;
+    const match = /\.(\d{1,12})(?:\.([a-f0-9]{8}))?$/.exec(local);
+    return match ? { meetingId: Number(match[1]), token: match[2] ?? null } : null;
 }
 
 function headerValues(headers: InboundEmail["Headers"], name: string): string[] {
@@ -134,10 +137,11 @@ export async function receiveReplies(deps: ReplyDeps, emails: InboundEmail[]): P
     let kept = 0;
     for (const email of emails) {
         const addresses = [...(email.Recipients ?? []), ...(email.To ?? []), ...(email.Cc ?? [])].map(addressOf);
-        const meetingId = addresses.map((address) => meetingOfReplyAddress(address, deps.options.letterReplyDomain)).find((id) => id !== null) ?? null;
-        const letter = meetingId === null ? null : await deps.letters.findOne({ _id: meetingId });
-        const meeting = meetingId === null ? null : await deps.meetings.findOne({ _id: meetingId });
-        if (!letter || !meeting?.letter) {
+        const replyAddress = addresses.map((address) => parseReplyAddress(address, deps.options.letterReplyDomain)).find((parsed) => parsed !== null) ?? null;
+        const letter = replyAddress === null ? null : await deps.letters.findOne({ _id: replyAddress.meetingId });
+        const meeting = letter === null ? null : await deps.meetings.findOne({ _id: letter._id });
+        // Only the address the letter gave out: a guessed one (no token, or the wrong one) is not a reply.
+        if (!letter || !meeting?.letter || (letter.replyToken ?? null) !== (replyAddress?.token ?? null)) {
             Logger.warn("letters", `an email to ${addresses.join(", ")} answers no letter of ours; dropped`);
             continue;
         }
@@ -244,6 +248,8 @@ export async function receiveDeliveryEvents(deps: Pick<ReplyDeps, "letters" | "b
                 ? await deps.letters.findOne({ brevoMessageId: { $in: [messageId, `<${messageId}>`] } })
                 : null;
         if (!letter || letter.mode !== "live") continue;
+        // The account's webhook reports every email it sends: only the letter's own recipient counts.
+        if (event.email && event.email.trim().toLowerCase() !== letter.to.toLowerCase()) continue;
         await block(deps.blocklist, letter.recipientId, reason, letter._id, `${event.event}${event.reason ? `: ${event.reason}` : ""}`);
         blocked++;
     }

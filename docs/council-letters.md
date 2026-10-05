@@ -191,9 +191,11 @@ Built 4 Oct 2026 (step 5) — `server/src/logic/letters/outbox.ts`, run by a wor
   <reindeer@council-of-forest.com>` (`letterSenderDomain`; `letterSenderAddresses` for
   `tree.harvester` and `wind.turbine`). All on the domain authenticated in Brevo (SPF, DKIM,
   DMARC). `COUNCIL_MAIL_FROM` stays for printer alerts.
-- **Reply-To** names the being and the meeting: `reindeer.1400@reply.council-of-forest.com`
-  (`letterReplyDomain`) — a separate domain, because Brevo only receives on a domain it does not
-  send from. Mail written straight to `reindeer@council-of-forest.com` is forwarded to
+- **Reply-To** names the being, the meeting and the letter's own random token:
+  `reindeer.1400.9f3ac2e1@reply.council-of-forest.com` (`letterReplyDomain`) — a separate
+  domain, because Brevo only receives on a domain it does not send from. Only an email to the
+  exact address a letter gave out counts as a reply to it: without the token, anyone could get
+  words printed in the museum by writing to a guessed address. Mail written straight to `reindeer@council-of-forest.com` is forwarded to
   hello@nonhuman-nonsense.com by the domain's DNS; it is not printed.
 - **Footer:** `server/src/logic/letters/footer.ts`, words in the prompt files (EN and SV),
   appended by the server after the generated letter. The model never writes or sees it, so the
@@ -209,9 +211,9 @@ Built 4 Oct 2026 (step 6) — `server/src/logic/letters/replies.ts`, routes in
 
 - **Replies.** Brevo's inbound parsing receives every email to the reply domain and posts it
   to `POST /api/letters/brevo/<COUNCIL_LETTERS_WEBHOOK_SECRET>/inbound`, already split into the
-  message, the signature and the quoted letter. The address names the meeting
-  (`reindeer.1400@…`), which finds the letter it answers; an email to no letter of ours is
-  dropped. Each is kept once (by its Message-ID) in `letter_replies`, with its contact details
+  message, the signature and the quoted letter. The address names the meeting and carries the
+  letter's token (`reindeer.1400.9f3ac2e1@…`), which finds the letter it answers; an email to no
+  letter of ours, or to a guessed address, is dropped. Each is kept once (by its Message-ID) in `letter_replies`, with its contact details
   removed and the letter it answers, and sorted:
   - **spam** — Brevo's spam score 6 or more;
   - **automatic** — headers (`Auto-Submitted`, `X-Autoreply`, `Precedence`), a mailer daemon, or
@@ -226,7 +228,9 @@ Built 4 Oct 2026 (step 6) — `server/src/logic/letters/replies.ts`, routes in
   Automatic replies and spam are kept, never printed. The sender's address is never printed.
 - **Delivery events.** Brevo's transactional webhook posts to
   `POST /api/letters/brevo/<secret>/events`: a hard bounce, an invalid address, a block, a spam
-  complaint or an unsubscribe of a letter sent live puts its recipient on the blocklist.
+  complaint or an unsubscribe of a letter sent live puts its recipient on the blocklist — only
+  when the event is about that letter's own recipient, since the webhook reports every email
+  the Brevo account sends (Foods, printer alerts).
   Letters carry their meeting as a tag (`letter-1400`), which finds them.
 
 ### Setting up Brevo
@@ -592,7 +596,7 @@ total**.
   pine and say it "has" — check the wording in the topic prompts.
 - MEPs have no facts yet (no EU vote export); letters to them say nothing about their record.
 - Confirm Brevo's inbound parsing accepts any local part on the reply domain
-  (`reindeer.1400@reply.…`), and the event names in the transactional webhook call above.
+  (`reindeer.1400.9f3ac2e1@reply.…`), and the event names in the transactional webhook call above.
 - Confirm the "search-only" institution addresses on each organisation's own site before activating.
 - Later: inbound replies stored with the letter and printed; sent state and replies on the
   replay page; Council of Foods letters.
