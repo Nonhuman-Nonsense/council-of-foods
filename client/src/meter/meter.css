@@ -12,7 +12,12 @@ body {
   color: #f2efe6;
   font-family: "Tinos", Georgia, serif;
   overflow: hidden;
-  cursor: none;
+}
+
+/* The pointer hides once it stands still (cursorAutoHide.ts). */
+html.cursor-hidden,
+html.cursor-hidden * {
+  cursor: none !important;
 }
 
 #root {

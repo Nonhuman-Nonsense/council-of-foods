@@ -64,6 +64,46 @@ has_screen() {
   [[ -n "$(my_screen)" ]]
 }
 
+# The pointer as "x y", in the same top-left points as `screens`, and the pid of the app in front.
+pointer_and_front() {
+  osascript -l JavaScript -e '
+    ObjC.import("AppKit");
+    const mainHeight = $.NSScreen.screens.objectAtIndex(0).frame.size.height;
+    const p = $.NSEvent.mouseLocation;
+    const front = $.NSWorkspace.sharedWorkspace.frontmostApplication;
+    [p.x, mainHeight - p.y, front.isNil() ? 0 : front.processIdentifier].map(Math.round).join(" ");' 2>/dev/null
+}
+
+# Seconds since anyone last used a mouse or keyboard on this Mac.
+idle_seconds() {
+  ioreg -c IOHIDSystem | awk '/HIDIdleTime/ { print int($NF / 1000000000); exit }'
+}
+
+# How long nobody may have used the Mac before a kiosk window takes the front from any app.
+UNATTENDED_SECONDS=60
+
+# macOS applies a page's cursor, the hidden one too, only while its Chrome is the app in front, and
+# nothing puts a kiosk window in front by itself: after a restart the pointer stayed on the council
+# until someone clicked, and helper apps that start at login (a mouse's software) take the front
+# with a busy beachball. So the window with the pointer on its screen takes the front from the
+# other kiosk window, Finder or the login window at once, and from any other app once nobody has
+# used the Mac for a minute; until then, that app is someone at work.
+keep_front() {
+  local px py front sx sy sw sh chrome idle
+  read -r px py front <<<"$(pointer_and_front)"
+  read -r sx sy sw sh <<<"$(my_screen)"
+  [[ -n "$px" && -n "$sh" ]] || return 0
+  (( px >= sx && px <= sx + sw && py >= sy && py <= sy + sh )) || return 0
+  # This window's Chrome itself; its helpers carry the same flags, after others.
+  chrome="$(pgrep -f -- "MacOS/Google Chrome --user-data-dir=$PROFILE " | head -1)"
+  [[ -n "$chrome" && "$front" != "$chrome" ]] || return 0
+  case "$(ps -o args= -p "$front" 2>/dev/null)" in
+    "" | *"--user-data-dir=${COUNCIL_PROFILE:-} "* | *"--user-data-dir=${METER_PROFILE:-} "* | */Finder.app/* | */loginwindow.app/*) ;;
+    *) idle="$(idle_seconds)"; (( ${idle:-0} >= UNATTENDED_SECONDS )) || return 0 ;;
+  esac
+  osascript -l JavaScript -e "ObjC.import('AppKit'); \$.NSRunningApplication.runningApplicationWithProcessIdentifier($chrome).activateWithOptions(1)" >/dev/null 2>&1
+}
+
 ORIGIN="$(printf '%s' "$URL" | sed -E 's#^(https?://[^/]+).*#\1#')"
 # shellcheck disable=SC2329 # called through wait_for
 server_up() {
@@ -140,6 +180,7 @@ while kill -0 "$opener" 2>/dev/null; do
     wait "$opener"
     exit 75
   fi
+  keep_front
 
   # Only a page seen ticking can stop: the council in web mode, or not yet set up, never ticks.
   if (( SECONDS >= next_check )); then

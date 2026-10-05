@@ -77,6 +77,12 @@ still for 2 minutes has crashed (`Aw, Snap!`), hung, or been replaced by an erro
 so Chrome restarts. A page that never ticked, like the council in web mode before
 `#staff` is set up, is left alone.
 
+**The pointer** hides once it has stood still for 3 s, on the council in museum and presenter
+mode and always on the meter, and shows again when the mouse moves. macOS only applies that
+while the window's Chrome is the app in front, so the window with the pointer on its screen
+takes the front: at once from the other kiosk window or Finder, and from any other app (a
+mouse's helper app that starts at login, say) once nobody has used the Mac for a minute.
+
 | | |
 |---|---|
 | Use the Mac (`#staff`, Settings) | `museum/kiosk/stop.sh`; the windows come back with `museum/kiosk/start.sh` or a restart |
@@ -288,7 +294,7 @@ council.
    `--meter-url "https://<host>/meter?venue=<venue-id>"`. The meter finds this screen by
    itself.
 3. **Check:** numbers move during a meeting (or plugs report), the QR code opens the
-   methodology page on a phone, and the pointer is hidden on the meter.
+   methodology page on a phone, and the pointer hides on the meter once it stands still.
 
 The meter looks after itself: when its connection comes back after a network drop
 or a server restart (a deploy included) it reloads the page, so it also runs the new

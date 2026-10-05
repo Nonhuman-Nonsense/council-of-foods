@@ -39,8 +39,8 @@ html,
   z-index: var(--z-navbar);
 }
 
-html.museum-cursor-hidden,
-html.museum-cursor-hidden * {
+html.cursor-hidden,
+html.cursor-hidden * {
   cursor: none !important;
 }
 

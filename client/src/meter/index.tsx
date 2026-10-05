@@ -5,6 +5,7 @@ import { Meter } from "./Meter";
 import { MeterErrorBoundary } from "./MeterErrorBoundary";
 import { Methodology } from "./Methodology";
 import { startKioskHeartbeat } from "@/kioskHeartbeat";
+import { startCursorAutoHide } from "@/cursorAutoHide";
 import { scheduleNightlyReload } from "./reload";
 import "./meter.css";
 
@@ -29,6 +30,7 @@ if (!isMethodology && (rotate === "90" || rotate === "-90")) {
 if (!isMethodology) {
   scheduleNightlyReload();
   startKioskHeartbeat(() => true);
+  startCursorAutoHide();
 }
 
 createRoot(document.getElementById("root")!).render(
