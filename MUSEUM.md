@@ -269,7 +269,9 @@ that by the black screens (see section 7).
 
 **Venue** (Installation panel) is where this installation runs, chosen from the
 server's `COUNCIL_VENUES`. One choice sets everything that belongs to the place:
-who gets printer alert emails and the tag on the AI usage of meetings run here.
+who gets printer alert emails, the tag on the AI usage of meetings run here, and
+which meetings idle autoplay replays: the ones held at this venue, or any venue's
+until this one has a finished meeting in the current language.
 (Room power plugs are placed at a venue in `COUNCIL_VENUES` itself, not here.) A bridge that already had a venue passes it
 to the page, so existing installations don't need to choose again.
 

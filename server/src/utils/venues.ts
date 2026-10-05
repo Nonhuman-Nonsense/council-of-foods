@@ -3,8 +3,8 @@ import type { Venue } from "@models/Venues.js";
 
 /**
  * The venue an installation runs at (`COUNCIL_VENUES`). Staff pick it on #staff; it tags
- * meetings and realtime sessions for the footprint meter, groups room power plugs, and
- * decides who hears about the printer.
+ * meetings and realtime sessions for the footprint meter, picks which meetings autoplay
+ * replays, groups room power plugs, and decides who hears about the printer.
  */
 
 const VENUE_ID = /^[a-z0-9-]{1,64}$/;

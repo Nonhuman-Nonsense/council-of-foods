@@ -83,8 +83,9 @@ export function setAppMode(mode: AppMode): void {
 
 /**
  * The venue this installation runs at (an id from the server's `COUNCIL_VENUES`), chosen on
- * #staff. Tags the AI usage of meetings and setup sessions for the footprint meter, and is the
- * venue the bridge sends printer alerts for. Empty when unset.
+ * #staff. Tags the AI usage of meetings and setup sessions for the footprint meter, picks the
+ * meetings idle autoplay replays, and is the venue the bridge sends printer alerts for. Empty when
+ * unset.
  */
 export function getVenueId(): string {
   try {
