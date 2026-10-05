@@ -1,6 +1,9 @@
 import './classifierMock.setup.js';
 import { beforeAll, beforeEach, afterAll, vi } from 'vitest';
-import { initDb, closeDb, meetingsCollection, audioCollection, counters } from '@services/DbService.js';
+import {
+    initDb, closeDb, meetingsCollection, audioCollection, counters,
+    roomPowerCollection, roomPowerHoursCollection, lettersCollection, letterBlocklistCollection, letterRepliesCollection,
+} from '@services/DbService.js';
 import { TEST_MODES } from '@interfaces/TestModes.js';
 
 vi.mock('@services/ConversationService.js', async () => {
@@ -59,6 +62,11 @@ beforeEach(async () => {
     if (counters) {
         await counters.deleteMany({});
         await counters.insertOne({ _id: 'meeting_id', seq: 0 });
+    }
+    // Test files share a worker's database: what one leaves (a room power reading, a letter)
+    // must not reach the next — the meter once read another file's plug.
+    for (const collection of [roomPowerCollection, roomPowerHoursCollection, lettersCollection, letterBlocklistCollection, letterRepliesCollection]) {
+        if (collection) await collection.deleteMany({});
     }
 });
 
