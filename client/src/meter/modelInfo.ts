@@ -1,4 +1,5 @@
 import { METER_METHODOLOGY_PATH } from "@shared/MeterTypes";
+import type { EcologitsModel } from "@shared/footprint/ecologits";
 
 /** What each model does in the council, and readable names for EcoLogits' data-centre zones. */
 
@@ -14,6 +15,16 @@ export const MODEL_ROLES: Record<string, string> = {
   "inworld|soniox/stt-rt-v4": "Listens to visitors",
   "inworld|inworld/inworld-stt-1": "Listens to visitors",
 };
+
+/** The one word the meter's model list shows, where the counting role would mislead. */
+const MODEL_ACTIVITIES: Record<string, string> = {
+  "inworld|google-ai-studio/gemini-2.5-flash": "thinking",
+};
+
+/** What a model is doing, in one word: its counting role, unless that says it wrong. */
+export function modelActivity(id: string, model: EcologitsModel): string {
+  return MODEL_ACTIVITIES[id] ?? model.role;
+}
 
 export const ZONE_NAMES: Record<string, string> = {
   USA: "United States",

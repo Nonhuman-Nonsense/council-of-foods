@@ -19,7 +19,7 @@ import {
   significant,
   type DisplayRange,
 } from "./meterState";
-import { methodologyUrl, zoneName } from "./modelInfo";
+import { methodologyUrl, modelActivity, zoneName } from "./modelInfo";
 import { useMeterFeed } from "./useMeterFeed";
 
 /**
@@ -136,12 +136,13 @@ function ModelsUsed({ rows }: { rows: UsageTotalsRow[] }): ReactElement | null {
   return (
     <ul className="meter-list meter-wide">
       {used.map((row) => {
+        const id = `${row.provider}|${row.model}`;
         const entry = findEcologitsModel(row.provider, row.model);
         return (
-          <li key={`${row.provider}|${row.model}`}>
+          <li key={id}>
             <span>
               {modelName(row.model)}
-              {entry ? <span className="meter-dim"> · {entry.role}</span> : null}
+              {entry ? <span className="meter-dim"> · {modelActivity(id, entry)}</span> : null}
             </span>
             <span className="meter-dim">{entry ? zoneName(entry.datacenterZones) : "unknown"}</span>
           </li>
