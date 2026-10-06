@@ -526,15 +526,6 @@ describe('Staff overlay', () => {
       expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'));
       expect(mockSendTestPage).toHaveBeenCalledWith(blob);
     });
-
-    it('explains that only museum mode prints', () => {
-      localStorage.setItem('councilPrintSummariesEnabled', 'true');
-      render(<Staff />);
-      expect(screen.getByTestId('staff-print-mode-hint')).toBeInTheDocument();
-
-      fireEvent.click(screen.getByTestId('app-mode-museum'));
-      expect(screen.queryByTestId('staff-print-mode-hint')).not.toBeInTheDocument();
-    });
   });
 
   describe('printer alert emails', () => {

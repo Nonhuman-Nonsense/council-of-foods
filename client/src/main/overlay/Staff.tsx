@@ -562,7 +562,6 @@ function Staff(): ReactElement {
     setPrintSummariesEnabled,
     splitAudioEnabled,
     setSplitAudioEnabled,
-    capabilities,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled,
     devLogEnabled,
@@ -1008,9 +1007,6 @@ function Staff(): ReactElement {
               </>
             ) : null}
           </StaffRow>
-          {printSummariesEnabled && !capabilities.printSummary ? (
-            <StaffRowNote testId="staff-print-mode-hint">{t("staff.print.modeHint")}</StaffRowNote>
-          ) : null}
           {printSummariesEnabled ? (
             /* The test page is a real protocol, so it exercises the same PDF path. */
             <div style={{ position: "absolute", top: 0, display: "none" }}>
@@ -1025,9 +1021,6 @@ function Staff(): ReactElement {
               testId="staff-split-audio-toggle"
             />
           </StaffRow>
-          {splitAudioEnabled ? (
-            <StaffRowNote testId="staff-split-audio-hint">{t("staff.splitAudio.hint")}</StaffRowNote>
-          ) : null}
 
           {printSummariesEnabled && alertsHealth && alertsStatus ? (
             <>
