@@ -560,6 +560,8 @@ function Staff(): ReactElement {
     setPttHardwareEnabled,
     printSummariesEnabled,
     setPrintSummariesEnabled,
+    splitAudioEnabled,
+    setSplitAudioEnabled,
     capabilities,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled,
@@ -1014,6 +1016,17 @@ function Staff(): ReactElement {
             <div style={{ position: "absolute", top: 0, display: "none" }}>
               <ProtocolDocument ref={testPageRef} summaryText={t("staff.print.testPageText")} meetingId="TEST" />
             </div>
+          ) : null}
+
+          <StaffRow label={t("staff.splitAudio.toggle")}>
+            <StaffToggle
+              on={splitAudioEnabled}
+              onChange={setSplitAudioEnabled}
+              testId="staff-split-audio-toggle"
+            />
+          </StaffRow>
+          {splitAudioEnabled ? (
+            <StaffRowNote testId="staff-split-audio-hint">{t("staff.splitAudio.hint")}</StaffRowNote>
           ) : null}
 
           {printSummariesEnabled && alertsHealth && alertsStatus ? (

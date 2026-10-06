@@ -24,6 +24,9 @@ import {
   getPrintSummariesEnabled,
   setPrintSummariesEnabled,
   PRINT_SUMMARIES_ENABLED_KEY,
+  getSplitAudioEnabled,
+  setSplitAudioEnabled,
+  SPLIT_AUDIO_ENABLED_KEY,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
@@ -111,6 +114,25 @@ describe("councilSettings", () => {
       setAppMode("presenter");
       setAppMode("museum");
       expect(getPrintSummariesEnabled()).toBe(true);
+    });
+  });
+
+  describe("split audio storage", () => {
+    it("is off until staff switch it on, and removes its key when switched off", () => {
+      expect(getSplitAudioEnabled()).toBe(false);
+
+      setSplitAudioEnabled(true);
+      expect(localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY)).toBe("true");
+      expect(getSplitAudioEnabled()).toBe(true);
+
+      setSplitAudioEnabled(false);
+      expect(localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY)).toBeNull();
+    });
+
+    it("survives a mode switch — it describes the install's cabling, not the mode", () => {
+      setSplitAudioEnabled(true);
+      setAppMode("web");
+      expect(getSplitAudioEnabled()).toBe(true);
     });
   });
 

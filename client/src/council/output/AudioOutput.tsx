@@ -1,6 +1,7 @@
 
 import { useEffect, useRef } from "react";
 import AudioOutputMessage, { PlayableAudioMessage, type PlaybackStartInfo } from "./AudioOutputMessage";
+import { audioBusesFor } from "@/audio/audioRouting";
 import React from 'react';
 
 interface AudioOutputProps {
@@ -24,7 +25,7 @@ function AudioOutput({
 
   if (audioContext.current && gainNode.current === null) {
     gainNode.current = audioContext.current.createGain();
-    gainNode.current.connect(audioContext.current.destination);
+    gainNode.current.connect(audioBusesFor(audioContext.current).voices);
   }
 
   useEffect(() => {

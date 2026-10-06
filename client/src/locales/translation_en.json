@@ -135,6 +135,10 @@
         "outdated": "Update the bridge to enter it"
       }
     },
+    "splitAudio": {
+      "toggle": "Split audio",
+      "hint": "Left: ambience and beings only. Right: the full mix, voices included. Each side is mono, for a Y-cable from the audio output."
+    },
     "print": {
       "toggle": "Print summaries",
       "printerLabel": "Printer",

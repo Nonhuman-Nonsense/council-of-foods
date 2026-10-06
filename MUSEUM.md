@@ -361,6 +361,23 @@ restarts from zero after a power cut, and the plug's uptime tells the server so:
 before October 2026 need the current script pasted in again to send it. Each plug's energy is also
 kept per hour, for later questions (from a date, per day, open hours versus night).
 
+### Split audio
+
+Turn on **Split audio** on the staff page to feed two places from the Mac's one audio output.
+The output's two channels become two mono feeds: the **left** carries the scene alone (the
+ambience and the beings' sounds), the **right** the full mix, voices included. A Y-cable from
+the headphone jack (3.5 mm stereo to 2× mono, RCA or 6.35 mm) takes each side to its own amp
+or speaker. The setup and meeting agents' voices play on both sides. The switch takes effect at
+once, without a reload; off, the output is the usual stereo mix.
+
+- Each side is mono. A mono plug into a stereo headphone amp plays in one ear only, so give
+  headphones an amp with a mono input, or a mono-to-both-ears adapter.
+- The Mac's volume moves both sides together; set each side's level on its amp.
+- macOS can quietly undo the split: keep System Settings → Accessibility → Audio → **Play
+  stereo audio as mono** off, and the Sound balance slider centred.
+- Leave it off on any screen someone listens to in headphones: they would hear the voices in
+  one ear only.
+
 ### Mode switch button (staff escape)
 
 Enable **Mode switch button** on the staff page to show a red-bordered preview
@@ -437,6 +454,7 @@ Use the hardware checklist in
 6. Unplug/replug USB → recovers without staff action  
 7. Meter screen upright, full screen, numbers moving; room plugs listed if installed  
 8. Restart the Mac → both windows come back on their screens, untouched  
+9. With **Split audio** on: the left side plays no voices, the right side plays everything  
 
 Bridge logs: `/var/log/council-button-bridge.log`; kiosk logs:
 `~/Library/Logs/council-kiosk-*.log`

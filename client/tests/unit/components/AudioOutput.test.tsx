@@ -2,18 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import AudioOutput from '@council/output/AudioOutput';
 import React from 'react';
+import { audioBusesFor } from '@/audio/audioRouting';
 
 // Specialized Mocks for Web Audio API
 const mockSetValueAtTime = vi.fn();
 
-const mockGainNode = {
+const mockCreateGain = vi.fn(() => ({
     gain: {
         setValueAtTime: mockSetValueAtTime,
     },
     connect: vi.fn(),
-};
-
-const mockCreateGain = vi.fn(() => mockGainNode);
+    disconnect: vi.fn(),
+}));
 
 const mockAudioContext = {
     createGain: mockCreateGain,
@@ -29,7 +29,7 @@ describe('AudioOutput', () => {
         audioContextRef = { current: mockAudioContext };
     });
 
-    it('initializes output gain node on mount', () => {
+    it('plays the voices onto the voices bus, so a split output keeps them off the scene side', () => {
         render(
             <AudioOutput
                 audioContext={audioContextRef}
@@ -39,8 +39,11 @@ describe('AudioOutput', () => {
             />
         );
 
-        expect(mockCreateGain).toHaveBeenCalled();
-        expect(mockGainNode.connect).toHaveBeenCalledWith(mockAudioContext.destination);
+        const buses = audioBusesFor(mockAudioContext as unknown as AudioContext);
+        const outputGain = mockCreateGain.mock.results
+            .map((result) => result.value)
+            .find((node) => node !== buses.voices && node !== buses.scene);
+        expect(outputGain?.connect).toHaveBeenCalledWith(buses.voices);
     });
 
     it('sets gain to 0 when muted', () => {
