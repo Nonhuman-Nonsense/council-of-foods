@@ -1,8 +1,8 @@
 /*
  * Council of Foods — installation button firmware
  *
- * Hardware: one Adafruit seesaw board (e.g. LED Arcade Button QT family) on
- * STEMMA QT / I2C, with up to four buttons on the same chip.
+ * Hardware: Arduino Nano R4, with an Adafruit LED Arcade Button 1x4 STEMMA QT
+ * (seesaw, PID 5296) on its Qwiic connector. Buttons 1-3 of the board are used.
  * Guide: https://learn.adafruit.com/adafruit-led-arcade-button-qt/arduino
  *
  * Serial protocol (115200 baud, newline-terminated):
@@ -55,7 +55,9 @@ const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 #define LED_MODE_ON 2
 #define LED_MODE_ERROR 3
 
-Adafruit_seesaw ss;
+// The Nano R4's Qwiic / STEMMA QT connector is on the second I2C bus (Wire1);
+// Wire is the A4/A5 header pins.
+Adafruit_seesaw ss(&Wire1);
 
 bool mergedPressed = false;
 bool lastStableMergedPressed = false;
@@ -239,10 +241,11 @@ void handleSerialInput() {
 void setup() {
   Serial.begin(115200);
 
+  // Native USB: nothing is listening at boot, so keep repeating the error.
   if (!ss.begin(DEFAULT_I2C_ADDR)) {
-    Serial.println(F("ERROR seesaw not found"));
     while (1) {
-      delay(10);
+      Serial.println(F("ERROR seesaw not found"));
+      delay(1000);
     }
   }
 
@@ -251,9 +254,9 @@ void setup() {
   ss.getProdDatecode(&pid, &year, &mon, &day);
 
   if (pid != 5296) {
-    Serial.println(F("ERROR wrong seesaw PID"));
     while (1) {
-      delay(10);
+      Serial.println(F("ERROR wrong seesaw PID"));
+      delay(1000);
     }
   }
 
