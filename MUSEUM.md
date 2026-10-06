@@ -69,6 +69,14 @@ When Chrome closes, for whatever reason, it opens again 10 s later. If the meter
 screen goes away (switched off, unplugged), its window closes, instead of macOS moving
 it on top of the council, and opens again when the screen is back.
 
+The screens may come on in any order. A Mac started with only the meter's screen on makes
+that the main screen, so the council opens there; when the projector comes on, macOS makes
+it the main screen again, and the council moves to it by itself: a window whose screen has
+changed for 10 s closes and opens again on its screen. Chrome can miss full screen on a
+screen that is still settling, so a window that does not fill its screen for a minute opens
+again too. With a projector the Mac has not seen before, check once that it gets the menu
+bar (Displays → Arrange, drag the menu bar onto it); macOS remembers that for the next time.
+
 **Watchdog.** In museum and presenter mode, and always on the meter, the page ticks a
 counter in its title every 10 s (the `kioskHeartbeat` capability; a kiosk never shows
 the title). The window script reads it every 30 s from Chrome's debugging port (9222

@@ -1,7 +1,7 @@
 #!/bin/bash
 # One kiosk window, the council or the meter, run by its launchd agent (see MUSEUM.md, "Kiosk
 # windows"). Waits for its screen and for the server, opens Chrome on that screen, and stays
-# while Chrome runs. When Chrome closes, the page stops, or the meter's screen goes away, it
+# while Chrome runs. When Chrome closes, the page stops, or its screen goes away or changes, it
 # exits with an error, so launchd starts it again; stop.sh is how staff close the windows.
 set -uo pipefail
 
@@ -14,6 +14,9 @@ POLL_SECONDS=2
 # How often the page's heartbeat is read, and how long it may stand still before Chrome restarts.
 CHECK_SECONDS=30
 STALE_SECONDS=120
+# How long this window's screen must stay changed before the window reopens there: a projector
+# warming up comes and goes for a few seconds.
+SETTLE_SECONDS=10
 
 log() {
   echo "$(date '+%Y-%m-%d %H:%M:%S') [$ROLE] $*"
@@ -60,6 +63,7 @@ wait_for() {
   log "Found $what."
 }
 
+# shellcheck disable=SC2329 # called through wait_for
 has_screen() {
   [[ -n "$(my_screen)" ]]
 }
@@ -110,6 +114,24 @@ server_up() {
   curl -fsS -o /dev/null --max-time 5 "$ORIGIN/health" 2>/dev/null
 }
 
+# Whether this window's Chrome has a window covering `$1`, its screen. Kiosk mode can fail to go
+# full screen on a screen that is still settling (a projector warming up beside it), leaving a
+# small window in the corner. Yes when it cannot tell, so only a window seen not to cover it
+# restarts.
+covers_screen() {
+  local chrome
+  chrome="$(pgrep -f -- "MacOS/Google Chrome --user-data-dir=$PROFILE " | head -1)"
+  [[ -n "$chrome" ]] || return 0
+  [[ "$(osascript -l JavaScript -e '
+    function run([pid, screen]) {
+      ObjC.import("CoreGraphics");
+      const windows = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo(0, 0))) || [];
+      const covers = windows.some((w) => String(w.kCGWindowOwnerPID) === pid && w.kCGWindowLayer === 0 &&
+        [w.kCGWindowBounds.X, w.kCGWindowBounds.Y, w.kCGWindowBounds.Width, w.kCGWindowBounds.Height].map(Math.round).join(" ") === screen);
+      return covers ? "yes" : "no";
+    }' "$chrome" "$1" 2>/dev/null)" != "no" ]]
+}
+
 # The title of this window's tab, as Chrome lists it on its debugging port (this Mac only), or
 # nothing when Chrome does not answer. The page ticks a counter in it (client/src/kioskHeartbeat.ts);
 # a crashed or hung page, or an error page in its place, does not.
@@ -127,7 +149,14 @@ wait_for has_screen "its screen"
 # A window opened while the server is down shows Chrome's error page, which nothing leaves.
 wait_for server_up "the server at $ORIGIN"
 
-read -r x y _ <<<"$(my_screen)"
+# Read once: a screen that comes and goes while a projector warms up can be gone a moment after
+# it was found, and a window opened at no position lands on the main screen.
+screen="$(my_screen)"
+if [[ -z "$screen" ]]; then
+  log "The screen went away before the window opened."
+  exit 75
+fi
+read -r x y _ <<<"$screen"
 args=(
   "--user-data-dir=$PROFILE"
   --no-first-run --no-default-browser-check --noerrdialogs --hide-crash-restore-bubble
@@ -165,6 +194,8 @@ close_window() {
 }
 trap 'log "Stopped; closing the window."; close_window; exit 0' TERM
 
+changed_since=""
+uncovered=false
 title=""
 ticking=false
 last_change=$SECONDS
@@ -174,8 +205,23 @@ while kill -0 "$opener" 2>/dev/null; do
   sleep "$POLL_SECONDS"
   # macOS moves the windows of a screen that goes away onto the main one: the meter would
   # cover the council. Close it; launchd starts this again, to wait for the screen.
-  if ! has_screen; then
+  now_screen="$(my_screen)"
+  if [[ -z "$now_screen" ]]; then
     log "The screen went away; closing the window."
+    close_window
+    wait "$opener"
+    exit 75
+  fi
+  # A window stays where it opened, but which screen is the main one can change under it: a Mac
+  # started with only the meter's screen on makes that the main one, so the council opens there,
+  # and when the projector comes on, macOS makes it the main one again. So when this window's
+  # screen is no longer the one it opened on, and stays so, the window reopens on it.
+  if [[ "$now_screen" == "$screen" ]]; then
+    changed_since=""
+  elif [[ -z "$changed_since" ]]; then
+    changed_since=$SECONDS
+  elif (( SECONDS - changed_since >= SETTLE_SECONDS )); then
+    log "Its screen changed ($screen → $now_screen); reopening the window there."
     close_window
     wait "$opener"
     exit 75
@@ -185,6 +231,18 @@ while kill -0 "$opener" 2>/dev/null; do
   # Only a page seen ticking can stop: the council in web mode, or not yet set up, never ticks.
   if (( SECONDS >= next_check )); then
     next_check=$((SECONDS + CHECK_SECONDS))
+    # Seen at two checks in a row, so a window still going full screen is left to finish.
+    if [[ "${KIOSK:-1}" == "1" ]] && ! covers_screen "$screen"; then
+      if $uncovered; then
+        log "The window does not fill its screen; reopening it."
+        close_window
+        wait "$opener"
+        exit 75
+      fi
+      uncovered=true
+    else
+      uncovered=false
+    fi
     now="$(tab_title)"
     if [[ "$now" != "$title" ]]; then
       title="$now"
