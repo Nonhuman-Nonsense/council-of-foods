@@ -27,6 +27,8 @@ import { createProtocolPdf } from "@council/protocol/protocolPdf";
 
 export interface SummaryData {
   text: string;
+  /** A letter carries its own footer, so the protocol's disclaimer is left out. */
+  letter?: boolean;
 }
 
 interface SummaryProps {
@@ -263,8 +265,7 @@ function Summary({
             <div id="protocol-container" style={protocolStyle}>
               {/* Ensure synchronous parsing for type safety */}
               {parse(marked.parse(summary.text, { async: false }) as string)}
-              <hr /><br />
-              <Disclaimer />
+              {!summary.letter && <><hr /><br /><Disclaimer /></>}
             </div>
           </div>
         </div>
@@ -279,7 +280,7 @@ function Summary({
 
       {/* Hidden PDF Template */}
       {showDownload && <div style={{ position: 'absolute', top: '0', display: 'none' }}>
-        <ProtocolDocument ref={protocolRef} summaryText={summary.text} meetingId={meetingId} />
+        <ProtocolDocument ref={protocolRef} summaryText={summary.text} meetingId={meetingId} disclaimer={!summary.letter} />
       </div>}
     </>
   );

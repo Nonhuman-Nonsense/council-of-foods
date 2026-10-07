@@ -36,6 +36,7 @@ describe("checkOutboxLetter", () => {
         ["a letter far too long", letter(`${body.repeat(80)}\n\n${footer}`), /characters long/],
         ["someone else's email address", letter(`${body} Write to kalle.svensson@gmail.com.\n\n${footer}`), /kalle\.svensson@gmail\.com/],
         ["a link elsewhere", letter(`${body} See https://example.com/petition.\n\n${footer}`), /link/],
+        ["a link to the collective that made it", letter(`${body}\n\n${footer}\n\nMade by Nonhuman Nonsense (https://nonhuman-nonsense.com/)`), null],
         ["our own reply address", letter(`${body} Answer me at reindeer.1400@reply.council-of-forest.com.\n\n${footer}`), null],
     ] as const)("%s", (_label, candidate, expected) => {
         const reason = checkOutboxLetter(candidate, options);

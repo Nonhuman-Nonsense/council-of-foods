@@ -10,7 +10,7 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./humanInput/HumanInput";
 import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
-import { summaryDocument } from "@council/protocol/summaryDocument";
+import { isLetterSummary, summaryDocument } from "@council/protocol/summaryDocument";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
 import { HttpStatusError } from "@api/http";
@@ -327,7 +327,7 @@ function Council({
               onConcludeMeeting={handleOnConcludeMeeting}
               proceedWithHumanName={handleHumanNameEntered}
               onDismiss={declineOverlay}
-              summary={{ text: summaryDocument(summary, t) }}
+              summary={{ text: summaryDocument(summary, t), letter: isLetterSummary(summary) }}
               meetingId={currentMeetingId}
               participants={participants}
               audioContext={audioContext}

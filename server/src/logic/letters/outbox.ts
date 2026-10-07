@@ -109,11 +109,13 @@ export function composeOutboxLetter(
 
 const EMAIL_ADDRESS = /[\p{L}\d._%+-]+@[\p{L}\d.-]+\.\p{L}{2,}/gu;
 const LINK = /\b(?:https?:\/\/|www\.)[^\s<>()]+/gi;
+/** The collective's own site, which the footer names besides the meeting. */
+const MAKER_SITE = "nonhuman-nonsense.com";
 
 /**
  * The last look before a letter goes to a real person: nothing a model could have got badly
  * wrong. Returns why it may not go, or null. An address or a link that is not ours is refused —
- * a letter has no reason to point anywhere but the meeting.
+ * a letter has no reason to point anywhere but the meeting and the collective that made it.
  */
 export function checkOutboxLetter(letter: OutboxLetter, options: OutboxDeps["options"]): string | null {
     const body = letter.text.split("\n\n—")[0] ?? "";
@@ -131,7 +133,7 @@ export function checkOutboxLetter(letter: OutboxLetter, options: OutboxDeps["opt
         const host = (() => {
             try { return new URL(link.startsWith("www.") ? `https://${link}` : link).host.toLowerCase(); } catch { return ""; }
         })();
-        return host !== site && host !== `www.${site}`;
+        return ![site, MAKER_SITE].some((own) => host === own || host === `www.${own}`);
     });
     if (foreignLink) return `the letter contains a link: ${foreignLink}`;
     return null;

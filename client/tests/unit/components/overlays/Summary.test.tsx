@@ -186,6 +186,13 @@ describe('Summary Overlay', () => {
         expect(document.querySelector('#printed-style')).toBeInTheDocument();
     });
 
+    it('leaves the disclaimer out under a letter, which carries its own footer', () => {
+        render(<Summary summary={{ text: 'Dear Skogsstyrelsen', letter: true }} meetingId={mockMeetingId} />);
+
+        expect(screen.getAllByText(/Dear Skogsstyrelsen/).length).toBeGreaterThan(0);
+        expect(screen.queryByText(/This document was created by the Council of Foods/)).toBeNull();
+    });
+
     it('renders correctly in mobile mode', () => {
         mockUseMobile.mockReturnValue(true);
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);

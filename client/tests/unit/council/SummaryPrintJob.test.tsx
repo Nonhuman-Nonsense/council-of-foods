@@ -15,8 +15,8 @@ vi.mock("@council/protocol/protocolPdf", () => ({
 }));
 
 vi.mock("@council/protocol/ProtocolDocument", () => ({
-  default: ({ ref, summaryText }: { ref: React.Ref<HTMLDivElement>; summaryText: string }) => (
-    <div ref={ref} data-testid="protocol-document">{summaryText}</div>
+  default: ({ ref, summaryText, disclaimer = true }: { ref: React.Ref<HTMLDivElement>; summaryText: string; disclaimer?: boolean }) => (
+    <div ref={ref} data-testid="protocol-document">{summaryText}{disclaimer && " [disclaimer]"}</div>
   ),
 }));
 
@@ -57,14 +57,16 @@ describe("SummaryPrintJob", () => {
     expect(mockCreateProtocolPdf).toHaveBeenCalledWith(getByTestId("protocol-document"));
   });
 
-  it("prints a letter as a letter: who it is from and to, what it says, and its footer", () => {
+  it("prints a letter as only the letter: who it is from and to and what it says, without the email's footer", () => {
     const { getByTestId } = render(<SummaryPrintJob meetingId={42} textMessages={[letterSummary(true)]} />);
 
     expect(mockPrintProtocolOnce).toHaveBeenCalledTimes(1);
     const printed = getByTestId("protocol-document").textContent ?? "";
-    for (const expected of ["Reindeer", "Skogsstyrelsen", "Three weeks", "please wait", "Sent by Council of Forest"]) {
+    for (const expected of ["Reindeer", "Skogsstyrelsen", "Three weeks", "please wait"]) {
       expect(printed).toContain(expected);
     }
+    expect(printed).not.toContain("Sent by Council of Forest");
+    expect(printed).not.toContain("[disclaimer]");
   });
 
   it("does not print a letter when the human was not there to answer", () => {
