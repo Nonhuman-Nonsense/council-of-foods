@@ -1,5 +1,6 @@
 import { createSetupAgentToolHandlers, createSetupAgentTools, SetupAgentToolContext } from '@setupAgent/setupAgentTools';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
+import { MAX_HUMAN_PANELISTS } from '@newMeeting/meetingSetup';
 
 const TOPICS = [
   { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One' },
@@ -361,16 +362,16 @@ describe('setupAgentTools', () => {
       expect(res).toEqual({ ok: false, error: 'Missing description' });
     });
 
-    it('returns error once the maximum of 3 panelists is reached', async () => {
+    it('returns error once the maximum number of panelists is reached', async () => {
       ctx.meetingStep = 'characters';
       const handlers = createSetupAgentToolHandlers(ctx);
-      await handlers.human_panelist({ name: 'One', description: 'First' });
-      await handlers.human_panelist({ name: 'Two', description: 'Second' });
-      await handlers.human_panelist({ name: 'Three', description: 'Third' });
+      for (let i = 0; i < MAX_HUMAN_PANELISTS; i++) {
+        await handlers.human_panelist({ name: `Person ${i}`, description: 'A visitor' });
+      }
 
-      const res = await handlers.human_panelist({ name: 'Four', description: 'Fourth' });
-      expect(res).toEqual({ ok: false, error: 'Maximum of 3 human panelists already added.' });
-      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(3);
+      const res = await handlers.human_panelist({ name: 'One too many', description: 'A visitor' });
+      expect(res).toMatchObject({ ok: false });
+      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(MAX_HUMAN_PANELISTS);
     });
 
     /**

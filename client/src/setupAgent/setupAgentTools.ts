@@ -2,6 +2,7 @@ import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import {
   buildMeetingCharactersPayload,
+  MAX_HUMAN_PANELISTS,
   orderSelectedCharactersForInstallation,
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
@@ -234,7 +235,7 @@ export function createSetupAgentTools({
       type: "function",
       name: "human_panelist",
       description:
-        "Add a human panelist to the council (up to 3). Use when the visitor wants to include themselves or another person. Provide their name and a short character description.",
+        `Add a human panelist to the council (at most ${MAX_HUMAN_PANELISTS}). Use when the visitor wants to include themselves or another person. Provide their name and a short character description.`,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -385,19 +386,19 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!name) return { ok: false, error: "Missing name" };
       if (!description) return { ok: false, error: "Missing description" };
       const store = useMeetingSetupStore.getState();
-      const maxPanelists = 3;
-      if (store.numberOfHumans >= maxPanelists) {
-        return { ok: false, error: `Maximum of ${maxPanelists} human panelists already added.` };
-      }
       // Same uniqueness constraint the screen enforces — if this name is
       // already in the council (e.g. the visitor just typed it in on screen
-      // themselves), there's nothing to add.
+      // themselves), there's nothing to add. Checked before the limit, which
+      // a re-add of the one panelist would otherwise hit with a less useful error.
       const { characters: existingCharacterNames, humans: existingHumanNames } = currentCouncilParticipants(ctx);
       if ([...existingCharacterNames, ...existingHumanNames].includes(name)) {
         return {
           ok: false,
           error: `${name} is already part of the council — no need to add them again.`,
         };
+      }
+      if (store.numberOfHumans >= MAX_HUMAN_PANELISTS) {
+        return { ok: false, error: `The council already has the most human panelists allowed (${MAX_HUMAN_PANELISTS}).` };
       }
       const index = store.numberOfHumans;
       store.setHumans((prev) => {
