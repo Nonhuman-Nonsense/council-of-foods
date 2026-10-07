@@ -120,6 +120,7 @@ export const MockFactory = {
             transcribeModel: "whisper-1",
             transcribePrompt: { en: "Transcribe" },
             audioConcurrency: 2,
+            voiceLoudness: { targetLufs: -18, skipBelowDb: 1.5, truePeakDb: -1.5 },
             chairRealtime: {
                 strategy: "unified",
                 languages: {

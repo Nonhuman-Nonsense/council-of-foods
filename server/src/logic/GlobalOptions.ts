@@ -43,6 +43,12 @@ export const HumanInputRealtimeSchema = z.object({
     languages: z.record(z.string(), HumanInputRealtimeLanguageConfigSchema),
 });
 
+export const VoiceLoudnessSchema = z.object({
+    targetLufs: z.number(),
+    skipBelowDb: z.number().nonnegative(),
+    truePeakDb: z.number().max(0),
+});
+
 export const GlobalOptionsSchema = z.object({
     conversationModel: z.string(),
     conversationReasoning: ConversationReasoningSchema,
@@ -74,6 +80,11 @@ export const GlobalOptionsSchema = z.object({
     transcribeModel: z.string(),
     transcribePrompt: z.record(z.string(), z.string()),
     audioConcurrency: z.number(),
+    /**
+     * Every newly generated message is brought to one perceived loudness, so no being speaks
+     * louder than another. null switches it off. See `normalizeLoudness` in AudioUtils.
+     */
+    voiceLoudness: VoiceLoudnessSchema.nullable(),
     chairRealtime: ChairRealtimeSchema,
     humanInputRealtime: HumanInputRealtimeSchema,
     speakerClassifierModel: z.string(),

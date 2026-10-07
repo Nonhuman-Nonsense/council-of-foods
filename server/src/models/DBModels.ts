@@ -161,6 +161,8 @@ export interface StoredRoomPowerHour extends Document {
 export type SubtitleTimingType = 'whisper' | 'inworld' | 'elevenlabs' | 'estimated' | undefined;
 export interface StoredAudio extends Audio, Document {
     subtitleTimingType?: SubtitleTimingType;
+    /** Loudness as the provider delivered it and the gain applied to even it out (absent before normalization). */
+    loudness?: { measuredLufs: number | null; gainDb: number };
 }
 
 export interface Counter extends Document {

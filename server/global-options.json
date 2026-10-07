@@ -40,6 +40,7 @@
     "sv": "Förvänta dig svenskt tal."
   },
   "audioConcurrency": 10,
+  "voiceLoudness": { "targetLufs": -21, "skipBelowDb": 1.5, "truePeakDb": -1.5 },
   "meetingEnding": "protocol",
   "letterSiteUrl": "https://council-of-foods.com",
   "letterMaxCandidates": 16,
