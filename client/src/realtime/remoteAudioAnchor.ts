@@ -36,12 +36,21 @@ export type RemoteAudioAnchorOptions = {
   onArmed?: () => void;
   silenceThreshold?: number;
   silenceMs?: number;
+  /**
+   * Quiet needed before `arm(true)` counts the previous response as finished.
+   * Shorter than `silenceMs`: after a barge-in the old audio's tail can run
+   * almost straight into the new response, and a gap missed there anchors the
+   * clock on a pause inside the new response, putting its captions a whole
+   * sentence late (observed: a 203ms gap). Dips inside speech stay ~100ms.
+   */
+  drainSilenceMs?: number;
   fftSize?: number;
   log?: (...args: unknown[]) => void;
 };
 
 const DEFAULT_SILENCE_THRESHOLD = 0.01;
 const DEFAULT_SILENCE_MS = 250;
+const DEFAULT_DRAIN_SILENCE_MS = 150;
 const DEFAULT_FFT_SIZE = 512;
 
 const getNow = (): number => {
@@ -72,6 +81,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
     onArmed,
     silenceThreshold = DEFAULT_SILENCE_THRESHOLD,
     silenceMs = DEFAULT_SILENCE_MS,
+    drainSilenceMs = DEFAULT_DRAIN_SILENCE_MS,
     fftSize = DEFAULT_FFT_SIZE,
     log,
   } = options;
@@ -118,7 +128,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
     if (waitingForSilence) {
       if (rms < silenceThreshold) {
         waitingQuietSinceMs ??= nowMs;
-        if (nowMs - waitingQuietSinceMs >= silenceMs) {
+        if (nowMs - waitingQuietSinceMs >= drainSilenceMs) {
           waitingForSilence = false;
           armed = true;
           firedForCurrentArm = false;
