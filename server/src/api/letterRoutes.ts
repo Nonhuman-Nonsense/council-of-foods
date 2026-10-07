@@ -26,9 +26,10 @@ import { requireInstallationKey } from "./installationKey.js";
 /**
  * What comes back to the letters (docs/council-letters.md → Receiving).
  *
- * Brevo posts to two webhooks whose URLs carry COUNCIL_LETTERS_WEBHOOK_SECRET:
- * - `POST /api/letters/brevo/:secret/inbound` — emails to the reply domain, `{ items: [...] }`;
- * - `POST /api/letters/brevo/:secret/events` — transactional delivery events, one or a list.
+ * Brevo posts to two webhooks with COUNCIL_LETTERS_WEBHOOK_SECRET as its token
+ * (`Authorization: Bearer <secret>`, Brevo's "Token" authentication):
+ * - `POST /api/letters/brevo/inbound` — emails to the reply domain, `{ items: [...] }`;
+ * - `POST /api/letters/brevo/events` — transactional delivery events, one or a list.
  *
  * An installation's bridge, with the installation key, prints the replies:
  * - `GET  /api/installation/letter-replies?venueId=…` — replies and opt-outs not yet printed;
@@ -44,8 +45,9 @@ function secretMatches(req: Request, res: Response): boolean {
         res.status(503).json({ message: "COUNCIL_LETTERS_WEBHOOK_SECRET is not set on this server" });
         return false;
     }
-    if (!keyMatches(String(req.params.secret ?? ""), expected)) {
-        res.sendStatus(404);
+    const token = (req.get("authorization") ?? "").replace(/^Bearer\s+/i, "").trim();
+    if (!keyMatches(token, expected)) {
+        res.sendStatus(401);
         return false;
     }
     return true;
@@ -81,7 +83,7 @@ function printView(reply: LetterReply): PrintableLetterReply {
 export function registerLetterWebhookRoutes(app: Express): void {
     const json = express.json({ limit: WEBHOOK_BODY_LIMIT });
 
-    app.post("/api/letters/brevo/:secret/inbound", json, async (req: Request, res: Response) => {
+    app.post("/api/letters/brevo/inbound", json, async (req: Request, res: Response) => {
         if (!secretMatches(req, res)) return;
         const items = (req.body as { items?: InboundEmail[] } | undefined)?.items;
         if (!Array.isArray(items)) {
@@ -98,7 +100,7 @@ export function registerLetterWebhookRoutes(app: Express): void {
         }
     });
 
-    app.post("/api/letters/brevo/:secret/events", json, async (req: Request, res: Response) => {
+    app.post("/api/letters/brevo/events", json, async (req: Request, res: Response) => {
         if (!secretMatches(req, res)) return;
         const body = req.body as DeliveryEvent | DeliveryEvent[] | undefined;
         try {

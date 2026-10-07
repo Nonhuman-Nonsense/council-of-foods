@@ -177,11 +177,18 @@ describe("letter replies", () => {
         const post = (path: string, body: unknown, headers: Record<string, string> = {}) =>
             fetch(`${base}${path}`, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
 
-        it("refuses a webhook post without the secret, and refuses all of them when none is set", async () => {
-            expect((await post("/api/letters/brevo/wrong-secret-0123456789/inbound", { items: [] })).status).toBe(404);
+        it("refuses every webhook post while no secret is set", async () => {
             mockConfig.COUNCIL_LETTERS_WEBHOOK_SECRET = undefined;
-            expect((await post(`/api/letters/brevo/anything/inbound`, { items: [] })).status).toBe(503);
+            expect((await post("/api/letters/brevo/inbound", { items: [] }, { Authorization: "Bearer anything" })).status).toBe(503);
             mockConfig.COUNCIL_LETTERS_WEBHOOK_SECRET = "webhook-secret-for-tests-0123";
+        });
+
+        it.each([
+            ["the secret as a token", "/api/letters/brevo/events", { Authorization: "Bearer webhook-secret-for-tests-0123" }, 200],
+            ["a wrong token", "/api/letters/brevo/events", { Authorization: "Bearer not-the-secret-0123456789" }, 401],
+            ["no token", "/api/letters/brevo/events", {}, 401],
+        ])("takes Brevo's post with %s → %s", async (_label, path, headers, status) => {
+            expect((await post(path, { event: "delivered" }, headers)).status).toBe(status);
         });
 
         it("hands the bridge the replies to print, with its key, and never the sender's address", async () => {
