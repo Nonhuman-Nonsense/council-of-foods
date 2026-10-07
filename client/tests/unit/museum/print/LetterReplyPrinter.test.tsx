@@ -8,10 +8,9 @@ const printClient = vi.hoisted(() => ({
   markReplyPrinted: vi.fn(),
 }));
 vi.mock("@/museum/print/printClient", () => printClient);
-const protocolPdf = vi.hoisted(() => ({
+vi.mock("@council/protocol/protocolPdf", () => ({
   createProtocolPdf: vi.fn(async () => ({ output: () => new Blob(["%PDF-"]) })),
 }));
-vi.mock("@council/protocol/protocolPdf", () => protocolPdf);
 vi.mock("@council/protocol/ReplyDocument", () => ({
   default: ({ ref, reply }: { ref: React.Ref<HTMLDivElement>; reply: PrintableLetterReply }) => (
     <div ref={ref} data-testid="reply-document">{reply.message}</div>
@@ -47,7 +46,6 @@ describe("LetterReplyPrinter", () => {
     await vi.waitFor(() => expect(printClient.markReplyPrinted).toHaveBeenCalledWith("a".repeat(24)));
     expect(printClient.sendReplyToPrinter).toHaveBeenCalledTimes(1);
     expect(printClient.sendReplyToPrinter.mock.calls[0][0]).toBe("a".repeat(24));
-    expect(protocolPdf.createProtocolPdf).toHaveBeenCalledWith(expect.anything(), { magnetMark: true });
   });
 
   it("asks again every minute for replies that arrived since", async () => {

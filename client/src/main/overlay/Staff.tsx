@@ -1008,9 +1008,9 @@ function Staff(): ReactElement {
             ) : null}
           </StaffRow>
           {printSummariesEnabled ? (
-            /* The test page is a real protocol, so it exercises the same PDF path. */
+            /* The test page goes through the same PDF path, laid out like a printed letter. */
             <div style={{ position: "absolute", top: 0, display: "none" }}>
-              <ProtocolDocument ref={testPageRef} summaryText={t("staff.print.testPageText")} meetingId="TEST" />
+              <ProtocolDocument ref={testPageRef} summaryText={t("staff.print.testPageText")} meetingId="TEST" disclaimer={false} />
             </div>
           ) : null}
 
