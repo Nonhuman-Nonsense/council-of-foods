@@ -6,6 +6,7 @@ import { fetchButtonBridgeHealth } from "@/museum/button/buttonBridge";
 import { ButtonTransport } from "@/museum/button/buttonBridge";
 import { _resetButtonStoreForTests, useButtonStore } from "@/museum/button/buttonStore";
 import { startTestBridge, waitForTicks, waitForWrittenLine, type TestBridge } from "./testHarness.js";
+import { BRIDGE_VERSION } from "../src/types.js";
 
 const BRIDGE_URL_STORAGE_KEY = "councilButtonBridgeUrl";
 
@@ -40,7 +41,7 @@ describe.sequential("button e2e (mock → bridge → client)", () => {
     expect(health).toMatchObject({
       serial: "connected",
       path: "mock",
-      version: "1.1.0",
+      version: BRIDGE_VERSION,
       serialDetail: "connected",
     });
   });
