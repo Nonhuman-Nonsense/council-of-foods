@@ -109,6 +109,15 @@ open -na "Google Chrome" --args --user-data-dir="$HOME/Library/Application Suppo
 Quit that Chrome, then `start.sh`. Extra Chrome flags for the council go in
 `--council-flags "..."`.
 
+**Text size.** If subtitles and text read too small from where visitors stand, zoom in
+with Cmd + in that same profile while it is open for setup. Chrome keeps the zoom per
+site in the profile, next to the `#staff` settings, so it lasts through restarts and
+Chrome updates and goes only with the profile (`uninstall.sh --purge`) or a change of
+host in the URL. Nothing on screen shows it, so write the level you chose into the
+venue's setup notes. Keep the page at least 600 px tall after zoom: below that the
+app switches to its small-screen layout, with smaller text. On a 1080p screen that
+means 175% at most.
+
 ### The Mac itself
 
 Once, in System Settings:
