@@ -63,7 +63,7 @@ vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{
 vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
 vi.mock('@council/output/Output', () => ({
-    default: () => <div data-testid="output">Output</div>,
+    default: ({ held }: { held?: boolean }) => <div data-testid="output" data-held={String(!!held)}>Output</div>,
 }));
 vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
 vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
@@ -311,7 +311,7 @@ describe('Council Component', () => {
         expect(screen.getByText('Human Input')).toBeInTheDocument();
     });
 
-    it('unmounts meeting output when meta agent is active', async () => {
+    it('holds meeting output, rather than unmounting it, while the meta agent is active', async () => {
         mockMetaAgentActivate = true;
         mockUseCouncilSettings.mockReturnValue({
           isMuseumMode: true,
@@ -323,7 +323,7 @@ describe('Council Component', () => {
         render(<Council {...defaultProps} />);
 
         await waitFor(() => {
-            expect(screen.queryByTestId('output')).not.toBeInTheDocument();
+            expect(screen.getByTestId('output')).toHaveAttribute('data-held', 'true');
         });
     });
 

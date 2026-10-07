@@ -31,8 +31,11 @@ interface OutputProps {
   handleOnFinishedPlaying: () => void;
   /** Museum summary teleprompter — playback snapshot while `councilState === "summary"`. */
   onSummaryPlaybackChange?: (state: SummaryPlaybackState) => void;
-  /** Hide council subtitles (e.g. while meta-agent captions are shown). */
-  hideSubtitles?: boolean;
+  /**
+   * Hold playback mid-message (the meta agent has interrupted the meeting) and
+   * hide the subtitles; releasing resumes from the start of the interrupted sentence.
+   */
+  held?: boolean;
 }
 
 const Output: React.FC<OutputProps> = ({
@@ -47,7 +50,7 @@ const Output: React.FC<OutputProps> = ({
   audioContext,
   handleOnFinishedPlaying,
   onSummaryPlaybackChange,
-  hideSubtitles = false,
+  held = false,
 }) => {
   const [currentAudioMessage, setCurrentAudioMessage] = useState<DecodedAudioMessage | null>(null);
   const [playbackStartInfo, setPlaybackStartInfo] = useState<PlaybackStartInfo | null>(null);
@@ -108,7 +111,7 @@ const Output: React.FC<OutputProps> = ({
     onSummaryPlaybackChange({
       playbackStartInfo,
       duration,
-      isPaused,
+      isPaused: isPaused || held,
     });
   }, [
     councilState,
@@ -117,6 +120,7 @@ const Output: React.FC<OutputProps> = ({
     audioMessages,
     playbackStartInfo,
     isPaused,
+    held,
     onSummaryPlaybackChange,
   ]);
 
@@ -126,8 +130,8 @@ const Output: React.FC<OutputProps> = ({
         currentAudioMessage={currentAudioMessage}
         audioContext={audioContext}
         playbackStartInfo={playbackStartInfo}
-        isPaused={isPaused}
-        style={showTextOutput || hideSubtitles ? hiddenStyle : undefined}
+        isPaused={isPaused || held}
+        style={showTextOutput || held ? hiddenStyle : undefined}
         setCurrentSnippetIndex={setCurrentSnippetIndex}
       />
       <div data-testid="audio-indicator" data-playing={!!currentAudioMessage}>
@@ -136,6 +140,7 @@ const Output: React.FC<OutputProps> = ({
           onFinishedPlaying={handleOnFinishedPlaying}
           onPlaybackStarted={setPlaybackStartInfo}
           isMuted={isMuted}
+          held={held}
           audioContext={audioContext}
         />
       </div>

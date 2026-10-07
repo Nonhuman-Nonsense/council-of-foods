@@ -147,6 +147,38 @@ describe('useCouncilMachine', () => {
         vi.useRealTimers();
     });
 
+    it('holds in the pause between messages while the meta agent has the floor', async () => {
+        vi.useFakeTimers();
+        const { result, rerender } = renderHook(
+            (props: any) => useCouncilMachine(props),
+            { initialProps: { ...defaultProps, currentMeetingId: 1 } },
+        );
+
+        audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        await act(async () => {
+            socketHandlers.onConversationUpdate?.([
+                { id: 'msg1', text: 'Hello', speaker: 'banana', type: 'message' },
+                { id: 'msg2', text: 'Hi', speaker: 'tomato', type: 'message' },
+            ]);
+            socketHandlers.onAudioUpdate?.({ id: 'msg1', audio: new ArrayBuffer(8) });
+            socketHandlers.onAudioUpdate?.({ id: 'msg2', audio: new ArrayBuffer(8) });
+        });
+        act(() => { vi.advanceTimersByTime(10); });
+        act(() => { result.current.actions.handleOnFinishedPlaying(); });
+        expect(result.current.state.councilState).toBe('waiting');
+
+        rerender({ ...defaultProps, currentMeetingId: 1, metaAgentPhase: 'interruption' });
+        act(() => { vi.advanceTimersByTime(5000); });
+        expect(result.current.state.councilState).toBe('waiting');
+        expect(result.current.state.playingNowIndex).toBe(0);
+
+        rerender({ ...defaultProps, currentMeetingId: 1, metaAgentPhase: 'inactive' });
+        act(() => { vi.advanceTimersByTime(1000); });
+        expect(result.current.state.councilState).toBe('playing');
+        expect(result.current.state.playingNowIndex).toBe(1);
+        vi.useRealTimers();
+    });
+
     it('declineOverlay does not navigate (routing handled elsewhere)', () => {
         const { result } = renderHook(() =>
             useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)

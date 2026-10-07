@@ -137,6 +137,8 @@ export function useCouncilMachine({
     // when shared scene logic is split into app-specific leaf components.
     const [councilState, setCouncilState] = useState<CouncilState>("loading");
     const [playingNowIndex, setPlayingNowIndex] = useState(-1);
+    // Output holds the playing message while the meta agent has the floor (see Council).
+    const metaAgentHolding = metaAgentPhase !== "inactive";
     const [playNextIndex, setPlayNextIndex] = useState(0);
 
     const [textMessages, setTextMessages] = useState<Message[]>([]); // State to store conversation updates
@@ -498,8 +500,8 @@ export function useCouncilMachine({
                 }
                 break;
             case 'waiting':
-                //Wait one second, and then proceed
-                if (waitTimer.current == null) {//Unless we are already waiting
+                //Wait one second, and then proceed — but not behind the meta agent's back
+                if (waitTimer.current == null && !metaAgentHolding) {//Unless we are already waiting
                     waitTimer.current = setTimeout(() => {
                         setCouncilState('playing');
                     }, 1000);
@@ -517,7 +519,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId, metaAgentHolding]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -1123,6 +1125,15 @@ export function useCouncilMachine({
             }
         }
     }, [isPaused]);
+
+    // The meta agent interrupting in the pause between messages holds the meeting
+    // there; the main machine restarts the wait once the agent hands back.
+    useEffect(() => {
+        if (metaAgentHolding && waitTimer.current) {
+            clearTimeout(waitTimer.current);
+            waitTimer.current = null;
+        }
+    }, [metaAgentHolding]);
 
 
     // Mute Logic
