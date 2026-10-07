@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAutomaticReply, parseReplyAddress, parseReplyKind, type InboundEmail } from "@logic/letters/replies.js";
+import { isAutomaticReply, messageOf, parseReplyAddress, parseReplyKind, type InboundEmail } from "@logic/letters/replies.js";
 
 describe("parseReplyAddress", () => {
     it.each([
@@ -30,6 +30,20 @@ describe("isAutomaticReply", () => {
         ["a person's reply", email({}), false],
     ] as const)("%s → %s", (_label, candidate, expected) => {
         expect(isAutomaticReply(candidate)).toBe(expected);
+    });
+});
+
+describe("messageOf", () => {
+    it.each([
+        ["Brevo's open-tracking pixel as a markdown link", "[bacehcgg.r.bh.d.sendibt3.com/tr/op/FqwOk…](https://bacehcgg.r.bh.d.sendibt3.com/tr/op/FqwOk)\n\nOj förlåt!"],
+        ["a bare tracking URL", "Oj förlåt! https://x.r.bh.d.sendibt3.com/tr/cl/abc"],
+        ["a tracking image", "![](https://bacehcgg.r.bh.d.sendibt3.com/tr/op/xyz)Oj förlåt!"],
+    ])("drops %s", (_label, written) => {
+        expect(messageOf({ ExtractedMarkdownMessage: written })).toMatch(/^Oj förlåt!$/);
+    });
+
+    it("keeps the links a person wrote", () => {
+        expect(messageOf({ ExtractedMarkdownMessage: "See https://www.skogsstyrelsen.se/avverkning" })).toContain("skogsstyrelsen.se");
     });
 });
 

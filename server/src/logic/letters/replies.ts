@@ -21,8 +21,12 @@ import { REPLY_KINDS, replySortingPrompt, type ReplyKind } from "./prompts/reply
  * a recipient whose address bounced, or who marked a letter as spam, on the blocklist.
  */
 
-/** Brevo's own spam score (rspamd) at which a reply is spam: rspamd marks mail as spam from 6. */
-const SPAM_SCORE = 6;
+/**
+ * Brevo's own spam score (rspamd) at which a reply is spam: rspamd's own "reject" level. Only
+ * the exact address a letter gave out reaches a letter at all, so what arrives is nearly always a
+ * person writing back — and a real one, relayed through Brevo with open tracking, scored 6.09.
+ */
+const SPAM_SCORE = 15;
 const SORTING_MAX_TOKENS = 80;
 
 export interface ReplyDeps {
@@ -94,13 +98,19 @@ export function isAutomaticReply(email: InboundEmail): boolean {
     return autoSubmitted || autoHeader || precedence || daemon || AUTOMATIC_SUBJECT.test(email.Subject ?? "");
 }
 
+/**
+ * Open-tracking pixels and click-tracking links a mail service adds (Brevo's sendibt…/tr/op/…),
+ * as markdown or bare: nobody wrote them, and they must never be printed.
+ */
+const TRACKING_LINK = /!?\[[^\]]*\]\(\s*https?:\/\/[^)\s]*(?:sendibt\d*\.com|sendibm\d*\.com|\/tr\/(?:op|cl)\/)[^)]*\)|https?:\/\/\S*(?:sendibt\d*\.com|sendibm\d*\.com|\/tr\/(?:op|cl)\/)\S*/gi;
+
 /** The message as written: Brevo's extraction, else the plain text without what it quotes. */
-function messageOf(email: InboundEmail): string {
+export function messageOf(email: InboundEmail): string {
     const extracted = email.ExtractedMarkdownMessage?.trim();
-    if (extracted) return extracted;
     const lines = (email.RawTextBody ?? "").split("\n");
     const quoteStart = lines.findIndex((line) => /^>/.test(line) || /^(On|Den) .+ (wrote|skrev):\s*$/i.test(line.trim()));
-    return (quoteStart === -1 ? lines : lines.slice(0, quoteStart)).join("\n").trim();
+    const written = extracted || (quoteStart === -1 ? lines : lines.slice(0, quoteStart)).join("\n");
+    return written.replace(TRACKING_LINK, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function replyId(email: InboundEmail): string {

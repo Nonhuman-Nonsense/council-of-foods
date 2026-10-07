@@ -82,6 +82,14 @@ describe("letter replies", () => {
         expect(reply.message).not.toContain("070-123 45 67");
     });
 
+    it("takes a real reply Brevo's spam score only half-suspects as a reply", async () => {
+        await sentLetter(1400);
+
+        await receiveReplies(deps(), [email(1400, { SpamScore: 6.09 })]);
+
+        expect(await letterRepliesCollection.findOne({})).toMatchObject({ kind: "reply" });
+    });
+
     it("keeps an email Brevo posts twice only once", async () => {
         await sentLetter(1400);
         const same = email(1400);
@@ -103,7 +111,7 @@ describe("letter replies", () => {
 
     it.each([
         ["an automatic reply its headers announce", { Headers: { "Auto-Submitted": "auto-replied" } }, "automatic"],
-        ["spam", { SpamScore: 12 }, "spam"],
+        ["spam", { SpamScore: 20 }, "spam"],
     ] as const)("keeps %s unasked and unprinted", async (_label, overrides, kind) => {
         await sentLetter(1400);
         const sorting = deps();
