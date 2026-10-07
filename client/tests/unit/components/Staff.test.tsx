@@ -85,10 +85,12 @@ vi.mock('@/museum/print/printClient', () => ({
   sendTestPage: (...args: unknown[]) => mockSendTestPage(...args),
 }));
 
-vi.mock('@council/protocol/ProtocolDocument', () => ({
-  default: ({ ref, summaryText }: { ref: React.Ref<HTMLDivElement>; summaryText: string }) => (
-    <div ref={ref} data-testid="staff-test-page-document">{summaryText}</div>
+vi.mock('@council/protocol/LetterDocument', () => ({
+  default: ({ ref, body, title }: { ref: React.Ref<HTMLDivElement>; body: string; title?: string }) => (
+    <div ref={ref} data-testid={title ? 'staff-test-reply-document' : 'staff-test-page-document'}>{body}</div>
   ),
+  letterFields: () => [],
+  replyFields: () => [],
 }));
 
 const mockFetchVenues = vi.fn();
@@ -509,7 +511,7 @@ describe('Staff overlay', () => {
       expect(lines).toEqual(['Media Empty', 'Printer alerts: media-empty-error', 'Last error: lp: printer is offline']);
     });
 
-    it('prints a test page through the same PDF path and reports the result', async () => {
+    it('prints a sample letter and a reply to it through the same PDF path, and reports the result', async () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
       const blob = new Blob(['%PDF-']);
       mockCreateProtocolPdf.mockResolvedValue({ output: () => blob });
@@ -523,8 +525,11 @@ describe('Staff overlay', () => {
           'staff.print.testPageResult.queued',
         );
       });
-      expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'), expect.anything());
-      expect(mockSendTestPage).toHaveBeenCalledWith(blob);
+      expect(mockCreateProtocolPdf.mock.calls.map(([element]) => element)).toEqual([
+        screen.getByTestId('staff-test-page-document'),
+        screen.getByTestId('staff-test-reply-document'),
+      ]);
+      expect(mockSendTestPage.mock.calls).toEqual([[blob], [blob]]);
     });
   });
 

@@ -61,7 +61,7 @@ describe("SummaryPrintJob", () => {
     const { getByTestId } = render(<SummaryPrintJob meetingId={42} textMessages={[letterSummary(true)]} />);
 
     expect(mockPrintProtocolOnce).toHaveBeenCalledTimes(1);
-    const printed = getByTestId("protocol-document").textContent ?? "";
+    const printed = getByTestId("summary-print-job").textContent ?? "";
     for (const expected of ["Reindeer", "Skogsstyrelsen", "Three weeks", "please wait"]) {
       expect(printed).toContain(expected);
     }

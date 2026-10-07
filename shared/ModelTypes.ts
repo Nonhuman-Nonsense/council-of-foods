@@ -147,8 +147,13 @@ export interface GeneratedTurnMessage
 export interface LetterView {
     authorId: string;
     authorName: string;
+    /** The being's own address, the letter's From. Missing on letters written before it was shown. */
+    authorEmail?: string;
     recipientName: string;
     recipientOrganisation: string | null;
+    recipientEmail?: string | null;
+    /** When the letter was finished, shown as when it was sent: the outbox sends it moments later. */
+    sentAt?: string;
     subject: string;
     body: string;
     /** The human's own words, set apart after the signature; null when none were. */
@@ -309,6 +314,7 @@ export interface PrintableLetterReply {
     meetingId: number;
     kind: "reply" | "opt-out";
     fromName: string | null;
+    fromAddress: string;
     subject: string;
     /** Markdown, as Brevo extracts it, without the quoted letter, signature or contact details. */
     message: string;

@@ -11,17 +11,18 @@ vi.mock("@/museum/print/printClient", () => printClient);
 vi.mock("@council/protocol/protocolPdf", () => ({
   createProtocolPdf: vi.fn(async () => ({ output: () => new Blob(["%PDF-"]) })),
 }));
-vi.mock("@council/protocol/ReplyDocument", () => ({
-  default: ({ ref, reply }: { ref: React.Ref<HTMLDivElement>; reply: PrintableLetterReply }) => (
-    <div ref={ref} data-testid="reply-document">{reply.message}</div>
+vi.mock("@council/protocol/LetterDocument", () => ({
+  default: ({ ref, body }: { ref: React.Ref<HTMLDivElement>; body: string }) => (
+    <div ref={ref} data-testid="reply-document">{body}</div>
   ),
+  replyFields: () => [],
 }));
 vi.mock("@/navigation", () => ({ useRouting: () => ({ meetingPath: (id: number) => `/meeting/${id}` }) }));
 
 const { default: LetterReplyPrinter, REPLY_POLL_MS } = await import("@/museum/print/LetterReplyPrinter");
 
 const reply = (id: string): PrintableLetterReply => ({
-  id, meetingId: 1400, kind: "reply", fromName: "Anna Andersson", subject: "Re: Tre veckor",
+  id, meetingId: 1400, kind: "reply", fromName: "Anna Andersson", fromAddress: "anna.andersson@example.se", subject: "Re: Tre veckor",
   message: "Tack för brevet.", receivedAt: "2026-10-12T10:00:00.000Z",
   letter: { authorId: "reindeer", authorName: "Renen", recipientName: "Skogsstyrelsen", subject: "Tre veckor", language: "sv" },
 });

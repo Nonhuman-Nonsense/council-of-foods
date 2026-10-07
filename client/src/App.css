@@ -632,3 +632,16 @@ nav.blur::before {
   pointer-events: none;
   flex-shrink: 0;
 }
+/* A letter's message, on paper and on the summary screen (LetterDocument). */
+.letter-body p,
+.letter-body li {
+  font-size: inherit;
+  line-height: 1.35;
+  letter-spacing: normal;
+  word-spacing: normal;
+  margin: 0 0 1em;
+}
+
+.letter-body p:last-child {
+  margin-bottom: 0;
+}

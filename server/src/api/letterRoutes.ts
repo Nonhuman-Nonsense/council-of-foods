@@ -64,13 +64,14 @@ const replyDeps = () => ({
     ...(config.COUNCIL_LETTERS_ARCHIVE_TO ? { archive: { to: config.COUNCIL_LETTERS_ARCHIVE_TO, send: sendEmail } } : {}),
 });
 
-/** What a bridge prints: the reply and the letter it answers, never the sender's address. */
+/** What a bridge prints: the reply, who sent it, and the letter it answers. */
 function printView(reply: LetterReply): PrintableLetterReply {
     return {
         id: reply._id,
         meetingId: reply.meetingId,
         kind: reply.kind === "opt-out" ? "opt-out" : "reply",
         fromName: reply.from.name,
+        fromAddress: reply.from.address,
         subject: reply.subject,
         message: reply.message,
         receivedAt: reply.receivedAt.toISOString(),

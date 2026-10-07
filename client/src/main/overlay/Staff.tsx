@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import type { LetterView, PrintableLetterReply } from "@shared/ModelTypes";
 import {
   APP_MODES,
   DEV_LOG_CATEGORIES,
@@ -22,7 +24,9 @@ import type {
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { modeSwitchButtonToggleStyle } from "@/museum/ModeSwitchButton";
-import ProtocolDocument from "@council/protocol/ProtocolDocument";
+import LetterDocument, { letterFields, replyFields } from "@council/protocol/LetterDocument";
+import { letterBody } from "@council/protocol/summaryDocument";
+import { useRouting } from "@/navigation";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 import { describePrinterReason } from "@shared/printerReasons";
@@ -244,6 +248,43 @@ function getStaffAlertDetailLines(alerts: BridgeAlertsHealth): string[] {
   if (alerts.lastSentAt) lines.push(`Last alert sent ${new Date(alerts.lastSentAt).toLocaleString()}`);
   if (alerts.lastError) lines.push(`Alert error: ${alerts.lastError}`);
   return lines;
+}
+
+/** The test print is a sample letter and a reply to it, so staff see exactly what visitors' prints look like. */
+const TEST_LETTER_MEETING_ID = 1400;
+
+function testLetter(t: TFunction): LetterView {
+  return {
+    authorId: "test",
+    authorName: t("staff.print.testLetter.from"),
+    authorEmail: t("staff.print.testLetter.fromEmail"),
+    recipientName: t("staff.print.testLetter.to"),
+    recipientOrganisation: t("staff.print.testLetter.organisation"),
+    recipientEmail: t("staff.print.testLetter.toEmail"),
+    sentAt: new Date().toISOString(),
+    subject: t("staff.print.testLetter.subject"),
+    body: t("staff.print.testLetter.body"),
+    humanNote: null,
+    footer: "",
+    present: true,
+    send: true,
+    sendReason: null,
+  };
+}
+
+function testReply(t: TFunction, language: string): PrintableLetterReply {
+  const letter = testLetter(t);
+  return {
+    id: "test",
+    meetingId: TEST_LETTER_MEETING_ID,
+    kind: "reply",
+    fromName: t("staff.print.testReply.from"),
+    fromAddress: t("staff.print.testReply.fromEmail"),
+    subject: t("staff.print.testReply.subject"),
+    message: t("staff.print.testReply.body"),
+    receivedAt: new Date().toISOString(),
+    letter: { authorId: letter.authorId, authorName: letter.authorName, recipientName: letter.recipientName, subject: letter.subject, language },
+  };
 }
 
 function getStaffBridgeLogHint(): string {
@@ -552,7 +593,7 @@ function StaffCollapsible(props: {
  * Staff-only global council options at #staff.
  */
 function Staff(): ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     mode: appMode,
     setAppMode,
@@ -583,14 +624,23 @@ function Staff(): ReactElement {
   const [venueId, setVenueIdState] = useState(getVenueId);
 
   const testPageRef = useRef<HTMLDivElement>(null);
+  const testReplyRef = useRef<HTMLDivElement>(null);
+  const { meetingPath } = useRouting();
   const [testPage, setTestPage] = useState<"idle" | "sending" | TestPageOutcome>("idle");
 
+  /** A letter, then a reply: two sheets, each its own job, reporting the first that did not queue. */
   const printTestPage = async (): Promise<void> => {
-    if (!testPageRef.current) return;
+    const pages = [testPageRef.current, testReplyRef.current];
+    if (pages.some((page) => !page)) return;
     setTestPage("sending");
     try {
-      const pdf = await createProtocolPdf(testPageRef.current, { magnetMark: true });
-      setTestPage(await sendTestPage(pdf.output("blob")));
+      let outcome: TestPageOutcome = "queued";
+      for (const page of pages) {
+        const pdf = await createProtocolPdf(page!, { magnetMark: true });
+        outcome = await sendTestPage(pdf.output("blob"));
+        if (outcome !== "queued") break;
+      }
+      setTestPage(outcome);
     } catch {
       setTestPage("rejected");
     }
@@ -1008,9 +1058,23 @@ function Staff(): ReactElement {
             ) : null}
           </StaffRow>
           {printSummariesEnabled ? (
-            /* The test page goes through the same PDF path, laid out like a printed letter. */
+            /* The test print is a sample letter and reply, printed through the same PDF path as real ones. */
             <div style={{ position: "absolute", top: 0, display: "none" }}>
-              <ProtocolDocument ref={testPageRef} summaryText={t("staff.print.testPageText")} meetingId="TEST" disclaimer={false} />
+              <LetterDocument
+                ref={testPageRef}
+                groups={letterFields(testLetter(t), t, i18n.language)}
+                body={letterBody(testLetter(t), t, false)}
+                meetingId={TEST_LETTER_MEETING_ID}
+                qrUrl={new URL(meetingPath(TEST_LETTER_MEETING_ID), window.location.origin).toString()}
+              />
+              <LetterDocument
+                ref={testReplyRef}
+                title="REPLY"
+                groups={replyFields(testReply(t, i18n.language), t)}
+                body={t("staff.print.testReply.body")}
+                meetingId={TEST_LETTER_MEETING_ID}
+                qrUrl={new URL(meetingPath(TEST_LETTER_MEETING_ID), window.location.origin).toString()}
+              />
             </div>
           ) : null}
 

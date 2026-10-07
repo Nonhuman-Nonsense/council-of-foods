@@ -145,7 +145,21 @@
       "attentionLabel": "Needs attention",
       "since": "since {{time}}",
       "testPage": "Print test page",
-      "testPageText": "## Test page\n\nIf you can read this, printing works: this browser sent the page to the bridge, and the bridge sent it to the printer.\n\nMeeting protocols print the same way, as soon as a live meeting in museum mode has its summary.",
+      "testLetter": {
+        "from": "Tomato",
+        "fromEmail": "tomato@council-of-foods.com",
+        "to": "Minister for Rural Affairs",
+        "toEmail": "registrator@example.org",
+        "organisation": "Ministry of Rural Affairs",
+        "subject": "Who waits for summer?",
+        "body": "Dear Minister,\n\nI am the Tomato, and I spoke at the Council of Foods today. We talked about who decides what is grown, and who pays when the soil is spent. I write to you because the next farm budget is yours to shape.\n\nI grow under glass most of the year, fed by gas and shipped in trucks that never sleep. I would rather grow where I am eaten, in the season I belong to. That needs farmers who can afford to wait for summer, and rules that reward them for it.\n\nWill you meet with the growers near you before the budget is set? Write back to me and tell me what they said.\n\nWith warm regards,\nThe Tomato"
+      },
+      "testReply": {
+        "from": "Alex Morgan",
+        "fromEmail": "alex.morgan@example.org",
+        "subject": "Re: Who waits for summer?",
+        "body": "Dear Tomato,\n\nThank you for your letter. We have received it and passed it on to the team preparing the farm budget.\n\nKind regards,\nAlex Morgan\nMinistry of Rural Affairs"
+      },
       "testPageResult": {
         "sending": "Sending…",
         "queued": "Sent to printer",
@@ -258,13 +272,16 @@
     "startNew": "Start new meeting"
   },
   "letterReply": {
-    "heading": "Reply to {{name}}'s letter · meeting #{{meetingId}}",
     "optOut": "{{name}} asked to receive no more letters."
   },
   "letter": {
     "from": "From",
     "to": "To",
     "subject": "Subject",
+    "sent": "Sent",
+    "message": "Message",
+    "replyFrom": "Reply from",
+    "received": "Received",
     "unsent": "This letter was written, but not sent."
   },
   "summary": {

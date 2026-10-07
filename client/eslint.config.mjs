@@ -27,8 +27,9 @@ export default tseslint.config(
       'node_modules/**',
       'playwright-report/**',
       'coverage/**',
-      // Generated font bundle
+      // Generated font bundles
       'src/Tinos.ts',
+      'src/Arimo.ts',
     ],
   },
   eslint.configs.recommended,

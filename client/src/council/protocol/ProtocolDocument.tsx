@@ -9,8 +9,6 @@ import Disclaimer from "./Disclaimer";
 interface ProtocolDocumentProps {
   summaryText: string;
   meetingId: string | number | null;
-  /** The disclaimer under a protocol; a letter carries none. */
-  disclaimer?: boolean;
   ref?: React.Ref<HTMLDivElement>;
 }
 
@@ -19,7 +17,7 @@ interface ProtocolDocumentProps {
  * {@link createProtocolPdf}. Never shown on screen — render it inside a hidden
  * container and pass the element to the PDF renderer.
  */
-function ProtocolDocument({ summaryText, meetingId, disclaimer = true, ref }: ProtocolDocumentProps): React.ReactElement {
+function ProtocolDocument({ summaryText, meetingId, ref }: ProtocolDocumentProps): React.ReactElement {
   const { t } = useTranslation();
 
   return (
@@ -42,11 +40,11 @@ function ProtocolDocument({ summaryText, meetingId, disclaimer = true, ref }: Pr
           <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('app.meeting')} #{meetingId}</h3>
           <QRCodeCanvas value={window.location.href} style={{ position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
         </div>
-        <hr />
         <div id="printed-style">
           {/* Ensure synchronous parsing for type safety */}
           {parse(marked.parse(summaryText, { async: false }) as string)}
-          {disclaimer && <><hr /><br /><Disclaimer /></>}
+          <hr /><br />
+          <Disclaimer />
         </div>
       </div>
     </div>

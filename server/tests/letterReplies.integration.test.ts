@@ -244,17 +244,17 @@ describe("letter replies", () => {
             expect((await post(path, { event: "delivered" }, headers)).status).toBe(status);
         });
 
-        it("hands the bridge the replies to print, with its key, and never the sender's address", async () => {
+        it("hands the bridge the replies to print, with its key, and who sent them", async () => {
             await sentLetter(1400);
             await receiveReplies(deps(), [email(1400)]);
             const key = { "X-Installation-Key": "installation-key-for-tests-0123" };
 
             expect((await fetch(`${base}/api/installation/letter-replies?venueId=havremagasinet`)).status).toBe(401);
             const response = await fetch(`${base}/api/installation/letter-replies?venueId=havremagasinet`, { headers: key });
-            const { replies } = await response.json() as { replies: Array<{ id: string; fromName: string }> };
+            const { replies } = await response.json() as { replies: Array<{ id: string; fromName: string; fromAddress: string }> };
             expect(replies).toHaveLength(1);
             expect(replies[0].fromName).toBe("Anna Andersson");
-            expect(JSON.stringify(replies)).not.toContain("anna.andersson@");
+            expect(replies[0].fromAddress).toMatch(/^anna\.andersson@/);
 
             expect((await post("/api/installation/letter-replies/printed", { id: replies[0].id }, key)).status).toBe(200);
             const after = await (await fetch(`${base}/api/installation/letter-replies?venueId=havremagasinet`, { headers: key })).json();

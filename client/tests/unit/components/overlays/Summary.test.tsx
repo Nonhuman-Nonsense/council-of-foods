@@ -186,9 +186,15 @@ describe('Summary Overlay', () => {
         expect(document.querySelector('#printed-style')).toBeInTheDocument();
     });
 
-    it('leaves the disclaimer out under a letter, which carries its own footer', () => {
-        render(<Summary summary={{ text: 'Dear Skogsstyrelsen', letter: true }} meetingId={mockMeetingId} />);
+    it('heads a letter like an email, and leaves out the disclaimer it has its own footer for', () => {
+        const letter = {
+            authorId: 'reindeer', authorName: 'Reindeer', authorEmail: 'reindeer@council-of-forest.com',
+            recipientName: 'Skogsstyrelsen', recipientOrganisation: null, recipientEmail: 'skogsstyrelsen@skogsstyrelsen.se',
+            subject: 'Three weeks', body: 'Dear Skogsstyrelsen', humanNote: null, footer: '', present: true, send: true, sendReason: null,
+        };
+        render(<Summary summary={{ text: 'Dear Skogsstyrelsen', letter }} meetingId={mockMeetingId} />);
 
+        expect(screen.getAllByText('Reindeer <reindeer@council-of-forest.com>').length).toBeGreaterThan(0);
         expect(screen.getAllByText(/Dear Skogsstyrelsen/).length).toBeGreaterThan(0);
         expect(screen.queryByText(/This document was created by the Council of Foods/)).toBeNull();
     });

@@ -21,6 +21,7 @@ import {
     type SortedAddition,
 } from "./LetterWriter.js";
 import { candidateRecipients, loadRecipients, loadTopicIds, type Recipient } from "./recipients.js";
+import { letterSender } from "./outbox.js";
 import { loadLetterHistory, type LetterHistory } from "./history.js";
 import { letterBlocklistCollection, lettersCollection } from "@services/DbService.js";
 
@@ -232,12 +233,16 @@ export class LetterEnding {
         const send = present && sendsLetters;
         const sendReason = send ? null : !present ? "the human did not answer" : "this app mode does not send letters";
         const spoken = [finished.body, finished.humanNote].filter(Boolean).join("\n\n");
+        const finishedAt = new Date().toISOString();
 
         const view: LetterView = {
             authorId: author.id,
             authorName: author.name,
+            authorEmail: letterSender(ctx.options, author.id, author.name).email,
             recipientName: recipient.name,
             recipientOrganisation: recipient.organisation ?? null,
+            recipientEmail: recipient.email,
+            sentAt: finishedAt,
             subject: finished.subject,
             body: finished.body,
             humanNote: finished.humanNote,
@@ -253,7 +258,7 @@ export class LetterEnding {
             letter: {
                 ...letter,
                 draft: { subject: draft.subject, body: draft.body },
-                finishedAt: new Date().toISOString(),
+                finishedAt,
                 subject: finished.subject,
                 body: finished.body,
                 humanNote: finished.humanNote,

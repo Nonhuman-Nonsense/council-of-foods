@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from "react";
 import type { Message } from "@shared/ModelTypes";
 import ProtocolDocument from "./ProtocolDocument";
+import LetterDocument, { letterFields } from "./LetterDocument";
 import { createProtocolPdf } from "./protocolPdf";
 import { printProtocolOnce } from "@/museum/print/printClient";
 import { useTranslation } from "react-i18next";
-import { isLetterSummary, isPrintableSummary, summaryDocument } from "./summaryDocument";
+import { isPrintableSummary, summaryDocument, summaryLetter } from "./summaryDocument";
 
 interface SummaryPrintJobProps {
   meetingId: number;
@@ -20,16 +21,16 @@ interface SummaryPrintJobProps {
  */
 function SummaryPrintJob({ meetingId, textMessages }: SummaryPrintJobProps): React.ReactElement | null {
   const protocolRef = useRef<HTMLDivElement>(null);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const summary = textMessages.find((message) => message.type === "summary");
   const summaryText = isPrintableSummary(summary) ? summaryDocument(summary, t, { footer: false }) : null;
-  const letter = isLetterSummary(summary);
+  const letter = summaryLetter(summary);
 
   useEffect(() => {
     const element = protocolRef.current;
     if (!summaryText || !element) return;
     void printProtocolOnce(meetingId, async () =>
-      (await createProtocolPdf(element, { magnetMark: letter })).output("blob"),
+      (await createProtocolPdf(element, { magnetMark: letter !== null })).output("blob"),
     );
   }, [meetingId, summaryText, letter]);
 
@@ -37,7 +38,17 @@ function SummaryPrintJob({ meetingId, textMessages }: SummaryPrintJobProps): Rea
 
   return (
     <div style={{ position: 'absolute', top: '0', display: 'none' }} data-testid="summary-print-job">
-      <ProtocolDocument ref={protocolRef} summaryText={summaryText} meetingId={meetingId} disclaimer={!letter} />
+      {letter ? (
+        <LetterDocument
+          ref={protocolRef}
+          groups={letterFields(letter, t, i18n.language)}
+          body={summaryText}
+          meetingId={meetingId}
+          qrUrl={window.location.href}
+        />
+      ) : (
+        <ProtocolDocument ref={protocolRef} summaryText={summaryText} meetingId={meetingId} />
+      )}
     </div>
   );
 }

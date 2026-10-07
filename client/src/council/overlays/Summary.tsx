@@ -23,12 +23,15 @@ import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
 import Disclaimer from "@council/protocol/Disclaimer";
 import ProtocolDocument from "@council/protocol/ProtocolDocument";
+import LetterDocument, { LetterBody, LetterHeader, letterFields } from "@council/protocol/LetterDocument";
+import { letterBody } from "@council/protocol/summaryDocument";
+import type { LetterView } from "@shared/ModelTypes";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 
 export interface SummaryData {
   text: string;
-  /** A letter carries its own footer, so the protocol's disclaimer is left out. */
-  letter?: boolean;
+  /** When the meeting ended in a letter: headed like an email, with its own footer and no disclaimer. */
+  letter?: LetterView | null;
 }
 
 interface SummaryProps {
@@ -63,7 +66,8 @@ function Summary({
   const prevPressedRef = useRef(false);
   const navigate = useNavigate();
   const { rootPath } = useRouting();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const letter = summary.letter ?? null;
   const { capabilities } = useCouncilSettings();
   const isButtonSummaryMode = capabilities.teleprompter;
   const teleprompterTopPad = isButtonSummaryMode ? computeTeleprompterTopPadding(isMobile) : 0;
@@ -228,6 +232,14 @@ function Summary({
     whiteSpace: "pre-wrap",
   };
 
+  const letterStyle: React.CSSProperties = {
+    textAlign: "left",
+    fontFamily: "Arial, Arimo, sans-serif",
+    fontSize: isMobile ? "16px" : "18px",
+    lineHeight: 1.4,
+    padding: "20px 15px 0",
+  };
+
   const teleprompterContentStyle: React.CSSProperties = isButtonSummaryMode
     ? {
       paddingTop: teleprompterTopPad,
@@ -248,24 +260,39 @@ function Summary({
             style={teleprompterContentStyle}
             data-testid="summary-teleprompter-content"
           >
-            <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
-              <div>
-                <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src={councilLogoWhite} alt="council of foods logo" />
+            {letter ? (
+              <div style={letterStyle}>
+                <LetterHeader groups={letterFields(letter, t, i18n.language)} />
+                <div style={{ marginTop: "1.5em" }}>
+                  <LetterBody text={summary.text} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "2em 0 1em" }}>
+                  <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px" }} /></a>
+                  <span style={{ opacity: 0.6, marginTop: "0.5em" }}>Meeting #{meetingId}</span>
+                </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
-                <h2 style={{ margin: 0 }}>{t('app.council').toUpperCase()}</h2>
-                <h3 style={{ margin: 0 }}>{t('app.meeting')} #{meetingId}</h3>
-              </div>
-              <div>
-                <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px", marginRight: "20px" }} /></a>
-              </div>
-            </div>
-            <hr />
-            <div id="protocol-container" style={protocolStyle}>
-              {/* Ensure synchronous parsing for type safety */}
-              {parse(marked.parse(summary.text, { async: false }) as string)}
-              {!summary.letter && <><hr /><br /><Disclaimer /></>}
-            </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
+                  <div>
+                    <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src={councilLogoWhite} alt="council of foods logo" />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
+                    <h2 style={{ margin: 0 }}>{t('app.council').toUpperCase()}</h2>
+                    <h3 style={{ margin: 0 }}>{t('app.meeting')} #{meetingId}</h3>
+                  </div>
+                  <div>
+                    <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px", marginRight: "20px" }} /></a>
+                  </div>
+                </div>
+                <div id="protocol-container" style={protocolStyle}>
+                  {/* Ensure synchronous parsing for type safety */}
+                  {parse(marked.parse(summary.text, { async: false }) as string)}
+                  <hr /><br />
+                  <Disclaimer />
+                </div>
+              </>
+            )}
           </div>
         </div>
         {showDownload && (
@@ -279,7 +306,17 @@ function Summary({
 
       {/* Hidden PDF Template */}
       {showDownload && <div style={{ position: 'absolute', top: '0', display: 'none' }}>
-        <ProtocolDocument ref={protocolRef} summaryText={summary.text} meetingId={meetingId} disclaimer={!summary.letter} />
+        {letter ? (
+          <LetterDocument
+            ref={protocolRef}
+            groups={letterFields(letter, t, i18n.language)}
+            body={letterBody(letter, t, false)}
+            meetingId={meetingId ?? ""}
+            qrUrl={window.location.href}
+          />
+        ) : (
+          <ProtocolDocument ref={protocolRef} summaryText={summary.text} meetingId={meetingId} />
+        )}
       </div>}
     </>
   );

@@ -97,7 +97,7 @@ export interface LetterReply extends Document {
     venueId?: string;
     /** The letter it answers, as it is printed with the reply. */
     letter: { authorId: string; authorName: string; recipientName: string; subject: string; language: string };
-    /** Who wrote back, by name; their address is kept out of anything printed. */
+    /** Who wrote back; name and address are printed with the reply. */
     from: { address: string; name: string | null };
     subject: string;
     /** What they wrote, without the quoted letter, their signature or contact details. */

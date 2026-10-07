@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import type { PrintableLetterReply } from "@shared/ModelTypes";
 import { useRouting } from "@/navigation";
 import { log } from "@/logger";
-import ReplyDocument from "@council/protocol/ReplyDocument";
+import { useTranslation } from "react-i18next";
+import LetterDocument, { replyFields } from "@council/protocol/LetterDocument";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { fetchRepliesToPrint, markReplyPrinted, sendReplyToPrinter } from "./printClient";
 
@@ -18,6 +19,7 @@ export const REPLY_POLL_MS = 60_000;
  */
 function LetterReplyPrinter(): React.ReactElement | null {
   const { meetingPath } = useRouting();
+  const { i18n } = useTranslation();
   const [current, setCurrent] = useState<PrintableLetterReply | null>(null);
   const documentRef = useRef<HTMLDivElement>(null);
   const given = useRef(new Set<string>());
@@ -59,12 +61,18 @@ function LetterReplyPrinter(): React.ReactElement | null {
   }, [current]);
 
   if (!current) return null;
+  // In the letter's language, whatever the installation's screen is showing.
+  const tr = i18n.getFixedT(current.letter.language);
+  const optOut = current.kind === "opt-out" ? `\n\n*${tr("letterReply.optOut", { name: current.letter.recipientName })}*` : "";
   return (
     <div style={{ position: "absolute", top: "0", display: "none" }} data-testid="letter-reply-print-job">
-      <ReplyDocument
+      <LetterDocument
         ref={documentRef}
-        reply={current}
-        meetingUrl={new URL(meetingPath(current.meetingId), window.location.origin).toString()}
+        title="REPLY"
+        groups={replyFields(current, tr)}
+        body={current.message + optOut}
+        meetingId={current.meetingId}
+        qrUrl={new URL(meetingPath(current.meetingId), window.location.origin).toString()}
       />
     </div>
   );
