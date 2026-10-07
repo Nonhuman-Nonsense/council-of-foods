@@ -176,6 +176,12 @@ export function useCouncilMachine({
 
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    /**
+     * Index where the server will write the "<name> said: …" message for the human input
+     * just submitted. Playback steps over it once, so the visitor hears the reply next rather
+     * than their own words read back; navigating back to it later plays it as usual.
+     */
+    const submittedEchoIndex = useRef<number | null>(null);
 
     /** After mount / meeting change, blocks leaving `loading` until this is true (first ~2s only). */
     const [initialLoadingMinElapsed, setInitialLoadingMinElapsed] = useState(false);
@@ -400,6 +406,16 @@ export function useCouncilMachine({
             return;
         }
 
+        // The human input just submitted has arrived: don't read it back, go on to the reply.
+        if (submittedEchoIndex.current === playNextIndex && textMessages[playNextIndex]) {
+            submittedEchoIndex.current = null;
+            const type = textMessages[playNextIndex].type;
+            if (type === 'human' || type === 'panelist') {
+                setPlayNextIndex(playNextIndex + 1);
+                return;
+            }
+        }
+
         // Action A — skip a stale invitation replay when we already have a
         // human-draft intent queued for the awaiting_* sentinel right after it.
         // Only reachable on the reconnect self-heal path: the invitation was
@@ -542,6 +558,7 @@ export function useCouncilMachine({
     }
 
     function handleOnSkipBackward() {
+        submittedEchoIndex.current = null;
         let skipLength = 1;
         while (textMessages[playingNowIndex - skipLength]?.type === 'skipped') {
             skipLength++;
@@ -581,6 +598,9 @@ export function useCouncilMachine({
         setTextMessages((prevMessages) => prevMessages.slice(0, mode === "question" ? now : next));
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
+        // The server writes a question or panelist answer at `next`; a letter addition goes
+        // into the letter, not the conversation.
+        submittedEchoIndex.current = mode === "letter" ? null : next;
         if (mode === "question") {
             setIsRaisedHand(false);
             clearPendingIntent("raise-hand");

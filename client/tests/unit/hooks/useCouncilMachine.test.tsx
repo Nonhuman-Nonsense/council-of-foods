@@ -863,6 +863,40 @@ describe('useCouncilMachine', () => {
         expect(result.current.state.councilState).toBe('loading');
     });
 
+    describe('submitted human input is not read back', () => {
+        it.each([
+            ['question', { type: 'awaiting_human_question' }, 'human'],
+            ['panelist', { type: 'awaiting_human_panelist', speaker: 'human-panelist-1' }, 'panelist'],
+        ])('%s: plays the reply next, and the input when navigated back to', async (_mode, awaiting, echoType) => {
+            vi.useFakeTimers();
+            try {
+                const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                act(() => { vi.advanceTimersByTime(10); });
+
+                act(() => { socketHandlers.onConversationUpdate?.([awaiting]); });
+                act(() => { result.current.actions.handleOnSubmitHumanMessage('My words'); });
+
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'echo', type: echoType, speaker: 'Frank', text: 'Frank said: My words' },
+                        { id: 'reply', type: 'message', speaker: 'banana', text: 'Indeed.' },
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'echo', audio: new ArrayBuffer(8) });
+                    socketHandlers.onAudioUpdate?.({ id: 'reply', audio: new ArrayBuffer(8) });
+                });
+
+                expect(result.current.state.councilState).toBe('playing');
+                expect(result.current.state.playingNowIndex).toBe(1);
+
+                act(() => { result.current.actions.handleOnSkipBackward(); });
+                expect(result.current.state.playingNowIndex).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+    });
+
     it('skips human panelist turn on abandon', () => {
         const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
 
