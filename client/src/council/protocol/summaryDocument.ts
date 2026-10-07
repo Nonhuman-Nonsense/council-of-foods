@@ -35,7 +35,7 @@ function letterDocument(letter: LetterView, t: TFunction, footer: boolean): stri
         "",
         letter.body,
         ...(letter.humanNote ? ["", letter.humanNote] : []),
-        ...(footer ? ["", "---", "", letter.footer] : []),
+        ...(footer ? ["", letter.footer] : []),
         ...(footer && !letter.send ? ["", `*${t("letter.unsent")}*`] : []),
     ].join("\n");
 }

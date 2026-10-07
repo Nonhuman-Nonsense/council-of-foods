@@ -589,7 +589,7 @@ function Staff(): ReactElement {
     if (!testPageRef.current) return;
     setTestPage("sending");
     try {
-      const pdf = await createProtocolPdf(testPageRef.current);
+      const pdf = await createProtocolPdf(testPageRef.current, { magnetMark: true });
       setTestPage(await sendTestPage(pdf.output("blob")));
     } catch {
       setTestPage("rejected");

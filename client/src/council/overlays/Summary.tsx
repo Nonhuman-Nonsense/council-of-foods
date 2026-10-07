@@ -248,7 +248,6 @@ function Summary({
             style={teleprompterContentStyle}
             data-testid="summary-teleprompter-content"
           >
-            <hr />
             <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
               <div>
                 <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src={councilLogoWhite} alt="council of foods logo" />

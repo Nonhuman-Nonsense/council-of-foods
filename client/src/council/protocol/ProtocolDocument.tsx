@@ -36,7 +36,6 @@ function ProtocolDocument({ summaryText, meetingId, disclaimer = true, ref }: Pr
       width: "480px"
     }}>
       <div style={{ width: "100%" }}>
-        <hr />
         <div style={{ height: "52px", position: 'relative' }}>
           <img style={{ width: '70px' }} src={councilLogo} alt="council of foods logo" />
           <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('app.council').toUpperCase()}</h2>

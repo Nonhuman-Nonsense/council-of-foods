@@ -54,7 +54,7 @@ describe("SummaryPrintJob", () => {
     const [meetingId, createPdf] = mockPrintProtocolOnce.mock.calls[0];
     expect(meetingId).toBe(42);
     await expect(createPdf()).resolves.toBe(blob);
-    expect(mockCreateProtocolPdf).toHaveBeenCalledWith(getByTestId("protocol-document"));
+    expect(mockCreateProtocolPdf).toHaveBeenCalledWith(getByTestId("protocol-document"), { magnetMark: false });
   });
 
   it("prints a letter as only the letter: who it is from and to and what it says, without the email's footer", () => {
@@ -67,6 +67,14 @@ describe("SummaryPrintJob", () => {
     }
     expect(printed).not.toContain("Sent by Council of Forest");
     expect(printed).not.toContain("[disclaimer]");
+  });
+
+  it("marks where the magnets go on a printed letter", async () => {
+    mockCreateProtocolPdf.mockResolvedValue({ output: vi.fn() });
+    const { getByTestId } = render(<SummaryPrintJob meetingId={42} textMessages={[letterSummary(true)]} />);
+
+    await mockPrintProtocolOnce.mock.calls[0][1]();
+    expect(mockCreateProtocolPdf).toHaveBeenCalledWith(getByTestId("protocol-document"), { magnetMark: true });
   });
 
   it("does not print a letter when the human was not there to answer", () => {

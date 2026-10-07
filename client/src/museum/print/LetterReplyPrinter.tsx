@@ -43,7 +43,7 @@ function LetterReplyPrinter(): React.ReactElement | null {
     given.current.add(current.id);
     void (async () => {
       try {
-        const pdf = (await createProtocolPdf(element)).output("blob");
+        const pdf = (await createProtocolPdf(element, { magnetMark: true })).output("blob");
         const outcome = await sendReplyToPrinter(current.id, pdf);
         if (outcome === "queued" || outcome === "duplicate") await markReplyPrinted(current.id);
         else log.event("PRINT", "reply not printed", { replyId: current.id, outcome });

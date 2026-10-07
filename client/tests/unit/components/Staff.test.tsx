@@ -523,7 +523,7 @@ describe('Staff overlay', () => {
           'staff.print.testPageResult.queued',
         );
       });
-      expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'));
+      expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'), { magnetMark: true });
       expect(mockSendTestPage).toHaveBeenCalledWith(blob);
     });
   });

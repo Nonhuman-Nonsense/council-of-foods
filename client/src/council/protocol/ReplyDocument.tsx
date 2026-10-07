@@ -4,7 +4,6 @@ import { marked } from "marked";
 import { useTranslation } from "react-i18next";
 import { QRCodeCanvas } from "qrcode.react";
 import type { PrintableLetterReply } from "@shared/ModelTypes";
-import councilLogo from "@assets/logos/council_logo.png";
 
 interface ReplyDocumentProps {
   reply: PrintableLetterReply;
@@ -38,11 +37,9 @@ function ReplyDocument({ reply, meetingUrl, ref }: ReplyDocumentProps): React.Re
       overflow: "hidden",
       width: "480px",
     }}>
-      <hr />
       <div style={{ height: "52px", position: "relative" }}>
-        <img style={{ width: "70px" }} src={councilLogo} alt="" />
-        <h2 style={{ fontSize: "24px", margin: "0", position: "absolute", left: "80px", top: "2px" }}>{tr("app.council").toUpperCase()}</h2>
-        <h3 style={{ fontSize: "15px", margin: "0", position: "absolute", left: "80px", top: "28px" }}>
+        <h2 style={{ fontSize: "24px", margin: "0", position: "absolute", left: "10px", top: "2px" }}>{tr("app.council").toUpperCase()}</h2>
+        <h3 style={{ fontSize: "15px", margin: "0", position: "absolute", left: "10px", top: "28px" }}>
           {tr("letterReply.heading", { name: reply.letter.authorName, meetingId: reply.meetingId })}
         </h3>
         <QRCodeCanvas value={meetingUrl} style={{ position: "absolute", right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
@@ -57,7 +54,6 @@ function ReplyDocument({ reply, meetingUrl, ref }: ReplyDocumentProps): React.Re
         </p>
         {parse(marked.parse(reply.message, { async: false }) as string)}
         {reply.kind === "opt-out" && <p><i>{tr("letterReply.optOut", { name: reply.letter.recipientName })}</i></p>}
-        <hr />
       </div>
     </div>
   );
