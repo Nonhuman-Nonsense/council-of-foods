@@ -6,6 +6,8 @@
  *  - Deltas are sequential windowed chunks (not cumulative).
  *  - Each TTS sentence is its own time-zero segment: times restart at s≈0.
  *  - An empty words[] chunk is the flush signal for the current sentence.
+ *    Not guaranteed for the last sentence of a response (seen October 2026),
+ *    so the caller sends its own empty chunk on response.done.
  *  - phonetic_details / is_partial never present on WebRTC — ignored.
  *  - First token per sentence is a silent lead-in: { w: "", s: 0, e: ~0.1 }.
  */

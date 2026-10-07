@@ -41,9 +41,16 @@ export type EventLoopCallbacks = {
   /** Fired when the server confirms the session config was applied. */
   onSessionReady?: () => void;
   /** Fired when an assistant response begins, before audio is audible. */
-  onResponseStarted?: () => void;
+  onResponseStarted?: (info?: { responseId?: string }) => void;
   /** Fired when an assistant response completes (`response.done`). */
-  onResponseDone?: (info?: { status?: string; usage?: unknown }) => void;
+  onResponseDone?: (info?: { status?: string; usage?: unknown; responseId?: string }) => void;
+  /**
+   * The agent's audio is being cut off: this client cleared the output buffer
+   * for a barge-in, or the visitor started speaking into a session whose
+   * turn detection interrupts the agent. Word alignment runs ahead of the
+   * audio, so whatever it describes past this point will not be heard.
+   */
+  onOutputInterrupted?: (reason: string) => void;
   /** Fired when the data channel reports that the audio content part exists. */
   onAudioPartReady?: () => void;
   /**
@@ -298,6 +305,11 @@ export function createEventLoop(params: {
    * gone. One cancel per response is all the server can act on.
    */
   let cancelInFlight = false;
+  /**
+   * Whether the configured turn detection cuts the agent off when the visitor
+   * starts speaking. The Realtime API defaults `interrupt_response` to true.
+   */
+  let speechInterruptsResponse = false;
 
   /** Send `response.cancel` unless one is already outstanding. */
   const sendCancelIfPossible = (logLabel: string, fields: object = {}): void => {
@@ -377,6 +389,7 @@ export function createEventLoop(params: {
     }
     devLog.flat("TURN", "OUT output_audio_buffer.clear (interrupt)", { reason });
     send({ type: "output_audio_buffer.clear" });
+    callbacks.onOutputInterrupted?.(reason);
     // Leave the current caption on screen, same as real voice interruption:
     // it's cleared naturally when the new response starts (onResponseStarted).
     sendUserMessage(userText);
@@ -408,6 +421,8 @@ export function createEventLoop(params: {
     pendingCreateReason = null;
     createRejectedRetries = 0;
     capacityRetries = 0;
+    const turnDetection = session.audio.input?.turn_detection;
+    speechInterruptsResponse = turnDetection != null && turnDetection.interrupt_response !== false;
     if (options?.triggerGreetingOnReady) {
       pendingOpeningGreeting = options.greetingUserText ?? DEFAULT_GREETING_USER_TEXT;
     } else {
@@ -547,7 +562,7 @@ export function createEventLoop(params: {
         forUserTranscript: lastUserTranscript,
         activeResponses,
       });
-      callbacks.onResponseStarted?.();
+      callbacks.onResponseStarted?.({ responseId: asStr(asObj(obj.response)?.id) ?? undefined });
       return true;
     }
 
@@ -559,7 +574,7 @@ export function createEventLoop(params: {
         devLog.event("ERROR", "response.failed", r.status_details);
       }
       const rFull = obj.response as
-        | { status?: string; usage?: unknown; output?: unknown[] }
+        | { id?: string; status?: string; usage?: unknown; output?: unknown[] }
         | undefined;
       devLog.flat("TURN", "IN response.done", {
         reason: currentResponseReason,
@@ -570,7 +585,11 @@ export function createEventLoop(params: {
         outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
         activeResponses,
       });
-      callbacks.onResponseDone?.({ status: r?.status, usage: rFull?.usage });
+      callbacks.onResponseDone?.({
+        status: r?.status,
+        usage: rFull?.usage,
+        responseId: typeof rFull?.id === "string" ? rFull.id : undefined,
+      });
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         sendResponseCreate("deferred-on-response-done");
@@ -833,8 +852,8 @@ export function createEventLoop(params: {
       return true;
     }
 
-    // Speech VAD events: useful for diagnostics but not actionable here.
     if (type === "input_audio_buffer.speech_started") {
+      if (speechInterruptsResponse) callbacks.onOutputInterrupted?.("speech-started");
       return true;
     }
 

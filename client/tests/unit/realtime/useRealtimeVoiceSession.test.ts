@@ -17,8 +17,9 @@ let eventLoopCallbacks: {
   onUserTranscript?: (text: string) => void;
   onWordAlignment?: (contentIndex: number, words: ReadonlyArray<{ w: string; s: number; e: number }>) => void;
   onAudioPartReady?: () => void;
-  onResponseStarted?: () => void;
-  onResponseDone?: (info?: { status?: string }) => void;
+  onResponseStarted?: (info?: { responseId?: string }) => void;
+  onResponseDone?: (info?: { status?: string; responseId?: string }) => void;
+  onOutputInterrupted?: (reason: string) => void;
   onSessionReady?: () => void;
   onNonFatalError?: (info: {
     message: string;
@@ -340,6 +341,218 @@ describe("useRealtimeVoiceSession", () => {
     await waitFor(() => {
       expect(result.current.lastCaption).toBe("World");
     });
+  });
+
+  /**
+   * Inworld does not always send the empty chunk that ends a response's last
+   * sentence. Without it the sentence never reached the timeline, and the one
+   * before it stayed on screen through the rest of the audio.
+   */
+  it("shows the last sentence on time when its end-of-sentence chunk never arrives", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "First.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Last.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onResponseDone?.({ status: "completed" });
+      mockCtxTime = 0.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("First.");
+
+    act(() => {
+      mockCtxTime = 1.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Last.");
+  });
+
+  /**
+   * The flush on `response.done` ends whatever sentence is being collected. A
+   * late `done` for an earlier response must not end the current one's: that
+   * would split a sentence and push every later one off its timing.
+   */
+  it("ignores a late response.done from an earlier response mid-sentence", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_2" });
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello ", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onResponseDone?.({ status: "completed", responseId: "resp_1" });
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "world.", s: 0.5, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.8;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Hello world.");
+  });
+
+  /** Two one-second sentences, "First." then "Second.", playing from ctxTime 0. */
+  async function renderPlayingTwoSentences() {
+    mockConnectionWithRemoteTrack();
+    const rendered = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_1" });
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "First.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Second.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.5;
+      rafCallback?.(0);
+    });
+    expect(rendered.result.current.lastCaption).toBe("First.");
+    return rendered;
+  }
+
+  /**
+   * Captions show what is audible. Audio already on its way still plays after
+   * a barge-in, so the caption keeps following it — and goes once the audio
+   * has really stopped, rather than carrying on through sentences that
+   * alignment describes but nobody will hear.
+   */
+  it("follows the draining audio after a cut, then clears once silence is confirmed", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      eventLoopCallbacks.onOutputInterrupted?.("click-reaction");
+      mockCtxTime = 1.2;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Second.");
+    expect(result.current.agentSpeaking).toBe(true);
+
+    act(() => {
+      mockOnArmed?.();
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBeNull();
+    expect(result.current.agentSpeaking).toBe(false);
+  });
+
+  /**
+   * A cancel without a buffer clear stops generation, not playback: the audio
+   * already synthesised plays out, and its alignment describes exactly that.
+   */
+  it("keeps following the audio after a cancelled response.done alone", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      eventLoopCallbacks.onResponseDone?.({ status: "cancelled", responseId: "resp_1" });
+      mockCtxTime = 1.2;
+      rafCallback?.(0);
+      mockOnArmed?.();
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Second.");
+  });
+
+  it("clears the caption on mute and keeps it clear as the clock runs on", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      result.current.setAgentOutputMuted(true);
+      mockCtxTime = 1.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBeNull();
+  });
+
+  /** The visitor gets to think about how the answer ended. */
+  it("keeps the last sentence up when a cut's silence comes after the answer ended", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      mockCtxTime = 1.9;
+      eventLoopCallbacks.onOutputInterrupted?.("speech-started");
+      mockCtxTime = 3;
+      rafCallback?.(0);
+      mockOnArmed?.();
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Second.");
+  });
+
+  /**
+   * After a confirmed cut there is no alignment for whatever sounds next until
+   * a response starts — anchoring to it would caption nothing and leave the
+   * agent "speaking" with no end in sight.
+   */
+  it("anchors the next response's captions, not a stray onset after a cut", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      eventLoopCallbacks.onOutputInterrupted?.("speech-started");
+      mockOnArmed?.();
+      mockCtxTime = 3;
+      mockOnAudioStart?.(performance.now(), 3);
+      rafCallback?.(0);
+    });
+    expect(result.current.agentSpeaking).toBe(false);
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_2" });
+      mockCtxTime = 5;
+      mockOnAudioStart?.(performance.now(), 5);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Next.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 5.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Next.");
+    expect(result.current.agentSpeaking).toBe(true);
+  });
+
+  /**
+   * With server VAD every visitor utterance reports a cut. Once the agent has
+   * finished speaking there is nothing to cut, and the next response must
+   * still reset straight away rather than wait out the silence detector.
+   */
+  it("resets straight away on the next response when the cut came after the audio ended", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_1" });
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello.", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 1;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Hello.");
+
+    act(() => {
+      eventLoopCallbacks.onOutputInterrupted?.("speech-started");
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_2" });
+    });
+    expect(result.current.lastCaption).toBeNull();
   });
 
   /**
