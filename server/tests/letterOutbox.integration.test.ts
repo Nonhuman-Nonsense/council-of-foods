@@ -112,6 +112,18 @@ describe("letter outbox", () => {
         expect(await lettersCollection.findOne({ _id: 1 })).toMatchObject({ status, ...(sends ? { mode } : {}) });
     });
 
+    it.each([
+        ["live: a hidden copy to the archive", "live", ["archive@example.org"]],
+        ["test: none, the letter itself already comes to us", "test", undefined],
+    ] as const)("%s", async (_label, mode, bcc) => {
+        await finishedMeeting(1);
+        const outbox = deps({ mode, archiveTo: "archive@example.org" });
+
+        await runOutbox(outbox);
+
+        expect(outbox.send.mock.calls[0][0].bcc).toEqual(bcc);
+    });
+
     it("never sends a letter twice, however often the worker runs", async () => {
         await finishedMeeting(1);
         await queueFinishedLetters(deps());

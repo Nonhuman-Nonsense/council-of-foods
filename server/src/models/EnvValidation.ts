@@ -31,6 +31,8 @@ export const EnvSchema = z.object({
      */
     COUNCIL_LETTERS: unsetIfBlank(z.enum(["off", "test", "live"])),
     COUNCIL_LETTERS_TEST_TO: unsetIfBlank(z.email()),
+    /** Gets a copy of every letter sent live, every reply, and every recipient blocked. Unset: no copies. */
+    COUNCIL_LETTERS_ARCHIVE_TO: unsetIfBlank(z.email()),
     /** In the URLs Brevo posts replies and delivery events to; without it, both are refused. */
     COUNCIL_LETTERS_WEBHOOK_SECRET: unsetIfBlank(z.string().min(16)),
     // One key for an installation's devices: the bridge (printer alerts) and the room power plugs.

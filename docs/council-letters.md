@@ -184,6 +184,11 @@ Built 4 Oct 2026 (step 5) — `server/src/logic/letters/outbox.ts`, run by a wor
   kill switch), `test` (every letter to `COUNCIL_LETTERS_TEST_TO`, the real recipient in the
   subject) and `live`. Queued letters survive a switch.
 - The outbox record is where replies attach (step 6).
+- **Archive copies** (`COUNCIL_LETTERS_ARCHIVE_TO`, unset: none): every letter sent live goes
+  there as a Bcc on the same send; every email that comes back — reply, opt-out, automatic, spam
+  — is copied there, labelled `[kind · meeting · author → recipient]`, with Reply-To set to the
+  person who wrote; and each recipient put on the blocklist is announced there once. A copy that
+  fails is reported and changes nothing else.
 
 ### Mail
 

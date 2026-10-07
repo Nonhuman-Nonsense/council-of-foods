@@ -23,6 +23,8 @@ export type Email = {
     /** Who it is from, when not COUNCIL_MAIL_FROM — a letter comes from the being that wrote it. */
     sender?: Sender;
     replyTo?: string;
+    /** Hidden copies. */
+    bcc?: string[];
     /** Brevo tags, to find the email again in Brevo's records (see {@link findSentByTag}). */
     tags?: string[];
 };
@@ -90,6 +92,7 @@ export async function sendEmail(email: Email): Promise<string | null> {
             sender: email.sender ?? getSender(),
             to: email.to.map((address) => ({ email: address })),
             ...(email.replyTo ? { replyTo: { email: email.replyTo } } : {}),
+            ...(email.bcc?.length ? { bcc: email.bcc.map((address) => ({ email: address })) } : {}),
             ...(email.tags?.length ? { tags: email.tags } : {}),
             subject: email.subject,
             textContent: email.text,

@@ -36,6 +36,7 @@ export function startLetterOutbox(): void {
         findSent: findSentByTag,
         mode,
         testTo: config.COUNCIL_LETTERS_TEST_TO,
+        archiveTo: config.COUNCIL_LETTERS_ARCHIVE_TO,
     });
 
     let running = false;

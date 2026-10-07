@@ -51,6 +51,8 @@ export interface OutboxDeps {
     mode: LettersMode;
     /** Where every letter goes in `test` mode. */
     testTo?: string;
+    /** Gets a hidden copy of every letter sent live (in `test` mode the letter itself goes to our inbox). */
+    archiveTo?: string;
     now?: () => Date;
 }
 
@@ -247,6 +249,7 @@ export async function sendNextLetter(deps: OutboxDeps): Promise<SendResult> {
             sender: letter.from,
             replyTo: letter.replyTo,
             tags: [letterTag(letter._id)],
+            ...(deps.archiveTo && !test ? { bcc: [deps.archiveTo] } : {}),
         });
         await deps.letters.updateOne(
             { _id: letter._id },

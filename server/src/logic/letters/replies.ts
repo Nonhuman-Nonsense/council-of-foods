@@ -1,6 +1,7 @@
 import type { Collection } from "mongodb";
 import type { BlockedRecipient, LetterReply, OutboxLetter, StoredMeeting } from "@models/DBModels.js";
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
+import type { Email } from "@services/MailService.js";
 import type { Recipient } from "./recipients.js";
 import { createHash } from "node:crypto";
 import { requestSpeakerClassifierCompletion } from "@logic/SpeakerClassifierBase.js";
@@ -36,6 +37,11 @@ export interface ReplyDeps {
     blocklist: Collection<BlockedRecipient>;
     options: GlobalOptions;
     loadRecipients: () => Promise<Recipient[]>;
+    /**
+     * Gets a copy of every email that comes back, of whatever kind, and a notice of every recipient
+     * put on the blocklist — so we can follow what happens without opening the database.
+     */
+    archive?: { to: string; send: (email: Email) => Promise<unknown> };
     /** Sorts what a person may have written; the default asks the classifier model. */
     classify?: (meeting: StoredMeeting, text: string) => Promise<{ kind: ReplyKind; reason: string }>;
     now?: () => Date;
@@ -196,28 +202,57 @@ export async function receiveReplies(deps: ReplyDeps, emails: InboundEmail[]): P
         }
         kept++;
         Logger.info("letters", `${reply.kind} to the letter of meeting ${letter._id} from ${reply.from.address}`);
+        await copyToArchive(deps, {
+            to: [],
+            subject: `[${reply.kind} · meeting ${letter._id} · ${reply.letter.authorName} → ${reply.letter.recipientName}] ${subject}`,
+            text: [
+                `From: ${reply.from.name ? `${reply.from.name} <${reply.from.address}>` : reply.from.address}`,
+                `Sorted as: ${reply.kind} (${sorted.reason})${email.SpamScore !== undefined ? ` · Brevo spam score ${email.SpamScore}` : ""}`,
+                `Answers: "${letter.subject}" — ${reply.letter.authorName}'s letter to ${reply.letter.recipientName}, meeting ${letter._id}`,
+                "",
+                messageOf(email),
+            ].join("\n"),
+            // Answering the copy answers the person, not the being's reply address.
+            replyTo: reply.from.address || undefined,
+        });
 
         if (reply.kind === "opt-out") {
-            await block(deps.blocklist, letter.recipientId, "opt-out", letter._id, sorted.reason);
+            await block(deps, letter.recipientId, "opt-out", letter._id, sorted.reason);
         }
     }
     return kept;
 }
 
+/** Sends a copy to the archive address, if there is one. A copy that fails is reported, never more. */
+async function copyToArchive(deps: Pick<ReplyDeps, "archive">, email: Email): Promise<void> {
+    if (!deps.archive) return;
+    try {
+        await deps.archive.send({ ...email, to: [deps.archive.to] });
+    } catch (error) {
+        await Logger.error("letters", `could not copy "${email.subject}" to the archive`, { error });
+    }
+}
+
 async function block(
-    blocklist: Collection<BlockedRecipient>,
+    deps: Pick<ReplyDeps, "blocklist" | "archive">,
     recipientId: string,
     reason: BlockedRecipient["reason"],
     meetingId: number,
     note?: string,
 ): Promise<void> {
     // The first reason stays: someone who opted out and later bounced opted out.
-    await blocklist.updateOne(
+    const result = await deps.blocklist.updateOne(
         { _id: recipientId },
         { $setOnInsert: { reason, at: new Date(), meetingId, ...(note ? { note } : {}) } },
         { upsert: true },
     );
+    if (result.upsertedCount === 0) return; // already on it
     Logger.info("letters", `${recipientId} is on the blocklist (${reason})`);
+    await copyToArchive(deps, {
+        to: [],
+        subject: `[blocklist · meeting ${meetingId}] ${recipientId} (${reason})`,
+        text: `${recipientId} will not be written to again: ${reason}${note ? ` — ${note}` : ""}. It came from the letter of meeting ${meetingId}.`,
+    });
 }
 
 /** One event as Brevo's transactional webhook posts it (the fields used here). */
@@ -244,7 +279,7 @@ const BLOCKING_EVENTS: Record<string, BlockedRecipient["reason"]> = {
  * Other events (delivered, opened, a soft bounce) change nothing. Only letters sent live count:
  * a test letter bouncing says nothing about its recipient.
  */
-export async function receiveDeliveryEvents(deps: Pick<ReplyDeps, "letters" | "blocklist">, events: DeliveryEvent[]): Promise<number> {
+export async function receiveDeliveryEvents(deps: Pick<ReplyDeps, "letters" | "blocklist" | "archive">, events: DeliveryEvent[]): Promise<number> {
     let blocked = 0;
     for (const event of events) {
         const reason = BLOCKING_EVENTS[event.event ?? ""];
@@ -260,7 +295,7 @@ export async function receiveDeliveryEvents(deps: Pick<ReplyDeps, "letters" | "b
         if (!letter || letter.mode !== "live") continue;
         // The account's webhook reports every email it sends: only the letter's own recipient counts.
         if (event.email && event.email.trim().toLowerCase() !== letter.to.toLowerCase()) continue;
-        await block(deps.blocklist, letter.recipientId, reason, letter._id, `${event.event}${event.reason ? `: ${event.reason}` : ""}`);
+        await block(deps, letter.recipientId, reason, letter._id, `${event.event}${event.reason ? `: ${event.reason}` : ""}`);
         blocked++;
     }
     return blocked;
