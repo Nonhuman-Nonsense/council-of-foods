@@ -54,6 +54,16 @@ fourth (`LED_ERROR`) without any browser involved:
 | `LED_ON` | Fully on | Presses reported | Browser |
 | `LED_ERROR` | Slow one-at-a-time march (3 s each) | Presses reported | Bridge |
 
+### LEDs on the Nano
+
+The Nano's own LEDs show the same state, for when the buttons are out of sight:
+
+- **RGB LED, red:** mirrors button 1's LED, so it pulses, stays on or goes off with it.
+  The one-at-a-time march shows as on for one step, off for two.
+- **Orange LED (`LED_BUILTIN`):** on while a button is held, whether or not a host is
+  connected. Blinking fast (4× a second) means the button board wasn't found (see
+  [Upload](#upload)).
+
 ### No host connected
 
 When the **bridge** has not opened the USB serial port:
