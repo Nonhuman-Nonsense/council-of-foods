@@ -137,6 +137,8 @@ export function useCouncilMachine({
     // when shared scene logic is split into app-specific leaf components.
     const [councilState, setCouncilState] = useState<CouncilState>("loading");
     const [playingNowIndex, setPlayingNowIndex] = useState(-1);
+    // Output holds the playing message while the meta agent has the floor (see Council).
+    const metaAgentHolding = metaAgentPhase !== "inactive";
     const [playNextIndex, setPlayNextIndex] = useState(0);
 
     const [textMessages, setTextMessages] = useState<Message[]>([]); // State to store conversation updates
@@ -174,6 +176,12 @@ export function useCouncilMachine({
 
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    /**
+     * Index where the server will write the "<name> said: …" message for the human input
+     * just submitted. Playback steps over it once, so the visitor hears the reply next rather
+     * than their own words read back; navigating back to it later plays it as usual.
+     */
+    const submittedEchoIndex = useRef<number | null>(null);
 
     /** After mount / meeting change, blocks leaving `loading` until this is true (first ~2s only). */
     const [initialLoadingMinElapsed, setInitialLoadingMinElapsed] = useState(false);
@@ -398,6 +406,16 @@ export function useCouncilMachine({
             return;
         }
 
+        // The human input just submitted has arrived: don't read it back, go on to the reply.
+        if (submittedEchoIndex.current === playNextIndex && textMessages[playNextIndex]) {
+            submittedEchoIndex.current = null;
+            const type = textMessages[playNextIndex].type;
+            if (type === 'human' || type === 'panelist') {
+                setPlayNextIndex(playNextIndex + 1);
+                return;
+            }
+        }
+
         // Action A — skip a stale invitation replay when we already have a
         // human-draft intent queued for the awaiting_* sentinel right after it.
         // Only reachable on the reconnect self-heal path: the invitation was
@@ -498,8 +516,8 @@ export function useCouncilMachine({
                 }
                 break;
             case 'waiting':
-                //Wait one second, and then proceed
-                if (waitTimer.current == null) {//Unless we are already waiting
+                //Wait one second, and then proceed — but not behind the meta agent's back
+                if (waitTimer.current == null && !metaAgentHolding) {//Unless we are already waiting
                     waitTimer.current = setTimeout(() => {
                         setCouncilState('playing');
                     }, 1000);
@@ -517,7 +535,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId, metaAgentHolding]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -540,6 +558,7 @@ export function useCouncilMachine({
     }
 
     function handleOnSkipBackward() {
+        submittedEchoIndex.current = null;
         let skipLength = 1;
         while (textMessages[playingNowIndex - skipLength]?.type === 'skipped') {
             skipLength++;
@@ -579,6 +598,9 @@ export function useCouncilMachine({
         setTextMessages((prevMessages) => prevMessages.slice(0, mode === "question" ? now : next));
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
+        // The server writes a question or panelist answer at `next`; a letter addition goes
+        // into the letter, not the conversation.
+        submittedEchoIndex.current = mode === "letter" ? null : next;
         if (mode === "question") {
             setIsRaisedHand(false);
             clearPendingIntent("raise-hand");
@@ -1123,6 +1145,15 @@ export function useCouncilMachine({
             }
         }
     }, [isPaused]);
+
+    // The meta agent interrupting in the pause between messages holds the meeting
+    // there; the main machine restarts the wait once the agent hands back.
+    useEffect(() => {
+        if (metaAgentHolding && waitTimer.current) {
+            clearTimeout(waitTimer.current);
+            waitTimer.current = null;
+        }
+    }, [metaAgentHolding]);
 
 
     // Mute Logic

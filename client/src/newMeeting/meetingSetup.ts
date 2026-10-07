@@ -11,6 +11,14 @@ export type MeetingCharactersI18n = {
 
 export type MeetingSetupPhase = "landing" | "topic" | "characters";
 
+/**
+ * How many human panelists a council can have. A product choice, not a
+ * technical limit: we have only ever used one, and one keeps the speaking order
+ * simple to reason about. The server routes any number (they come due in lineup
+ * order, see server/src/logic/SpeakerSelector.ts), so this can be raised again.
+ */
+export const MAX_HUMAN_PANELISTS = 1;
+
 function isPanelistId(id: string): boolean {
   return id.startsWith("panelist");
 }

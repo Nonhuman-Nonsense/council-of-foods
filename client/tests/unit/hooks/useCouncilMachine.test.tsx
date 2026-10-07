@@ -147,6 +147,38 @@ describe('useCouncilMachine', () => {
         vi.useRealTimers();
     });
 
+    it('holds in the pause between messages while the meta agent has the floor', async () => {
+        vi.useFakeTimers();
+        const { result, rerender } = renderHook(
+            (props: any) => useCouncilMachine(props),
+            { initialProps: { ...defaultProps, currentMeetingId: 1 } },
+        );
+
+        audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        await act(async () => {
+            socketHandlers.onConversationUpdate?.([
+                { id: 'msg1', text: 'Hello', speaker: 'banana', type: 'message' },
+                { id: 'msg2', text: 'Hi', speaker: 'tomato', type: 'message' },
+            ]);
+            socketHandlers.onAudioUpdate?.({ id: 'msg1', audio: new ArrayBuffer(8) });
+            socketHandlers.onAudioUpdate?.({ id: 'msg2', audio: new ArrayBuffer(8) });
+        });
+        act(() => { vi.advanceTimersByTime(10); });
+        act(() => { result.current.actions.handleOnFinishedPlaying(); });
+        expect(result.current.state.councilState).toBe('waiting');
+
+        rerender({ ...defaultProps, currentMeetingId: 1, metaAgentPhase: 'interruption' });
+        act(() => { vi.advanceTimersByTime(5000); });
+        expect(result.current.state.councilState).toBe('waiting');
+        expect(result.current.state.playingNowIndex).toBe(0);
+
+        rerender({ ...defaultProps, currentMeetingId: 1, metaAgentPhase: 'inactive' });
+        act(() => { vi.advanceTimersByTime(1000); });
+        expect(result.current.state.councilState).toBe('playing');
+        expect(result.current.state.playingNowIndex).toBe(1);
+        vi.useRealTimers();
+    });
+
     it('declineOverlay does not navigate (routing handled elsewhere)', () => {
         const { result } = renderHook(() =>
             useCouncilMachine({ ...defaultProps, currentMeetingId: 42 } as any)
@@ -829,6 +861,40 @@ describe('useCouncilMachine', () => {
         // Next action calculation should transition back to loading or appropriate state
         // If textMessages is empty, tryToFind will fail -> loading
         expect(result.current.state.councilState).toBe('loading');
+    });
+
+    describe('submitted human input is not read back', () => {
+        it.each([
+            ['question', { type: 'awaiting_human_question' }, 'human'],
+            ['panelist', { type: 'awaiting_human_panelist', speaker: 'human-panelist-1' }, 'panelist'],
+        ])('%s: plays the reply next, and the input when navigated back to', async (_mode, awaiting, echoType) => {
+            vi.useFakeTimers();
+            try {
+                const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                act(() => { vi.advanceTimersByTime(10); });
+
+                act(() => { socketHandlers.onConversationUpdate?.([awaiting]); });
+                act(() => { result.current.actions.handleOnSubmitHumanMessage('My words'); });
+
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'echo', type: echoType, speaker: 'Frank', text: 'Frank said: My words' },
+                        { id: 'reply', type: 'message', speaker: 'banana', text: 'Indeed.' },
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'echo', audio: new ArrayBuffer(8) });
+                    socketHandlers.onAudioUpdate?.({ id: 'reply', audio: new ArrayBuffer(8) });
+                });
+
+                expect(result.current.state.councilState).toBe('playing');
+                expect(result.current.state.playingNowIndex).toBe(1);
+
+                act(() => { result.current.actions.handleOnSkipBackward(); });
+                expect(result.current.state.playingNowIndex).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
     });
 
     it('skips human panelist turn on abandon', () => {

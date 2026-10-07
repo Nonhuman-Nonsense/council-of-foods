@@ -338,21 +338,22 @@ function Council({
 
         {/* Footer — Output, controls, and banner in the bottom flex column. */}
         <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
-          {metaAgentPhase === "inactive" && (
-            <Output
-              textMessages={textMessages}
-              audioMessages={audioMessages}
-              playingNowIndex={playingNowIndex}
-              councilState={councilState}
-              isMuted={isMuted}
-              isPaused={isPaused}
-              currentSnippetIndex={currentSnippetIndex}
-              setCurrentSnippetIndex={setCurrentSnippetIndex}
-              audioContext={audioContext}
-              handleOnFinishedPlaying={handleOnFinishedPlaying}
-              onSummaryPlaybackChange={setSummaryPlayback}
-            />
-          )}
+          {/* Stays mounted while the meta agent has the floor: unmounting would
+              discard the interrupted message's place, so it is held instead. */}
+          <Output
+            textMessages={textMessages}
+            audioMessages={audioMessages}
+            playingNowIndex={playingNowIndex}
+            councilState={councilState}
+            isMuted={isMuted}
+            isPaused={isPaused}
+            currentSnippetIndex={currentSnippetIndex}
+            setCurrentSnippetIndex={setCurrentSnippetIndex}
+            audioContext={audioContext}
+            handleOnFinishedPlaying={handleOnFinishedPlaying}
+            onSummaryPlaybackChange={setSummaryPlayback}
+            held={metaAgentPhase !== "inactive"}
+          />
           {controlsVisible && metaAgentPhase === "inactive" && (
             <ConversationControls
               hidden={!capabilities.browserUi}

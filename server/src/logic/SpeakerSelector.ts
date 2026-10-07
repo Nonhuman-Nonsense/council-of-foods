@@ -14,6 +14,14 @@ const NON_SPEAKER_MESSAGE_TYPES = new Set([
     "summary",
 ]);
 
+/** A participant's turn in the debate: spoken, or skipped (failed generation, or a human who passed). */
+const TURN_TYPES = new Set(["message", "response", "panelist", "skipped"]);
+
+/** Human panelists are the characters the visitor adds by name (`panelist0`, …). */
+function isPanelistId(id: string | undefined): boolean {
+    return typeof id === "string" && id.startsWith("panelist");
+}
+
 /**
  * Logic for determining the next speaker in the conversation.
  * Handles specialized logic for human interruption, direct questions, and panelist interactions.
@@ -35,22 +43,16 @@ export class SpeakerSelector {
         if (conversation.length === 0) return 0;
 
         if (options.directedSpeakerRouting && options.chairId) {
-            const chairIndex = characters.findIndex((character) => character.id === options.chairId);
-            if (chairIndex !== -1 && shouldForceChair(conversation, characters, options.chairId)) {
-                return chairIndex;
-            }
+            const directed = pickDirected(conversation, characters, options.chairId);
+            if (directed !== -1) return directed;
 
-            const latest = conversation[conversation.length - 1];
-            const latestHasDirectedTarget = "askParticular" in latest && Boolean(latest.askParticular);
-            if (!latestHasDirectedTarget) {
-                const openFloorIndex = pickLeastSpokenWithRoundRobinTiebreak(
-                    conversation,
-                    characters,
-                    options.chairId
-                );
-                if (openFloorIndex !== -1) {
-                    return openFloorIndex;
-                }
+            const openFloorIndex = pickLeastSpokenWithRoundRobinTiebreak(
+                conversation,
+                characters,
+                options.chairId
+            );
+            if (openFloorIndex !== -1) {
+                return openFloorIndex;
             }
         }
 
@@ -170,6 +172,124 @@ function pickLeastSpokenWithRoundRobinTiebreak(
 
     // Among equally quiet participants, prefer whoever comes first in the initial lineup order.
     return tiedIndices[0];
+}
+
+/**
+ * Directed routing, in priority order:
+ *
+ * 1. Direct question: whoever the latest message asked answers it. Except when
+ *    that message was itself an answer to a direct question: then a due cadence
+ *    (2 or 3) takes the floor first, so participants asking each other back and
+ *    forth cannot keep the human or the chair out.
+ * 2. Human cadence: a human panelist who has not spoken yet is due once as many
+ *    turns have passed as there are participants ahead of them in the lineup —
+ *    the place the lineup gives them, guaranteed.
+ * 3. Chair cadence: the chair is due once everyone else has had a turn since it
+ *    last spoke, but waits until two beings have replied to a human.
+ * 4. Open floor (-1 here): the caller picks the least-spoken participant.
+ *
+ * Several human panelists are supported (older meetings have them, even though
+ * the client currently allows one): they come due in lineup order.
+ */
+function pickDirected(conversation: Message[], characters: Character[], chairId: string): number {
+    const latest = conversation[conversation.length - 1];
+    const askedIndex = "askParticular" in latest && latest.askParticular
+        ? findCharacterIndex(characters, latest.askParticular)
+        : -1;
+    if (askedIndex !== -1 && latest.type !== "response") return askedIndex;
+
+    const humanIndex = pickDueHuman(conversation, characters, chairId);
+    if (humanIndex !== -1) return humanIndex;
+
+    const chairIndex = characters.findIndex((character) => character.id === chairId);
+    if (
+        chairIndex !== -1 &&
+        shouldForceChair(conversation, characters, chairId) &&
+        !isChairHeldForHumanReplies(conversation, characters, chairId)
+    ) {
+        return chairIndex;
+    }
+
+    return askedIndex;
+}
+
+function pickDueHuman(conversation: Message[], characters: Character[], chairId: string): number {
+    const turns = conversation.filter(
+        (msg) => isTurn(msg) && msg.speaker !== chairId && characters.some((c) => c.id === msg.speaker)
+    ).length;
+
+    let ahead = 0;
+    for (let i = 0; i < characters.length; i++) {
+        const { id } = characters[i];
+        if (id === chairId) continue;
+        if (isPanelistId(id) && turns >= ahead && !conversation.some((msg) => isTurn(msg) && msg.speaker === id)) {
+            return i;
+        }
+        ahead++;
+    }
+    return -1;
+}
+
+/**
+ * After a human speaks, the chair waits until two beings have replied. A human
+ * answering a question put to them while that wait is still running continues
+ * the same exchange instead of restarting it, so a human and a being asking
+ * each other back and forth cannot hold the chair off.
+ */
+function isChairHeldForHumanReplies(conversation: Message[], characters: Character[], chairId: string): boolean {
+    let start = findPreviousHumanSpeech(conversation, conversation.length, chairId);
+    if (start === -1) return false;
+
+    while (answersDirectQuestion(conversation, start, characters)) {
+        const earlier = findPreviousHumanSpeech(conversation, start, chairId);
+        if (earlier === -1 || countBeingReplies(conversation, earlier, start, characters, chairId) > 2) break;
+        start = earlier;
+    }
+
+    return countBeingReplies(conversation, start, conversation.length, characters, chairId) < 2;
+}
+
+/** The latest human message before `before`, or -1 if the chair has spoken since (or nobody has). */
+function findPreviousHumanSpeech(conversation: Message[], before: number, chairId: string): number {
+    for (let i = before - 1; i >= 0; i--) {
+        const msg = conversation[i];
+        if (isTurn(msg) && msg.speaker === chairId) return -1;
+        if (msg.type === "human" || (msg.type === "panelist" && isPanelistId(msg.speaker))) return i;
+    }
+    return -1;
+}
+
+function answersDirectQuestion(conversation: Message[], index: number, characters: Character[]): boolean {
+    const previous = conversation[index - 1];
+    if (!previous || !("askParticular" in previous) || !previous.askParticular) return false;
+    const asked = findCharacterIndex(characters, previous.askParticular);
+    return asked !== -1 && characters[asked].id === conversation[index].speaker;
+}
+
+/** Beings' (not the chair's, not humans') spoken messages strictly between `from` and `to`. */
+function countBeingReplies(
+    conversation: Message[],
+    from: number,
+    to: number,
+    characters: Character[],
+    chairId: string
+): number {
+    let count = 0;
+    for (let i = from + 1; i < to; i++) {
+        const msg = conversation[i];
+        if (msg.type !== "message" && msg.type !== "response") continue;
+        if (msg.speaker === chairId || isPanelistId(msg.speaker)) continue;
+        if (characters.some((character) => character.id === msg.speaker)) count++;
+    }
+    return count;
+}
+
+function isTurn(msg: Message): boolean {
+    return TURN_TYPES.has(msg.type) && "speaker" in msg;
+}
+
+function findCharacterIndex(characters: Character[], nameOrId: string): number {
+    return characters.findIndex((character) => character.name === nameOrId || character.id === nameOrId);
 }
 
 function shouldForceChair(conversation: Message[], characters: Character[], chairId: string): boolean {

@@ -8,6 +8,7 @@ import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import {
   buildMeetingCharactersPayload,
+  MAX_HUMAN_PANELISTS,
   orderSelectedCharactersForInstallation,
   selectedFoodNames,
   type CouncilRoster,
@@ -64,7 +65,6 @@ function getCharacterImageUrl(id: string): string | undefined {
   return characterIconWebpUrl(id);
 }
 
-const MAXHUMANS = 3;
 
 function isPanelistId(id: string): boolean {
   return id.startsWith("panelist");
@@ -227,9 +227,9 @@ function SelectCharacters({
 
   function onAddHuman(): void {
     const idx = numberOfHumans;
-    if (idx >= MAXHUMANS) return;
+    if (idx >= MAX_HUMAN_PANELISTS) return;
     if (!humans[idx]) return;
-    setNumberOfHumans((prev) => Math.min(MAXHUMANS, prev + 1));
+    setNumberOfHumans((prev) => Math.min(MAX_HUMAN_PANELISTS, prev + 1));
     // The reaction is reported by `selectCharacter` itself, which also covers
     // toggling an existing panelist back in — a path this button never takes,
     // since `idx` only ever advances to the next never-yet-used slot.
@@ -536,7 +536,7 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           ))}
-          {typedSetup && numberOfHumans < MAXHUMANS && (
+          {typedSetup && numberOfHumans < MAX_HUMAN_PANELISTS && (
             <AddHumanButton
               onMouseEnter={() => setHoveredCharacter("addhuman")}
               onMouseLeave={() => setHoveredCharacter(null)}

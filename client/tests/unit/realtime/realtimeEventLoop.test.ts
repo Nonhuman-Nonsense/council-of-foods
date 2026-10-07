@@ -824,6 +824,64 @@ describe("realtimeEventLoop", () => {
      * second cancel would be aimed at a response the server has already closed
      * — which it rejects with response_cancel_not_active.
      */
+    /**
+     * Word alignment runs ahead of the audio, so the caption clock needs to
+     * know the moment the audio is cut off — otherwise it keeps captioning
+     * sentences nobody hears.
+     */
+    it.each([
+        { cut: "interruptAndRespond", interruptResponse: true, reported: "click-reaction" },
+        { cut: "speech_started", interruptResponse: true, reported: "speech-started" },
+        { cut: "speech_started", interruptResponse: undefined, reported: "speech-started" },
+        { cut: "speech_started", interruptResponse: false, reported: null },
+    ])("reports $cut cutting the agent off: $reported (interrupt_response=$interruptResponse)", async ({ cut, interruptResponse, reported }) => {
+        const onOutputInterrupted = vi.fn();
+        const loop = createEventLoop({
+            send: vi.fn(),
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn(), onOutputInterrupted },
+        });
+        const session = makeSession();
+        session.audio.input!.turn_detection = {
+            type: "semantic_vad",
+            create_response: true,
+            interrupt_response: interruptResponse,
+        };
+        loop.configureSession(session);
+        await loop.handleEvent({ type: "session.updated" });
+        await loop.handleEvent({ type: "response.created" });
+
+        if (cut === "interruptAndRespond") {
+            loop.interruptAndRespond("(click reaction text)", { reason: "click-reaction" });
+        } else {
+            await loop.handleEvent({ type: "input_audio_buffer.speech_started" });
+        }
+
+        if (reported) {
+            expect(onOutputInterrupted).toHaveBeenCalledExactlyOnceWith(reported);
+        } else {
+            expect(onOutputInterrupted).not.toHaveBeenCalled();
+        }
+    });
+
+    it("passes the response id to the started and done callbacks", async () => {
+        const onResponseStarted = vi.fn();
+        const onResponseDone = vi.fn();
+        const loop = createEventLoop({
+            send: vi.fn(),
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn(), onResponseStarted, onResponseDone },
+        });
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+
+        await loop.handleEvent({ type: "response.created", response: { id: "resp_1" } });
+        await loop.handleEvent({ type: "response.done", response: { id: "resp_1", status: "completed" } });
+
+        expect(onResponseStarted).toHaveBeenCalledWith({ responseId: "resp_1" });
+        expect(onResponseDone).toHaveBeenCalledWith(expect.objectContaining({ responseId: "resp_1", status: "completed" }));
+    });
+
     it("sends only one response.cancel while an earlier cancel is unresolved", async () => {
         const send = vi.fn();
         const loop = createEventLoop({

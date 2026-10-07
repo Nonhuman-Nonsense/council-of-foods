@@ -65,5 +65,18 @@ plugs posting `POST /api/installation/room-power` with the installation key. Plu
 - **SpeakerSelector**: Logic for determining the next speaker.
 - **DialogGenerator**: Builds prompts and generates character responses, chair interjections, and summary documents. The conversation provider is configurable (`conversationModel` — Inworld or OpenAI direct), so nothing here is OpenAI-specific.
 
+### Voice loudness
+TTS voices come out at different levels, so every newly generated message is brought to one
+integrated loudness (`voiceLoudness.targetLufs` in `global-options.json`) with a single gain for
+the whole message and a peak limiter — a being's own dynamics, like a closing grunt,
+keep their place. Corrections under `skipBelowDb` are left as generated, without a re-encode;
+`null` switches it off. Audio already in the database is not changed. The measured level and the
+gain are stored on each audio row as `loudness`.
+
+`npm run voices:loudness -- [--lang <code>|all] [--takes 3] [--only id,id]` has every
+being say the same lines through its real voice, prints each one's level and the gain it would
+get, and saves the takes (as generated and normalized) to listen to. Use it to pick the target
+and threshold.
+
 ### Empty generations
 A model that returns nothing, or text that post-processing trims away entirely, is retried in one shared place (`completeWithRetry`) for every generation. Each failed attempt is reported to ErrorBot even when a retry rescues it, so a rare provider hiccup is visible rather than silent. Exhausting the attempts throws `EmptyCompletionError`, which is terminal for the meeting — deliberately: a missing chair line is not something to paper over.

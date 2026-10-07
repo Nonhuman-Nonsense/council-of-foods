@@ -120,6 +120,31 @@ describe('TextOutput', () => {
         expect(screen.getByTestId('subtitle-text')).toHaveTextContent('This is a test.');
     });
 
+    it('follows the clock back when playback restarts earlier in the message', () => {
+        const props = defaultProps();
+        const { rerender } = render(<TextOutput {...props} />);
+
+        act(() => {
+            mockAudioContext.currentTime = 2.6;
+            vi.advanceTimersByTime(16);
+        });
+        expect(screen.getByTestId('subtitle-text')).toHaveTextContent('Ending now.');
+
+        rerender(<TextOutput {...props} isPaused={true} />);
+        // Restarted from the start of "This is a test." at t=50: the clock reads 1.0s.
+        act(() => { mockAudioContext.currentTime = 50; });
+        rerender(
+            <TextOutput
+                {...props}
+                isPaused={false}
+                playbackStartInfo={{ messageId: 'msg1', startedAtAudioContextTime: 49 }}
+            />
+        );
+        act(() => { vi.advanceTimersByTime(16); });
+
+        expect(screen.getByTestId('subtitle-text')).toHaveTextContent('This is a test.');
+    });
+
     it('handles null audio message gracefully', () => {
         const props = defaultProps();
         render(<TextOutput {...props} currentAudioMessage={null} />);

@@ -10,6 +10,8 @@ interface AudioOutputProps {
   onFinishedPlaying: () => void;
   onPlaybackStarted?: (info: PlaybackStartInfo) => void;
   isMuted: boolean;
+  /** Hold playback; releasing resumes from the interrupted sentence. */
+  held?: boolean;
 }
 
 //Most of the audio processing should happen here, but the audioContext is owned higher up
@@ -20,6 +22,7 @@ function AudioOutput({
   onFinishedPlaying,
   onPlaybackStarted,
   isMuted,
+  held,
 }: AudioOutputProps): React.ReactElement {
   const gainNode = useRef<GainNode | null>(null); //The general volume control node
 
@@ -51,6 +54,7 @@ function AudioOutput({
       gainNode={gainNode}
       onFinishedPlaying={onFinishedPlaying}
       onPlaybackStarted={onPlaybackStarted}
+      held={held}
     />
   );
 }

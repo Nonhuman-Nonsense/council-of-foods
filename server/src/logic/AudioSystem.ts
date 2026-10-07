@@ -6,7 +6,7 @@ import { Logger } from "@utils/Logger.js";
 import { CapacityError } from "@models/Errors.js";
 import { isCapacityError } from "@utils/NetworkUtils.js";
 import { mapSentencesToWords, splitSentences, Word, type MappedSentence } from "@shared/textUtils.js";
-import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
+import type { StoredAudio, StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
 import { parseBuffer } from 'music-metadata';
 import {
     generateInworldAudio,
@@ -20,8 +20,10 @@ import { recordUsage, usageTagsFor } from "@services/UsageService.js";
 import {
     AudioQueue,
     mergeAudioBuffers,
+    normalizeLoudness,
     splitTextForTts,
     prepareInworldTtsChunks,
+    type LoudnessTarget,
 } from "./audio/AudioUtils.js";
 import { buildEstimatedSentenceTimings } from "./audio/EstimatedSubtitles.js";
 import {
@@ -310,7 +312,13 @@ export class AudioSystem {
             }
 
             // Merge chunks into single buffer using FFmpeg
-            const combinedBuffer = await mergeAudioBuffers(buffers);
+            let combinedBuffer = await mergeAudioBuffers(buffers);
+            let loudness: StoredAudio["loudness"];
+            if (generateNew && effectiveOptions.voiceLoudness) {
+                ({ audio: combinedBuffer, loudness } = await this.normalizeMessageLoudness(
+                    combinedBuffer, effectiveOptions.voiceLoudness, message.id, from,
+                ));
+            }
 
             // Construct payload
             const audioObject: AudioUpdatePayload = {
@@ -344,7 +352,8 @@ export class AudioSystem {
                             meeting_id: meeting._id,
                             audio: combinedBuffer,
                             sentences: sentencesWithTimings,
-                            subtitleTimingType: subtitleTimingType
+                            subtitleTimingType: subtitleTimingType,
+                            ...(loudness ? { loudness } : {}),
                         }
                     },
                     { upsert: true }
@@ -428,6 +437,28 @@ export class AudioSystem {
 
         this.broadcaster.broadcastConversationUpdate(meeting.conversation);
         this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
+    }
+
+    /**
+     * Evens out a freshly generated message's loudness. Volume is cosmetic, so a failure here
+     * keeps the audio as the provider made it rather than costing the meeting a turn.
+     */
+    private async normalizeMessageLoudness(
+        audio: Buffer,
+        target: LoudnessTarget,
+        messageId: string,
+        from: ReportContext,
+    ): Promise<{ audio: Buffer; loudness?: StoredAudio["loudness"] }> {
+        try {
+            const { audio: normalized, measuredLufs, gainDb } = await normalizeLoudness(audio, target);
+            return { audio: normalized, loudness: { measuredLufs, gainDb } };
+        } catch (error: unknown) {
+            Logger.warn("AudioSystem", `Loudness normalization failed for message ${messageId}; using it as generated.`, {
+                error,
+                from,
+            });
+            return { audio };
+        }
     }
 
     private async generateProviderAudio(

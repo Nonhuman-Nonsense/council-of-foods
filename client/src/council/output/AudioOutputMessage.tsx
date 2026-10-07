@@ -1,4 +1,5 @@
 import type { AudioUpdatePayload } from "@shared/SocketTypes";
+import type { Sentence } from "@shared/ModelTypes";
 import { useEffect, useRef } from "react";
 import React from 'react';
 
@@ -19,6 +20,26 @@ interface AudioOutputMessageProps {
   gainNode: React.RefObject<GainNode | null>;
   onFinishedPlaying: () => void;
   onPlaybackStarted?: (info: PlaybackStartInfo) => void;
+  /**
+   * Hold playback (e.g. while the meta agent has interrupted the meeting).
+   * Releasing the hold resumes the same message from the start of the
+   * sentence it was interrupted in, rather than from the beginning.
+   */
+  held?: boolean;
+}
+
+/**
+ * Where to resume after `elapsed` seconds of playback: the start of the
+ * sentence playing at that moment, so the listener hears it whole again.
+ */
+export function resumeOffsetFor(sentences: Sentence[] | undefined, elapsed: number): number {
+  if (!sentences || sentences.length === 0) return elapsed;
+  let offset = 0;
+  for (const sentence of sentences) {
+    if (sentence.start > elapsed) break;
+    offset = sentence.start;
+  }
+  return offset;
 }
 
 function AudioOutputMessage({
@@ -26,9 +47,11 @@ function AudioOutputMessage({
   audioContext,
   gainNode,
   onFinishedPlaying,
-  onPlaybackStarted
+  onPlaybackStarted,
+  held = false,
 }: AudioOutputMessageProps) {
-  const sourceNode = useRef<AudioBufferSourceNode | null>(null);
+  // Where the current message picks up when (re)started — 0 until a hold interrupts it.
+  const resumePoint = useRef<{ messageId: string; offset: number } | null>(null);
   const onFinishedPlayingRef = useRef(onFinishedPlaying);
   const onPlaybackStartedRef = useRef(onPlaybackStarted);
 
@@ -46,33 +69,42 @@ function AudioOutputMessage({
       }
     }
 
-    // Handle updating the audio source when the message changes
+    // Handle updating the audio source when the message changes or the hold toggles
 
     if (currentAudioMessage && currentAudioMessage.audio && currentAudioMessage.audio.length !== 0) {
-      if (audioContext.current && gainNode.current) {
-        sourceNode.current = audioContext.current.createBufferSource();
-        sourceNode.current.buffer = currentAudioMessage.audio;
+      if (resumePoint.current?.messageId !== currentAudioMessage.id) {
+        resumePoint.current = { messageId: currentAudioMessage.id, offset: 0 };
+      }
+      const context = audioContext.current;
+      if (!held && context && gainNode.current) {
+        const offset = resumePoint.current.offset;
+        const source = context.createBufferSource();
+        source.buffer = currentAudioMessage.audio;
 
-        sourceNode.current.connect(gainNode.current);
-        const startedAtAudioContextTime = audioContext.current.currentTime;
-        sourceNode.current.start();
+        source.connect(gainNode.current);
+        // Backdated by the offset, so subtitle timing measured from it lines up with the audio.
+        const startedAtAudioContextTime = context.currentTime - offset;
+        source.start(0, offset);
         onPlaybackStartedRef.current?.({
           messageId: currentAudioMessage.id,
           startedAtAudioContextTime
         });
-        sourceNode.current.addEventListener('ended', sourceFinished, true);
+        source.addEventListener('ended', sourceFinished, true);
+
+        const { id, sentences } = currentAudioMessage;
+        return () => {
+          ignoreEndEvent = true;
+          resumePoint.current = {
+            messageId: id,
+            offset: resumeOffsetFor(sentences, context.currentTime - startedAtAudioContextTime),
+          };
+          source.removeEventListener('ended', sourceFinished, true);
+          source.stop();
+          source.disconnect();
+        };
       }
     }
-
-    return () => {
-      ignoreEndEvent = true;
-      sourceNode.current?.removeEventListener('ended', sourceFinished, true);
-      sourceNode.current?.stop();
-      sourceNode.current?.disconnect();
-      // sourceNode.current?.close();
-      // sourceNode.current = null;
-    }
-  }, [currentAudioMessage, audioContext, gainNode]);
+  }, [currentAudioMessage, held, audioContext, gainNode]);
 
   return null; // This component does not render anything itself
 }

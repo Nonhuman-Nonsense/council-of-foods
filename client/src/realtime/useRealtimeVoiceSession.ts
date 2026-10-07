@@ -302,6 +302,8 @@ export function useRealtimeVoiceSession(
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
   const subtitleTrackRef = useRef<InworldSubtitleTrack | null>(null);
+  /** Keeps the caption clear while the agent is muted, until the next response. */
+  const outputMuteRef = useRef<(() => void) | null>(null);
   /** AudioContext.currentTime recorded when the first audible onset of a response is detected. */
   const responseAudioAnchorCtxSecRef = useRef<number | null>(null);
   /**
@@ -416,6 +418,7 @@ export function useRealtimeVoiceSession(
       alignmentRafRef.current = null;
     }
     subtitleTrackRef.current = null;
+    outputMuteRef.current = null;
     dcOpenedRef.current = false;
     responseAudioAnchorCtxSecRef.current = null;
     responseTransitionPendingRef.current = false;
@@ -573,6 +576,29 @@ export function useRealtimeVoiceSession(
       const usePlaybackSpeaking = trackAgentSpeaking;
       let lastAgentSpeaking = false;
       let responseCancelled = false;
+      /** Id of the latest `response.created` — the response alignment now belongs to. */
+      let latestResponseId: string | null = null;
+      // The caption shows what is audible. The exception is the end of an
+      // answer: its last sentence stays up until the next response, so the
+      // visitor can think about it. A cut-off answer has no such sentence.
+      /**
+       * The agent's audio is being cut off and we are waiting for the silence
+       * detector to confirm it stopped. Until then the caption keeps following
+       * the clock, because audio already on its way still plays out. Word
+       * alignment runs well ahead of the audio, so after the cut the clock
+       * would otherwise carry on captioning sentences nobody hears.
+       */
+      let outputCutPending = false;
+      /**
+       * A cut was confirmed and the timeline cleared. Until the next response
+       * starts, an audible onset is not the start of anything we have
+       * alignment for — a cut that turned out not to stop the audio, say — so
+       * it must not anchor the clock.
+       */
+      let awaitingResponseAfterCut = false;
+      /** The agent is muted: no caption until the next response. */
+      let captionsMuted = false;
+      let lastDisplayedText: string | null | undefined = undefined;
 
       // Response-transition reset. `response.created` does not mean the
       // previous response's audio has stopped — after an interrupt it can keep
@@ -603,24 +629,18 @@ export function useRealtimeVoiceSession(
         return anchor.getCtxTime() - anchorCtxSec >= endSec;
       };
 
-      const performResponseTransitionReset = (reason: string) => {
-        if (pendingResetTimeoutRef.current != null) {
-          clearTimeout(pendingResetTimeoutRef.current);
-          pendingResetTimeoutRef.current = null;
-        }
-        if (!responseTransitionPendingRef.current) return;
-        responseTransitionPendingRef.current = false;
-        // A stale closure's fallback timeout could otherwise fire after a
-        // reconnect and clobber a newer connection's already-live anchor.
-        if (isStale()) return;
-
+      /** Clear the caption and the timeline it was read from. */
+      const resetTimeline = (reason: string) => {
         responseCancelled = false;
+        outputCutPending = false;
+        captionsMuted = false;
         if (usePlaybackSpeaking) {
           lastAgentSpeaking = false;
           setAgentSpeaking(false);
         }
         subtitleTrack.reset();
         responseAudioAnchorCtxSecRef.current = null;
+        lastDisplayedText = null;
         setLastCaption(null);
         realtimeDebugLog(`[SUBS] RESET (${reason}) ctxTime=${remoteAudioAnchorRef.current?.getCtxTime().toFixed(3) ?? "n/a"}`);
 
@@ -633,8 +653,62 @@ export function useRealtimeVoiceSession(
         }
       };
 
+      const performResponseTransitionReset = (reason: string) => {
+        if (pendingResetTimeoutRef.current != null) {
+          clearTimeout(pendingResetTimeoutRef.current);
+          pendingResetTimeoutRef.current = null;
+        }
+        if (!responseTransitionPendingRef.current) return;
+        responseTransitionPendingRef.current = false;
+        // A stale closure's fallback timeout could otherwise fire after a
+        // reconnect and clobber a newer connection's already-live anchor.
+        if (isStale()) return;
+        resetTimeline(reason);
+      };
+
+      /**
+       * The agent's audio is about to be cut off (barge-in). The signal only
+       * says the audio *will* stop; the silence detector says when it did, and
+       * that is when the caption goes. A no-op once the audio has played out,
+       * so a cut that interrupts nothing leaves the last sentence up.
+       */
+      const watchForOutputCut = (reason: string) => {
+        if (outputCutPending || isPreviousResponseAudioFinished()) return;
+        outputCutPending = true;
+        remoteAudioAnchorRef.current?.arm(true);
+        realtimeDebugLog(`[SUBS] CUT (${reason}) waiting for silence ctxTime=${remoteAudioAnchorRef.current?.getCtxTime().toFixed(3) ?? "n/a"}`);
+      };
+
+      const confirmOutputCut = () => {
+        if (!outputCutPending) return;
+        outputCutPending = false;
+        // Silence after the audio ran its course is an ordinary end of answer
+        // — the cut came too late to cut anything — so the last sentence stays.
+        if (isPreviousResponseAudioFinished()) return;
+        awaitingResponseAfterCut = true;
+        resetTimeline("cut-confirmed");
+      };
+
+      outputMuteRef.current = () => {
+        captionsMuted = true;
+        lastDisplayedText = null;
+      };
+
+      const applyWordAlignment = (
+        contentIndex: number,
+        words: ReadonlyArray<InworldWordToken>,
+      ) => {
+        // Alignment data for the next response can arrive before we know
+        // the previous response's audio has actually gone silent — buffer
+        // it rather than applying to the still-displayed old track.
+        if (responseTransitionPendingRef.current) {
+          pendingWordAlignmentChunks.push({ contentIndex, words });
+          return;
+        }
+        subtitleTrack.applyChunk(contentIndex, words);
+      };
+
       // RAF loop: drive caption from alignment + AudioContext clock.
-      let lastDisplayedText: string | null | undefined = undefined;
       const tickAlignment = () => {
         if (!isStale()) {
           const anchor = remoteAudioAnchorRef.current;
@@ -647,7 +721,7 @@ export function useRealtimeVoiceSession(
               ? subtitleTrack.getPendingText()
               : null;
             const text = active?.text ?? pendingText ?? null;
-            if (text !== lastDisplayedText) {
+            if (!captionsMuted && text !== lastDisplayedText) {
               lastDisplayedText = text;
               setLastCaption(text);
               realtimeDebugLog(`[SUBS] DISPLAY ${text ? `"${text.slice(0, 60)}"` : "null"} playbackSec=${playbackSec.toFixed(3)} ctxTime=${anchor.getCtxTime().toFixed(3)}`);
@@ -743,17 +817,12 @@ export function useRealtimeVoiceSession(
           },
           onWordAlignment: (contentIndex, words) => {
             if (isStale()) return;
-            // Alignment data for the next response can arrive before we know
-            // the previous response's audio has actually gone silent — buffer
-            // it rather than applying to the still-displayed old track.
-            if (responseTransitionPendingRef.current) {
-              pendingWordAlignmentChunks.push({ contentIndex, words });
-              return;
-            }
-            subtitleTrack.applyChunk(contentIndex, words);
+            applyWordAlignment(contentIndex, words);
           },
-          onResponseStarted: () => {
+          onResponseStarted: (info) => {
             const anchor = remoteAudioAnchorRef.current;
+            latestResponseId = info?.responseId ?? null;
+            awaitingResponseAfterCut = false;
             responseTransitionPendingRef.current = true;
             pendingWordAlignmentChunks = [];
 
@@ -792,6 +861,25 @@ export function useRealtimeVoiceSession(
             // even when `agentSpeaking` is not exposed.
             if (cancelled && !isStale()) responseCancelled = true;
 
+            // Without ids on both events, assume it is the latest, as the
+            // alignment routing does.
+            const isLatestResponse =
+              info?.responseId == null || latestResponseId == null || info.responseId === latestResponseId;
+
+            // Inworld does not always send the empty chunk that ends the last
+            // sentence, and with no sentence after it to restart the clock it
+            // would never reach the timeline — the one before it would stay on
+            // screen until the next response. All alignment for this response
+            // has arrived by now, so end the sentence here. Its timings still
+            // come from the alignment, so it shows when playback reaches it.
+            // Only for the latest response: a late `done` for an older one
+            // would split a sentence of the response now being collected. And
+            // only when completed: a cancelled response's last sentence was cut
+            // off and never fully heard.
+            if (!isStale() && info?.status === "completed" && isLatestResponse) {
+              applyWordAlignment(0, []);
+            }
+
             // Either way the agent has stopped: cancelled mid-stream, or it
             // produced no audio for the clock to run against.
             if (usePlaybackSpeaking && !isStale()) {
@@ -806,6 +894,9 @@ export function useRealtimeVoiceSession(
           },
           onAudioPartReady: () => {
             if (!isStale()) setHasReceivedAudioPart(true);
+          },
+          onOutputInterrupted: (reason) => {
+            if (!isStale()) watchForOutputCut(reason);
           },
         },
       });
@@ -834,6 +925,10 @@ export function useRealtimeVoiceSession(
               track,
               onAudioStart: (_nowMs, ctxTime) => {
                 if (isStale()) return;
+                if (awaitingResponseAfterCut) {
+                  realtimeDebugLog("[SUBS] onset after a confirmed cut, before any response — not anchoring");
+                  return;
+                }
                 if (responseAudioAnchorCtxSecRef.current == null) {
                   responseAudioAnchorCtxSecRef.current = ctxTime;
                   realtimeDebugLog(`[SUBS] ANCHOR set: anchorCtxSec=${ctxTime.toFixed(3)}`);
@@ -841,7 +936,11 @@ export function useRealtimeVoiceSession(
               },
               onArmed: () => {
                 if (isStale()) return;
-                performResponseTransitionReset("silence-confirmed");
+                if (responseTransitionPendingRef.current) {
+                  performResponseTransitionReset("silence-confirmed");
+                } else {
+                  confirmOutputCut();
+                }
               },
               log: realtimeDebugLog,
             });
@@ -1143,6 +1242,9 @@ export function useRealtimeVoiceSession(
       el.muted = muted;
     }
     if (muted) {
+      // The playback clock keeps running, and without this the next sentence
+      // boundary would put a caption back while muted.
+      outputMuteRef.current?.();
       setAgentSpeaking(false);
       setLastCaption(null);
       setLastUserTranscript(null);
