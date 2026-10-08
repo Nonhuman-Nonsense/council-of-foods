@@ -109,10 +109,28 @@ keep_front() {
 }
 
 ORIGIN="$(printf '%s' "$URL" | sed -E 's#^(https?://[^/]+).*#\1#')"
-# shellcheck disable=SC2329 # called through wait_for
 server_up() {
   curl -fsS -o /dev/null --max-time 5 "$ORIGIN/health" 2>/dev/null
 }
+
+# Why the server doesn't answer: no network at all, a network without the internet, or the
+# server itself. captive.apple.com is what macOS itself asks to tell whether it is online.
+connection_problem() {
+  if ! route -n get default >/dev/null 2>&1; then
+    echo no-network
+  elif ! curl -fsS --max-time 5 http://captive.apple.com/hotspot-detect.html 2>/dev/null | grep -q Success; then
+    echo no-internet
+  else
+    echo no-server
+  fi
+}
+
+# What staff see while the server doesn't answer, instead of a black screen: a page on this Mac
+# (offline.html, installed next to this script) saying why, from what this script writes into
+# offline-<role>.js. Shown only after a while, so a restart's network coming up shows nothing.
+OFFLINE_AFTER_SECONDS=15
+OFFLINE_PAGE="$HERE/offline.html"
+OFFLINE_STATUS="$HERE/offline-$ROLE.js"
 
 # Whether this window's Chrome has a window covering `$1`, its screen. Kiosk mode can fail to go
 # full screen on a screen that is still settling (a projector warming up beside it), leaving a
@@ -145,43 +163,6 @@ tab_title() {
     }' "$tabs" "$ORIGIN" 2>/dev/null
 }
 
-wait_for has_screen "its screen"
-# A window opened while the server is down shows Chrome's error page, which nothing leaves.
-wait_for server_up "the server at $ORIGIN"
-
-# Read once: a screen that comes and goes while a projector warms up can be gone a moment after
-# it was found, and a window opened at no position lands on the main screen.
-screen="$(my_screen)"
-if [[ -z "$screen" ]]; then
-  log "The screen went away before the window opened."
-  exit 75
-fi
-read -r x y _ <<<"$screen"
-args=(
-  "--user-data-dir=$PROFILE"
-  --no-first-run --no-default-browser-check --noerrdialogs --hide-crash-restore-bubble
-  --disable-features=Translate
-  # A covered window would otherwise slow its timers, the heartbeat's too, to once a minute.
-  --disable-background-timer-throttling --disable-renderer-backgrounding
-  --disable-backgrounding-occluded-windows
-  "--remote-debugging-port=$PORT"
-  "--window-position=$x,$y"
-)
-# KIOSK=0 opens an ordinary window, for trying this out on a desk.
-if [[ "${KIOSK:-1}" == "1" ]]; then args+=(--kiosk); else args+=("--window-size=800,600"); fi
-read -r -a extra <<<"$FLAGS"
-args+=(${extra[@]+"${extra[@]}"})
-
-# Chrome would reopen the tabs of its last run beside the new one: a tab more per restart.
-rm -rf "$PROFILE/Default/Sessions" "$PROFILE/Default/Current Session" "$PROFILE/Default/Last Session" \
-  "$PROFILE/Default/Current Tabs" "$PROFILE/Default/Last Tabs"
-
-# Through `open`, not the binary: macOS then treats Chrome as an app of its own, so its
-# microphone permission and its updates are Chrome's, not this script's.
-log "Opening $URL at $x,$y."
-open -n -W -a "Google Chrome" --args "${args[@]}" "$URL" &
-opener=$!
-
 # Chrome is not this script's child, so stopping the agent would leave its window open. A hung
 # Chrome ignores being asked to quit, so after 10 s it is killed.
 close_window() {
@@ -193,6 +174,89 @@ close_window() {
   pkill -9 -f -- "--user-data-dir=$PROFILE"
 }
 trap 'log "Stopped; closing the window."; close_window; exit 0' TERM
+
+screen=""
+opener=""
+# Opens Chrome on this window's screen at `$1`, setting `screen` and `opener`. Fails when the
+# screen has gone: one that comes and goes while a projector warms up can be gone a moment after
+# it was found, and a window opened at no position lands on the main screen.
+open_window() {
+  screen="$(my_screen)"
+  [[ -n "$screen" ]] || return 1
+  local x y args extra
+  read -r x y _ <<<"$screen"
+  args=(
+    "--user-data-dir=$PROFILE"
+    --no-first-run --no-default-browser-check --noerrdialogs --hide-crash-restore-bubble
+    --disable-features=Translate
+    # A covered window would otherwise slow its timers, the heartbeat's too, to once a minute.
+    --disable-background-timer-throttling --disable-renderer-backgrounding
+    --disable-backgrounding-occluded-windows
+    "--remote-debugging-port=$PORT"
+    "--window-position=$x,$y"
+  )
+  # KIOSK=0 opens an ordinary window, for trying this out on a desk.
+  if [[ "${KIOSK:-1}" == "1" ]]; then args+=(--kiosk); else args+=("--window-size=800,600"); fi
+  read -r -a extra <<<"$FLAGS"
+  args+=(${extra[@]+"${extra[@]}"})
+
+  # Chrome would reopen the tabs of its last run beside the new one: a tab more per restart.
+  rm -rf "$PROFILE/Default/Sessions" "$PROFILE/Default/Current Session" "$PROFILE/Default/Last Session" \
+    "$PROFILE/Default/Current Tabs" "$PROFILE/Default/Last Tabs"
+
+  # Through `open`, not the binary: macOS then treats Chrome as an app of its own, so its
+  # microphone permission and its updates are Chrome's, not this script's.
+  log "Opening $1 at $x,$y."
+  open -n -W -a "Google Chrome" --args "${args[@]}" "$1" &
+  opener=$!
+}
+
+# Waits, however long it takes, until the server answers. A window opened while it doesn't
+# shows Chrome's error page, which nothing leaves; so the window shows the offline page instead,
+# and closes it once the server is back.
+wait_for_server() {
+  server_up && return 0
+  log "Waiting for the server at $ORIGIN."
+  local started=$SECONDS since problem="" now
+  since="$(date '+%H:%M')"
+  until server_up; do
+    if [[ -f "$OFFLINE_PAGE" ]] && (( SECONDS - started >= OFFLINE_AFTER_SECONDS )); then
+      now="$(connection_problem)"
+      if [[ "$now" != "$problem" ]]; then
+        problem="$now"
+        log "Still no server ($problem); the screen says why."
+        printf 'window.kioskStatus = { problem: "%s", since: "%s" };\n' "$problem" "$since" >"$OFFLINE_STATUS"
+      fi
+      if [[ -z "$opener" ]] || ! kill -0 "$opener" 2>/dev/null; then
+        open_window "file://${OFFLINE_PAGE// /%20}#$ROLE" || return 1
+      elif [[ "$(my_screen)" != "$screen" ]]; then
+        # Gone or moved: wait for it again, from the start.
+        close_window
+        wait "$opener"
+        return 1
+      else
+        keep_front
+      fi
+    fi
+    sleep "$POLL_SECONDS"
+  done
+  log "Found the server at $ORIGIN."
+  if [[ -n "$opener" ]]; then
+    close_window
+    wait "$opener"
+    opener=""
+  fi
+}
+
+wait_for has_screen "its screen"
+if ! wait_for_server; then
+  log "The screen went away or changed while waiting for the server."
+  exit 75
+fi
+if ! open_window "$URL"; then
+  log "The screen went away before the window opened."
+  exit 75
+fi
 
 changed_since=""
 uncovered=false

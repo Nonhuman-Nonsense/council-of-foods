@@ -48,6 +48,7 @@ describe("CouncilError overlay", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   // The server names the failure; the words are ours. Its English prose is only
@@ -80,6 +81,21 @@ describe("CouncilError overlay", () => {
     );
     expect(screen.queryByText(/Internal state mismatch/)).not.toBeInTheDocument();
     expect(screen.getByText("error.message")).toBeInTheDocument();
+  });
+
+  // An installation that can't restart because the server stays out of reach says what to
+  // check, not that the council broke.
+  it.each([
+    { online: true, heading: "error.serverUnreachable", detail: "error.serverUnreachableDetail" },
+    { online: false, heading: "error.noInternet", detail: "error.noInternetDetail" },
+  ])("a lost connection, online=$online, reads $heading", ({ online, heading, detail }) => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
+    render(<CouncilError error={{ message: "Reconnect failed", source: "reload", connectionLost: true }} />);
+
+    expect(screen.getByText(heading)).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(screen.queryByText("error.title")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reconnect failed")).not.toBeInTheDocument();
   });
 
   it("renders web restart button without probing health", () => {

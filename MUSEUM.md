@@ -62,6 +62,10 @@ Each window, at login:
 1. **Waits for its screen:** the council takes the main screen (the one with the menu
    bar), the meter the other one. Where they sit in Displays → Arrange does not matter.
 2. **Waits for the server** to answer `/health`, so it never opens on Chrome's error page.
+   If it hasn't answered after 15 s, the screen says why, from a page on the Mac
+   (`offline.html`, English): **No network** (no cable or Wi‑Fi), **No internet** (a network,
+   but no internet), or **Server error** (the internet works; nothing to do on site). The
+   council opens by itself as soon as the server answers.
 3. **Opens Chrome in kiosk mode** on that screen, in a Chrome profile of its own (in
    `~/Library/Application Support/council-kiosk/`), starting from a single tab.
 
@@ -509,10 +513,12 @@ Open the dev URL at `/#staff`, set **Museum** (or **Presenter**) +
 | Chrome quits, crashes or hangs | The kiosk window: opens Chrome again, once the server answers |
 | Meter screen switched off or unplugged | The kiosk window: closes the meter until the screen is back |
 | Power cut, Mac restart | The Mac: starts after a power failure, logs in, opens the windows |
+| Internet or server down | Nothing on site: the screens say which, and the app comes back by itself when it's back. In a running council the reconnect overlay says **No internet** at once, or **Can't reach the server** after 30 s |
 
 Every reload and reopen waits for `/health` first, so nothing lands on Chrome's error
 page while the server is down; the screens wait, black, instead.
 
 What none of this reaches: a Mac that hangs, a screen that stays black while still
-connected, and the network or server being down for good. Nothing reports those either;
-staff notice them by the black screens, and need a person to fix them.
+connected, and the network or server being down for good. Nothing emails anyone about those;
+staff notice them on the screens (black, or saying the connection is down), and need a
+person to fix them.

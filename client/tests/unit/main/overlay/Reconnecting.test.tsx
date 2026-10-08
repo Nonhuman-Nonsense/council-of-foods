@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import Reconnecting, { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
+import Reconnecting, { BUSY_NOTICE_DELAY_MS, CONNECTION_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
 import { useErrorStore } from "@main/overlay/errorStore";
 import { capabilitiesFor } from "@/settings/capabilities";
 
@@ -39,13 +39,7 @@ describe("Reconnecting overlay", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
-  });
-
-  it("renders the connection-error heading, sub-text and spinner", () => {
-    render(<Reconnecting />);
-    expect(screen.getByText("error.connection")).toBeInTheDocument();
-    expect(screen.getByText("error.reconnecting")).toBeInTheDocument();
-    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+    vi.restoreAllMocks();
   });
 
   it("explains a busy provider once the wait has gone on, not before", () => {
@@ -90,6 +84,38 @@ describe("Reconnecting overlay", () => {
     });
 
     expect(screen.getByText("error.connection")).toBeInTheDocument();
+  });
+
+  // Whoever stands at an installation needs to know to go and check the network, but not for
+  // a blip. With no network at all the browser knows at once; otherwise it can't tell a dead
+  // internet from a dead server, so it says it can't reach the council.
+  it.each([
+    { online: true, afterMs: 0, heading: "error.connection", detail: "error.reconnecting" },
+    { online: true, afterMs: CONNECTION_NOTICE_DELAY_MS, heading: "error.serverUnreachable", detail: "error.serverUnreachableDetail" },
+    { online: false, afterMs: 0, heading: "error.noInternet", detail: "error.noInternetDetail" },
+  ])("online=$online after $afterMs ms: $heading", ({ online, afterMs, heading, detail }) => {
+    vi.useFakeTimers();
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
+    render(<Reconnecting />);
+    act(() => {
+      vi.advanceTimersByTime(afterMs);
+    });
+
+    expect(screen.getByText(heading)).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+  });
+
+  it("switches to the no-network copy when the network goes while it waits", () => {
+    render(<Reconnecting />);
+    expect(screen.getByText("error.connection")).toBeInTheDocument();
+
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+
+    expect(screen.getByText("error.noInternet")).toBeInTheDocument();
   });
 
   it("does not start a reload timer in web mode", () => {

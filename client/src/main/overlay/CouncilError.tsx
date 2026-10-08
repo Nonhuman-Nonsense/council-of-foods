@@ -4,6 +4,7 @@ import AutoButton from "@/AutoButton";
 import { HEALTH_RETRY_SECONDS, probeOriginHealth } from "@/health";
 import { restartNow } from "@/navigation";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { connectionLostCopy, useOnline } from "./connectionCopy";
 import type { UnrecoverableError } from "./errorStore";
 import { errorCopy } from "./errorCopy";
 
@@ -26,6 +27,9 @@ const TECHNICAL_SOURCES = new Set(["react-error-boundary"]);
 function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
   const { t } = useTranslation();
   const { capabilities } = useCouncilSettings();
+  const online = useOnline();
+  // A server that stayed out of reach: say what to check rather than that something broke.
+  const lost = error.connectionLost ? connectionLostCopy(online) : null;
   // Our own words for a named failure; the server's message only when we have
   // none — and never when the message is internal prose.
   const detail = errorCopy(t, error.errorKey, error.message).trim();
@@ -35,8 +39,12 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
   return (
     <div>
       <img alt="error" src={errorIcon} style={{ height: "80px", opacity: "0.7" }} />
-      <h2>{t("error.title")}</h2>
-      {showGenericOnly ? (
+      <h2>{lost ? t(lost.title) : t("error.title")}</h2>
+      {lost ? (
+        <p role="status" style={{ marginTop: "4px" }}>
+          {t(lost.detail)}
+        </p>
+      ) : showGenericOnly ? (
         <p style={{ whiteSpace: "pre-line" }}>{t("error.message")}</p>
       ) : (
         <p role="status" style={{ marginTop: "4px" }}>

@@ -316,6 +316,10 @@
     "invalidAudioId": "Could not load meeting audio.",
     "realtimeUnavailable": "The council's voice is unavailable right now",
     "reconnecting": "Attempting to reconnect...",
-    "restartUnavailableRetrying": "Server unavailable for restart, retrying…"
+    "restartUnavailableRetrying": "Server unavailable for restart, retrying…",
+    "noInternet": "No internet",
+    "noInternetDetail": "Check the network cable or Wi‑Fi.",
+    "serverUnreachable": "Can't reach the server",
+    "serverUnreachableDetail": "Check the internet connection."
   }
 }

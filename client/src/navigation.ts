@@ -121,7 +121,7 @@ async function guardedReload(targetPath: string): Promise<boolean> {
 
   if (!(await probeOriginHealth())) {
     if (useErrorStore.getState().unrecoverableError == null) {
-      setUnrecoverableError({ message: "Reconnect failed", source: "reload" });
+      setUnrecoverableError({ message: "Reconnect failed", source: "reload", connectionLost: true });
     }
     return false;
   }

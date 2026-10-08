@@ -29,6 +29,8 @@ export type UnrecoverableError = {
    * show the visitor the generic apology instead.
    */
   technical?: boolean;
+  /** The server stayed out of reach: the overlay says what to check, not that something broke. */
+  connectionLost?: boolean;
   source: string;
   cause?: unknown;
   meetingId?: number;

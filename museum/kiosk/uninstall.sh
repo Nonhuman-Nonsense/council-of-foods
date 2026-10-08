@@ -21,6 +21,6 @@ if [[ "${1:-}" == "--purge" ]]; then
   rm -rf "$APP_DIR"
   echo "Kiosk windows and their Chrome profiles removed."
 else
-  rm -f "$APP_DIR/kiosk-window.sh" "$APP_DIR/kiosk.env"
+  rm -f "$APP_DIR/kiosk-window.sh" "$APP_DIR/kiosk.env" "$APP_DIR/offline.html" "$APP_DIR"/offline-*.js
   echo "Kiosk windows removed. Chrome profiles kept in $APP_DIR."
 fi
