@@ -429,6 +429,21 @@ takes effect at once, without a reload; off, the output is the usual stereo mix.
 - Leave it off on any screen someone listens to in headphones: they would hear the voices in
   one ear only.
 
+### Hear yourself
+
+Set **Hear yourself** on the staff page to let a visitor in headphones hear their own voice
+while they hold the talk button, as in a radio studio. They hear it only while the button is
+down, and what they hear is the same cleaned-up signal the agents transcribe, so staff
+listening in hear what the AI hears. The level steps from off to 100 %; set the rest on the
+headphone amp. With **Split audio** on it plays on the right side only, with the voices.
+
+- Headphones only. Over speakers the mic hears itself and howls; leave it off at a screening.
+- Turn off any direct monitoring on the audio interface, or the visitor hears themselves twice.
+- It comes back a little late (a few tens of milliseconds), which can sound like a faint
+  doubling. A lower level makes it less noticeable.
+- After switching it on, check that transcripts still come out right: the browser's echo
+  canceller hears this playback too.
+
 ### Mode switch button (staff escape)
 
 Enable **Mode switch button** on the staff page to show a red-bordered preview
@@ -529,7 +544,9 @@ Use the hardware checklist in
 7. Meter screen upright, full screen, numbers moving; room plugs listed if installed  
 8. Restart the Mac → both windows come back on their screens, untouched  
 9. With **Split audio** on: the left side plays no voices, the right side plays everything  
-10. Press the Mac's power button once → it shuts down by itself (the bridge log says
+10. With **Hear yourself** on: holding the button, the visitor hears their own voice in the
+    headphones; released, nothing; the transcript still comes out right  
+11. Press the Mac's power button once → it shuts down by itself (the bridge log says
     `power button pressed`); start it again → everything comes back  
 
 Bridge logs: `/var/log/council-button-bridge.log`; kiosk logs:

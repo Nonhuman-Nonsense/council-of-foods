@@ -1,20 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { audioBusesFor, createVoicesSideOutput, setAudioSplit } from "@/audio/audioRouting";
-
-type Edge = { to: FakeNode; input: number };
-
-/** Just enough of a Web Audio graph to follow where a node's sound ends up. */
-class FakeNode {
-  edges: Edge[] = [];
-  gain = { value: 1 };
-  constructor(readonly kind: "gain" | "merger" | "destination") {}
-  connect(to: FakeNode, _output = 0, input = 0) {
-    this.edges.push({ to, input });
-  }
-  disconnect() {
-    this.edges = [];
-  }
-}
+import { FakeNode, sidesReached } from "./fakeAudioGraph";
 
 function fakeContext() {
   const destination = new FakeNode("destination");
@@ -24,22 +10,6 @@ function fakeContext() {
     createChannelMerger: () => new FakeNode("merger"),
   };
   return { ctx: ctx as unknown as AudioContext, destination };
-}
-
-/**
- * Which output channels a node reaches: "LR" for the destination's stereo as a whole,
- * "L" / "R" for the side of a merger it feeds.
- */
-function sidesReached(node: AudioNode, destination: FakeNode): string {
-  const sides = new Set<string>();
-  const walk = (from: FakeNode, side: string | null) => {
-    for (const { to, input } of from.edges) {
-      if (to === destination) sides.add(side ?? "LR");
-      else walk(to, to.kind === "merger" ? (input === 0 ? "L" : "R") : side);
-    }
-  };
-  walk(node as unknown as FakeNode, null);
-  return [...sides].sort().join(",");
 }
 
 describe("audio routing", () => {

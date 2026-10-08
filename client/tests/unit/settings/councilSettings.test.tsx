@@ -27,6 +27,9 @@ import {
   getSplitAudioEnabled,
   setSplitAudioEnabled,
   SPLIT_AUDIO_ENABLED_KEY,
+  getSidetoneLevel,
+  setSidetoneLevel,
+  SIDETONE_LEVEL_KEY,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
@@ -133,6 +136,27 @@ describe("councilSettings", () => {
       setSplitAudioEnabled(true);
       setAppMode("web");
       expect(getSplitAudioEnabled()).toBe(true);
+    });
+  });
+
+  describe("sidetone level storage", () => {
+    it("is off until staff turn it up, and removes its key when turned off", () => {
+      expect(getSidetoneLevel()).toBe(0);
+
+      setSidetoneLevel(0.5);
+      expect(getSidetoneLevel()).toBe(0.5);
+
+      setSidetoneLevel(0);
+      expect(localStorage.getItem(SIDETONE_LEVEL_KEY)).toBeNull();
+    });
+
+    it.each([
+      { stored: "junk", level: 0 },
+      { stored: "-1", level: 0 },
+      { stored: "3", level: 1 },
+    ])("reads a stored $stored as $level", ({ stored, level }) => {
+      localStorage.setItem(SIDETONE_LEVEL_KEY, stored);
+      expect(getSidetoneLevel()).toBe(level);
     });
   });
 

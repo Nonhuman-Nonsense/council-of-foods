@@ -340,6 +340,9 @@ const staffSelectStyle: CSSProperties = {
 const staffOptionStyle: CSSProperties = { color: "black" };
 
 const STAFF_ROW_LABEL_WIDTH = 130;
+
+/** "Hear yourself" steps; the visitor's headphone amp does the fine adjustment. */
+const SIDETONE_LEVELS = [0, 0.25, 0.5, 0.75, 1];
 const STAFF_ROW_GAP = 12;
 
 const staffLabelStyle: CSSProperties = { opacity: 0.75, whiteSpace: "nowrap" };
@@ -621,6 +624,8 @@ function Staff(): ReactElement {
     setPrintSummariesEnabled,
     splitAudioEnabled,
     setSplitAudioEnabled,
+    sidetoneLevel,
+    setSidetoneLevel,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled,
     devLogEnabled,
@@ -1113,6 +1118,23 @@ function Staff(): ReactElement {
               testId="staff-split-audio-toggle"
             />
           </StaffRow>
+
+          <StaffRow label={t("staff.sidetone.label")}>
+            <select
+              data-testid="staff-sidetone-level"
+              value={String(sidetoneLevel)}
+              onChange={(event) => setSidetoneLevel(Number(event.target.value))}
+              style={{ ...staffSelectStyle, flex: "0 1 auto" }}
+            >
+              {/* A level staff left between the steps (by hand, in storage) still shows. */}
+              {[...new Set([...SIDETONE_LEVELS, sidetoneLevel])].sort((a, b) => a - b).map((level) => (
+                <option key={level} value={String(level)} style={staffOptionStyle}>
+                  {level > 0 ? `${Math.round(level * 100)} %` : t("staff.toggle.off")}
+                </option>
+              ))}
+            </select>
+          </StaffRow>
+          <StaffRowNote>{t("staff.sidetone.note")}</StaffRowNote>
 
           {printSummariesEnabled && alertsHealth && alertsStatus ? (
             <>

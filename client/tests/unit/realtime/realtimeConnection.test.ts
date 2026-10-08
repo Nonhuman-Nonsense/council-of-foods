@@ -753,7 +753,7 @@ describe("acquireMicrophone", () => {
   });
 
   it("resolves with the stream on success", async () => {
-    const stream = { id: "mic" } as unknown as MediaStream;
+    const stream = { id: "mic", getAudioTracks: () => [] } as unknown as MediaStream;
     stubGetUserMedia(vi.fn().mockResolvedValue(stream));
     await expect(acquireMicrophone()).resolves.toBe(stream);
   });

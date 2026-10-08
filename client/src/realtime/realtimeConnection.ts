@@ -10,6 +10,7 @@
 import type { RealtimeSessionServerDefaults } from "./realtimeProtocol";
 import type { IceServer, RealtimeBootstrapResponse } from "@shared/RealtimeSessionTypes";
 import { councilFetch } from "@/api/http";
+import { monitorMicrophone } from "@/audio/sidetone";
 
 // ---------------------------------------------------------------------------
 // Error types
@@ -78,7 +79,8 @@ const MIC_CONSTRAINTS: MediaStreamConstraints = {
  *  - fails with a clear {@link MicrophoneUnavailableError} when `mediaDevices`
  *    is missing (non-secure context / unsupported browser) instead of throwing
  *    an opaque `TypeError` that gets misclassified as a retryable network blip;
- *  - maps each DOMException name to a specific reason + user-facing message.
+ *  - maps each DOMException name to a specific reason + user-facing message;
+ *  - hands the stream to the sidetone, so the visitor can hear themselves.
  */
 export async function acquireMicrophone(): Promise<MediaStream> {
   const mediaDevices =
@@ -95,8 +97,9 @@ export async function acquireMicrophone(): Promise<MediaStream> {
     );
   }
 
+  let stream: MediaStream;
   try {
-    return await mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+    stream = await mediaDevices.getUserMedia(MIC_CONSTRAINTS);
   } catch (err) {
     const name = err instanceof Error ? err.name : "";
     switch (name) {
@@ -130,6 +133,9 @@ export async function acquireMicrophone(): Promise<MediaStream> {
         );
     }
   }
+  // Every mic goes to the headphones too, heard whenever its track is open (staff level).
+  monitorMicrophone(stream);
+  return stream;
 }
 
 // ---------------------------------------------------------------------------

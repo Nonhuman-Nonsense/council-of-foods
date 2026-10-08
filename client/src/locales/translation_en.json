@@ -143,6 +143,10 @@
     "splitAudio": {
       "toggle": "Split audio"
     },
+    "sidetone": {
+      "label": "Hear yourself",
+      "note": "Visitors hear their own voice while they hold the button. Headphones only: over speakers the mic howls."
+    },
     "print": {
       "toggle": "Print summaries",
       "printerLabel": "Printer",
