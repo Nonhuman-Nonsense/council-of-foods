@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { AudioContextRef } from "./audioContext";
+import { createAudioContext, type AudioContextRef } from "./audioContext";
 
 /**
  * Where each kind of sound joins the shared audio bus, so an installation can send the scene
@@ -8,8 +8,8 @@ import type { AudioContextRef } from "./audioContext";
  * Unsplit, both buses play straight to the output, as one stereo mix. Split, the output's two
  * channels become two mono feeds for a Y-cable: the left carries the scene alone, the right the
  * scene and the voices — a room that hears the forest without the talk, beside one that hears
- * the whole meeting. The realtime agents play through their own `<audio>` element, outside this
- * bus, so they stay on both sides.
+ * the whole meeting. The realtime agents play outside this bus; split, they join the voices side
+ * through {@link createVoicesSideOutput}.
  */
 export type AudioBuses = {
   /** Scene sound: the ambience bed and the beings' loops. */
@@ -75,4 +75,48 @@ export function useAudioSplit(audioContext: AudioContextRef, split: boolean): vo
     const ctx = audioContext.current;
     if (ctx) setAudioSplit(ctx, split);
   }, [audioContext, split]);
+}
+
+/** A realtime agent's track, played on the voices side of a split output. */
+export type VoicesSideOutput = {
+  setMuted: (muted: boolean) => void;
+  /** Resume after the browser's autoplay policy held the context back. */
+  resume: () => void;
+  dispose: () => void;
+};
+
+/**
+ * Play a realtime agent's track on the voices side only.
+ *
+ * On a context of its own rather than the shared bus: the shared bus is suspended while a
+ * meeting is paused, and an agent may be talking just then. The track's `<audio>` element has
+ * to keep playing, muted — Chrome feeds a remote WebRTC track to Web Audio only while a media
+ * element plays it too.
+ */
+export function createVoicesSideOutput(track: MediaStreamTrack): VoicesSideOutput {
+  const ctx = createAudioContext();
+  const source = ctx.createMediaStreamSource(new MediaStream([track]));
+  const gain = ctx.createGain();
+  const merger = ctx.createChannelMerger(2);
+  source.connect(gain);
+  gain.connect(merger, 0, RIGHT);
+  merger.connect(ctx.destination);
+
+  const resume = () => {
+    if (ctx.state === "suspended") void ctx.resume().catch(() => {});
+  };
+  resume();
+
+  return {
+    setMuted: (muted) => {
+      gain.gain.value = muted ? 0 : 1;
+    },
+    resume,
+    dispose: () => {
+      source.disconnect();
+      gain.disconnect();
+      merger.disconnect();
+      if (ctx.state !== "closed") void ctx.close().catch(() => {});
+    },
+  };
 }

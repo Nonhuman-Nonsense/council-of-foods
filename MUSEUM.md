@@ -418,8 +418,8 @@ Turn on **Split audio** on the staff page to feed two places from the Mac's one 
 The output's two channels become two mono feeds: the **left** carries the scene alone (the
 ambience and the beings' sounds), the **right** the full mix, voices included. A Y-cable from
 the headphone jack (3.5 mm stereo to 2× mono, RCA or 6.35 mm) takes each side to its own amp
-or speaker. The setup and meeting agents' voices play on both sides. The switch takes effect at
-once, without a reload; off, the output is the usual stereo mix.
+or speaker. The setup and meeting agents speak on the right too, with the council. The switch
+takes effect at once, without a reload; off, the output is the usual stereo mix.
 
 - Each side is mono. A mono plug into a stereo headphone amp plays in one ear only, so give
   headphones an amp with a mono input, or a mono-to-both-ears adapter.

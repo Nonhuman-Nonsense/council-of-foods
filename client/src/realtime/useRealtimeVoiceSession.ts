@@ -41,7 +41,8 @@ import {
 } from "@realtime/realtimeAudioMonitor";
 import { getLogPageId } from "@/logging/serverLogSink";
 import { log, summarizeLogPayload } from "@/logger";
-import { getVenueId } from "@/settings/councilSettings";
+import { getVenueId, useCouncilSettings } from "@/settings/councilSettings";
+import { createVoicesSideOutput, type VoicesSideOutput } from "@/audio/audioRouting";
 import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
 
 /**
@@ -358,6 +359,9 @@ export function useRealtimeVoiceSession(
   /** Agent-output mute state, kept outside the element so reconnects preserve it. */
   const agentOutputMutedRef = useRef(false);
   const remoteAudioAnchorRef = useRef<RemoteAudioAnchor | null>(null);
+  const remoteTrackRef = useRef<MediaStreamTrack | null>(null);
+  /** The agent on the voices side of a split output; the element then plays muted. */
+  const voicesSideRef = useRef<VoicesSideOutput | null>(null);
   /** A play() the browser refused; a later gesture retries it. */
   const audioBlockedRef = useRef(false);
   const audibleRef = useRef(audible);
@@ -408,6 +412,44 @@ export function useRealtimeVoiceSession(
   useEffect(() => {
     audioElementRef.current = audioElement;
   }, [audioElement]);
+
+  const { splitAudioEnabled } = useCouncilSettings();
+  const splitAudioRef = useRef(splitAudioEnabled);
+
+  /**
+   * Send the agent where the output wants it: straight from its element, or — on a split
+   * output — onto the voices side, with the element kept playing muted. Called whenever the
+   * track, the split or the agent's mute changes.
+   */
+  const applyAudioRoute = useCallback(() => {
+    const el = remoteAudioRef.current;
+    const track = remoteTrackRef.current;
+    if (!el || !track) return;
+
+    if (splitAudioRef.current && !voicesSideRef.current) {
+      try {
+        voicesSideRef.current = createVoicesSideOutput(track);
+      } catch (err) {
+        // Better on both sides than silent.
+        log.event("ERROR", "realtime voices-side output failed; playing on both sides", {
+          feature,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else if (!splitAudioRef.current && voicesSideRef.current) {
+      voicesSideRef.current.dispose();
+      voicesSideRef.current = null;
+    }
+
+    const side = voicesSideRef.current;
+    side?.setMuted(agentOutputMutedRef.current);
+    el.muted = side ? true : agentOutputMutedRef.current;
+  }, [feature]);
+
+  useEffect(() => {
+    splitAudioRef.current = splitAudioEnabled;
+    applyAudioRoute();
+  }, [splitAudioEnabled, applyAudioRoute]);
 
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -468,6 +510,9 @@ export function useRealtimeVoiceSession(
     audioMonitorRef.current = null;
     remoteAudioAnchorRef.current?.dispose();
     remoteAudioAnchorRef.current = null;
+    voicesSideRef.current?.dispose();
+    voicesSideRef.current = null;
+    remoteTrackRef.current = null;
     connectionRef.current?.close();
     connectionRef.current = null;
     const ownedAudio = remoteAudioRef.current;
@@ -1011,8 +1056,12 @@ export function useRealtimeVoiceSession(
         signal: controller.signal,
         onRemoteTrack: (track) => {
           if (isStale()) { try { track.stop(); } catch { /* ignore */ } return; }
+          voicesSideRef.current?.dispose();
+          voicesSideRef.current = null;
+          remoteTrackRef.current = track;
           const el = attachRemoteAudio(track, audioElementRef.current ?? null, agentOutputMutedRef.current);
           remoteAudioRef.current = el;
+          applyAudioRoute();
           playRemoteAudio();
           try {
             remoteAudioAnchorRef.current?.dispose();
@@ -1204,6 +1253,7 @@ export function useRealtimeVoiceSession(
     cleanup,
     scheduleRetry,
     markSessionLive,
+    applyAudioRoute,
   ]);
 
   // Keep startRef current so retry timers always call the latest start.
@@ -1297,6 +1347,7 @@ export function useRealtimeVoiceSession(
     const el = remoteAudioRef.current;
     if (!el) return;
     remoteAudioAnchorRef.current?.resume();
+    voicesSideRef.current?.resume();
     void el
       .play()
       .then(() => {
@@ -1332,6 +1383,7 @@ export function useRealtimeVoiceSession(
   useEffect(() => {
     const retry = (): void => {
       if (audioBlockedRef.current) playRemoteAudio();
+      else voicesSideRef.current?.resume();
     };
     window.addEventListener("pointerdown", retry);
     window.addEventListener("keydown", retry);
@@ -1348,10 +1400,7 @@ export function useRealtimeVoiceSession(
       log.flat("REALTIME", muted ? "agent output muted" : "agent output unmuted", { feature });
     }
     agentOutputMutedRef.current = muted;
-    const el = remoteAudioRef.current;
-    if (el) {
-      el.muted = muted;
-    }
+    applyAudioRoute();
     if (muted) {
       // The playback clock keeps running, and without this the next sentence
       // boundary would put a caption back while muted.
@@ -1365,7 +1414,7 @@ export function useRealtimeVoiceSession(
       }
       eventLoopRef.current?.cancelActiveResponse();
     }
-  }, [feature]);
+  }, [feature, applyAudioRoute]);
 
   const sendUserMessage = useCallback((text: string) => {
     eventLoopRef.current?.sendUserMessage(text);

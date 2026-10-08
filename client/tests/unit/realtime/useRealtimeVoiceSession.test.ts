@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import {
   CAPACITY_MIN_RETRIES,
@@ -6,11 +6,13 @@ import {
   retryBudgetFor,
   useRealtimeVoiceSession,
 } from "@realtime/useRealtimeVoiceSession";
+import { setSplitAudioEnabled } from "@/settings/councilSettings";
 
 const mockCreateEventLoop = vi.hoisted(() => vi.fn());
 const mockFetchRealtimeBootstrap = vi.hoisted(() => vi.fn());
 const mockCreateRealtimeConnection = vi.hoisted(() => vi.fn());
 const mockCreateRemoteAudioAnchor = vi.hoisted(() => vi.fn());
+const mockCreateVoicesSideOutput = vi.hoisted(() => vi.fn());
 
 let eventLoopCallbacks: {
   onCaption?: (text: string | null) => void;
@@ -99,6 +101,11 @@ vi.mock("@realtime/remoteAudioAnchor", () => ({
     mockOnArmed = options.onArmed;
     return mockCreateRemoteAudioAnchor(options);
   },
+}));
+
+vi.mock("@/audio/audioRouting", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/audio/audioRouting")>()),
+  createVoicesSideOutput: mockCreateVoicesSideOutput,
 }));
 
 const defaultParams = {
@@ -1351,6 +1358,59 @@ describe("useRealtimeVoiceSession", () => {
       expect.any(Object),
       { triggerGreetingOnReady: false },
     );
+  });
+});
+
+describe("on a split audio output", () => {
+  function voicesSide() {
+    return { setMuted: vi.fn(), resume: vi.fn(), dispose: vi.fn() };
+  }
+
+  async function connectWithElement() {
+    const el = document.createElement("audio");
+    el.play = vi.fn().mockResolvedValue(undefined);
+    mockConnectionWithRemoteTrack();
+    const hook = renderHook(() => useRealtimeVoiceSession({ ...defaultParams, audioElement: el }));
+    await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+    return { el, ...hook };
+  }
+
+  beforeEach(() => {
+    mockCreateVoicesSideOutput.mockImplementation(voicesSide);
+    setSplitAudioEnabled(true);
+  });
+
+  afterEach(() => {
+    setSplitAudioEnabled(false);
+  });
+
+  it("plays the agent on the voices side, keeping its element playing muted", async () => {
+    const { el } = await connectWithElement();
+
+    await waitFor(() => expect(mockCreateVoicesSideOutput).toHaveBeenCalledTimes(1));
+    expect(el.muted).toBe(true);
+    expect(el.play).toHaveBeenCalled();
+  });
+
+  it("mutes the agent on the voices side", async () => {
+    const { result } = await connectWithElement();
+    await waitFor(() => expect(mockCreateVoicesSideOutput).toHaveBeenCalled());
+    const side = mockCreateVoicesSideOutput.mock.results[0].value;
+
+    act(() => result.current.setAgentOutputMuted(true));
+
+    expect(side.setMuted).toHaveBeenLastCalledWith(true);
+  });
+
+  it("gives the agent back to its element when the split is switched off", async () => {
+    const { el } = await connectWithElement();
+    await waitFor(() => expect(mockCreateVoicesSideOutput).toHaveBeenCalled());
+    const side = mockCreateVoicesSideOutput.mock.results[0].value;
+
+    act(() => setSplitAudioEnabled(false));
+
+    await waitFor(() => expect(side.dispose).toHaveBeenCalled());
+    expect(el.muted).toBe(false);
   });
 });
 

@@ -1,11 +1,12 @@
-import { describe, it, expect } from "vitest";
-import { audioBusesFor, setAudioSplit } from "@/audio/audioRouting";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import { audioBusesFor, createVoicesSideOutput, setAudioSplit } from "@/audio/audioRouting";
 
 type Edge = { to: FakeNode; input: number };
 
 /** Just enough of a Web Audio graph to follow where a node's sound ends up. */
 class FakeNode {
   edges: Edge[] = [];
+  gain = { value: 1 };
   constructor(readonly kind: "gain" | "merger" | "destination") {}
   connect(to: FakeNode, _output = 0, input = 0) {
     this.edges.push({ to, input });
@@ -78,5 +79,59 @@ describe("audio routing", () => {
   it("gives every caller on one context the same buses", () => {
     const { ctx } = fakeContext();
     expect(audioBusesFor(ctx)).toBe(audioBusesFor(ctx));
+  });
+});
+
+describe("a realtime agent on the voices side", () => {
+  /** The context `createVoicesSideOutput` makes for itself, with the track's source node. */
+  let made: { destination: FakeNode; source: FakeNode; gains: FakeNode[] };
+
+  function stubAudioContext() {
+    vi.stubGlobal(
+      "AudioContext",
+      class {
+        state = "running";
+        destination = new FakeNode("destination");
+        constructor() {
+          made = { destination: this.destination, source: new FakeNode("gain"), gains: [] };
+        }
+        createMediaStreamSource() {
+          return made.source;
+        }
+        createGain() {
+          const gain = new FakeNode("gain");
+          made.gains.push(gain);
+          return gain;
+        }
+        createChannelMerger() {
+          return new FakeNode("merger");
+        }
+        close() {
+          return Promise.resolve();
+        }
+      },
+    );
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reaches the right side only", () => {
+    stubAudioContext();
+    createVoicesSideOutput({} as MediaStreamTrack);
+
+    expect(sidesReached(made.source as unknown as AudioNode, made.destination)).toBe("R");
+  });
+
+  it("goes silent when the agent is muted, and comes back", () => {
+    stubAudioContext();
+    const output = createVoicesSideOutput({} as MediaStreamTrack);
+
+    output.setMuted(true);
+    expect(made.gains.map((g) => g.gain.value)).toEqual([0]);
+
+    output.setMuted(false);
+    expect(made.gains.map((g) => g.gain.value)).toEqual([1]);
   });
 });
