@@ -31,7 +31,7 @@ import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 import { describePrinterReason } from "@shared/printerReasons";
 import { fetchVenues, type Venue } from "@api/venues";
-import { getLogPageId, getServerLogStatus } from "@/logging/serverLogSink";
+import { getServerLogStatus } from "@/logging/serverLogSink";
 import { useFocusTrap } from "./useFocusTrap";
 import {
   chooseAlertVenue,
@@ -533,41 +533,24 @@ function StaffDivider(): ReactElement {
 }
 
 /** On/off for a feature, lit like the other staff toggles while on. */
-/** Polls the server log sink, so staff can see the log really is arriving. */
-function ServerLogStatusNote(): ReactElement {
+/** Says so when the log is not reaching the server; silent while it is. */
+function ServerLogFailureNote(): ReactElement | null {
   const { t } = useTranslation();
-  const [{ status, now }, setSnapshot] = useState(() => ({ status: getServerLogStatus(), now: Date.now() }));
+  const [status, setStatus] = useState(getServerLogStatus);
   useEffect(() => {
-    const id = window.setInterval(() => setSnapshot({ status: getServerLogStatus(), now: Date.now() }), 1000);
+    const id = window.setInterval(() => setStatus(getServerLogStatus()), 1000);
     return () => window.clearInterval(id);
   }, []);
 
-  if (status.failure) {
-    return (
-      <StaffRowNote testId="staff-server-log-status" tone="error">
-        {t("staff.logging.server.failing", { failure: status.failure, pending: status.pending })}
-      </StaffRowNote>
-    );
-  }
+  if (!status.failure) return null;
   return (
-    <StaffRowNote testId="staff-server-log-status">
-      {status.lastSentAt == null
-        ? t("staff.logging.server.waiting", { pageId: getLogPageId() })
-        : t("staff.logging.server.sending", {
-            seconds: Math.max(0, Math.round((now - status.lastSentAt) / 1000)),
-            sentLines: status.sentLines,
-            pageId: getLogPageId(),
-          })}
+    <StaffRowNote testId="staff-server-log-status" tone="error" indent={false}>
+      {t("staff.logging.server.failing", { failure: status.failure, pending: status.pending })}
     </StaffRowNote>
   );
 }
 
-function StaffToggle(props: {
-  on: boolean;
-  onChange: (on: boolean) => void;
-  testId: string;
-  disabled?: boolean;
-}): ReactElement {
+function StaffToggle(props: { on: boolean; onChange: (on: boolean) => void; testId: string }): ReactElement {
   const { t } = useTranslation();
   return (
     <button
@@ -575,9 +558,8 @@ function StaffToggle(props: {
       data-testid={props.testId}
       className={props.on ? "control" : ""}
       aria-pressed={props.on}
-      disabled={props.disabled}
       onClick={() => props.onChange(!props.on)}
-      style={{ ...ledPreviewToggleStyle(props.on), minWidth: 64, opacity: props.disabled ? 0.4 : 1 }}
+      style={{ ...ledPreviewToggleStyle(props.on), minWidth: 64 }}
     >
       {props.on ? t("staff.toggle.on") : t("staff.toggle.off")}
     </button>
@@ -1213,41 +1195,46 @@ function Staff(): ReactElement {
           ) : null}
         </StaffPanel>
 
-        <StaffPanel title={t("staff.panels.logging")} testId="staff-logging-panel">
-            <StaffSegmented testId="staff-logging-master">
-              <button
-                type="button"
-                data-testid="staff-dev-log-on"
-                className={devLogEnabled ? "selected" : ""}
-                aria-pressed={devLogEnabled}
-                onClick={() => setDevLogEnabled(true)}
-                style={staffSegmentButton}
-              >
-                {t("staff.logging.on")}
-              </button>
-              <button
-                type="button"
-                data-testid="staff-dev-log-off"
-                className={!devLogEnabled ? "selected" : ""}
-                aria-pressed={!devLogEnabled}
-                onClick={() => setDevLogEnabled(false)}
-                style={staffSegmentButton}
-              >
-                {t("staff.logging.off")}
-              </button>
-            </StaffSegmented>
-
-            <StaffRow label={t("staff.logging.server.label")} title={t("staff.logging.server.hint")}>
-              <StaffToggle
-                on={serverLogEnabled}
-                onChange={setServerLogEnabled}
-                disabled={!devLogEnabled}
-                testId="staff-server-log-toggle"
-              />
-            </StaffRow>
-            {serverLogEnabled && devLogEnabled ? <ServerLogStatusNote /> : null}
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <StaffPanel title={t("staff.panels.logging")} fullWidth compact testId="staff-logging-panel">
+          {/* One row of switches, the categories under it. */}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ flex: "0 1 220px" }}>
+              <StaffSegmented testId="staff-logging-master">
+                <button
+                  type="button"
+                  data-testid="staff-dev-log-on"
+                  className={devLogEnabled ? "selected" : ""}
+                  aria-pressed={devLogEnabled}
+                  onClick={() => setDevLogEnabled(true)}
+                  style={staffSegmentButton}
+                >
+                  {t("staff.logging.on")}
+                </button>
+                <button
+                  type="button"
+                  data-testid="staff-dev-log-off"
+                  className={!devLogEnabled ? "selected" : ""}
+                  aria-pressed={!devLogEnabled}
+                  onClick={() => setDevLogEnabled(false)}
+                  style={staffSegmentButton}
+                >
+                  {t("staff.logging.off")}
+                </button>
+              </StaffSegmented>
+            </div>
+            <button
+              type="button"
+              data-testid="staff-server-log-toggle"
+              className={serverLogEnabled ? "control" : ""}
+              aria-pressed={serverLogEnabled}
+              disabled={!devLogEnabled}
+              title={t("staff.logging.server.hint")}
+              onClick={() => setServerLogEnabled(!serverLogEnabled)}
+              style={{ ...ledPreviewToggleStyle(serverLogEnabled), opacity: devLogEnabled ? 1 : 0.4 }}
+            >
+              {t("staff.logging.server.label")}
+            </button>
+            <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
               <button
                 type="button"
                 data-testid="staff-dev-log-all"
@@ -1273,36 +1260,37 @@ function Staff(): ReactElement {
                 {t("staff.logging.none")}
               </button>
             </div>
-
-            <div
-              role="group"
-              aria-label={t("staff.logging.categoriesLabel")}
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-              }}
-            >
-              {DEV_LOG_CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  data-testid={`staff-dev-log-category-${category}`}
-                  aria-pressed={devLogCategories[category]}
-                  disabled={!devLogEnabled}
-                  onClick={() =>
-                    setDevLogCategoryEnabled(category, !devLogCategories[category])
-                  }
-                  style={logCategoryPillStyle(
-                    category,
-                    devLogCategories[category],
-                    devLogEnabled,
-                  )}
-                >
-                  {t(`staff.logging.categories.${category}`)}
-                </button>
-              ))}
-            </div>
+          </div>
+          {serverLogEnabled && devLogEnabled ? <ServerLogFailureNote /> : null}
+          <div
+            role="group"
+            aria-label={t("staff.logging.categoriesLabel")}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+            }}
+          >
+            {DEV_LOG_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                data-testid={`staff-dev-log-category-${category}`}
+                aria-pressed={devLogCategories[category]}
+                disabled={!devLogEnabled}
+                onClick={() =>
+                  setDevLogCategoryEnabled(category, !devLogCategories[category])
+                }
+                style={logCategoryPillStyle(
+                  category,
+                  devLogCategories[category],
+                  devLogEnabled,
+                )}
+              >
+                {t(`staff.logging.categories.${category}`)}
+              </button>
+            ))}
+          </div>
           </StaffPanel>
       </div>
     </div>
