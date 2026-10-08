@@ -314,6 +314,19 @@ decides **who** and sends the email (see `server/README.md`). Nothing here holds
 In development it works the same way: open `#staff` on the local client (`http://localhost:5173`,
 which passes `/api` on to the local server) and paste `COUNCIL_INSTALLATION_KEY` from `server/.env`.
 
+### Network samples
+
+`src/networkMonitor.ts` samples the Mac's network every minute, once the installation key and
+venue are set: `route -n get default` for the router and interface, 5 pings each to the
+router and to `BRIDGE_NETWORK_INTERNET_HOST` (default `1.1.1.1`), one timed
+`GET /api/installation/venues`, `netstat -I` error counters (as a difference from the
+previous sample) and the link from `ifconfig`. Samples go to `/api/installation/network`, at
+most 200 per request. While the server can't be reached they are kept in memory, a day at
+most; a restart loses them. Samples the server refuses (4xx) are dropped, not retried.
+
+The server stores them and reports outages to errorbot; see
+[MUSEUM.md](../../MUSEUM.md#network-log).
+
 ### Developing without a printer
 
 `npm run dev:mock` also runs the mock printer: "printed" PDFs are copied to

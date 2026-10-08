@@ -3,7 +3,7 @@ import { beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import {
     initDb, closeDb, meetingsCollection, audioCollection, counters,
     roomPowerCollection, roomPowerHoursCollection, lettersCollection, letterBlocklistCollection, letterRepliesCollection,
-    clientLogCollection,
+    clientLogCollection, networkSamplesCollection,
 } from '@services/DbService.js';
 import { TEST_MODES } from '@interfaces/TestModes.js';
 
@@ -66,7 +66,7 @@ beforeEach(async () => {
     }
     // Test files share a worker's database: what one leaves (a room power reading, a letter)
     // must not reach the next — the meter once read another file's plug.
-    for (const collection of [roomPowerCollection, roomPowerHoursCollection, lettersCollection, letterBlocklistCollection, letterRepliesCollection, clientLogCollection]) {
+    for (const collection of [roomPowerCollection, roomPowerHoursCollection, lettersCollection, letterBlocklistCollection, letterRepliesCollection, clientLogCollection, networkSamplesCollection]) {
         if (collection) await collection.deleteMany({});
     }
 });

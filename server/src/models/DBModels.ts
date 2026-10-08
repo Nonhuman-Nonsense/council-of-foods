@@ -4,6 +4,7 @@ import type { Document } from "mongodb";
 import type { LetterForm } from '@logic/letters/prompts/letterPrompts.js';
 import type { HumanHandling } from '@logic/letters/prompts/humanSorting.js';
 import type { ClientLogLine } from "@shared/ClientLogTypes.js";
+import type { NetworkSample } from "@shared/networkSamples.js";
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.
@@ -135,6 +136,17 @@ export interface StoredClientLogBatch extends Document {
     setupIds: string[];
     meetingIds: number[];
     lines: ClientLogLine[];
+}
+
+/**
+ * One minute of an installation's network, as its bridge measured it
+ * (`POST /api/installation/network`). Capped: the oldest samples go first.
+ */
+export interface StoredNetworkSample extends Omit<NetworkSample, "t">, Document {
+    venueId: string;
+    host?: string;
+    t: Date;
+    receivedAt: Date;
 }
 
 /** Latest reading of one room power plug at one venue; `_id` is `<venueId>|<plug>`. */

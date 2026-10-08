@@ -298,6 +298,32 @@ Holidays and closed weeks aren't modelled. The worst case is a reminder on a clo
 **Nothing is sent if the Mac, the bridge or the internet is down.** Staff notice
 that by the black screens (see section 7).
 
+### Network log
+
+Once the installation key and venue are set (see above), the bridge measures the Mac's
+network every minute and sends it to the council server: 5 pings to the router and to the
+internet (1.1.1.1), how long one request to the council server takes, the network
+interface's error counters and its link speed. While the internet is down the samples wait
+on the Mac (up to a day) and go up together once it is back.
+
+When they show the internet gone for 2 minutes or more, errorbot hears about it afterwards,
+with how long it lasted and whether the router still answered. If it did, the problem is
+the venue's internet connection. If it didn't, it's the local network: cable, switch or
+router.
+
+Read it back from `server/`:
+
+```
+npm run network -- --venue havremagasinet               # the last 24 hours, by the hour
+npm run network -- --venue havremagasinet --since 7d
+npm run network -- --venue havremagasinet --since 2h --minutes
+```
+
+Slow or lossy pings to the **internet** while the router answers well point at the
+connection or a congested line (visitor Wi-Fi sharing it, say). Loss or slow pings to the
+**router** point at the local network. **Interface errors**, or a link that drops from
+1000baseT to 100baseTX or goes `inactive`, point at the cable or the port.
+
 ### Venue and footprint meter
 
 **Venue** (Installation panel) is where this installation runs, chosen from the

@@ -6,6 +6,7 @@ import { getSender, isMailConfigured, sendEmail } from "@services/MailService.js
 import { sendReport } from "@utils/errorbot.js";
 import { describePrinterReason } from "@shared/printerReasons.js";
 import { requireInstallationKey } from "./installationKey.js";
+import { handleNetworkSamples } from "./networkSamples.js";
 import { PrinterAlertBody, buildPrinterAlertEmail } from "./printerAlerts.js";
 
 /**
@@ -45,6 +46,10 @@ export function registerInstallationRoutes(app: Express): void {
                 openingHours: venue.openingHours,
             })),
         });
+    });
+
+    app.post("/api/installation/network", requireInstallationKey, (req: Request, res: Response) => {
+        void handleNetworkSamples(req, res);
     });
 
     app.post("/api/installation/printer-alerts", requireInstallationKey, async (req: Request, res: Response) => {

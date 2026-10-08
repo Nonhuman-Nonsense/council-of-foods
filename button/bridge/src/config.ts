@@ -32,6 +32,10 @@ export type BridgeConfig = {
   alertRetryBaseMs: number;
   alertRetryMaxMs: number;
   alertTestIntervalMs: number;
+  /** How often the network is sampled for the council server (needs the installation key and a venue). */
+  networkSampleMs: number;
+  /** Pinged to tell the internet from the council server. */
+  networkInternetHost: string;
   /** Shut the Mac down when its power button is pressed (macOS, bridge running as root). */
   powerButtonShutdown: boolean;
 };
@@ -89,6 +93,8 @@ export function loadConfig(): BridgeConfig {
     alertRetryBaseMs: 30_000,
     alertRetryMaxMs: 10 * 60_000,
     alertTestIntervalMs: 60_000,
+    networkSampleMs: 60_000,
+    networkInternetHost: readOptionalString(process.env.BRIDGE_NETWORK_INTERNET_HOST) ?? "1.1.1.1",
     powerButtonShutdown: readBool(process.env.BRIDGE_POWER_BUTTON_SHUTDOWN),
   };
 }

@@ -1,3 +1,4 @@
+import type { NetworkSampleBatch } from "../../../shared/networkSamples.js";
 import type { OpeningHours } from "./openingHours.js";
 
 /** A venue as the council server lists it for bridges; recipients come masked. */
@@ -64,6 +65,10 @@ export class ServerClient {
 
   async sendPrinterAlert(alert: PrinterAlertPayload): Promise<void> {
     await this.request("POST", "/api/installation/printer-alerts", alert);
+  }
+
+  async sendNetworkSamples(batch: NetworkSampleBatch): Promise<void> {
+    await this.request("POST", "/api/installation/network", batch);
   }
 
   async getLetterReplies(venueId: string): Promise<LetterReplyToPrint[]> {

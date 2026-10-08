@@ -158,6 +158,12 @@ export class AlertMonitor {
     console.log(`[button-bridge/alerts] installation key saved for ${server.getBaseUrl()}`);
   }
 
+  /** The council server and chosen venue, once staff have set both on #staff. */
+  target(): { server: ServerClient; venueId: string } | null {
+    const venue = this.saved.venue;
+    return this.server && venue ? { server: this.server, venueId: venue.id } : null;
+  }
+
   async listVenues(origin?: string): Promise<{ venues: Venue[]; current: string | null }> {
     const venues = await this.requireServer(origin).getVenues();
     return { venues, current: this.saved.venue?.id ?? null };

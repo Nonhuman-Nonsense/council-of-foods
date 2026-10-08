@@ -41,6 +41,7 @@ An installation's devices — the bridge on the museum Mac and the room power pl
 - `GET /api/installation/venues` lists `COUNCIL_VENUES`, with addresses masked, so the bridge can check a venue the staff page hands it.
 - `POST /api/installation/printer-alerts` emails a printer problem, reminder or test to the chosen venue's `alertEmails`, and sends a copy to ErrorBot. A recovery goes to ErrorBot only. It's rate-limited to 12 per venue per hour.
 - `POST /api/installation/room-power`: see [Footprint meter](#footprint-meter).
+- `POST /api/installation/network` stores the bridge's once-a-minute network samples (capped `network_samples` collection, 64 MB) and reports to ErrorBot when they show an internet outage of 2+ minutes. Read them with `npm run network -- --venue <id>`; see [MUSEUM.md](../MUSEUM.md#network-log).
 
 Recipients only ever come from `COUNCIL_VENUES`, so the key can't be used to email anyone else. Venues are a JSON array (see `example.env`) and are validated at startup.
 
