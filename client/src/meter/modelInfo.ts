@@ -5,9 +5,9 @@ import type { EcologitsModel } from "@shared/footprint/ecologits";
 
 export const MODEL_ROLES: Record<string, string> = {
   "inworld|mistral/mistral-large-3": "Writes what the council members say",
-  "inworld|google-ai-studio/gemini-2.5-flash": "Thinks for the chair and the guide, and picks who speaks next",
+  "inworld|google-ai-studio/gemini-2.5-flash": "Picks who speaks next",
   "inworld|anthropic/claude-opus-5-5": "Writes the council's letters",
-  "inworld|anthropic/claude-sonnet-5-5": "Weaves the human's words into the letters",
+  "inworld|anthropic/claude-sonnet-5-5": "Thinks for the chair and the guide, and weaves the human's words into the letters",
   "inworld|inworld-tts-1.5-max": "Gives the council its voices",
   "inworld|inworld-tts-1.5-mini": "Gives the council its voices",
   "inworld|inworld-tts-2": "Gives the council its voices",

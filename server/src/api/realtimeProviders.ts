@@ -4,6 +4,7 @@ import {
     getChairRealtimeLanguageConfig,
     getHumanInputRealtimeLanguageConfig,
     normalizeSetupLanguage,
+    type ChairRealtimeLanguageConfig,
     type ChairVoiceProfile,
 } from "@logic/characterSetupBundle.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
@@ -30,10 +31,11 @@ function buildInworldChairRealtimeSession(params: {
     language: string;
     voice: ChairVoiceProfile;
     llmModel: string;
+    reasoning?: ChairRealtimeLanguageConfig["reasoning"];
     ttsModel: string;
     transcriptionModel: string;
 }): Record<string, unknown> {
-    const { language, voice, llmModel, ttsModel, transcriptionModel } = params;
+    const { language, voice, llmModel, reasoning, ttsModel, transcriptionModel } = params;
     const normalizedLanguage = normalizeSetupLanguage(language);
     const ttsLanguage = voice.voiceLocale?.trim() || (normalizedLanguage !== "en" ? normalizedLanguage : undefined);
 
@@ -56,6 +58,9 @@ function buildInworldChairRealtimeSession(params: {
             },
         },
     };
+    if (reasoning) {
+        session.text_generation_config = { reasoning: { effort: reasoning.toUpperCase() } };
+    }
 
     const ttsProviderData: Record<string, unknown> = {
         timestamp_type: "WORD",
@@ -81,6 +86,7 @@ export function buildChairRealtimeSessionFragment(language: string): Record<stri
         language: normalizedLanguage,
         voice,
         llmModel: languageConfig.llmModel,
+        reasoning: languageConfig.reasoning,
         ttsModel,
         transcriptionModel: languageConfig.transcriptionModel,
     });

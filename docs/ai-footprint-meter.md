@@ -62,7 +62,7 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 | Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Voices (`tts`) | `AudioSystem`, per freshly generated chunk | Inworld `inworld-tts-1.5-max` / `inworld-tts-2`; ElevenLabs `eleven_flash_v2_5` (forest); OpenAI `gpt-4o-mini-tts` (unused) | `characters`, `audio_seconds`; ElevenLabs also `region` from its `x-region` header |
 | Whisper timing fallback (`subtitle-timing`) | `AudioSystem` | `whisper-1` | `audio_seconds` |
-| Setup agent, meta agent | browser ↔ Inworld realtime; the client posts each `response.done` usage to `POST /api/usage/realtime` | `gemini-2.5-flash` + Inworld TTS + the session's transcription model | one event per part: LLM tokens, TTS characters + audio seconds, STT audio seconds |
+| Setup agent, meta agent | browser ↔ Inworld realtime; the client posts each `response.done` usage to `POST /api/usage/realtime` | `chairRealtime` LLM (`anthropic/claude-sonnet-5-5`) + Inworld TTS + the session's transcription model | one event per part: LLM tokens, TTS characters + audio seconds, STT audio seconds |
 | Human input | same route; the client times how long the microphone is open (`createMicTimeCounter`) and posts it as an `stt` part every 15 s while open and on closing | the session's transcription model (`soniox/stt-rt-v4`, `inworld/inworld-stt-1`) | `audio_seconds` |
 
   Human input is a transcription-only session (`create_response: false`): it never creates a

@@ -23,6 +23,8 @@ export const ChairVoiceProfileSchema = z.object({
 export const ChairRealtimeLanguageConfigSchema = z.object({
     provider: z.enum(["inworld"]),
     llmModel: z.string(),
+    /** Left out, the model's own default applies — for a thinking model, a pause before every reply. */
+    reasoning: ConversationReasoningSchema.optional(),
     ttsModel: z.string().optional(),
     transcriptionModel: z.string(),
     agentVoice: ChairVoiceProfileSchema.nullable().optional(),

@@ -74,14 +74,16 @@
     "languages": {
       "en": {
         "provider": "inworld",
-        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "llmModel": "anthropic/claude-sonnet-5-5",
+        "reasoning": "none",
         "ttsModel": "inworld-tts-1.5-max",
         "transcriptionModel": "soniox/stt-rt-v4",
         "agentVoice": null
       },
       "sv": {
         "provider": "inworld",
-        "llmModel": "google-ai-studio/gemini-2.5-flash",
+        "llmModel": "anthropic/claude-sonnet-5-5",
+        "reasoning": "none",
         "ttsModel": "inworld-tts-2",
         "transcriptionModel": "soniox/stt-rt-v4",
         "agentVoice": null
