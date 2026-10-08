@@ -153,6 +153,11 @@ so press it once after every update.
 Open `https://<your-origin>/#staff` on the install machine (bookmark it for
 field staff). Settings persist in `localStorage` on that browser profile.
 
+In **Museum** and **Presenter** mode, a keyboard reaches it without a mouse: **Cmd+S**
+(Ctrl+S off the Mac) opens it, **Tab** moves between controls, **Enter** presses one, and
+**Esc** closes the page. Space is not a click here — it stands in for the talk button,
+so staff can test a press. In Web mode the shortcut is off; open `#staff` by URL.
+
 ### Installation mode
 
 | Mode | Use |

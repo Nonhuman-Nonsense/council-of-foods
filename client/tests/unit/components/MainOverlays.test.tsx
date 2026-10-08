@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import MainOverlays from '@main/overlay/MainOverlays';
 import type { ReactNode } from 'react';
 import '@testing-library/jest-dom';
 import routes from '@/routes.json';
 import { MockFactory } from '../factories/MockFactory';
+import { setAppMode, type AppMode } from '@/settings/councilSettings';
 
 // Mock dependencies
 vi.mock('react-i18next', () => ({
@@ -56,6 +57,7 @@ describe('MainOverlays', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        localStorage.clear();
         mockLocation.hash = '';
         mockLocation.pathname = '/';
     });
@@ -123,6 +125,45 @@ describe('MainOverlays', () => {
         render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
 
         expect(screen.getByTestId('reset-overlay')).toBeInTheDocument();
+    });
+
+    it.each([
+        { hash: '#about', closes: true },
+        { hash: '#contact', closes: true },
+        { hash: '#staff', closes: true },
+        { hash: '#reset', closes: true },
+        { hash: '#warning', closes: true },
+        { hash: '#settings', closes: false },
+    ])('Escape on $hash closes it: $closes', ({ hash, closes }) => {
+        mockLocation.hash = hash;
+        mockLocation.pathname = `/${routes.meeting}/123`;
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        fireEvent.keyDown(window, { key: 'Escape' });
+        if (closes) {
+            expect(mockNavigate).toHaveBeenCalledWith({ hash: "" });
+            expect(mockOnCloseOverlay).toHaveBeenCalled();
+        } else {
+            expect(mockNavigate).not.toHaveBeenCalled();
+        }
+    });
+
+    it.each<{ mode: AppMode; key: { metaKey?: boolean; ctrlKey?: boolean }; opens: boolean }>([
+        { mode: 'museum', key: { metaKey: true }, opens: true },
+        { mode: 'presenter', key: { metaKey: true }, opens: true },
+        { mode: 'museum', key: { ctrlKey: true }, opens: true },
+        { mode: 'web', key: { metaKey: true }, opens: false },
+    ])('save shortcut in $mode opens the staff page: $opens', ({ mode, key, opens }) => {
+        setAppMode(mode);
+        render(<MainOverlays topic={topic} onReset={mockOnReset} onCloseOverlay={mockOnCloseOverlay} />);
+        const event = new KeyboardEvent('keydown', { code: 'KeyS', key: 's', cancelable: true, ...key });
+        window.dispatchEvent(event);
+        if (opens) {
+            expect(mockNavigate).toHaveBeenCalledWith({ hash: '#staff' });
+        } else {
+            expect(mockNavigate).not.toHaveBeenCalled();
+        }
+        // Where it opens staff, the browser's own save dialog must not appear; on the web it must.
+        expect(event.defaultPrevented).toBe(opens);
     });
 
     it('removes overlay if hash is invalid', () => {

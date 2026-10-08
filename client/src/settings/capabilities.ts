@@ -131,6 +131,12 @@ export type Capabilities = {
    * still written and shown, marked unsent.
    */
   sendsLetters: boolean;
+  /**
+   * Cmd+S (Ctrl+S off the Mac) opens the staff page, so staff with a keyboard plugged into an
+   * installation can reach it without a mouse. On the web a visitor saving out of habit would
+   * land on it instead.
+   */
+  staffShortcut: boolean;
 };
 
 const WEB: Capabilities = {
@@ -155,6 +161,7 @@ const WEB: Capabilities = {
   printSummary: false,
   kioskHeartbeat: false,
   sendsLetters: false,
+  staffShortcut: false,
 };
 
 const MUSEUM: Capabilities = {
@@ -179,6 +186,7 @@ const MUSEUM: Capabilities = {
   printSummary: true,
   kioskHeartbeat: true,
   sendsLetters: true,
+  staffShortcut: true,
 };
 
 /**

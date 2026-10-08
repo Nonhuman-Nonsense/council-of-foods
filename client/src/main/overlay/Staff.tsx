@@ -32,6 +32,7 @@ import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 import { describePrinterReason } from "@shared/printerReasons";
 import { fetchVenues, type Venue } from "@api/venues";
 import { getLogPageId, getServerLogStatus } from "@/logging/serverLogSink";
+import { useFocusTrap } from "./useFocusTrap";
 import {
   chooseAlertVenue,
   saveInstallationKey,
@@ -322,7 +323,6 @@ const staffFieldStyle: CSSProperties = {
   border: "1.5px solid rgba(255, 255, 255, 0.55)",
   borderRadius: 19,
   padding: "2px 14px",
-  outline: "none",
 };
 
 const staffSelectStyle: CSSProperties = {
@@ -714,6 +714,10 @@ function Staff(): ReactElement {
 
   const button = useButton("staff");
 
+  // Staff at an installation may have a keyboard and no mouse.
+  const pageRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(pageRef);
+
   useEffect(() => {
     button.claim();
     return () => button.release();
@@ -813,7 +817,11 @@ function Staff(): ReactElement {
 
   return (
     <div
+      ref={pageRef}
+      tabIndex={-1}
+      className="staff-page"
       style={{
+        outline: "none",
         width: "min(96vw, 880px)",
         display: "flex",
         flexDirection: "column",
