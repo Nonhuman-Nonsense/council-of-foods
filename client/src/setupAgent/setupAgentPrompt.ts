@@ -1,5 +1,6 @@
 import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { buildEnPrompt } from "./setupAgentPromptEn";
 
 /**
@@ -32,5 +33,7 @@ const builders: Record<string, (params: SetupAgentPromptParams) => string> = {
 
 export function buildSetupAgentPrompt(params: SetupAgentPromptParams & { language: string }): string {
   const { language, ...rest } = params;
-  return (builders[language] ?? buildEnPrompt)(rest);
+  // The agent speaks as the chair, who is in every meeting — not a character to offer the visitor.
+  const characters = rest.characters.filter((character) => character.id !== CHAIR_ID);
+  return (builders[language] ?? buildEnPrompt)({ ...rest, characters });
 }

@@ -7,6 +7,7 @@ import {
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { getCapabilities } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
@@ -74,20 +75,26 @@ function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext): b
 }
 
 /**
- * Everyone currently in the council: selected foods (chair included) and
- * already-added human panelists, split the way `current_characters` reports
- * them. Matches exactly what `buildMeetingCharactersPayload` treats as the
- * uniqueness set (selected participants only) — deliberately narrower than
- * `participantNames` above, which also includes every food in the bundle
+ * A character the visitor can put on or take off the council. Not the chair:
+ * the agent speaks as the chair, who runs every meeting — and whoever is first
+ * in the selection gets the chair's prompt, so letting the agent drop it hands
+ * the meeting to another character.
+ */
+function isSelectableCharacter(character: Pick<SetupAgentCharacter, "id">): boolean {
+  return !character.id.startsWith("panelist") && character.id !== "addhuman" && character.id !== CHAIR_ID;
+}
+
+const CHAIR_ALWAYS_PRESENT = "is the chair and is always in the meeting; there is nothing to change.";
+
+/**
+ * The characters the visitor chose (not the chair) and already-added human
+ * panelists, split the way `current_characters` reports them. Narrower than
+ * `participantNames` above, which also includes every character in the bundle
  * whether selected or not.
  */
 function currentCouncilParticipants(ctx: SetupAgentToolContext): { characters: string[]; humans: string[] } {
   const store = useMeetingSetupStore.getState();
-  const councilCharIds = new Set(
-    ctx.characters
-      .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
-      .map((c) => c.id),
-  );
+  const councilCharIds = new Set(ctx.characters.filter(isSelectableCharacter).map((c) => c.id));
   const characters = store.selectedCharacters
     .filter((id) => councilCharIds.has(id))
     .map((id) => ctx.characters.find((c) => c.id === id)!.name);
@@ -123,9 +130,7 @@ export function createSetupAgentTools({
   typedSetup?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
-  const characterNames = characters
-    .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
-    .map((c) => c.name);
+  const characterNames = characters.filter(isSelectableCharacter).map((c) => c.name);
 
   const tools: RealtimeTool[] = [
     {
@@ -352,6 +357,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!name) return { ok: false, error: "Missing name" };
       const found = ctx.characters.find((c) => c.name === name);
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
+      if (found.id === CHAIR_ID) return { ok: true, data: { name: found.name, note: `${found.name} ${CHAIR_ALWAYS_PRESENT}` } };
       const success = useMeetingSetupStore.getState().handleSelectCharacterId(found.id);
       if (!success) {
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
@@ -368,6 +374,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!name) return { ok: false, error: "Missing name" };
       const found = ctx.characters.find((c) => c.name === name);
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
+      if (found.id === CHAIR_ID) return { ok: false, error: `${found.name} ${CHAIR_ALWAYS_PRESENT}` };
       useMeetingSetupStore.getState().handleDeselectCharacterId(found.id);
       useMeetingSetupStore.getState().setHoveredCharacter(null);
       syncInstallationPanelistOrder();
@@ -391,7 +398,8 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       // themselves), there's nothing to add. Checked before the limit, which
       // a re-add of the one panelist would otherwise hit with a less useful error.
       const { characters: existingCharacterNames, humans: existingHumanNames } = currentCouncilParticipants(ctx);
-      if ([...existingCharacterNames, ...existingHumanNames].includes(name)) {
+      const chairName = ctx.characters.find((c) => c.id === CHAIR_ID)?.name;
+      if ([chairName, ...existingCharacterNames, ...existingHumanNames].includes(name)) {
         return {
           ok: false,
           error: `${name} is already part of the council — no need to add them again.`,

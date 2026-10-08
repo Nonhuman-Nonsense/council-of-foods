@@ -26,3 +26,23 @@ describe("useMeetingSetupStore.resetStore", () => {
     expect(reset.hoveredCharacter).toBeNull();
   });
 });
+
+describe("useMeetingSetupStore.handleDeselectCharacterId", () => {
+  beforeEach(() => {
+    useMeetingSetupStore.getState().resetStore();
+  });
+
+  it("removes a selected character", () => {
+    const store = useMeetingSetupStore.getState();
+    store.setSelectedCharacters([CHAIR_ID, "food-a", "food-b"]);
+    store.handleDeselectCharacterId("food-a");
+    expect(useMeetingSetupStore.getState().selectedCharacters).toEqual([CHAIR_ID, "food-b"]);
+  });
+
+  it("never removes the chair", () => {
+    const store = useMeetingSetupStore.getState();
+    store.setSelectedCharacters([CHAIR_ID, "food-a"]);
+    store.handleDeselectCharacterId(CHAIR_ID);
+    expect(useMeetingSetupStore.getState().selectedCharacters).toEqual([CHAIR_ID, "food-a"]);
+  });
+});

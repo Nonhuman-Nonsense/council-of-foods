@@ -1,12 +1,14 @@
 import { createSetupAgentToolHandlers, createSetupAgentTools, SetupAgentToolContext } from '@setupAgent/setupAgentTools';
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { MAX_HUMAN_PANELISTS } from '@newMeeting/meetingSetup';
+import { CHAIR_ID } from '@/prompts/characterSetupBundles';
 
 const TOPICS = [
   { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One' },
 ];
 
 const CHARACTERS = [
+  { id: CHAIR_ID, name: 'Chair', description: 'Moderator' },
   { id: 'food1', name: 'Food One', description: 'Desc One' },
   { id: 'food2', name: 'Food Two', description: 'Desc Two' },
   { id: 'addhuman', name: 'Add Human', description: 'Add' },
@@ -38,7 +40,7 @@ describe('createSetupAgentTools', () => {
     expect(tool?.parameters?.properties?.title).toMatchObject({ type: 'string', enum: ['Topic One'] });
   });
 
-  it('builds enum of food character names (excluding panelists and addhuman) for select_character', () => {
+  it('builds enum of food character names (excluding the chair, panelists and addhuman) for select_character', () => {
     const tools = createSetupAgentTools({ ...baseToolParams, characters: CHARACTERS });
     const tool = tools.find((t) => t.name === 'select_character');
     expect(tool?.parameters?.properties?.name).toMatchObject({
@@ -276,6 +278,14 @@ describe('setupAgentTools', () => {
       expect(res).toEqual({ ok: false, error: 'Unknown character: Unknown Food' });
     });
 
+    it('leaves the chair where it is when asked to select it', async () => {
+      useMeetingSetupStore.getState().setSelectedCharacters([CHAIR_ID, 'food1']);
+      const handlers = createSetupAgentToolHandlers(ctx);
+      const res = await handlers.select_character({ name: 'Chair' });
+      expect(res).toMatchObject({ ok: true });
+      expect(useMeetingSetupStore.getState().selectedCharacters).toEqual([CHAIR_ID, 'food1']);
+    });
+
     it('returns error when maximum characters already selected', async () => {
       useMeetingSetupStore.getState().setSelectedCharacters(['f1', 'f2', 'f3', 'f4', 'f5', 'f6', 'f7']);
       const handlers = createSetupAgentToolHandlers(ctx);
@@ -295,7 +305,7 @@ describe('setupAgentTools', () => {
     beforeEach(() => { ctx.meetingStep = 'characters'; });
 
     it('deselects a character by name', async () => {
-      useMeetingSetupStore.getState().setSelectedCharacters(['CHAIR_ID', 'food1']);
+      useMeetingSetupStore.getState().setSelectedCharacters([CHAIR_ID, 'food1']);
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.deselect_character({ name: 'Food One' });
       expect(res).toEqual({ ok: true, data: { name: 'Food One' } });
@@ -313,6 +323,14 @@ describe('setupAgentTools', () => {
       const res = await handlers.deselect_character({ name: 'Ghost Food' });
       expect(res).toEqual({ ok: false, error: 'Unknown character: Ghost Food' });
     });
+
+    it('refuses to remove the chair', async () => {
+      useMeetingSetupStore.getState().setSelectedCharacters([CHAIR_ID, 'food1', 'food2']);
+      const handlers = createSetupAgentToolHandlers(ctx);
+      const res = await handlers.deselect_character({ name: 'Chair' });
+      expect(res).toMatchObject({ ok: false });
+      expect(useMeetingSetupStore.getState().selectedCharacters).toEqual([CHAIR_ID, 'food1', 'food2']);
+    });
   });
 
   describe('current_characters', () => {
@@ -325,7 +343,7 @@ describe('setupAgentTools', () => {
 
     it('returns selected character names (excluding chair and panelists)', async () => {
       ctx.meetingStep = 'characters';
-      useMeetingSetupStore.getState().setSelectedCharacters(['CHAIR_ID', 'food1', 'food2']);
+      useMeetingSetupStore.getState().setSelectedCharacters([CHAIR_ID, 'food1', 'food2']);
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.current_characters({});
       expect(res).toEqual({ ok: true, data: { characters: ['Food One', 'Food Two'], humans: [] } });
@@ -405,6 +423,17 @@ describe('setupAgentTools', () => {
         ok: false,
         error: 'Food One is already part of the council — no need to add them again.',
       });
+      expect(useMeetingSetupStore.getState().numberOfHumans).toBe(0);
+    });
+
+    it("rejects the chair's name, which the meeting would refuse at start", async () => {
+      ctx.meetingStep = 'characters';
+      useMeetingSetupStore.getState().setSelectedCharacters([CHAIR_ID, 'food1']);
+      const handlers = createSetupAgentToolHandlers(ctx);
+
+      const res = await handlers.human_panelist({ name: 'Chair', description: 'A curious visitor' });
+
+      expect(res).toMatchObject({ ok: false });
       expect(useMeetingSetupStore.getState().numberOfHumans).toBe(0);
     });
 

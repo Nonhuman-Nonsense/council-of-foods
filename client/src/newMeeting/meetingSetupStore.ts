@@ -59,6 +59,8 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
   },
 
   handleDeselectCharacterId: (characterId) => {
+    // The chair runs every meeting; it is never the visitor's to remove.
+    if (characterId === CHAIR_ID) return;
     set((state) => ({
       selectedCharacters: state.selectedCharacters.filter((id) => id !== characterId),
     }));

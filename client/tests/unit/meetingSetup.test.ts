@@ -495,6 +495,32 @@ describe("buildTopicFromSelection", () => {
     expect(topic.prompt).toContain("Only context.");
     expect(topic.prompt).not.toContain(AGENDA_POINTS_PLACEHOLDER);
   });
+
+  it("makes a custom topic's question its only agenda point", () => {
+    const topic = buildTopicFromSelection({
+      topicsBundle,
+      selectedTopicId: "customtopic",
+      customTopic: "  Who owns the wind?  ",
+    });
+
+    expect(topic.agendaPoints).toEqual(["Who owns the wind?"]);
+    expect(topic.prompt).toContain("1. Who owns the wind?");
+  });
+
+  it("opens a custom-topic meeting on the visitor's question, not the no-agenda fallback", () => {
+    const topic = buildTopicFromSelection({
+      topicsBundle,
+      selectedTopicId: "customtopic",
+      customTopic: "Who owns the wind?",
+    });
+    const result = buildCharactersPayload(topic.agendaPoints);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const chair = result.characters[0] as Character;
+    expect(chair.prompt).toContain("Agenda: 1");
+    expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_FALLBACK);
+  });
 });
 
 describe("buildMeetingCharactersPayload", () => {
@@ -558,6 +584,26 @@ describe("buildMeetingCharactersPayload", () => {
     const chair = result.characters[0] as Character;
     expect(chair.prompt).toContain(RANDOM_AGENDA_POINT_FALLBACK);
     expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_PLACEHOLDER);
+  });
+
+  it.each([
+    { case: "the chair is missing", selectedCharacters: ["food-a", "food-b"] },
+    { case: "the chair was re-added last", selectedCharacters: ["food-a", "food-b", "chair"] },
+    { case: "the chair is in the middle", selectedCharacters: ["food-a", "chair", "food-b"] },
+  ])("still gives the meeting to the chair when $case", ({ selectedCharacters }) => {
+    const result = buildMeetingCharactersPayload({
+      language: "en",
+      selectedCharacters,
+      humans: [],
+      numberOfHumans: 0,
+      labels: { formatHumanCount: (count) => `${count} humans: ` },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.characters.map((character) => character.id)).toEqual(["chair", "food-a", "food-b"]);
+    expect(result.characters[0].prompt).toContain("Welcome");
+    expect(result.characters[1].prompt).toBe("Speak as Food A.");
   });
 
   it("allows museum panelists without descriptions", () => {

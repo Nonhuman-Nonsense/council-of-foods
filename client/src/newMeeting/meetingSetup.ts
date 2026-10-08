@@ -353,7 +353,9 @@ export function buildTopicFromSelection(params: {
   if (built.id === topicsBundle.custom_topic.id) {
     built.prompt = (built.prompt || "").replace(VISITOR_INPUT_PLACEHOLDER, customTopic.trim());
     built.description = customTopic;
-    built.agendaPoints = undefined;
+    // The visitor's question is the whole agenda: the chair opens on it the same
+    // way it opens on a listed topic's agenda point, in either language.
+    built.agendaPoints = [customTopic.trim()];
   }
   built.prompt = buildMeetingSystemPrompt(
     topicsBundle.system,
@@ -380,11 +382,15 @@ export function buildMeetingCharactersPayload(params: {
 }): { ok: true; characters: Character[] } | { ok: false; error: string } {
   const { language, humans, numberOfHumans, labels, agendaPoints, typedSetup = false } = params;
   let { selectedCharacters } = params;
+  const characterSetupData = getCharacterSetupBundle(language);
+  // The chair prompt goes to whoever is first, so the chair always is — whatever
+  // order the selection was built in, or if the chair was dropped from it.
+  const chairId = characterSetupData.characters[0].id;
+  selectedCharacters = [chairId, ...selectedCharacters.filter((id) => id !== chairId)];
 
   if (!typedSetup) {
     selectedCharacters = orderSelectedCharactersForInstallation(selectedCharacters);
   }
-  const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;
   const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
 
