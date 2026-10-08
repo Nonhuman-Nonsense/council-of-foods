@@ -405,6 +405,29 @@ presenter) without reload.
 
 Optional category toggles on `#staff` for field debugging (`localStorage`-backed).
 
+**Send log to server** (Logging panel) stores everything the console prints on the council
+server as well, so an installation's log can be read after something went wrong — nobody has
+to have had DevTools open. It needs logging on, and follows the category toggles: what is
+stored is exactly what is printed. The line under the switch shows it arriving ("Sending —
+last batch 3 s ago") and the page's id. Lines are batched every 5 s and kept while the
+server is unreachable. The server keeps the newest 512 MB (the `client_log` collection is
+capped, so it never needs pruning).
+
+Read it back from `server/` (it reads the database the server's `.env` names):
+
+```
+npm run logs -- --venue havremagasinet --stalls --since 24h
+npm run logs -- --setup <setupId>
+npm run logs -- --page <pageId>
+npm run logs -- --range
+```
+
+`--stalls` lists the moments a realtime agent went quiet when it should not have (the visitor
+stopped speaking and no reply began, a reply never finished, audio arrived but was not
+played, a tool result got no follow-up…). Those are also reported to ErrorBot as
+`realtime.<agent>.stall` whether or not logging is on, with the setup id and page id to look
+up.
+
 ---
 
 ## 3. Typical install presets

@@ -29,6 +29,7 @@
     "letters:corpus": "cross-env NODE_ENV=production tsx scripts/letters/generateCorpus.ts",
     "letters:eval": "cross-env NODE_ENV=production tsx scripts/letters/evalLetters.ts",
     "voices:loudness": "cross-env NODE_ENV=production tsx scripts/voiceLoudness.ts",
+    "logs": "cross-env NODE_ENV=production tsx scripts/clientLogs.ts",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",
     "docker": "node scripts/docker.mjs",

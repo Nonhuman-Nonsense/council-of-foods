@@ -38,6 +38,7 @@ import { registerVenueRoutes } from '@api/venueRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
+import { registerClientLogRoutes } from '@api/clientLogRoutes.js';
 import { registerInstallationRoutes } from '@api/installationRoutes.js';
 import { registerLetterInstallationRoutes, registerLetterWebhookRoutes } from '@api/letterRoutes.js';
 
@@ -81,6 +82,7 @@ registerVenueRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);
+registerClientLogRoutes(app);
 registerInstallationRoutes(app);
 registerLetterInstallationRoutes(app);
 

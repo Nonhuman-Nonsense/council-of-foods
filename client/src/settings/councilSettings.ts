@@ -27,6 +27,9 @@ export const DEV_LOG_DISABLED_CATEGORIES_KEY = "councilDevLogDisabledCategories"
 
 export const DEV_LOG_CHANGE_EVENT = "council-dev-log-change";
 
+/** Send what the console logs to the server too (#staff → Logging). */
+export const SERVER_LOG_ENABLED_KEY = "councilServerLogEnabled";
+
 export const PTT_HARDWARE_ENABLED_KEY = "councilPttHardwareEnabled";
 
 export const PTT_HARDWARE_CHANGE_EVENT = "council-ptt-hardware-change";
@@ -265,6 +268,27 @@ export function setDevLogEnabled(enabled: boolean): void {
   window.dispatchEvent(new CustomEvent(DEV_LOG_CHANGE_EVENT));
 }
 
+/**
+ * Whether the console log also goes to the server. Off unless staff turn it on, and only
+ * meaningful while console logging is on: the server stores what the console prints.
+ */
+export function getServerLogEnabled(): boolean {
+  try {
+    return localStorage.getItem(SERVER_LOG_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setServerLogEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(SERVER_LOG_ENABLED_KEY, enabled ? "true" : "false");
+  } catch {
+    // ignore storage errors
+  }
+  window.dispatchEvent(new CustomEvent(DEV_LOG_CHANGE_EVENT));
+}
+
 export function isDevLogCategoryEnabled(category: LogCategory): boolean {
   return !readDisabledDevLogCategories().includes(category);
 }
@@ -309,6 +333,8 @@ export function useCouncilSettings(): {
   devLogCategories: Record<LogCategory, boolean>;
   setDevLogCategoryEnabled: (category: LogCategory, enabled: boolean) => void;
   setAllDevLogCategories: (enabled: boolean) => void;
+  serverLogEnabled: boolean;
+  setServerLogEnabled: (enabled: boolean) => void;
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
   const [lastInstallationMode, setLastInstallationMode] = useState<Exclude<AppMode, "web">>(getLastInstallationMode);
@@ -320,10 +346,12 @@ export function useCouncilSettings(): {
     useState(getModeSwitchButtonEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
   const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
+  const [serverLogEnabled, setServerLogEnabledState] = useState(getServerLogEnabled);
 
   const refreshDevLogSettings = useCallback(() => {
     setDevLogEnabledState(getDevLogEnabled());
     setDevLogCategoriesState(getDevLogCategoryStates());
+    setServerLogEnabledState(getServerLogEnabled());
   }, []);
 
   useEffect(() => {
@@ -374,7 +402,8 @@ export function useCouncilSettings(): {
       }
       if (
         event.key === DEV_LOG_ENABLED_KEY ||
-        event.key === DEV_LOG_DISABLED_CATEGORIES_KEY
+        event.key === DEV_LOG_DISABLED_CATEGORIES_KEY ||
+        event.key === SERVER_LOG_ENABLED_KEY
       ) {
         refreshDevLogSettings();
       }
@@ -444,6 +473,11 @@ export function useCouncilSettings(): {
     refreshDevLogSettings();
   }, [refreshDevLogSettings]);
 
+  const setServerLogEnabledFromHook = useCallback((enabled: boolean) => {
+    setServerLogEnabled(enabled);
+    setServerLogEnabledState(enabled);
+  }, []);
+
   const capabilities = useMemo(() => capabilitiesFor(mode), [mode]);
 
   return {
@@ -464,5 +498,7 @@ export function useCouncilSettings(): {
     devLogCategories,
     setDevLogCategoryEnabled: setDevLogCategory,
     setAllDevLogCategories: setAllCategories,
+    serverLogEnabled,
+    setServerLogEnabled: setServerLogEnabledFromHook,
   };
 }

@@ -18,6 +18,8 @@ export type RemoteAudioAnchor = {
    * captions frozen even when the audio element itself is playing.
    */
   resume: () => void;
+  /** The AudioContext's state — "suspended" means the subtitle clock is not running. */
+  getState: () => AudioContextState;
   /** Stop the analyser loop and release Web Audio resources. */
   dispose: () => void;
 };
@@ -157,6 +159,8 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
 
   return {
     getCtxTime: () => ctx.currentTime,
+
+    getState: () => ctx.state,
 
     resume: () => {
       if (disposed || ctx.state !== "suspended") return;

@@ -24,6 +24,7 @@ import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { isConcluding } from "@shared/meetingEnding";
 import { awaitingTypeFor, councilStateForHumanTurn, humanTurnModeOf, type HumanTurnMode } from "./humanTurn";
 import { useDocumentVisibility } from "@/utils";
+import { setLogContext } from "@/logging/serverLogSink";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
@@ -154,6 +155,13 @@ export function useCouncilMachine({
     // Belt-and-suspenders: intents are also tagged with meetingId so a stale intent
     // can never apply to a different meeting even if this cleanup is somehow missed.
     useEffect(() => () => clearAllPendingIntents(), []);
+
+    // Lines logged while this meeting is open belong to it in the stored log.
+    useEffect(() => {
+        if (!(currentMeetingId > 0)) return;
+        setLogContext({ meetingId: currentMeetingId });
+        return () => setLogContext({ meetingId: undefined });
+    }, [currentMeetingId]);
 
     /** True from socket reconnect until the server sends conversation state again. */
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
