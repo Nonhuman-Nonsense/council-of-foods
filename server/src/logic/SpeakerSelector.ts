@@ -35,6 +35,15 @@ export class SpeakerSelector {
      * @param options - Optional routing settings (directed routing, chair id).
      * @returns The index of the character in the `characters` array who should speak next.
      */
+    /**
+     * Whether a human has spoken and fewer than two beings have replied since.
+     * The chair's cadence waits for those replies, and so does a soft cap, so a
+     * human is never the last voice before the meeting ends or pauses to extend.
+     */
+    static awaitsRepliesToHuman(conversation: Message[], characters: Character[], chairId: string): boolean {
+        return awaitsRepliesToHuman(conversation, characters, chairId);
+    }
+
     static calculateNextSpeaker(
         conversation: Message[],
         characters: Character[],
@@ -205,7 +214,7 @@ function pickDirected(conversation: Message[], characters: Character[], chairId:
     if (
         chairIndex !== -1 &&
         shouldForceChair(conversation, characters, chairId) &&
-        !isChairHeldForHumanReplies(conversation, characters, chairId)
+        !awaitsRepliesToHuman(conversation, characters, chairId)
     ) {
         return chairIndex;
     }
@@ -231,12 +240,12 @@ function pickDueHuman(conversation: Message[], characters: Character[], chairId:
 }
 
 /**
- * After a human speaks, the chair waits until two beings have replied. A human
- * answering a question put to them while that wait is still running continues
- * the same exchange instead of restarting it, so a human and a being asking
- * each other back and forth cannot hold the chair off.
+ * After a human speaks, the chair (and a soft cap) waits until two beings have
+ * replied. A human answering a question put to them while that wait is still
+ * running continues the same exchange instead of restarting it, so a human and
+ * a being asking each other back and forth cannot hold the chair off.
  */
-function isChairHeldForHumanReplies(conversation: Message[], characters: Character[], chairId: string): boolean {
+function awaitsRepliesToHuman(conversation: Message[], characters: Character[], chairId: string): boolean {
     let start = findPreviousHumanSpeech(conversation, conversation.length, chairId);
     if (start === -1) return false;
 
