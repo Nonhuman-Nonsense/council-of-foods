@@ -56,6 +56,9 @@ fi
 echo "Removing launchd plist..."
 sudo rm -f "$PLIST_DST"
 
+echo "Giving the power button back to macOS..."
+restore_power_button
+
 echo "Removing install directory (including printed protocols)..."
 remove_print_spool_links
 sudo rm -rf "$INSTALL_DIR"

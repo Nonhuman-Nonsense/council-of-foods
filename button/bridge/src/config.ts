@@ -32,6 +32,8 @@ export type BridgeConfig = {
   alertRetryBaseMs: number;
   alertRetryMaxMs: number;
   alertTestIntervalMs: number;
+  /** Shut the Mac down when its power button is pressed (macOS, bridge running as root). */
+  powerButtonShutdown: boolean;
 };
 
 function readInt(value: string | undefined, fallback: number): number {
@@ -87,5 +89,6 @@ export function loadConfig(): BridgeConfig {
     alertRetryBaseMs: 30_000,
     alertRetryMaxMs: 10 * 60_000,
     alertTestIntervalMs: 60_000,
+    powerButtonShutdown: readBool(process.env.BRIDGE_POWER_BUTTON_SHUTDOWN),
   };
 }

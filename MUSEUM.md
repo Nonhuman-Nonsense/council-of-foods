@@ -135,6 +135,13 @@ Once, in System Settings:
   Under **Allow in the Background**, leave the kiosk windows on: macOS announces them
   once at install ("can run in the background"), and turned off they never start.
 
+**Shutting down without a mouse or keyboard:** press the power button once. On a Mac mini
+(or any Mac without a battery) the bridge installer sets this up: the Mac shuts down
+properly, and a protocol waiting to print prints after it starts again. Holding the button
+down for 10 seconds still forces it off. A macOS update can break the power button shutdown
+silently (see [button/bridge/README.md](button/bridge/README.md#museum-mac-install-persistent)),
+so press it once after every update.
+
 ---
 
 ## 2. Staff page (`#staff`)
@@ -464,6 +471,8 @@ Use the hardware checklist in
 7. Meter screen upright, full screen, numbers moving; room plugs listed if installed  
 8. Restart the Mac → both windows come back on their screens, untouched  
 9. With **Split audio** on: the left side plays no voices, the right side plays everything  
+10. Press the Mac's power button once → it shuts down by itself (the bridge log says
+    `power button pressed`); start it again → everything comes back  
 
 Bridge logs: `/var/log/council-button-bridge.log`; kiosk logs:
 `~/Library/Logs/council-kiosk-*.log`

@@ -153,6 +153,20 @@ The installer also sets up printing:
   jobs wait in `pending/` until one is set and the installer is re-run (or
   `sudo lpadmin -d <printer>` is run; `lpstat -e` lists the printers).
 
+The installer also gives a desktop Mac (no battery: Mac mini, Studio, iMac) a power button
+that shuts it down properly, for a Mac with no mouse or keyboard. macOS on its own can only
+sleep, or ask in a dialog nobody can click. The installer stops the button sleeping the Mac
+(`PowerButtonSleepsSystem` off, fully in effect from the next login), and the daemon watches
+the kernel log for the press and runs `shutdown -h now`. A laptop's power button is its
+Touch ID and lock button, so laptops keep macOS's own. To choose yourself, install with
+`COUNCIL_POWER_BUTTON_SHUTDOWN=1` or `=0` (with the release install:
+`curl … | sudo COUNCIL_POWER_BUTTON_SHUTDOWN=0 bash`). Uninstalling gives the button back to
+macOS.
+
+The press is noticed by a kernel log line, not an API, so a macOS update could reword it.
+The button would then show the dialog again instead of shutting down. Press it once after
+every macOS update.
+
 There is nothing else to configure. The council server and its installation key come from
 the `#staff` page (see [Alert emails](#alert-emails)).
 
@@ -228,6 +242,7 @@ and spool folder, and everything else has a working default. They exist for deve
 | `BRIDGE_PRINT_SPOOL_DIR` | `./.print-spool` | Folder holding `pending/` and `done/` |
 | `BRIDGE_PRINTER` | system default | CUPS queue name to print to |
 | `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer; or start it in a mode: `fail`, `paper-out`, `stuck` |
+| `BRIDGE_POWER_BUTTON_SHUTDOWN` | `0` | `1` = shut the Mac down when its power button is pressed (needs root; the installer sets it on desktop Macs) |
 
 ## Printing
 
