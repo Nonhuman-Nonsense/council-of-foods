@@ -456,6 +456,10 @@ meeting and by whom. Every letter now refers to the meeting (v10: 11 of 16); ask
 (v10: 402); plan prompt ~8,600 characters (v10: ~32,000); "I write to you because" gone. Every
 letter states the meeting number and date — kept. ~9 of 16 still over 1,200 characters.
 
+**8 Oct 2026 — Sonnet 5.5 writes the letters.** `letterModel` moved from Opus 5.5 to Sonnet 5.5
+(still at medium effort): Opus was more than the letters need. Not yet run through the
+16-meeting eval — v3 compared Mistral Large 3 with Opus only.
+
 ### Letter safety
 
 - Visitor text is passed to the letter call as quoted content, not instructions.

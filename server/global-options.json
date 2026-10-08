@@ -44,7 +44,7 @@
   "meetingEnding": "protocol",
   "letterSiteUrl": "https://council-of-foods.com",
   "letterMaxCandidates": 16,
-  "letterModel": "anthropic/claude-opus-5-5",
+  "letterModel": "anthropic/claude-sonnet-5-5",
   "letterReasoning": "medium",
   "letterWeaveModel": "anthropic/claude-sonnet-5-5",
   "letterWeaveReasoning": "low",
@@ -90,6 +90,6 @@
       }
     }
   },
-  "speakerClassifierModel": "google-ai-studio/gemini-2.5-flash",
+  "speakerClassifierModel": "anthropic/claude-haiku-5-5",
   "autoplayEarliestMeetingDate": "2025-01-01T00:00:00.000Z"
 }

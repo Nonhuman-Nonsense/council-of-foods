@@ -1137,6 +1137,284 @@
         }
       ]
     },
+    "inworld|anthropic/claude-haiku-5-5": {
+      "ecologitsModel": "anthropic/claude-haiku-4-5",
+      "role": "writing",
+      "basis": "ecologits",
+      "usageMeasure": "output_tokens",
+      "tokensPerUnit": 1,
+      "datacenterZones": [
+        "USA"
+      ],
+      "activeParameters": [
+        10,
+        35
+      ],
+      "totalParameters": [
+        10,
+        35
+      ],
+      "quantizationBits": [
+        16,
+        16
+      ],
+      "low": {
+        "secondsPerToken": 0.01666666666666672,
+        "firstTokenSeconds": 0.61,
+        "perToken": {
+          "energy": 5.0383528168500845e-08,
+          "gwp": 1.9367428227971726e-08,
+          "adpe": 4.9652967010057585e-15,
+          "wcf": 1.6381529322051112e-07
+        },
+        "perGenerationSecond": {
+          "energy": 7.09635416661235e-07,
+          "gwp": 4.355442708319717e-07,
+          "adpe": 9.186499765644556e-12,
+          "wcf": 2.307284505220214e-06
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 1.6276041666666663e-07,
+          "adpe": 9.116565195332316e-12,
+          "wcf": 0.0
+        },
+        "gpus": 1
+      },
+      "high": {
+        "secondsPerToken": 0.01666666666666672,
+        "firstTokenSeconds": 0.61,
+        "perToken": {
+          "energy": 1.3784598993399357e-07,
+          "gwp": 5.2987998530627135e-08,
+          "adpe": 1.3584722307995068e-14,
+          "wcf": 5.525440425670503e-07
+        },
+        "perGenerationSecond": {
+          "energy": 1.4843749999952228e-06,
+          "gwp": 8.961145833294185e-07,
+          "adpe": 1.8379415546913756e-11,
+          "wcf": 5.949992187496066e-06
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 3.2552083333333327e-07,
+          "adpe": 1.8233130390664632e-11,
+          "wcf": 0.0
+        },
+        "gpus": 2
+      },
+      "assumptions": [
+        "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
+        "Anthropic publishes no model size, and EcoLogits has no estimate for Haiku 5.5 yet: its estimate for Haiku 4.5 is used, with its range."
+      ],
+      "warnings": [
+        "The model architecture has not been released, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-not-released"
+      ],
+      "sources": [],
+      "samples": [
+        {
+          "units": 1,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              4.052012365018342e-07,
+              8.800334899339935e-07
+            ],
+            "gwp": [
+              2.3713956364463842e-07,
+              5.010452901972938e-07
+            ],
+            "adpe": [
+              4.598215179523415e-12,
+              9.203292495765312e-12
+            ],
+            "wcf": [
+              1.3174575458246778e-06,
+              3.52754013631705e-06
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              8.138020833333333e-08,
+              1.6276041666666666e-07
+            ],
+            "adpe": [
+              4.558282597666159e-12,
+              9.116565195332318e-12
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 40,
+          "requestSeconds": 3.0,
+          "impacts": {
+            "energy": [
+              2.921309008684478e-06,
+              7.408891680693075e-06
+            ],
+            "gwp": [
+              1.3307419815494245e-06,
+              3.2635595592806406e-06
+            ],
+            "adpe": [
+              1.1926709902180115e-11,
+              2.400777607388082e-11
+            ],
+            "wcf": [
+              9.498244947136416e-06,
+              2.9697918395390343e-05
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              2.077907986111111e-07,
+              4.155815972222222e-07
+            ],
+            "adpe": [
+              1.163881489937426e-11,
+              2.327762979874852e-11
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              2.0508228975733672e-05,
+              5.588058347359743e-05
+            ],
+            "gwp": [
+              7.964743426605357e-06,
+              2.1643256703917518e-05
+            ],
+            "adpe": [
+              6.579368563224712e-12,
+              1.4623596696655343e-11
+            ],
+            "wcf": [
+              6.667975954080861e-05,
+              0.00022399261312057014
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              8.138020833333333e-08,
+              1.6276041666666666e-07
+            ],
+            "adpe": [
+              4.558282597666159e-12,
+              9.116565195332318e-12
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 20.0,
+          "impacts": {
+            "energy": [
+              2.5317191649344782e-05,
+              6.593969805693076e-05
+            ],
+            "gwp": [
+              1.0916281768619245e-05,
+              2.7715926530306408e-05
+            ],
+            "adpe": [
+              6.88332153084111e-11,
+              1.3917476938624687e-10
+            ],
+            "wcf": [
+              8.231545753777042e-05,
+              0.0002643137268445285
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              1.1843532986111112e-06,
+              2.3687065972222225e-06
+            ],
+            "adpe": [
+              6.633820607136817e-11,
+              1.3267641214273635e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 2000,
+          "requestSeconds": null,
+          "impacts": {
+            "energy": [
+              0.00012485444783005725,
+              0.0003260766152846538
+            ],
+            "gwp": [
+              5.35186808222629e-05,
+              0.0001363931130681987
+            ],
+            "adpe": [
+              3.2175101711388215e-10,
+              6.510280729967627e-10
+            ],
+            "wcf": [
+              0.0004059475134961438,
+              0.0013070506532851425
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              5.524631076388889e-06,
+              1.1049262152777778e-05
+            ],
+            "adpe": [
+              3.0944661128023e-10,
+              6.1889322256046e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    },
     "inworld|inworld-tts-1.5-max": {
       "ecologitsModel": null,
       "role": "speaking",

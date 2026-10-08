@@ -97,7 +97,8 @@ MODELS = {
         "basis": "ecologits",
         "assumptions": ["Routed through Inworld to Google AI Studio; EcoLogits' Google data-centre profile applies."],
     },
-    # The letters (server/src/logic/letters): Opus plans and drafts, Sonnet weaves in the human's words.
+    # Opus wrote the letters until October 2026, so older meetings still count it. Sonnet now
+    # writes them (server/src/logic/letters) and speaks for the realtime agents.
     "inworld|anthropic/claude-opus-5-5": {
         "ecologits": ("anthropic", "claude-opus-5-5"),
         "role": "writing",
@@ -116,6 +117,17 @@ MODELS = {
             "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
             "Anthropic publishes no model size; EcoLogits' own estimate for the model is used, with its range.",
             "Reasoning tokens are billed and counted as output tokens.",
+        ],
+    },
+    # The speaker classifier, which also ranks letter authors and sorts the human's words.
+    "inworld|anthropic/claude-haiku-5-5": {
+        # EcoLogits (0.11.2) has no Haiku 5.5 yet; switch to it once a release lists it.
+        "ecologits": ("anthropic", "claude-haiku-4-5"),
+        "role": "writing",
+        "basis": "ecologits",
+        "assumptions": [
+            "Routed through Inworld to Anthropic; EcoLogits' Anthropic data-centre profile applies.",
+            "Anthropic publishes no model size, and EcoLogits has no estimate for Haiku 5.5 yet: its estimate for Haiku 4.5 is used, with its range.",
         ],
     },
     "inworld|inworld-tts-1.5-max": {
