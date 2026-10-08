@@ -33,6 +33,7 @@ describe("capabilitiesFor", () => {
         kioskHeartbeat: false,
         sendsLetters: false,
         staffShortcut: false,
+        fullResolutionMedia: false,
       },
     },
     {
@@ -60,6 +61,7 @@ describe("capabilitiesFor", () => {
         kioskHeartbeat: true,
         sendsLetters: true,
         staffShortcut: true,
+        fullResolutionMedia: true,
       },
     },
     {
@@ -87,6 +89,7 @@ describe("capabilitiesFor", () => {
         kioskHeartbeat: true,
         sendsLetters: false,
         staffShortcut: true,
+        fullResolutionMedia: true,
       },
     },
   ];

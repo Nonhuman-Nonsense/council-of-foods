@@ -1,5 +1,5 @@
 import React from 'react';
-import { useMobile } from "@/utils";
+import { useSmallMedia } from "@/smallMedia";
 import {
     characterAudioSources,
     characterTransparentVideoUrls,
@@ -20,11 +20,11 @@ interface MediaPreloaderProps {
  * `characterAudioSources`, which is empty in projects that ship no character loops.
  */
 function MediaPreloader({ foodIds }: MediaPreloaderProps): React.ReactElement {
-    const isMobile = useMobile();
+    const smallMedia = useSmallMedia();
     return (
         <div style={{ display: 'none', width: 0, height: 0, overflow: 'hidden' }}>
             {foodIds.map((id) => {
-                const urls = characterTransparentVideoUrls(id, isMobile);
+                const urls = characterTransparentVideoUrls(id, smallMedia);
                 return (
                     <video
                         key={id}
