@@ -58,8 +58,8 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 |---|---|---|---|
 | Council dialogue, chair (`dialogue`), summary (`summary`) | `DialogGenerator.completeWithRetry`, every attempt | Inworld router → `mistral/mistral-large-3` | input / output / cached / reasoning tokens |
 | Letters: plan, draft and weave (`summary`) | `DialogGenerator.generateInCharacter` | Inworld router → `anthropic/claude-sonnet-5-5` (plan, draft, weave; `claude-opus-5-5` until October 2026) | input / output / reasoning tokens |
-| Letters: author ranking, sorting the human's words (`classifier`) | `LetterWriter` via `SpeakerClassifierBase` | Inworld router → `anthropic/claude-haiku-5-5` | tokens |
-| Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `anthropic/claude-haiku-5-5` (`gemini-2.5-flash` until October 2026) | tokens |
+| Letters: author ranking, sorting the human's words (`classifier`) | `LetterWriter` via `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
+| Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Voices (`tts`) | `AudioSystem`, per freshly generated chunk | Inworld `inworld-tts-1.5-max` / `inworld-tts-2`; ElevenLabs `eleven_flash_v2_5` (forest); OpenAI `gpt-4o-mini-tts` (unused) | `characters`, `audio_seconds`; ElevenLabs also `region` from its `x-region` header |
 | Whisper timing fallback (`subtitle-timing`) | `AudioSystem` | `whisper-1` | `audio_seconds` |
 | Setup agent, meta agent | browser ↔ Inworld realtime; the client posts each `response.done` usage to `POST /api/usage/realtime` | `chairRealtime` LLM (`anthropic/claude-sonnet-5-5`) + Inworld TTS + the session's transcription model | one event per part: LLM tokens, TTS characters + audio seconds, STT audio seconds |

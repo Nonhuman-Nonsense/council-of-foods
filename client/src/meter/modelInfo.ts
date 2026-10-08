@@ -8,7 +8,6 @@ export const MODEL_ROLES: Record<string, string> = {
   "inworld|google-ai-studio/gemini-2.5-flash": "Picks who speaks next",
   "inworld|anthropic/claude-opus-5-5": "Writes the council's letters",
   "inworld|anthropic/claude-sonnet-5-5": "Thinks for the chair and the guide, and writes the council's letters",
-  "inworld|anthropic/claude-haiku-5-5": "Picks who speaks next",
   "inworld|inworld-tts-1.5-max": "Gives the council its voices",
   "inworld|inworld-tts-1.5-mini": "Gives the council its voices",
   "inworld|inworld-tts-2": "Gives the council its voices",
@@ -20,7 +19,6 @@ export const MODEL_ROLES: Record<string, string> = {
 /** The one word the meter's model list shows, where the counting role would mislead. */
 const MODEL_ACTIVITIES: Record<string, string> = {
   "inworld|google-ai-studio/gemini-2.5-flash": "thinking",
-  "inworld|anthropic/claude-haiku-5-5": "thinking",
 };
 
 /** What a model is doing, in one word: its counting role, unless that says it wrong. */
