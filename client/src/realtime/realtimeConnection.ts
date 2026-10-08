@@ -367,9 +367,6 @@ export type CreateConnectionParams = {
 const ICE_GATHER_TIMEOUT_MS = 2_500;
 const FETCH_TIMEOUT_MS = 15_000;
 
-/** Peer/ICE states worth logging — the happy-path progression is just noise. */
-const PROBLEM_CONNECTION_STATES = new Set(["disconnected", "failed", "closed"]);
-
 async function fetchWithTimeout(
   input: RequestInfo | URL,
   init: RequestInit,
@@ -499,7 +496,7 @@ async function exchangeSdp(
   callHeaders: HeadersInit | undefined,
   callBodyExtras: Record<string, unknown> | undefined,
   signal?: AbortSignal
-): Promise<string> {
+): Promise<{ sdp: string; callId: string | null }> {
   const resp = await fetchWithTimeout(
     callPath,
     {
@@ -514,10 +511,10 @@ async function exchangeSdp(
     const text = await resp.text().catch(() => "");
     throw new RealtimeHttpError(resp.status, `Call create failed (${resp.status}): ${text}`);
   }
-  const data = (await resp.json()) as { sdp?: unknown };
+  const data = (await resp.json()) as { sdp?: unknown; id?: unknown };
   const sdp = typeof data.sdp === "string" ? data.sdp : null;
   if (!sdp) throw new Error("Call create returned no sdp");
-  return sdp;
+  return { sdp, callId: typeof data.id === "string" ? data.id : null };
 }
 
 /**
@@ -579,16 +576,19 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
 
     pc = new RTCPeerConnection({ iceServers, iceCandidatePoolSize: 10 });
 
+    // Every transition, not just the bad ones: a log read after a silent agent has to
+    // show whether the connection was ever fully up, and when it stopped being.
     pc.onconnectionstatechange = () => {
-      if (PROBLEM_CONNECTION_STATES.has(pc!.connectionState)) log("pc connectionState", pc!.connectionState);
+      log("pc connectionState", pc!.connectionState);
       if (pc!.connectionState === "failed") onClose?.("pc_failed");
     };
     pc.oniceconnectionstatechange = () => {
-      if (PROBLEM_CONNECTION_STATES.has(pc!.iceConnectionState)) log("pc iceConnectionState", pc!.iceConnectionState);
+      log("pc iceConnectionState", pc!.iceConnectionState);
     };
 
     dc = pc.createDataChannel("oai-events", { ordered: true });
     dc.onopen = () => {
+      log("data channel open");
       const openDc = dc!;
       onOpen?.({ dc: openDc });
     };
@@ -633,7 +633,9 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     const sdpOffer = pc.localDescription?.sdp;
     if (!sdpOffer) throw new Error("Missing SDP offer");
 
-    const sdpAnswer = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, signal);
+    const { sdp: sdpAnswer, callId } = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, signal);
+    // The provider's name for this session — what to quote to Inworld about it.
+    log("call created", { callId });
     throwIfAborted(signal);
     await pc.setRemoteDescription({ type: "answer", sdp: sdpAnswer });
 

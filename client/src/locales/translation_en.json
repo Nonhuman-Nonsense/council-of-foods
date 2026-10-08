@@ -93,6 +93,13 @@
         "PRINT": "Printing",
         "SYSTEM": "System",
         "ERROR": "Error detail"
+      },
+      "server": {
+        "label": "Send log to server",
+        "hint": "Store everything this page logs on the council server, so it can be read later (npm run logs). Uses the categories above; needs logging on.",
+        "waiting": "Nothing sent yet · page {{pageId}}",
+        "sending": "Sending — last batch {{seconds}} s ago · {{sentLines}} lines · page {{pageId}}",
+        "failing": "Not sending ({{failure}}) — {{pending}} lines waiting"
       }
     },
     "web": "Web",

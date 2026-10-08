@@ -3,6 +3,7 @@ import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import { usePagePresence } from "@/utils";
 import { useInactivityNudge } from "./useInactivityNudge";
 import type { SetupAgentState } from "./useSetupAgent";
+import { log } from "@/logger";
 
 const HIDDEN_GRACE_MS = 60_000;
 const IDLE_TIMEOUT_MS = 3 * 60_000;
@@ -97,6 +98,8 @@ export function useAgentPresence({
 
     if (!isPresent) {
       const id = setTimeout(() => {
+        // Only presence coming back starts it again — an unfocused kiosk stays silent.
+        log.flat("REALTIME", "setup agent stopped: page hidden or unfocused", { afterMs: HIDDEN_GRACE_MS });
         stoppedByBackgroundRef.current = true;
         agent.stop();
       }, HIDDEN_GRACE_MS);
@@ -104,9 +107,11 @@ export function useAgentPresence({
     }
 
     if (stoppedByBackgroundRef.current) {
+      log.flat("REALTIME", "setup agent resuming: page present again");
       stoppedByBackgroundRef.current = false;
       void agent.start();
     } else if (!muted && !agent.isConnecting && !agent.agentSpeaking) {
+      log.flat("REALTIME", "setup agent: visitor back within the grace period");
       sendUserMessage(
         !agent.hasEverHeardVisitor
           ? "The visitor has returned after a brief absence. Welcome them back in one short sentence. Do not ask them anything."
@@ -128,6 +133,8 @@ export function useAgentPresence({
   useEffect(() => {
     if (!idleNudge || muted) return;
     const id = setTimeout(() => {
+      // Resumes when presence changes or the visitor interacts — not when they just speak.
+      log.flat("REALTIME", "setup agent stopped: no speech", { afterMs: IDLE_TIMEOUT_MS });
       stoppedByBackgroundRef.current = true;
       agent.stop();
     }, IDLE_TIMEOUT_MS);

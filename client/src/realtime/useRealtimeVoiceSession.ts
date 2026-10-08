@@ -28,9 +28,35 @@ import {
   type InworldWordToken,
 } from "@realtime/inworldSubtitleTrack";
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
+import {
+  createStallDetector,
+  type SessionStallRule,
+  type StallDetector,
+  type StallReport,
+} from "@realtime/realtimeStallDetector";
+import {
+  createAudioMonitor,
+  readPeerAudioStats,
+  type AudioMonitor,
+} from "@realtime/realtimeAudioMonitor";
+import { getLogPageId } from "@/logging/serverLogSink";
 import { log, summarizeLogPayload } from "@/logger";
 import { getVenueId } from "@/settings/councilSettings";
 import { createRealtimeUsageReporter } from "@realtime/realtimeUsageReporter";
+
+/**
+ * Set once the page starts unloading: every data channel closes then, and that is not the
+ * provider dropping the session.
+ */
+let pageUnloading = false;
+if (typeof window !== "undefined") {
+  window.addEventListener("pagehide", () => {
+    pageUnloading = true;
+  });
+  window.addEventListener("pageshow", () => {
+    pageUnloading = false;
+  });
+}
 
 function realtimeDebugLog(...args: unknown[]): void {
   const [first, ...rest] = args;
@@ -40,6 +66,17 @@ function realtimeDebugLog(...args: unknown[]): void {
 }
 
 export type RealtimeVoiceFeature = "meta-agent" | "setup-agent";
+
+/** What ErrorBot is told for each kind of stall. */
+const STALL_MESSAGES: Record<SessionStallRule, string> = {
+  "no-answer": "the visitor stopped speaking and no reply began",
+  "response-unfinished": "a reply began and never finished",
+  "no-tool-continuation": "a tool result went back and no reply followed",
+  "create-unanswered": "a requested reply was neither started nor refused",
+  "empty-response": "a reply finished with nothing in it",
+  "audio-not-received": "a reply carried audio but none reached the page",
+  "audio-blocked": "a reply carried audio but the browser is not playing it",
+};
 
 export type RealtimeVoiceSessionConnectionState = "idle" | "connecting" | "ready" | "error";
 
@@ -301,6 +338,8 @@ export function useRealtimeVoiceSession(
   const audioElementRef = useRef(audioElement);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
+  const stallDetectorRef = useRef<StallDetector | null>(null);
+  const audioMonitorRef = useRef<AudioMonitor | null>(null);
   const subtitleTrackRef = useRef<InworldSubtitleTrack | null>(null);
   /** Keeps the caption clear while the agent is muted, until the next response. */
   const outputMuteRef = useRef<(() => void) | null>(null);
@@ -423,6 +462,10 @@ export function useRealtimeVoiceSession(
     responseAudioAnchorCtxSecRef.current = null;
     responseTransitionPendingRef.current = false;
     eventLoopRef.current = null;
+    stallDetectorRef.current?.dispose();
+    stallDetectorRef.current = null;
+    audioMonitorRef.current?.dispose();
+    audioMonitorRef.current = null;
     remoteAudioAnchorRef.current?.dispose();
     remoteAudioAnchorRef.current = null;
     connectionRef.current?.close();
@@ -748,10 +791,62 @@ export function useRealtimeVoiceSession(
       alignmentRafRef.current = requestAnimationFrame(tickAlignment);
 
       let activeConn: RealtimeConnection | null = null;
+
+      /**
+       * The agent went quiet when it should not have. Always reported to ErrorBot (sampled);
+       * the log line is what marks the spot in a stored log.
+       */
+      const reportStall = ({ rule, detail }: StallReport) => {
+        if (isStale()) return;
+        const where = {
+          setupId: setupSession?.get() ?? null,
+          venueId: getVenueId() || null,
+          pageId: getLogPageId(),
+        };
+        log.event("ERROR", `STALL ${rule}`, { feature, ...detail, ...where });
+        reportRealtimeIssue({
+          feature,
+          kind: "stall",
+          code: rule,
+          message: `Realtime agent stalled: ${STALL_MESSAGES[rule]}`,
+          detail: { ...detail, ...where },
+        });
+      };
+      // A failed attempt leaves its watchers behind; the retry replaces them.
+      stallDetectorRef.current?.dispose();
+      audioMonitorRef.current?.dispose();
+      const stallDetector = createStallDetector({ onStall: reportStall });
+      stallDetectorRef.current = stallDetector;
+
+      const currentPc = () => activeConn?.pc ?? connectionRef.current?.pc ?? null;
+      audioMonitorRef.current = createAudioMonitor({
+        probe: {
+          readStats: () => readPeerAudioStats(currentPc()),
+          playback: () => ({
+            elementPaused: remoteAudioRef.current?.paused ?? null,
+            elementMuted: agentOutputMutedRef.current,
+            blocked: audioBlockedRef.current,
+            contextState: remoteAudioAnchorRef.current?.getState() ?? null,
+          }),
+          connection: () => {
+            const pc = currentPc();
+            const dc = activeConn?.dc ?? connectionRef.current?.dc ?? null;
+            return {
+              pc: pc?.connectionState ?? null,
+              ice: pc?.iceConnectionState ?? null,
+              dc: dc?.readyState ?? null,
+            };
+          },
+        },
+        log: (message, data) => log.flat("REALTIME", message, { feature, ...data }),
+        onStall: reportStall,
+      });
+
       const sendOnDc = (payload: unknown) => {
         const dc = activeConn?.dc ?? connectionRef.current?.dc;
         if (!dc || dc.readyState !== "open") return;
         dc.send(JSON.stringify(payload));
+        stallDetector.observeOutgoing(payload);
       };
 
       const loop = createEventLoop({
@@ -952,6 +1047,8 @@ export function useRealtimeVoiceSession(
         },
         onEvent: (event) => {
           if (isStale()) return;
+          stallDetector.observeIncoming(event);
+          audioMonitorRef.current?.observeIncoming(event);
           // Never let a throw inside the loop become an invisible unhandled
           // rejection — on an unattended installation a silent handler crash is
           // indistinguishable from the agent simply going quiet.
@@ -978,7 +1075,12 @@ export function useRealtimeVoiceSession(
         onClose: (reason) => {
           if (isStale()) return;
           log.event("REALTIME", "connection closed", { feature, reason });
-          if (reason === "pc_failed" || reason === "dc_error") {
+          // Our own teardowns are stale by the time the channel closes, so a close that
+          // gets here is the provider's — or the page unloading, which needs nothing.
+          // Before this reconnected, a provider close left the agent mute while the
+          // session still read as ready.
+          const providerClosed = reason === "dc_close" && !pageUnloading;
+          if (reason === "pc_failed" || reason === "dc_error" || providerClosed) {
             log.event("ERROR", "realtime connection lost", { feature, reason });
             // Don't report an attempt a summary is already coming for: a
             // bounded budget ends in one `retry-exhausted` report, so a visitor
@@ -1033,6 +1135,11 @@ export function useRealtimeVoiceSession(
       }
 
       conn?.close();
+      // Nothing to watch until the next attempt connects.
+      stallDetectorRef.current?.dispose();
+      stallDetectorRef.current = null;
+      audioMonitorRef.current?.dispose();
+      audioMonitorRef.current = null;
 
       const kind = classifyRealtimeError(e, { selfHealing: selfHealingRef.current });
       const msg = e instanceof Error ? e.message : FEATURE_MESSAGES[feature].startFailed;
@@ -1134,7 +1241,8 @@ export function useRealtimeVoiceSession(
     const stream = connectionRef.current?.micStream ?? null;
     setMicTracksEnabled(stream, open);
     setMicStream(open ? stream : null);
-  }, []);
+    log.flat("REALTIME", open ? "mic open" : "mic closed", { feature, hasMic: stream != null });
+  }, [feature]);
 
   const attachMic = useCallback(async (
     { userInitiated = false }: { userInitiated?: boolean } = {},
@@ -1236,6 +1344,9 @@ export function useRealtimeVoiceSession(
   }, [playRemoteAudio]);
 
   const setAgentOutputMuted = useCallback((muted: boolean) => {
+    if (agentOutputMutedRef.current !== muted) {
+      log.flat("REALTIME", muted ? "agent output muted" : "agent output unmuted", { feature });
+    }
     agentOutputMutedRef.current = muted;
     const el = remoteAudioRef.current;
     if (el) {
@@ -1254,7 +1365,7 @@ export function useRealtimeVoiceSession(
       }
       eventLoopRef.current?.cancelActiveResponse();
     }
-  }, []);
+  }, [feature]);
 
   const sendUserMessage = useCallback((text: string) => {
     eventLoopRef.current?.sendUserMessage(text);

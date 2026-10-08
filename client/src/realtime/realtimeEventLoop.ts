@@ -296,6 +296,11 @@ export function createEventLoop(params: {
   /** Most recent user transcript text (for correlating in logs). */
   let lastUserTranscript = "";
   /**
+   * What the current response streamed, for its one-line summary on `response.done`.
+   * Deltas arrive dozens per second, so they are counted rather than logged.
+   */
+  let streamed = { audioDeltas: 0, words: 0, transcriptDeltas: 0, other: {} as Record<string, number> };
+  /**
    * True between sending a `response.cancel` and the next response event.
    *
    * `activeResponses` only predicts the server's state: the server closes a
@@ -557,6 +562,7 @@ export function createEventLoop(params: {
       pendingCreateEventId = null;
       currentAssistantAudioItemId = null;
       currentAssistantAudioContentIndex = null;
+      streamed = { audioDeltas: 0, words: 0, transcriptDeltas: 0, other: {} };
       devLog.flat("TURN", "IN response.created", {
         reason: currentResponseReason,
         forUserTranscript: lastUserTranscript,
@@ -583,6 +589,11 @@ export function createEventLoop(params: {
         forUserTranscript: lastUserTranscript,
         usage: rFull?.usage ?? null,
         outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
+        statusDetails: r?.status_details ?? null,
+        audioDeltas: streamed.audioDeltas,
+        words: streamed.words,
+        transcriptDeltas: streamed.transcriptDeltas,
+        otherDeltas: streamed.other,
         activeResponses,
       });
       callbacks.onResponseDone?.({
@@ -632,6 +643,7 @@ export function createEventLoop(params: {
     if (type === "response.output_item.added") {
       sawOutputThisResponse = true;
       const item = (obj as { item?: { type?: string; id?: string; call_id?: string; name?: string } }).item;
+      devLog.flat("TURN", "IN output_item.added", { itemType: item?.type ?? null, name: item?.name ?? null });
       if (item?.type === "function_call" && item.id) {
         functionCallMeta.set(item.id, { call_id: item.call_id, name: item.name });
       }
@@ -641,6 +653,7 @@ export function createEventLoop(params: {
     if (type === "response.content_part.added") {
       sawOutputThisResponse = true;
       const part = asObj(obj.part);
+      devLog.flat("TURN", "IN content_part.added", { partType: asStr(part?.type) });
       if (asStr(part?.type) === "audio") {
         const itemId = asStr(obj.item_id);
         const contentIndex = (obj as Record<string, unknown>).content_index;
@@ -715,6 +728,7 @@ export function createEventLoop(params: {
 
     if (type === "response.output_audio.delta") {
       sawOutputThisResponse = true;
+      streamed.audioDeltas += 1;
       const contentIndex = (obj as Record<string, unknown>).content_index;
       const timestampInfo = asObj((obj as Record<string, unknown>).timestamp_info);
       const wordAlignment = asObj(timestampInfo?.word_alignment);
@@ -726,6 +740,7 @@ export function createEventLoop(params: {
         const ends = Array.isArray(wordAlignment.word_end_time_seconds)
           ? (wordAlignment.word_end_time_seconds as number[])
           : [];
+        streamed.words += words.length;
         callbacks.onWordAlignment?.(
           typeof contentIndex === "number" ? contentIndex : 0,
           words.map((w, i) => ({ w, s: starts[i] ?? 0, e: ends[i] ?? 0 }))
@@ -736,10 +751,13 @@ export function createEventLoop(params: {
 
     if (type === "response.output_audio_transcript.delta") {
       sawOutputThisResponse = true;
+      streamed.transcriptDeltas += 1;
       return true;
     }
 
     if (type === "response.output_audio_transcript.done") {
+      // What the agent said, whole — the captions only ever show a sentence of it.
+      devLog.flat("TURN", "IN agent said", { transcript: asStr(obj.transcript) ?? "" });
       return true;
     }
 
@@ -853,11 +871,13 @@ export function createEventLoop(params: {
     }
 
     if (type === "input_audio_buffer.speech_started") {
+      devLog.flat("TURN", "IN speech_started", { activeResponses });
       if (speechInterruptsResponse) callbacks.onOutputInterrupted?.("speech-started");
       return true;
     }
 
     if (type === "input_audio_buffer.speech_stopped") {
+      devLog.flat("TURN", "IN speech_stopped");
       return true;
     }
 
@@ -866,6 +886,13 @@ export function createEventLoop(params: {
       return true;
     }
 
+    // Everything else the provider sends is still worth seeing once: a stall can turn out
+    // to be an event nobody handles. Streams are counted into the response summary.
+    if (type.endsWith(".delta")) {
+      streamed.other[type] = (streamed.other[type] ?? 0) + 1;
+    } else {
+      devLog.flat("REALTIME", `IN ${type}`, summarizeLogPayload(obj));
+    }
     return false;
   };
 

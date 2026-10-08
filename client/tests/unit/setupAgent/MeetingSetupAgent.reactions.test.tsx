@@ -24,6 +24,7 @@ vi.mock("@/settings/councilSettings", () => ({
     capabilities: capabilitiesFor("web"),
   }),
   getAppMode: () => "web",
+  getDevLogEnabled: () => false,
 }));
 
 vi.mock("@/museum/button/useButton", () => ({

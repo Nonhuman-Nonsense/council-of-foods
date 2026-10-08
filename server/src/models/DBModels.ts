@@ -3,6 +3,7 @@ import type { UsageEvent } from '@shared/UsageTypes.js';
 import type { Document } from "mongodb";
 import type { LetterForm } from '@logic/letters/prompts/letterPrompts.js';
 import type { HumanHandling } from '@logic/letters/prompts/humanSorting.js';
+import type { ClientLogLine } from "@shared/ClientLogTypes.js";
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.
@@ -119,6 +120,22 @@ export interface BlockedRecipient extends Document {
 }
 
 export interface StoredUsageEvent extends UsageEvent, Document {}
+
+/**
+ * One batch of a browser's console log (`POST /api/client-log`), as sent, plus what the
+ * server knows about it. Kept in a capped collection: the oldest batches go first.
+ */
+export interface StoredClientLogBatch extends Document {
+    receivedAt: Date;
+    pageId: string;
+    seq: number;
+    venueId?: string;
+    dropped?: number;
+    /** Every setup and meeting its lines name, so a visit's log can be found by index. */
+    setupIds: string[];
+    meetingIds: number[];
+    lines: ClientLogLine[];
+}
 
 /** Latest reading of one room power plug at one venue; `_id` is `<venueId>|<plug>`. */
 export interface StoredRoomPower extends Document {

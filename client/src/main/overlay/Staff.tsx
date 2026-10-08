@@ -31,6 +31,7 @@ import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 import { describePrinterReason } from "@shared/printerReasons";
 import { fetchVenues, type Venue } from "@api/venues";
+import { getLogPageId, getServerLogStatus } from "@/logging/serverLogSink";
 import {
   chooseAlertVenue,
   saveInstallationKey,
@@ -532,7 +533,41 @@ function StaffDivider(): ReactElement {
 }
 
 /** On/off for a feature, lit like the other staff toggles while on. */
-function StaffToggle(props: { on: boolean; onChange: (on: boolean) => void; testId: string }): ReactElement {
+/** Polls the server log sink, so staff can see the log really is arriving. */
+function ServerLogStatusNote(): ReactElement {
+  const { t } = useTranslation();
+  const [{ status, now }, setSnapshot] = useState(() => ({ status: getServerLogStatus(), now: Date.now() }));
+  useEffect(() => {
+    const id = window.setInterval(() => setSnapshot({ status: getServerLogStatus(), now: Date.now() }), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (status.failure) {
+    return (
+      <StaffRowNote testId="staff-server-log-status" tone="error">
+        {t("staff.logging.server.failing", { failure: status.failure, pending: status.pending })}
+      </StaffRowNote>
+    );
+  }
+  return (
+    <StaffRowNote testId="staff-server-log-status">
+      {status.lastSentAt == null
+        ? t("staff.logging.server.waiting", { pageId: getLogPageId() })
+        : t("staff.logging.server.sending", {
+            seconds: Math.max(0, Math.round((now - status.lastSentAt) / 1000)),
+            sentLines: status.sentLines,
+            pageId: getLogPageId(),
+          })}
+    </StaffRowNote>
+  );
+}
+
+function StaffToggle(props: {
+  on: boolean;
+  onChange: (on: boolean) => void;
+  testId: string;
+  disabled?: boolean;
+}): ReactElement {
   const { t } = useTranslation();
   return (
     <button
@@ -540,8 +575,9 @@ function StaffToggle(props: { on: boolean; onChange: (on: boolean) => void; test
       data-testid={props.testId}
       className={props.on ? "control" : ""}
       aria-pressed={props.on}
+      disabled={props.disabled}
       onClick={() => props.onChange(!props.on)}
-      style={{ ...ledPreviewToggleStyle(props.on), minWidth: 64 }}
+      style={{ ...ledPreviewToggleStyle(props.on), minWidth: 64, opacity: props.disabled ? 0.4 : 1 }}
     >
       {props.on ? t("staff.toggle.on") : t("staff.toggle.off")}
     </button>
@@ -610,6 +646,8 @@ function Staff(): ReactElement {
     devLogCategories,
     setDevLogCategoryEnabled,
     setAllDevLogCategories,
+    serverLogEnabled,
+    setServerLogEnabled,
   } = useCouncilSettings();
   const bridgeButtonActive = pttHardwareEnabled;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
@@ -1190,6 +1228,16 @@ function Staff(): ReactElement {
                 {t("staff.logging.off")}
               </button>
             </StaffSegmented>
+
+            <StaffRow label={t("staff.logging.server.label")} title={t("staff.logging.server.hint")}>
+              <StaffToggle
+                on={serverLogEnabled}
+                onChange={setServerLogEnabled}
+                disabled={!devLogEnabled}
+                testId="staff-server-log-toggle"
+              />
+            </StaffRow>
+            {serverLogEnabled && devLogEnabled ? <ServerLogStatusNote /> : null}
 
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               <button

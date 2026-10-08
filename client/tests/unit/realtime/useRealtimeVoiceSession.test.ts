@@ -125,6 +125,7 @@ beforeEach(() => {
   mockCreateRemoteAudioAnchor.mockImplementation(() => ({
     arm: vi.fn(),
     getCtxTime: () => mockCtxTime,
+    getState: () => "running",
     dispose: vi.fn(),
   }));
 
@@ -1145,6 +1146,42 @@ describe("useRealtimeVoiceSession", () => {
       // agent — still worth reporting, on the usual thinning schedule.
       expect(reportRealtimeIssue).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "connection-lost" })
+      );
+    });
+
+    /**
+     * A provider that closes the data channel has ended the session: without a
+     * reconnect the agent stays mute while the session still reads as ready.
+     */
+    it("reconnects when the provider closes the data channel", async () => {
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onOpen, onClose }: { onOpen: () => void; onClose: (reason: string) => void }) => {
+          onOpen();
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "open", send: vi.fn() },
+          };
+        },
+      );
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+        })
+      );
+
+      await waitFor(() => expect(closeConnection).toBeDefined());
+      const close = closeConnection!;
+      closeConnection = undefined;
+      act(() => close("dc_close"));
+
+      await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalledTimes(2));
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "connection-lost", code: "dc_close" })
       );
     });
   });

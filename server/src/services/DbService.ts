@@ -1,4 +1,4 @@
-import type { StoredMeeting, StoredAudio, Counter, StoredRoomPower, StoredRoomPowerHour, StoredUsageEvent, OutboxLetter, BlockedRecipient, LetterReply } from "@models/DBModels.js";
+import type { StoredMeeting, StoredAudio, Counter, StoredRoomPower, StoredRoomPowerHour, StoredUsageEvent, OutboxLetter, BlockedRecipient, LetterReply, StoredClientLogBatch } from "@models/DBModels.js";
 import { MongoClient, Db, Collection, InsertOneResult } from "mongodb";
 import { Logger } from "@utils/Logger.js";
 import { config } from "../config.js";
@@ -9,6 +9,10 @@ const OLD_AUTOPLAY_INDEX_NAME = "autoplay_meetingComplete_date_language";
 
 const LIVEKEY_INDEX_SPEC = { liveKey: 1 } as const;
 const LIVEKEY_INDEX_NAME = "liveKey_unique";
+
+const CLIENT_LOG_COLLECTION = "client_log";
+/** The stored browser log rolls over at this size: MongoDB drops the oldest batches itself. */
+export const CLIENT_LOG_CAP_BYTES = 512 * 1024 * 1024;
 
 let db: Db;
 let mongoClient: MongoClient | null = null;
@@ -25,6 +29,8 @@ export let lettersCollection: Collection<OutboxLetter>;
 export let letterBlocklistCollection: Collection<BlockedRecipient>;
 /** What came back to the letters (logic/letters/replies.ts). */
 export let letterRepliesCollection: Collection<LetterReply>;
+/** Browsers' console logs, sent from #staff-enabled pages (api/clientLogRoutes.ts). */
+export let clientLogCollection: Collection<StoredClientLogBatch> | undefined;
 
 export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
   // Config is already validated by the time we import this, but allow overrides for testing
@@ -66,6 +72,7 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   await lettersCollection.createIndex({ status: 1, queuedAt: 1 }, { name: "letters_status_queuedAt" });
   await lettersCollection.createIndex({ recipientId: 1, status: 1 }, { name: "letters_recipientId_status" });
   await letterRepliesCollection.createIndex({ kind: 1, printedAt: 1 }, { name: "letter_replies_kind_printedAt" });
+  clientLogCollection = await ensureClientLogCollection(db);
   Logger.info("init", "Database ready.");
 };
 
@@ -129,6 +136,27 @@ const ensureUsageIndexes = async (events: Collection<StoredUsageEvent>): Promise
   await events.createIndex(
     { venueId: 1, ts: 1 }, { name: "usage_venueId_ts", sparse: true }
   );
+};
+
+/**
+ * The client log is capped, so it can be left on at an installation for weeks without
+ * anyone pruning it. Created capped when missing; an existing uncapped one is left alone
+ * (converting would rewrite it) and only warned about.
+ */
+const ensureClientLogCollection = async (database: Db): Promise<Collection<StoredClientLogBatch>> => {
+  const [existing] = await database.listCollections({ name: CLIENT_LOG_COLLECTION }).toArray();
+  if (!existing) {
+    await database.createCollection(CLIENT_LOG_COLLECTION, { capped: true, size: CLIENT_LOG_CAP_BYTES });
+    Logger.info("init", `Created capped ${CLIENT_LOG_COLLECTION} collection (${CLIENT_LOG_CAP_BYTES / 1024 / 1024} MB)`);
+  } else if (!(existing as { options?: { capped?: boolean } }).options?.capped) {
+    await Logger.warn("init", `${CLIENT_LOG_COLLECTION} exists but is not capped: it will grow without limit`);
+  }
+  const collection = database.collection<StoredClientLogBatch>(CLIENT_LOG_COLLECTION);
+  await collection.createIndex({ venueId: 1, receivedAt: -1 }, { name: "client_log_venueId_receivedAt" });
+  await collection.createIndex({ setupIds: 1 }, { name: "client_log_setupIds" });
+  await collection.createIndex({ meetingIds: 1 }, { name: "client_log_meetingIds" });
+  await collection.createIndex({ pageId: 1, seq: 1 }, { name: "client_log_pageId_seq" });
+  return collection;
 };
 
 export const closeDb = async (): Promise<void> => {
