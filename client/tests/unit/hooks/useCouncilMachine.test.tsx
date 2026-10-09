@@ -1,7 +1,7 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
+import { useCouncilMachine, CREDITS_PAUSE_MS } from '@council/hooks/useCouncilMachine';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
 import { usePendingIntentStore } from '@council/hooks/pendingIntentStore';
@@ -1652,6 +1652,34 @@ describe('useCouncilMachine', () => {
             expect(result.current.state.councilState).toBe('summary');
             expect(result.current.state.visibleOverlay).toBe('summary');
             expect(result.current.state.summary?.type).toBe(shown);
+        });
+
+        it('pauses after the farewell before the credits open', async () => {
+            vi.useFakeTimers();
+            try {
+                const { result } = render();
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                act(() => { vi.advanceTimersByTime(10); });
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'farewell', type: 'letter_farewell', speaker: 'river', text: 'Thank you.' },
+                        { type: 'credits' },
+                        letterSummary,
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'farewell', audio: new ArrayBuffer(8) });
+                });
+                expect(result.current.state.councilState).toBe('playing');
+
+                act(() => { result.current.actions.handleOnFinishedPlaying(); });
+                act(() => { vi.advanceTimersByTime(CREDITS_PAUSE_MS - 100); });
+                expect(result.current.state.councilState).toBe('waiting');
+
+                act(() => { vi.advanceTimersByTime(100); });
+                expect(result.current.state.councilState).toBe('summary');
+                expect(result.current.state.summary?.type).toBe('credits');
+            } finally {
+                vi.useRealTimers();
+            }
         });
 
         it.each([

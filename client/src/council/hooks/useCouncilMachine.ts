@@ -29,6 +29,11 @@ import { setLogContext } from "@/logging/serverLogSink";
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
 
+/** The pause between two messages. */
+const MESSAGE_PAUSE_MS = 1000;
+/** The pause after the chair's farewell, before the credits: the farewell settles first. */
+export const CREDITS_PAUSE_MS = 3000;
+
 export interface UseCouncilMachineProps {
     currentMeetingId: number;
     liveKey: string | undefined;
@@ -457,7 +462,9 @@ export function useCouncilMachine({
         }
 
         // This will be triggered directly when text is set
-        if (councilState !== 'summary' && isMeetingEnd(textMessages[playNextIndex])) {
+        // Except that the pause before the credits runs out first (see 'waiting').
+        const pausingBeforeCredits = councilState === 'waiting' && textMessages[playNextIndex]?.type === 'credits';
+        if (councilState !== 'summary' && isMeetingEnd(textMessages[playNextIndex]) && !pausingBeforeCredits) {
             setCouncilState("summary");
             return;
         }
@@ -532,11 +539,12 @@ export function useCouncilMachine({
                 }
                 break;
             case 'waiting':
-                //Wait one second, and then proceed — but not behind the meta agent's back
+                //Pause, and then proceed — but not behind the meta agent's back
                 if (waitTimer.current == null && !metaAgentHolding) {//Unless we are already waiting
+                    const pause = textMessages[playNextIndex]?.type === 'credits' ? CREDITS_PAUSE_MS : MESSAGE_PAUSE_MS;
                     waitTimer.current = setTimeout(() => {
                         setCouncilState('playing');
-                    }, 1000);
+                    }, pause);
                 }
                 break;
             case 'query_extension':
