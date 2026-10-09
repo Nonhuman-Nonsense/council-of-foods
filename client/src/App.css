@@ -651,3 +651,10 @@ nav.blur::before {
 .letter-body p:last-child {
   margin-bottom: 0;
 }
+
+/* On paper, a blank line between paragraphs, as LETTER design V2 spaces them. */
+.letter-paper .letter-body p,
+.letter-paper .letter-body li {
+  line-height: 1.2;
+  margin-bottom: 1.2em;
+}

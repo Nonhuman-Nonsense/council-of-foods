@@ -10,13 +10,15 @@ const PT_PER_MM = 72 / 25.4;
 const MAGNET_MARK = { centreFromTopMm: 20, diameterMm: 3, lineWidthPt: 1 /* 2px */ };
 
 /**
- * A letter's page ({@link LetterDocument}): 25 mm sides, and room at the foot of every page for
- * the QR code to the meeting, centred, with the meeting's number beneath it.
+ * A letter's page ({@link LetterDocument}), as LETTER design V2 measures it: 25 mm sides; the QR
+ * code to the meeting at the top right of the first page, beside the header, with "meeting" and
+ * its number right-aligned beneath; and a reply's REPLY centred at the foot of every page.
  */
 const LETTER_PAGE = {
-  marginsMm: { top: 35, side: 25, bottom: 47 },
-  qr: { topMm: 253.5, sizeMm: 15 },
-  label: { baselineMm: 274, sizePt: 9, gray: 128 },
+  marginsMm: { top: 37.6, side: 25, bottom: 35 },
+  qr: { leftMm: 170.08, topMm: 36.65, sizeMm: 13.74 },
+  label: { rightMm: 183.1, baselinesMm: [53.83, 57.63], sizePt: 9 },
+  stamp: { baselineMm: 270.65, sizePt: 16 },
 };
 
 interface ProtocolPdfOptions {
@@ -45,9 +47,10 @@ export async function createProtocolPdf(
       ...(letter ? letterGeometry(pdf) : { margin: [100, 50, 50, 50] }),
     });
   });
-  const footer = element.querySelector<HTMLElement>("[data-page-footer]");
-  const qr = footer?.querySelector("canvas");
-  if (footer && qr) drawPageFooter(pdf, qr, footer.dataset.pageFooter ?? "");
+  const meeting = element.querySelector<HTMLElement>("[data-meeting-qr]");
+  const qr = meeting?.querySelector("canvas");
+  if (meeting && qr) drawMeetingQr(pdf, qr, meeting.dataset.meetingQr ?? "");
+  if (element.dataset.pageStamp) drawPageStamp(pdf, element.dataset.pageStamp);
   if (magnetMark) drawMagnetMark(pdf);
   return pdf;
 }
@@ -61,17 +64,28 @@ function letterGeometry(pdf: jsPDF) {
   };
 }
 
-function drawPageFooter(pdf: jsPDF, qr: HTMLCanvasElement, label: string): void {
+/** On the first page only: the header it sits beside is only there. */
+function drawMeetingQr(pdf: jsPDF, qr: HTMLCanvasElement, meetingId: string): void {
+  const { qr: box, label } = LETTER_PAGE;
+  pdf.setPage(1);
+  pdf.addImage(qr.toDataURL("image/png"), "PNG", box.leftMm * PT_PER_MM, box.topMm * PT_PER_MM, box.sizeMm * PT_PER_MM, box.sizeMm * PT_PER_MM);
+  pdf.setFont("Arimo", "normal");
+  pdf.setFontSize(label.sizePt);
+  pdf.setTextColor(0);
+  ["meeting", `#${meetingId}`].forEach((line, index) => {
+    pdf.text(line, label.rightMm * PT_PER_MM, label.baselinesMm[index] * PT_PER_MM, { align: "right" });
+  });
+}
+
+/** On every page, so each sheet hung on the wall says what it is. */
+function drawPageStamp(pdf: jsPDF, stamp: string): void {
   const centre = pdf.internal.pageSize.getWidth() / 2;
-  const size = LETTER_PAGE.qr.sizeMm * PT_PER_MM;
-  const image = qr.toDataURL("image/png");
   for (let page = 1; page <= pdf.getNumberOfPages(); page++) {
     pdf.setPage(page);
-    pdf.addImage(image, "PNG", centre - size / 2, LETTER_PAGE.qr.topMm * PT_PER_MM, size, size);
-    pdf.setFont("Arimo", "normal");
-    pdf.setFontSize(LETTER_PAGE.label.sizePt);
-    pdf.setTextColor(LETTER_PAGE.label.gray);
-    pdf.text(label, centre, LETTER_PAGE.label.baselineMm * PT_PER_MM, { align: "center" });
+    pdf.setFont("Arimo", "bold");
+    pdf.setFontSize(LETTER_PAGE.stamp.sizePt);
+    pdf.setTextColor(0);
+    pdf.text(stamp, centre, LETTER_PAGE.stamp.baselineMm * PT_PER_MM, { align: "center" });
   }
 }
 

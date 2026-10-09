@@ -651,15 +651,22 @@ function Staff(): ReactElement {
   const { meetingPath } = useRouting();
   const [testPage, setTestPage] = useState<"idle" | "sending" | TestPageOutcome>("idle");
 
-  /** A letter, then a reply: two sheets, each its own job, reporting the first that did not queue. */
+  /**
+   * A letter, then a reply: two sheets, each its own job, reporting the first that did not queue.
+   * Both are downloaded too, so the layout can be checked on a computer with no printer.
+   */
   const printTestPage = async (): Promise<void> => {
     const pages = [testPageRef.current, testReplyRef.current];
     if (pages.some((page) => !page)) return;
     setTestPage("sending");
     try {
+      const letter = await createProtocolPdf(pages[0]!, { magnetMark: true });
+      const reply = await createProtocolPdf(pages[1]!, { magnetMark: true });
+      letter.save("test-letter.pdf");
+      reply.save("test-reply.pdf");
+      const pdfs = [letter, reply];
       let outcome: TestPageOutcome = "queued";
-      for (const page of pages) {
-        const pdf = await createProtocolPdf(page!, { magnetMark: true });
+      for (const pdf of pdfs) {
         outcome = await sendTestPage(pdf.output("blob"));
         if (outcome !== "queued") break;
       }

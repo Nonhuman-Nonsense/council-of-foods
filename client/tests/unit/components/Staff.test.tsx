@@ -544,7 +544,7 @@ describe('Staff overlay', () => {
     it('prints a sample letter and a reply to it through the same PDF path, and reports the result', async () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
       const blob = new Blob(['%PDF-']);
-      mockCreateProtocolPdf.mockResolvedValue({ output: () => blob });
+      mockCreateProtocolPdf.mockResolvedValue({ output: () => blob, save: vi.fn() });
       mockSendTestPage.mockResolvedValue('queued');
 
       render(<Staff />);
@@ -560,6 +560,23 @@ describe('Staff overlay', () => {
         screen.getByTestId('staff-test-reply-document'),
       ]);
       expect(mockSendTestPage.mock.calls).toEqual([[blob], [blob]]);
+    });
+
+    it('downloads both test PDFs even when no printer takes them', async () => {
+      localStorage.setItem('councilPrintSummariesEnabled', 'true');
+      const save = vi.fn();
+      mockCreateProtocolPdf.mockResolvedValue({ output: () => new Blob(['%PDF-']), save });
+      mockSendTestPage.mockResolvedValue('unreachable');
+
+      render(<Staff />);
+      fireEvent.click(screen.getByTestId('staff-print-test-page'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('staff-print-test-page-result')).toHaveTextContent(
+          'staff.print.testPageResult.unreachable',
+        );
+      });
+      expect(save.mock.calls).toEqual([['test-letter.pdf'], ['test-reply.pdf']]);
     });
   });
 
