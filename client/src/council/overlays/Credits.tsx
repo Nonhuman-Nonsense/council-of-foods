@@ -5,6 +5,7 @@ import { useMobile, dvh } from "@/utils";
 import { useRouting } from "@/navigation";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
+import { easeInOutCubic } from "@council/summaryScrollSync";
 import { useSummaryExit } from "./useSummaryExit";
 import { CREDIT_GROUPS, CREDIT_LOGOS } from "./creditsContent";
 import type { CreditText } from "./creditsTypes";
@@ -12,7 +13,7 @@ import type { CreditText } from "./creditsTypes";
 /** How long "Thank You" stands alone before the credits start to roll. */
 export const CREDITS_HOLD_MS = 4_000;
 /** How long the credits take to roll, from "Thank You" leaving to the logos. */
-export const CREDITS_SCROLL_MS = 60_000;
+export const CREDITS_SCROLL_MS = 50_000;
 
 /**
  * The end of a meeting at an installation that prints its letters (docs/council-letters.md):
@@ -39,7 +40,8 @@ function Credits(): React.ReactElement {
     return () => window.removeEventListener("pointerdown", restart);
   }, [installation, navigate, rootPath]);
 
-  // A steady roll from the top to the end, on its own clock: there is no reading to follow.
+  // A roll from the top to the end on its own clock, there being no reading to follow, eased in
+  // and out like the summary's.
   useEffect(() => {
     let frame: number | null = null;
     let finished = false;
@@ -48,7 +50,7 @@ function Credits(): React.ReactElement {
       const element = scrollRef.current;
       if (!element) return;
       const progress = Math.min(1, Math.max(0, (now - startedAt) / CREDITS_SCROLL_MS));
-      element.scrollTop = progress * (element.scrollHeight - element.clientHeight);
+      element.scrollTop = easeInOutCubic(progress) * (element.scrollHeight - element.clientHeight);
       if (progress >= 1 && !finished) {
         finished = true;
         notifyAutoplay({ type: "summary-playback-finished" });
@@ -85,17 +87,16 @@ function Credits(): React.ReactElement {
     display: "grid",
     gridTemplateColumns: "1fr 1fr",
     columnGap: "1.5em",
-    rowGap: "0.9em",
+    rowGap: "0.35em",
     margin: "0 0 3em",
   };
-  const logo: React.CSSProperties = { height: isMobile ? "45px" : "70px", maxWidth: "40%", objectFit: "contain" };
 
   return (
     <div ref={scrollRef} style={wrapper} className="scroll scroll--hide-scrollbar" data-testid="credits">
       <div style={screen}>
-        <h1 style={{ fontSize: isMobile ? "56px" : "96px", margin: 0 }}>{t("credits.thankYou")}</h1>
+        <h1 style={{ fontSize: isMobile ? "40px" : "64px", margin: 0 }}>{t("credits.thankYou")}</h1>
       </div>
-      <div style={{ height: `40${dvh}` }} />
+      <div style={{ height: `15${dvh}` }} />
       <p style={{ fontSize: isMobile ? "18px" : "22px", lineHeight: 1.5, margin: "0 0 3em", padding: "0 20px" }}>
         {t("credits.intro")}
       </p>
@@ -119,7 +120,7 @@ function Credits(): React.ReactElement {
         {CREDIT_LOGOS.map((row) => (
           <div key={row[0].src} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "2em", width: "100%" }}>
             {row.map((item) => (
-              <img key={item.src} alt={text(item.alt)} src={item.src} style={item.small ? { ...logo, height: isMobile ? "40px" : "55px" } : logo} />
+              <img key={item.src} alt={text(item.alt)} src={item.src} style={{ maxWidth: `${item.maxWidth}px`, height: `${item.height}px`, objectFit: "contain" }} />
             ))}
           </div>
         ))}

@@ -13,6 +13,6 @@ export const CREDIT_GROUPS: CreditGroup[] = [];
 
 /** The logos at the end of the roll, row by row. */
 export const CREDIT_LOGOS: CreditLogo[][] = [
-  [{ src: nonhumanLogo, alt: { name: "Nonhuman Nonsense" } }],
-  [{ src: euLogo, alt: { key: "contact.euImageAlt" }, small: true }],
+  [{ src: nonhumanLogo, alt: { name: "Nonhuman Nonsense" }, maxWidth: 120, height: 61 }],
+  [{ src: euLogo, alt: { key: "contact.euImageAlt" }, maxWidth: 450, height: 84 }],
 ];

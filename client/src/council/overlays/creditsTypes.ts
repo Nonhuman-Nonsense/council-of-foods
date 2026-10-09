@@ -12,9 +12,10 @@ export interface CreditGroup {
   credits: CreditLine[];
 }
 
+/** Sized as on the contact page, in pixels. */
 export interface CreditLogo {
   src: string;
   alt: CreditText;
-  /** A wide logo, shown a little lower. */
-  small?: boolean;
+  maxWidth: number;
+  height: number;
 }
