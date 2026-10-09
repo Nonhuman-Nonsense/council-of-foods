@@ -10,9 +10,24 @@ import { CREDIT_GROUPS, CREDIT_LOGOS } from "./creditsContent";
 import type { CreditText } from "./creditsTypes";
 
 /** How long "Thank You" stands alone before the credits start to roll. */
-export const CREDITS_HOLD_MS = 2_000;
+export const CREDITS_HOLD_MS = 5_000;
 /** How long the credits take to roll, from "Thank You" leaving to the logos. */
 export const CREDITS_SCROLL_MS = 50_000;
+/** The share of the roll spent speeding up at the start, and slowing down at the end. */
+const CREDITS_EASE = 0.1;
+
+/**
+ * Where the roll is (0–1) at a point in its time (0–1): it eases in and out over the first and
+ * last {@link CREDITS_EASE} of it and runs steadily in between, so the middle reads at nearly
+ * the linear speed — unlike the summary's curve, which is fastest there.
+ */
+export function creditsRollPosition(time: number): number {
+  const t = Math.min(1, Math.max(0, time));
+  const top = 1 / (1 - CREDITS_EASE);
+  if (t < CREDITS_EASE) return (top * t * t) / (2 * CREDITS_EASE);
+  if (t > 1 - CREDITS_EASE) return 1 - (top * (1 - t) * (1 - t)) / (2 * CREDITS_EASE);
+  return top * (t - CREDITS_EASE / 2);
+}
 
 /**
  * The end of a meeting at an installation that prints its letters (docs/council-letters.md):
@@ -39,7 +54,7 @@ function Credits(): React.ReactElement {
     return () => window.removeEventListener("pointerdown", restart);
   }, [installation, navigate, rootPath]);
 
-  // A steady roll from the top to the end, on its own clock: there is no reading to follow.
+  // A roll from the top to the end on its own clock: there is no reading to follow.
   useEffect(() => {
     let frame: number | null = null;
     let finished = false;
@@ -48,7 +63,7 @@ function Credits(): React.ReactElement {
       const element = scrollRef.current;
       if (!element) return;
       const progress = Math.min(1, Math.max(0, (now - startedAt) / CREDITS_SCROLL_MS));
-      element.scrollTop = progress * (element.scrollHeight - element.clientHeight);
+      element.scrollTop = creditsRollPosition(progress) * (element.scrollHeight - element.clientHeight);
       if (progress >= 1 && !finished) {
         finished = true;
         notifyAutoplay({ type: "summary-playback-finished" });

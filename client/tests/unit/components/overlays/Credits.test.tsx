@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
-import Credits, { CREDITS_HOLD_MS, CREDITS_SCROLL_MS } from '@council/overlays/Credits';
+import Credits, { CREDITS_HOLD_MS, CREDITS_SCROLL_MS, creditsRollPosition } from '@council/overlays/Credits';
 import { capabilitiesFor } from '@/settings/capabilities';
 
 /**
@@ -57,5 +57,15 @@ describe('Credits', () => {
         fireEvent.pointerDown(window);
 
         expect(mockNavigate).toHaveBeenCalledWith('/en/');
+    });
+
+    it('eases in and out of a steady roll: it starts and ends at rest and never races in the middle', () => {
+        expect(creditsRollPosition(0)).toBe(0);
+        expect(creditsRollPosition(0.5)).toBeCloseTo(0.5);
+        expect(creditsRollPosition(1)).toBeCloseTo(1);
+        const speed = (t: number) => (creditsRollPosition(t + 0.001) - creditsRollPosition(t)) / 0.001;
+        expect(speed(0)).toBeLessThan(0.1);
+        expect(speed(0.999)).toBeLessThan(0.1);
+        expect(speed(0.5)).toBeLessThan(1.2);
     });
 });
