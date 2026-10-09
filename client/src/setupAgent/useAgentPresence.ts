@@ -20,6 +20,8 @@ export type UseAgentPresenceParams = {
    * — or tear the session down — while the visitor is mid-sentence.
    */
   lastActivity?: unknown;
+  /** The visitor is holding the talk button — talking, not quiet. */
+  visitorTalking?: boolean;
   /**
    * Check in on a quiet visitor, and tear the session down once they have been
    * silent long enough (capabilities.idleNudge). Off during a screening, where
@@ -46,6 +48,7 @@ export function useAgentPresence({
   agent,
   phase,
   lastActivity,
+  visitorTalking = false,
   idleNudge = true,
 }: UseAgentPresenceParams): AgentPresenceState {
   const { sendUserMessage, muted } = agent;
@@ -65,6 +68,7 @@ export function useAgentPresence({
     enabled: idleNudge && !agent.isConnecting && !muted && isPresent,
     onNudgeFired: () => setNudgeFired(true),
     lastActivity,
+    visitorTalking,
     // A visitor who has never had a microphone isn't "quiet" — they're reading.
     // Asking them to respond would be asking for something they can't give.
     // Once they have spoken, push-to-talk shuts the mic between utterances, so

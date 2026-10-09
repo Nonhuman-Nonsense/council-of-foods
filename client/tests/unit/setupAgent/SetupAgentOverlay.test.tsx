@@ -34,7 +34,7 @@ describe('SetupAgentOverlay', () => {
     muted: false,
     onStart: vi.fn(),
     onStop: vi.fn(),
-    onToggleMic: vi.fn(),
+    onMicPress: vi.fn(),
   };
 
   it('offers a volume toggle when the visitor has a pointer', () => {
@@ -85,12 +85,13 @@ describe('SetupAgentOverlay', () => {
       // Ready-but-silent still spins, same signal the museum spinner uses —
       // the greeting itself is what a visitor here is waiting to hear.
       { muted: false, isConnecting: true, micRequested: false, micAttaching: false, micStream: null, expected: 'connecting' },
-      // Requested but not yet live: the first press, mid getUserMedia/attach —
-      // spins rather than showing "on" for a track that isn't sending yet.
-      { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: null, expected: 'connecting' },
-      // A real attach call is outstanding even though the ask was withdrawn
-      // mid-flight (a blur from the permission prompt itself clears the latch)
-      // — the spinner reflects the actual outstanding work, not the ask.
+      // Held, the track one render behind: the button is under the visitor's
+      // finger, so it shows "on" rather than being swapped for a spinner. A first
+      // press that has to attach the mic spins through `micAttaching` instead.
+      { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: null, expected: 'on' },
+      // A real attach call is outstanding even though the press was let go
+      // mid-flight (or ended by a blur from the permission prompt itself) — the
+      // spinner reflects the actual outstanding work, not the press.
       { muted: false, isConnecting: false, micRequested: false, micAttaching: true, micStream: null, expected: 'connecting' },
       { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: liveStream, expected: 'on' },
       { muted: false, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },

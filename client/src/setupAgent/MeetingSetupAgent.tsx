@@ -16,7 +16,7 @@ import {
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { useButton } from "@/museum/button/useButton";
+import { useButton, useHoldHint } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { useSignOfLife } from "@/signOfLife";
 import { buildSetupAgentPrompt } from "./setupAgentPrompt";
@@ -155,8 +155,8 @@ export default function MeetingSetupAgent({
       switchLanguage,
     }),
     micUpFront: capabilities.micUpFront,
-    micOpen: button.wantsMic,
-    onMicUnavailable: button.clearLatch,
+    micOpen: button.pressed,
+    onMicUnavailable: button.endPress,
   });
   const { interruptAndRespond, muted } = agent;
   // Any click or keystroke counts as activity — resets the idle nudge and the
@@ -166,6 +166,7 @@ export default function MeetingSetupAgent({
     agent,
     phase,
     lastActivity: lastUserEvent,
+    visitorTalking: button.pressed,
     idleNudge: capabilities.idleNudge,
   });
 
@@ -201,7 +202,7 @@ export default function MeetingSetupAgent({
     owner: "setup-agent",
     sessionActive: voiceSetupAgent && !muted,
     isConnecting: agent.isConnecting,
-    micOpen: button.wantsMic,
+    micOpen: button.pressed,
     agentSpeaking: agent.agentSpeaking && !nudgeFired,
   });
 
@@ -241,28 +242,25 @@ export default function MeetingSetupAgent({
   }, [button.setArmed, canTakeVoice]);
 
   /**
-   * The on-screen mic button is the same gesture as a tap, by another input
-   * device — so it toggles the same latch rather than keeping its own state.
-   * Wanting to talk implies wanting to hear the reply, so it also brings the
-   * agent back if it was switched off, or starts it for the first time on a
-   * page still waiting for a gesture. The latch survives the arming that
-   * follows, so setting it here while still disarmed is safe.
+   * The on-screen mic button is held like space or the hardware button — the same
+   * press by another input device, not a state of its own. Wanting to talk implies
+   * wanting to hear the reply, so pressing it also brings the agent back if it was
+   * switched off, or starts it on a page still waiting for a gesture; a press held
+   * through the connecting that follows opens the mic once the agent can listen.
    */
-  const handleToggleMic = useCallback(() => {
-    if (muted) void agent.start();
-    button.toggleLatch();
-  }, [muted, agent.start, button.toggleLatch]);
+  const handleMicPress = useCallback(
+    (down: boolean) => {
+      if (down && muted) void agent.start();
+      button.pressFromScreen(down);
+    },
+    [muted, agent.start, button.pressFromScreen],
+  );
 
-  /**
-   * Switching the agent off withdraws the ask, rather than merely suspending
-   * it: the mic is not what they turned off, but turning the agent back on
-   * from the corner should not silently reopen their microphone. Only the mic
-   * button asks for the mic.
-   */
+  /** Switching the agent off ends a press still held: the mic is not what they turned on. */
   const handleStop = useCallback(() => {
-    button.clearLatch();
+    button.endPress();
     agent.stop();
-  }, [button.clearLatch, agent.stop]);
+  }, [button.endPress, agent.stop]);
 
   useEffect(() => {
     if (!lastUserEvent) {
@@ -299,7 +297,8 @@ export default function MeetingSetupAgent({
   // `micStream` it already gets, whether that means "connecting" or "on": on
   // the very first web press `micStream` lags this by however long
   // getUserMedia + attachMic take, and museum has no such gap to hide.
-  const micRequested = !muted && button.wantsMic;
+  const micRequested = !muted && button.pressed;
+  const holdHint = useHoldHint();
 
   return (
     <>
@@ -316,7 +315,8 @@ export default function MeetingSetupAgent({
       micStream={agent.micStream}
       micAttaching={agent.micAttaching}
       micRequested={micRequested}
-      onToggleMic={handleToggleMic}
+      onMicPress={handleMicPress}
+      showHoldHint={holdHint}
       onStart={agent.start}
       onStop={handleStop}
     />

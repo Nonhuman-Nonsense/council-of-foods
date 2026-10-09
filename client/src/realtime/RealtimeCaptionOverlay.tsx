@@ -28,13 +28,16 @@ export type RealtimeCaptionOverlayProps = {
   micStream?: MediaStream | null;
   micActive?: boolean;
   /**
-   * Turns the centre slot into a working mic toggle (web). Left unset in museum,
+   * Turns the centre slot into a working hold-to-talk button (web). Left unset in museum,
    * where the hardware button owns the mic and the icon is a pure indicator.
    */
   micButton?: {
     state: MicButtonState;
-    onClick: () => void;
+    onPress: () => void;
+    onRelease: () => void;
     label?: string;
+    /** Shown above the button for a moment after a click that should have been a hold. */
+    hint?: string | null;
   };
   /** Hide caption text while reconnecting (e.g. language switch). Errors still show. */
   hideCaptions?: boolean;
@@ -101,7 +104,8 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     alignItems: "center",
   };
 
-  const hasText = Boolean(notice) || (!hideCaptions && Boolean(lastUserTranscript || lastCaption));
+  const holdHint = micButton?.hint ?? null;
+  const hasText = Boolean(notice) || Boolean(holdHint) || (!hideCaptions && Boolean(lastUserTranscript || lastCaption));
 
   const textBlockStyle: CSSProperties = {
     display: "flex",
@@ -147,6 +151,10 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
           <p style={{ ...secondaryStyle, margin: 0 }} data-testid="agent-notice">
             {notice}
           </p>
+        ) : holdHint ? (
+          <p style={{ ...secondaryStyle, margin: 0 }} data-testid="agent-hold-hint">
+            {holdHint}
+          </p>
         ) : hasText ? (
           <>
             {lastUserTranscript ? (
@@ -189,7 +197,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
               <ConversationControlIcon
                 icon={micButton.state === "on" ? "record_voice_on" : "record_voice_off"}
                 tooltip={micButton.label}
-                onClick={micButton.onClick}
+                hold={{ onPress: micButton.onPress, onRelease: micButton.onRelease }}
               />
             )
           ) : showMicRow ? (

@@ -276,7 +276,7 @@ describe("useSetupAgent", () => {
   it("mutes a track that attaches after the ask was withdrawn, rather than leaving it hot", async () => {
     // getUserMedia (the permission prompt included) cannot be cancelled once
     // asked, so the ask can change while it is in flight — e.g. the visitor
-    // switches tabs mid-prompt and the latch clears. A fresh track defaults
+    // lets go of the button mid-prompt. A fresh track defaults
     // to enabled, so without this fix a late-arriving mic goes live
     // regardless of what is currently wanted.
     let resolveAttach!: (attached: boolean) => void;
@@ -344,7 +344,7 @@ describe("useSetupAgent", () => {
 
   it("keeps reporting micAttaching after the ask is withdrawn mid-flight", async () => {
     // The spinner must not depend on the ask surviving — the permission
-    // prompt itself can blur the window and clear the latch while this call
+    // prompt itself can blur the window and end the press while this call
     // is still genuinely running.
     let resolveAttach!: (attached: boolean) => void;
     attachMic.mockReturnValue(new Promise<boolean>((resolve) => { resolveAttach = resolve; }));

@@ -38,7 +38,8 @@
   },
   "ptt": {
     "holdToSpeak": "Push the button to speak",
-    "humanPlaceholder": "Press and hold the button to talk, release to submit"
+    "humanPlaceholder": "Press and hold the button to talk, release to submit",
+    "holdHint": "Hold the button down while you talk"
   },
   "replay": {
     "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
@@ -95,8 +96,6 @@
         "ERROR": "Error detail"
       },
       "server": {
-        "label": "Send to server",
-        "hint": "Store everything this page logs on the council server, so it can be read later (npm run logs). Uses the categories above; needs logging on.",
         "failing": "Not sending ({{failure}}) — {{pending}} lines waiting"
       }
     },
@@ -251,8 +250,7 @@
   "agent": {
     "turnOn": "Turn on the guide",
     "turnOff": "Turn off the guide",
-    "micStart": "Talk to the guide",
-    "micStop": "Stop talking"
+    "micHold": "Hold to talk to the guide"
   },
   "microphone": {
     "title": "Microphone not available",

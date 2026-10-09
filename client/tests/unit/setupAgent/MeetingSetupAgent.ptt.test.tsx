@@ -8,8 +8,8 @@ import { installSignOfLife, resetSignOfLifeForTests } from "@/signOfLife";
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
 const mockSetArmed = vi.hoisted(() => vi.fn());
-const mockToggleLatch = vi.hoisted(() => vi.fn());
-const mockClearLatch = vi.hoisted(() => vi.fn());
+const mockPressFromScreen = vi.hoisted(() => vi.fn());
+const mockEndPress = vi.hoisted(() => vi.fn());
 const mockPressed = vi.hoisted(() => ({ value: false }));
 const mockUseSetupAgent = vi.hoisted(() => vi.fn((_params?: unknown) => ({
   isConnecting: false,
@@ -54,12 +54,12 @@ vi.mock("@/museum/button/useButton", () => ({
     claim: mockClaim,
     release: mockRelease,
     setArmed: mockSetArmed,
-    toggleLatch: mockToggleLatch,
-    clearLatch: mockClearLatch,
+    pressFromScreen: mockPressFromScreen,
+    endPress: mockEndPress,
     pressed: mockPressed.value,
-    wantsMic: mockPressed.value,
     isOwner: true,
   }),
+  useHoldHint: () => false,
 }));
 
 vi.mock("@setupAgent/useSetupAgent", () => ({
@@ -67,9 +67,14 @@ vi.mock("@setupAgent/useSetupAgent", () => ({
 }));
 
 vi.mock("@setupAgent/SetupAgentOverlay", () => ({
-  default: (props: { onToggleMic?: () => void; onStop?: () => void; micAttaching?: boolean }) => (
+  default: (props: { onMicPress?: (down: boolean) => void; onStop?: () => void; micAttaching?: boolean }) => (
     <>
-      <button type="button" data-testid="mic-toggle" onClick={props.onToggleMic} />
+      <button
+        type="button"
+        data-testid="mic-button"
+        onPointerDown={() => props.onMicPress?.(true)}
+        onPointerUp={() => props.onMicPress?.(false)}
+      />
       <button type="button" data-testid="agent-stop" onClick={props.onStop} />
       <span data-testid="mic-attaching">{String(props.micAttaching)}</span>
     </>
@@ -176,30 +181,31 @@ describe("MeetingSetupAgent button ownership", () => {
     expect(mockSetArmed).toHaveBeenCalledWith(true);
   });
 
-  it("routes the on-screen mic button through the same latch as a tap", () => {
+  it("holds the on-screen mic button like space: pressed going down, released letting go", () => {
     mockUseCouncilSettings.mockReturnValue(settings("web"));
     const start = vi.fn();
     mockUseSetupAgent.mockReturnValue(agentState({ start }));
 
     render(<MeetingSetupAgent {...defaultProps} />);
-    fireEvent.click(screen.getByTestId("mic-toggle"));
+    fireEvent.pointerDown(screen.getByTestId("mic-button"));
+    fireEvent.pointerUp(screen.getByTestId("mic-button"));
 
-    expect(mockToggleLatch).toHaveBeenCalledOnce();
+    expect(mockPressFromScreen.mock.calls).toEqual([[true], [false]]);
     // Already running, so nothing to wake.
     expect(start).not.toHaveBeenCalled();
   });
 
-  it("wakes a switched-off agent from the mic button, then latches", () => {
+  it("wakes a switched-off agent from the mic button, and holds", () => {
     // Wanting to talk implies wanting to hear the reply.
     mockUseCouncilSettings.mockReturnValue(settings("web"));
     const start = vi.fn();
     mockUseSetupAgent.mockReturnValue(agentState({ muted: true, start }));
 
     render(<MeetingSetupAgent {...defaultProps} />);
-    fireEvent.click(screen.getByTestId("mic-toggle"));
+    fireEvent.pointerDown(screen.getByTestId("mic-button"));
 
     expect(start).toHaveBeenCalledOnce();
-    expect(mockToggleLatch).toHaveBeenCalledOnce();
+    expect(mockPressFromScreen).toHaveBeenCalledWith(true);
   });
 
   it("defers the mic in web mode", () => {
@@ -212,9 +218,7 @@ describe("MeetingSetupAgent button ownership", () => {
     );
   });
 
-  it("withdraws the mic ask when the agent is switched off", () => {
-    // Turning the agent back on from the corner must not silently reopen the
-    // microphone — only the mic button asks for that.
+  it("ends a press still held when the agent is switched off", () => {
     mockUseCouncilSettings.mockReturnValue(settings("web"));
     const stop = vi.fn();
     mockUseSetupAgent.mockReturnValue(agentState({ stop }));
@@ -222,18 +226,18 @@ describe("MeetingSetupAgent button ownership", () => {
     render(<MeetingSetupAgent {...defaultProps} />);
     fireEvent.click(screen.getByTestId("agent-stop"));
 
-    expect(mockClearLatch).toHaveBeenCalledOnce();
+    expect(mockEndPress).toHaveBeenCalledOnce();
     expect(stop).toHaveBeenCalledOnce();
   });
 
-  it("withdraws the mic ask when the microphone cannot be attached", () => {
+  it("ends the press when the microphone cannot be attached", () => {
     mockUseCouncilSettings.mockReturnValue(settings("web"));
 
     render(<MeetingSetupAgent {...defaultProps} />);
 
     const calls = mockUseSetupAgent.mock.calls;
     const params = calls[calls.length - 1][0] as { onMicUnavailable?: () => void };
-    expect(params.onMicUnavailable).toBe(mockClearLatch);
+    expect(params.onMicUnavailable).toBe(mockEndPress);
   });
 
   it("passes micAttaching through so the spinner reflects real work, not the ask", () => {

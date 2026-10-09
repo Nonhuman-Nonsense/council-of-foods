@@ -17,6 +17,11 @@ type UseInactivityNudgeParams = {
    * render, so a fresh object each time (like a click-event record) works.
    */
   lastActivity?: unknown;
+  /**
+   * The visitor is holding the talk button. Never nudge someone mid-sentence: no
+   * countdown runs while it is held, and letting go starts it afresh.
+   */
+  visitorTalking?: boolean;
 };
 
 /**
@@ -40,6 +45,7 @@ export function useInactivityNudge({
   enabled,
   onNudgeFired,
   lastActivity,
+  visitorTalking = false,
 }: UseInactivityNudgeParams): void {
   const agentHasSpokenRef = useRef(false);
   const sendMessageRef = useRef(sendMessage);
@@ -68,7 +74,7 @@ export function useInactivityNudge({
   // Re-runs (and resets the countdown) whenever agentSpeaking or
   // lastUserTranscript changes.
   useEffect(() => {
-    if (!enabled || !agentHasSpokenRef.current || agentSpeaking) return;
+    if (!enabled || !agentHasSpokenRef.current || agentSpeaking || visitorTalking) return;
 
     const id = setTimeout(() => {
       onNudgeFiredRef.current?.();
@@ -77,5 +83,5 @@ export function useInactivityNudge({
     }, delayMs);
     return () => clearTimeout(id);
 
-  }, [agentSpeaking, lastUserTranscript, enabled, delayMs, lastActivity]);
+  }, [agentSpeaking, lastUserTranscript, enabled, delayMs, lastActivity, visitorTalking]);
 }

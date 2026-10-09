@@ -74,14 +74,6 @@ export type Capabilities = {
   /** Bottom-centre mic control — needs a pointer, and something to point at. */
   micToggleButton: boolean;
   /**
-   * A tap latches the microphone on; a hold stays momentary. Hold works in
-   * every mode; only latching is gated. On an unattended installation a latched-open
-   * mic has no keyboard to clear it and no on-screen button to reveal it, so
-   * the visitor's only exit is a gesture nobody taught them — and at a
-   * screening it would keep hearing the presenter narrate.
-   */
-  latchOnTap: boolean;
-  /**
    * Setup runs as a voice conversation with the agent presented installation-style:
    * mic row, council-width subtitles, button banner, and a prompt that explains
    * the talk button.
@@ -161,7 +153,6 @@ const WEB: Capabilities = {
   cursorHide: false,
   micUpFront: false,
   micToggleButton: true,
-  latchOnTap: true,
   voiceSetupAgent: false,
   agentWaitsForVisitor: true,
   typedSetup: true,
@@ -187,7 +178,6 @@ const MUSEUM: Capabilities = {
   cursorHide: true,
   micUpFront: true,
   micToggleButton: false,
-  latchOnTap: false,
   voiceSetupAgent: true,
   agentWaitsForVisitor: false,
   typedSetup: false,

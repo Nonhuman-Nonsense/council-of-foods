@@ -69,37 +69,25 @@ describe("useButton", () => {
     expect(human.current.isOwner).toBe(true);
   });
 
-  it("exposes wantsMic to the owner when a tap has latched the mic open", async () => {
-    const { useButton } = await import("@/museum/button/useButton");
+  it("shows the hold hint for a moment after a click", async () => {
+    vi.useFakeTimers();
+    try {
+      const { useHoldHint } = await import("@/museum/button/useButton");
+      const { result } = renderHook(() => useHoldHint());
+      expect(result.current).toBe(false);
 
-    const { result } = renderHook(() => useButton("setup-agent"));
-    act(() => {
-      result.current.claim();
-      useButtonStore.setState({ armed: true, latched: true });
-    });
+      act(() => {
+        useButtonStore.setState({ shortPressAt: Date.now() });
+      });
+      expect(result.current).toBe(true);
 
-    // Latched, not physically held: the mic is open but `pressed` stays false
-    // so edge-triggered consumers see nothing.
-    expect(result.current.wantsMic).toBe(true);
-    expect(result.current.pressed).toBe(false);
-  });
-
-  it("wants no microphone while disarmed, even with a latch set", async () => {
-    // A click can set the latch before the agent has armed the button; until it
-    // does, the button must not report the mic as open.
-    const { useButton } = await import("@/museum/button/useButton");
-
-    const { result } = renderHook(() => useButton("setup-agent"));
-    act(() => {
-      result.current.claim();
-      useButtonStore.setState({ armed: false, latched: true });
-    });
-    expect(result.current.wantsMic).toBe(false);
-
-    act(() => {
-      useButtonStore.setState({ armed: true });
-    });
-    expect(result.current.wantsMic).toBe(true);
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(result.current).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps ownership while disarmed", async () => {

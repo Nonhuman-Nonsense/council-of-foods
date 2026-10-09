@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { useMobile } from "@/utils";
 import { Icons, IconName } from "@assets/icons";
 
@@ -20,7 +20,12 @@ interface ConversationControlIconProps {
   icon: ConversationControlIconName;
   hoverIcon?: ConversationControlIconName;
   tooltip?: string;
-  onClick: () => void;
+  onClick?: () => void;
+  /**
+   * A hold button instead of a click: `onPress` when it goes down, `onRelease` when it is
+   * let go — wherever the pointer is by then, or if the browser takes the pointer away.
+   */
+  hold?: { onPress: () => void; onRelease: () => void };
   size?: number;
 }
 
@@ -29,9 +34,11 @@ function ConversationControlIcon({
   hoverIcon,
   tooltip,
   onClick,
+  hold,
   size
 }: ConversationControlIconProps) {
   const [isHover, setHover] = useState(false);
+  const holdingRef = useRef(false);
   const isMobile = useMobile();
 
   const IconComponent = Icons[icon];
@@ -87,11 +94,36 @@ function ConversationControlIcon({
   /*                                   Render                                   */
   /* -------------------------------------------------------------------------- */
 
+  const endHold = () => {
+    if (!holdingRef.current) return;
+    holdingRef.current = false;
+    hold?.onRelease();
+  };
+
+  const holdHandlers: React.ButtonHTMLAttributes<HTMLButtonElement> = hold
+    ? {
+        onPointerDown: (event) => {
+          // The primary button only: no right-click or middle-click holds.
+          if (event.button > 0) return;
+          // No focus, text selection or touch gestures: a hold is all this button does.
+          event.preventDefault();
+          event.currentTarget.setPointerCapture?.(event.pointerId);
+          holdingRef.current = true;
+          hold.onPress();
+        },
+        onPointerUp: endHold,
+        onPointerCancel: endHold,
+        onLostPointerCapture: endHold,
+        // A long press on a touch screen would otherwise open the context menu.
+        onContextMenu: (event) => event.preventDefault(),
+      }
+    : { onClick };
+
   return (
     <button
-      style={buttonStyle}
+      style={hold ? { ...buttonStyle, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitTouchCallout: "none" } : buttonStyle}
       className={"control"}
-      onClick={onClick}
+      {...holdHandlers}
       onMouseOver={() => setHover(true)}
       onMouseOut={() => setHover(false)}
       aria-label={tooltip}

@@ -19,7 +19,7 @@ import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
 import micIcon from "@assets/mic.avif";
 import type { ParticipationPhase } from "./participationPhase";
-import { useButton } from "@/museum/button/useButton";
+import { useButton, useHoldHint } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
 
@@ -322,8 +322,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
    * working regardless, so the visitor is left alone until they ask for the mic.
    */
   const micUnavailable = useMicAvailabilityStore((s) => s.availability === "unavailable");
-  /** Set when a mic click had to acquire permission first — record once ready. */
-  const pendingRecordRef = useRef(false);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
@@ -373,17 +371,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
 
   }, [connectionState, micUnavailable]);
 
-  // A mic click that had to ask for permission first: start recording as soon
-  // as the connection it triggered is live, so it behaves like any other click.
-  useEffect(() => {
-    if (connectionState !== "ready" || !pendingRecordRef.current) return;
-    pendingRecordRef.current = false;
-    // Arriving from idle/connecting, where the button was disarmed and the
-    // latch therefore cleared — so toggling can only turn it on.
-    button.toggleLatch();
-
-  }, [connectionState]);
-
   // Full cleanup on unmount — aborts any in-flight handshake and closes connection.
   useEffect(() => {
     return () => {
@@ -399,28 +386,28 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
 
   // ── PTT input ───────────────────────────────────────────────────────────────
 
-  // Gesture opens the mic — a hold, a tap that latched, or the on-screen button,
-  // which routes through the same latch so this stays the only path in.
-  // (Also covers a button held through the pre-warm.) Deliberately excludes
+  // Gesture opens the mic — space, the hardware button or the on-screen button, all
+  // held, so this stays the only path in. (Also covers a press held through the
+  // pre-warm, or through the connect a press on an unavailable mic sets off.) Deliberately excludes
   // inputValue: it updates on every transcription delta while already
   // recording, which doesn't change whether a start attempt should fire —
   // startRecording() reads the current inputValue from the closure whenever
   // this effect does run for one of the deps below.
   useEffect(() => {
     if (phase !== "active") return;
-    if (!button.wantsMic) return;
+    if (!button.pressed) return;
     startRecording();
-  }, [button.wantsMic, phase, connectionState]);
+  }, [button.pressed, phase, connectionState]);
 
   // Gesture closed → finish the session. Only queue an auto-submit where
   // releasing is meant to send; web leaves the transcript to edit and send.
   useEffect(() => {
-    if (!button.wantsMic && connectionState === "recording") {
+    if (!button.pressed && connectionState === "recording") {
       pendingPttAutoSubmitRef.current = capabilities.autoSubmitHumanInput;
       finishRealtimeSession();
     }
    
-  }, [button.wantsMic, capabilities.autoSubmitHumanInput, connectionState]);
+  }, [button.pressed, capabilities.autoSubmitHumanInput, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
   // transcript catches up (segments can update after connectionState is "ready").
@@ -462,17 +449,17 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
   useButtonBanner({
     owner: "human-input",
     sessionActive: pttSessionActive,
-    micOpen: button.wantsMic,
+    micOpen: button.pressed,
     isConnecting: connectionState === "connecting" || connectionState === "finishing",
     activityDeps: [inputValue, transcriptSegments],
     onIdleTerminal: onAbandonHumanTurn,
     canIdleTerminal: () =>
       capabilities.idleAnswersForVisitor &&
       pttSessionActive &&
-      !button.wantsMic &&
+      !button.pressed &&
       connectionState !== "recording" &&
       connectionState !== "finishing",
-    terminalDeps: [connectionState, button.wantsMic],
+    terminalDeps: [connectionState, button.pressed],
   });
 
   function transcriptionDeltaMergeMode(): TranscriptionDeltaMergeMode {
@@ -742,10 +729,10 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
    * returning to "ready". The connection stays open for a potential re-record.
    *
    * Called from one place only — the effect that watches the gesture close —
-   * so the flow stays one-directional: gesture → `wantsMic` → session. Anything
-   * else that should end a take says so by clearing the gesture (`clearLatch`)
-   * and lets that effect do this; calling it directly would leave a latch on,
-   * and the take would restart the moment the state landed back on "ready".
+   * so the flow stays one-directional: gesture → `pressed` → session. Anything
+   * else that should end a take says so by ending the press (`endPress`) and lets
+   * that effect do this; calling it directly would leave the press on, and the
+   * take would restart the moment the state landed back on "ready".
    */
   function finishRealtimeSession() {
     if (!connectionRef.current) {
@@ -820,32 +807,31 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     }, FINISHING_QUIET_MS);
   }
 
-  function handleStartStopRecording() {
-    if (connectionState === "ready") {
-      if (inputValue.length >= maxInputLength) {
-        setCanContinue(true);
-        return;
-      }
-      // Same gesture as a tap, by another input device — never a second source
-      // of truth. The effects above do the recording.
-      button.toggleLatch();
-    } else if (connectionState === "recording") {
-      button.toggleLatch();
-    } else if (connectionState === "idle" && micUnavailable) {
+  /** The on-screen mic button, held (true) or let go — the same press as space. */
+  function handleMicPress(down: boolean) {
+    if (!down) {
+      button.pressFromScreen(false);
+      return;
+    }
+    if (connectionState === "ready" && inputValue.length >= maxInputLength) {
+      setCanContinue(true);
+      return;
+    }
+    if (connectionState === "idle" && micUnavailable) {
       // The visitor is asking for the mic we skipped pre-warming. Try again —
       // the block may have been lifted since — and let requestMicrophone
-      // explain it if not. Typing is unaffected either way.
+      // explain it if not. Typing is unaffected either way. A press still held
+      // once the connection is ready starts recording like any other.
       void (async () => {
         try {
           const stream = await requestMicrophone({ userInitiated: true });
-          pendingRecordRef.current = true;
           await connect(stream);
         } catch {
           // Already surfaced by requestMicrophone; stay on the text input.
         }
       })();
     }
-    // connecting / finishing: no-op — loading UI is shown instead of the button
+    button.pressFromScreen(true);
   }
 
   const transcriptText = formatTranscriptInputValue({
@@ -865,20 +851,14 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     if (connectionStateRef.current === "recording" && transcriptText.length >= maxInputLength) {
       setPreviousTranscript(transcriptText);
       setTranscriptSegments([]);
-      // Out of room for more speech, so the visitor is no longer asking to
-      // talk. Ending the take is left to the release effect, as always.
-      button.clearLatch();
+      // Out of room for more speech: the press ends here, though it is still
+      // held. Ending the take is left to the release effect, as always.
+      button.endPress();
     }
-  // button.clearLatch is stable (useCallback), safe to omit
+  // button.endPress is stable (useCallback), safe to omit
 
   }, [transcriptText, maxInputLength]);
 
-  function inputFocused(_e: React.FocusEvent) {
-    // Turning to the textarea is the visitor withdrawing the ask, not a request
-    // to close a session — so it clears the gesture and the take follows.
-    button.clearLatch();
-    // Don't interrupt connecting/ready — user just wants to type
-  }
 
   function updateCanContinue(value: string) {
     setCanContinue(value.length > 0 && value.trim().length !== 0);
@@ -889,6 +869,17 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     setInputValue(nextValue);
     updateCanContinue(nextValue);
   }
+
+  const holdHint = useHoldHint();
+  const holdHintStyle: React.CSSProperties = {
+    color: "white",
+    fontFamily: "Arial, sans-serif",
+    fontSize: isMobile ? "15px" : "18px",
+    opacity: 0.85,
+    margin: "4px 0 0",
+    textAlign: "center",
+    pointerEvents: "none",
+  };
 
   const canSubmitNow =
     (connectionState === "idle" || connectionState === "ready") && canContinue;
@@ -985,7 +976,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
           style={textStyle}
           onChange={inputChanged}
           onKeyDown={checkEnter}
-          onFocus={inputFocused}
           className="unfocused"
           minRows={1}
           maxRows={6}
@@ -1007,7 +997,8 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
           {!isWaitingForRealtime && !pttTurn &&
             <ConversationControlIcon
               icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
-              onClick={handleStartStopRecording}
+              tooltip={t("ptt.holdHint")}
+              hold={{ onPress: () => handleMicPress(true), onRelease: () => handleMicPress(false) }}
             />
           }
           {pttTurn && connectionState === 'recording' &&
@@ -1037,6 +1028,9 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
           />
         )}
       </div>
+      {holdHint && (
+        <p style={holdHintStyle} data-testid="human-hold-hint">{t("ptt.holdHint")}</p>
+      )}
     </div>
   </>);
 }
