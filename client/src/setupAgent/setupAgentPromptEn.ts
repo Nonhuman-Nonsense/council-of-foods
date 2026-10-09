@@ -1,5 +1,6 @@
 import { getCapabilities } from "@/settings/councilSettings";
-import type { SetupAgentPromptParams } from "./setupAgentPrompt";
+import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
+import type { SetupAgentPromptParams, SetupAgentSelection } from "./setupAgentPrompt";
 
 export function buildEnPrompt({
   phase,
@@ -7,6 +8,7 @@ export function buildEnPrompt({
   topics,
   characters,
   otherLanguageNames,
+  selection,
   hasEverHeardVisitor = true,
 }: SetupAgentPromptParams): string {
   const { voiceSetupAgent, typedSetup } = getCapabilities();
@@ -114,7 +116,30 @@ We are currently in the ${phase} phase. The user have already gone through all t
 You do not need to repeat the jobs listed until those phases above, assume that they have already happened.
 That is, you do not need to instroduce yourself and ask if they are ready, you can assume that they already are!
 Check what your task is on the ${phase} phase, and then proceed from there.`}
+${describeSelection(phase, selection)}
 `;
 
   return prompt;
+}
+
+/**
+ * The choices already on screen. Empty on the welcome step, where nothing can
+ * have been chosen yet.
+ */
+function describeSelection(phase: MeetingSetupPhase, selection?: SetupAgentSelection): string {
+  if (phase === "landing" || !selection) return "";
+  const lines: string[] = [];
+  if (selection.topic) {
+    lines.push(phase === "topic"
+      ? `The visitor has already highlighted the topic "${selection.topic}" on screen, but has not confirmed it yet.`
+      : `The confirmed topic is "${selection.topic}".`);
+  }
+  if (phase === "characters") {
+    lines.push(selection.council.length > 0
+      ? `The council already has ${selection.council.join(", ")}, and yourself as the moderator.`
+      : `No one has been picked for the council yet; it is just yourself as the moderator.`);
+  }
+  if (lines.length === 0) return "";
+  lines.push("These choices were made before this conversation began. Take them as they stand and carry on from them, rather than reacting as if they had just been made.");
+  return lines.join("\n");
 }

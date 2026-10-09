@@ -57,4 +57,34 @@ describe('buildSetupAgentPrompt', () => {
     const chars = buildSetupAgentPrompt({ language: 'en', topics, characters, phase: 'characters' });
     expect(landing).not.toBe(chars);
   });
+
+  /**
+   * A session can start after the visitor has already chosen — they turn the
+   * agent on mid-setup, or it reconnects — and the reactions to those clicks
+   * never reached it. Wording is copy; what is held here is that the choices
+   * reach the prompt on the steps where they exist. Names are counted rather
+   * than looked for, since every being's name is in the prompt anyway as one
+   * the visitor can pick.
+   */
+  describe('choices already made when the session starts', () => {
+    const roster = [{ id: 'apple', name: 'Apple' }, { id: 'pear', name: 'Pear' }];
+    const selection = { topic: 'Who owns the rain?', council: ['Pear'] };
+    const count = (text: string, name: string) => text.split(name).length - 1;
+
+    it.each([
+      { phase: 'landing' as const, topic: false, council: false },
+      { phase: 'topic' as const, topic: true, council: false },
+      { phase: 'characters' as const, topic: true, council: true },
+    ])('$phase step: topic $topic, council $council', ({ phase, topic, council }) => {
+      for (const language of ['en', 'sv']) {
+        const base = { language, topics, characters: roster, phase };
+        const without = buildSetupAgentPrompt(base);
+        const withSelection = buildSetupAgentPrompt({ ...base, selection });
+
+        expect(withSelection.includes(selection.topic)).toBe(topic);
+        expect(count(withSelection, 'Pear') > count(without, 'Pear')).toBe(council);
+        expect(count(withSelection, 'Apple')).toBe(count(without, 'Apple'));
+      }
+    });
+  });
 });

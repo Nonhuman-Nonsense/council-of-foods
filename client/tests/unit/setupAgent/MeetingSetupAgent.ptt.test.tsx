@@ -85,6 +85,9 @@ vi.mock("@newMeeting/meetingSetupStore", () => ({
     selectedTopic: null,
     customTopic: "",
     visitorName: "",
+    selectedCharacters: [],
+    humans: [],
+    numberOfHumans: 0,
   }),
 }));
 

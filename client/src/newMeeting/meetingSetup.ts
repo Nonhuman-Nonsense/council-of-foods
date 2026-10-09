@@ -157,6 +157,23 @@ export function selectedFoodNames(
     .filter((name): name is string => Boolean(name));
 }
 
+/**
+ * Named human panelists in the council. Filtered by the selection, not just
+ * by slot: taking a panelist out only drops their id from the selection, and
+ * their slot keeps the name.
+ */
+export function selectedPanelistNames(
+  selectedIds: readonly string[],
+  humans: ReadonlyArray<{ name: string }>,
+  numberOfHumans: number,
+): string[] {
+  return humans
+    .slice(0, numberOfHumans)
+    .filter((_human, index) => selectedIds.includes(`panelist${index}`))
+    .map((human) => human.name)
+    .filter((name) => name.length > 0);
+}
+
 /** Diffs the council against what the agent was last told, in click order. */
 export function diffCouncil(previousNames: string[], currentNames: string[]): CouncilChanges {
   return {
