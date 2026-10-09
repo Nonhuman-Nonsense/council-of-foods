@@ -89,8 +89,8 @@ export interface CharacterSetupData {
 }
 
 // For Zod validation
-export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending", "letter_pending", "awaiting_letter_addition"] as const;
+export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection", "letter_farewell"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending", "letter_pending", "awaiting_letter_addition", "credits"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -129,7 +129,13 @@ type GeneratedTurnType =
     | "summary"
     | "invitation"
     | "interjection"
-    | "skipped";
+    | "skipped"
+    /**
+     * The chair's last words when an installation prints its letters (docs/council-letters.md):
+     * thanks to the author and the human, and where the letter went — or why it was not sent.
+     * Live only: replay drops it, with the `credits` after it, and shows the letter instead.
+     */
+    | "letter_farewell";
 
 export interface GeneratedTurnMessage
     extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields, GeneratedDebugFields {
@@ -259,13 +265,29 @@ export interface LetterPendingMessage extends BaseMessage {
 
 /**
  * The human taking part is asked to add something to the letter. Resolved by
- * `submit_human_message` or `skip_human_turn`, which push the human's words (or a skip) and
- * `summary_pending`; the letter then becomes the meeting's summary.
+ * `submit_human_message` or `skip_human_turn`: the human's words (a `human` message, when they
+ * answered) and `summary_pending` take its place; the letter then becomes the meeting's summary.
  */
 export interface AwaitingLetterAdditionMessage extends BaseMessage, SpeakerFields, TextFields {
     type: "awaiting_letter_addition";
     id?: never;
     sentences?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
+/**
+ * The credits, after the chair's `letter_farewell`: an installation that prints its letters
+ * ends every meeting on them, and the letter is read from the paper instead of the screen.
+ * Live only, like the farewell; the letter `summary` follows it for replay.
+ */
+export interface CreditsMessage extends BaseMessage {
+    type: "credits";
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
     askParticular?: never;
     trimmed?: never;
     pretrimmed?: never;
@@ -287,7 +309,8 @@ export type SyntheticMessage =
     | QueryExtensionMessage
     | SummaryPendingMessage
     | LetterPendingMessage
-    | AwaitingLetterAdditionMessage;
+    | AwaitingLetterAdditionMessage
+    | CreditsMessage;
 
 export type Message =
     | GeneratedTurnMessage
@@ -299,7 +322,8 @@ export type Message =
     | QueryExtensionMessage
     | SummaryPendingMessage
     | LetterPendingMessage
-    | AwaitingLetterAdditionMessage;
+    | AwaitingLetterAdditionMessage
+    | CreditsMessage;
 
 export function isSpeakerMessage(message: Message): message is SpeakerMessage {
     return "speaker" in message;

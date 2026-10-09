@@ -35,6 +35,13 @@ export function buildEnLetterPrompts(): LetterPrompts {
     return {
         bridge: ({ authorName }) => `Then, after those words, add one short sentence in your own words saying that before everyone goes, ${authorName} wants to send an email — for example: "But before we go, I think ${authorName} wants to send an email."`,
 
+        farewell: ({ authorName, humanName, recipient, sent }) => {
+            const thanked = humanName ? `${authorName} and ${humanName}, the human taking part,` : `${authorName} and the human taking part`;
+            return sent
+                ? `The letter is written. As chair, say the last words of the meeting, in two or three short sentences in your own words: thank ${thanked}, say that an email has been sent to ${recipient}, and that it is being printed behind them right now — ask them to take it and hang it on the wall next to the others. Example: "Thank you, ${authorName}${humanName ? ` and ${humanName}` : ""}. An email has now been sent to ${recipient}. It is being printed behind you — please put it on the wall next to the others." Do not read out or summarise the letter. Do not continue the debate.`
+                : `The letter is written, but nobody answered when asked to add something, so it was not sent and is not printed. As chair, say the last words of the meeting, in two or three short sentences in your own words: thank ${authorName}, say that the email to ${recipient} was not sent because nobody added anything, and that whoever wants to can press the button to start a new meeting. Example: "Thank you, ${authorName}. But I did not send the email to ${recipient}, because nobody said anything. Press the button if you want to start a new meeting." Do not read out or summarise the letter. Do not continue the debate.`;
+        },
+
         author: ({ candidates }) => `The meeting is over. One member of the council will now write a letter on the council's behalf, to someone outside this room who can act on what was discussed.
 
 Rank every candidate by how much they have to say in such a letter: whose home, body or way of life the decisions fall on, whose concern was left unresolved, who has something concrete to ask for. That is not always the most articulate member — a quiet one with a lot to lose can be the best author. Do not include the chair.

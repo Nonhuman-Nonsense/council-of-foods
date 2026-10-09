@@ -97,11 +97,19 @@ function resolveVisibleCouncilOverlay(params: {
     return null;
 }
 
+/**
+ * What the summary overlay shows: the summary, or the credits that an installation printing its
+ * letters ends on instead (docs/council-letters.md). The letter after the credits is for replay.
+ */
+function isMeetingEnd(message: Message | undefined): boolean {
+    return message?.type === "summary" || message?.type === "credits";
+}
+
 function playIndexBeforeOverlayState(
     messages: Message[],
     overlayState: OverlayCouncilState,
 ): number {
-    const markerIndex = messages.findIndex((m) => m.type === overlayState);
+    const markerIndex = messages.findIndex((m) => overlayState === "summary" ? isMeetingEnd(m) : m.type === overlayState);
     if (overlayState === "summary") {
         return Math.max(0, markerIndex > 0 ? markerIndex - 1 : messages.length - 2);
     }
@@ -449,7 +457,7 @@ export function useCouncilMachine({
         }
 
         // This will be triggered directly when text is set
-        if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
+        if (councilState !== 'summary' && isMeetingEnd(textMessages[playNextIndex])) {
             setCouncilState("summary");
             return;
         }
@@ -509,10 +517,10 @@ export function useCouncilMachine({
             case 'human_input':
                 break;
             case 'summary':
-                if (summary === null && textMessages[playNextIndex]?.type === 'summary') {
+                if (summary === null && isMeetingEnd(textMessages[playNextIndex])) {
                     setSummary(textMessages[playNextIndex]);
                 }
-                if (textMessages[playNextIndex]?.type !== 'summary') {
+                if (!isMeetingEnd(textMessages[playNextIndex])) {
                     rewindOverlayCouncilState(councilState);
                     return;
                 }
@@ -602,13 +610,12 @@ export function useCouncilMachine({
         // Slice target intentionally differs by mode (matches pre-existing,
         // pre-intent behavior): panelist truncates to `next`, question to `now`. A letter
         // addition keeps the author's announcement and drops only the marker: the server
-        // writes summary_pending in its place, then the letter.
+        // writes the human's words and summary_pending in its place, then the letter.
         setTextMessages((prevMessages) => prevMessages.slice(0, mode === "question" ? now : next));
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
-        // The server writes a question or panelist answer at `next`; a letter addition goes
-        // into the letter, not the conversation.
-        submittedEchoIndex.current = mode === "letter" ? null : next;
+        // The server writes the answer at `next` — a letter addition too, before summary_pending.
+        submittedEchoIndex.current = next;
         if (mode === "question") {
             setIsRaisedHand(false);
             clearPendingIntent("raise-hand");

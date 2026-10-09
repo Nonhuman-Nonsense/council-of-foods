@@ -12,6 +12,7 @@ import {
   diffCouncil,
   getMeetingSetupReactionDelayMs,
   selectedFoodNames,
+  selectedPanelistNames,
   type MeetingSetupPhase,
   type MeetingSetupUserEvent,
 } from "@newMeeting/meetingSetup";
@@ -19,7 +20,7 @@ import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { useButton, useHoldHint } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { useSignOfLife } from "@/signOfLife";
-import { buildSetupAgentPrompt } from "./setupAgentPrompt";
+import { buildSetupAgentPrompt, type SetupAgentSelection } from "./setupAgentPrompt";
 import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgentTools";
 import { useAgentPresence } from "./useAgentPresence";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
@@ -55,6 +56,9 @@ export default function MeetingSetupAgent({
   const {
     selectedTopic,
     customTopic,
+    selectedCharacters,
+    humans,
+    numberOfHumans,
     visitorName,
   } = useMeetingSetupStore();
 
@@ -95,6 +99,21 @@ export default function MeetingSetupAgent({
     [otherLanguages],
   );
 
+  // Read by the session only when it connects, so a click costs no session
+  // update — this reaches the agent that starts after the choices were made.
+  const selection = useMemo((): SetupAgentSelection => {
+    const topic = selectedTopic === topicsBundle.custom_topic.id
+      ? customTopic.trim()
+      : setupTopics.find((t) => t.id === selectedTopic)?.title;
+    return {
+      topic: topic || undefined,
+      council: [
+        ...selectedFoodNames(selectedCharacters, setupCharacters),
+        ...selectedPanelistNames(selectedCharacters, humans, numberOfHumans),
+      ],
+    };
+  }, [selectedTopic, customTopic, selectedCharacters, humans, numberOfHumans, topicsBundle, setupTopics, setupCharacters]);
+
   // A builder, not a value: the agent's job changes once the visitor has been
   // audible, and that latch lives inside useSetupAgent.
   const instructions = useCallback(
@@ -106,9 +125,10 @@ export default function MeetingSetupAgent({
         phase,
         visitorName,
         otherLanguageNames,
+        selection,
         hasEverHeardVisitor,
       }),
-    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames],
+    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection],
   );
 
   // Static: the agent holds every tool from the start, and useSetupAgent

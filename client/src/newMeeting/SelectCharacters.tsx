@@ -11,6 +11,7 @@ import {
   MAX_HUMAN_PANELISTS,
   orderSelectedCharactersForInstallation,
   selectedFoodNames,
+  selectedPanelistNames,
   type CouncilRoster,
   type HumanDetails,
 } from "./meetingSetup";
@@ -170,19 +171,11 @@ function SelectCharacters({
    * Named human panelists currently *selected* in the council. Same "read
    * fresh" reasoning as `currentSelectedFoodNames` — this runs right after
    * `setHumans`, so the component's own `humans` snapshot from the last
-   * render would be stale. Filtering by `selectedCharacters` (not just array
-   * position) matters: removing a panelist only strips their id from
-   * `selectedCharacters` — their `humans[]` entry and name are untouched —
-   * so without this filter a removed panelist would keep appearing in the
-   * roster line of other panelists' reaction messages.
+   * render would be stale.
    */
   function currentPanelistNames(): string[] {
     const store = useMeetingSetupStore.getState();
-    return store.humans
-      .slice(0, store.numberOfHumans)
-      .filter((_human, index) => store.selectedCharacters.includes(`panelist${index}`))
-      .map((human) => human.name)
-      .filter((name) => name.length > 0);
+    return selectedPanelistNames(store.selectedCharacters, store.humans, store.numberOfHumans);
   }
 
   function buildHumanDetailsPayload(name: string, description: string): HumanDetails & CouncilRoster {

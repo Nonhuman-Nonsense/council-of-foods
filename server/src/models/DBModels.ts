@@ -16,6 +16,8 @@ export interface StoredMeeting extends BaseMeeting, Document {
     venueId?: string;
     /** Whether this meeting's letter may go out by email: an installation's yes, the web's no. */
     sendsLetters?: boolean;
+    /** Whether the installation prints this meeting's letter: then it ends on a farewell and credits. */
+    printsLetters?: boolean;
     /** The letter a meeting ending in one is writing, then wrote. See docs/council-letters.md. */
     letter?: MeetingLetter;
 }

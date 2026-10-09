@@ -7,6 +7,9 @@ import { capabilitiesFor } from "@/settings/capabilities";
 
 const mockInterruptAndRespond = vi.hoisted(() => vi.fn());
 const mockSelectedCharacters = vi.hoisted(() => ({ value: ["chair"] as string[] }));
+const mockInstructions = vi.hoisted(() => ({
+  build: null as null | ((ctx: { hasEverHeardVisitor: boolean }) => string),
+}));
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key, i18n: { language: "en" } }),
@@ -23,6 +26,7 @@ vi.mock("@/settings/councilSettings", () => ({
     setAppMode: vi.fn(),
     capabilities: capabilitiesFor("web"),
   }),
+  getCapabilities: () => capabilitiesFor("web"),
   getAppMode: () => "web",
   getDevLogEnabled: () => false,
 }));
@@ -33,7 +37,9 @@ vi.mock("@/museum/button/useButton", () => ({
 }));
 
 vi.mock("@setupAgent/useSetupAgent", () => ({
-  useSetupAgent: () => ({
+  useSetupAgent: (params: { instructions: (ctx: { hasEverHeardVisitor: boolean }) => string }) => {
+    mockInstructions.build = params.instructions;
+    return {
     isConnecting: false,
     lastCaption: null,
     lastUserTranscript: null,
@@ -46,7 +52,8 @@ vi.mock("@setupAgent/useSetupAgent", () => ({
     sendUserMessage: vi.fn(),
     requestAgentResponse: vi.fn(),
     interruptAndRespond: mockInterruptAndRespond,
-  }),
+    };
+  },
 }));
 
 vi.mock("@setupAgent/SetupAgentOverlay", () => ({ default: () => null }));
@@ -73,6 +80,8 @@ vi.mock("@newMeeting/meetingSetupStore", () => {
     customTopic: "",
     visitorName: "",
     selectedCharacters: mockSelectedCharacters.value,
+    humans: [],
+    numberOfHumans: 0,
   });
   const useMeetingSetupStore = () => state();
   useMeetingSetupStore.getState = state;
@@ -196,5 +205,27 @@ describe("MeetingSetupAgent click reactions", () => {
     act(() => { vi.runAllTimers(); });
 
     expect(lastMessage().toLowerCase()).not.toContain("full");
+  });
+});
+
+/**
+ * A session can start after the visitor has already picked — they turn the
+ * agent on mid-setup, or it reconnects — so the clicks' reactions never
+ * reached it. The council has to be in what it starts from.
+ */
+describe("MeetingSetupAgent starting instructions", () => {
+  const instructionsFor = (selected: string[]) => {
+    mockSelectedCharacters.value = selected;
+    render(<MeetingSetupAgent {...defaultProps} />);
+    return mockInstructions.build!({ hasEverHeardVisitor: true });
+  };
+  const count = (text: string, name: string) => text.split(name).length - 1;
+
+  it("names the beings already picked", () => {
+    const withoutPicks = instructionsFor(["chair"]);
+    const withAlpha = instructionsFor(["chair", "alpha"]);
+
+    expect(count(withAlpha, "Alpha")).toBeGreaterThan(count(withoutPicks, "Alpha"));
+    expect(count(withAlpha, "Beta")).toBe(count(withoutPicks, "Beta"));
   });
 });

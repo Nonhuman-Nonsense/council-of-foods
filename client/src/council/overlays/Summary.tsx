@@ -1,18 +1,10 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { useMobile, dvh } from "@/utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
 import { useTranslation } from "react-i18next";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { useRouting } from "@/navigation";
-import { useErrorStore } from "@main/overlay/errorStore";
-import { useButton } from "@/museum/button/useButton";
-import { useButtonBanner } from "@/museum/button/useButtonBanner";
-import {
-  SUMMARY_RETURN_TO_ROOT_MS,
-  useAutoplayStore,
-} from "@/autoplay/autoplayStore";
+import { useSummaryExit } from "./useSummaryExit";
 import {
   computeTeleprompterBottomPadding,
   computeTeleprompterTopPadding,
@@ -32,6 +24,8 @@ export interface SummaryData {
   text: string;
   /** When the meeting ended in a letter: headed like an email, with its own footer and no disclaimer. */
   letter?: LetterView | null;
+  /** The meeting ends on the credits instead (an installation printing its letters). */
+  credits?: boolean;
 }
 
 interface SummaryProps {
@@ -57,87 +51,19 @@ function Summary({
   audioContext,
   summaryPlayback = null,
 }: SummaryProps): React.ReactElement {
-  const connectionError = useErrorStore((s) => s.connectionError);
   const isMobile = useMobile();
   const protocolRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [teleprompterBottomPad, setTeleprompterBottomPad] = useState(0);
   const fallbackAudioContext = useRef<AudioContext | null>(null);
-  const prevPressedRef = useRef(false);
-  const navigate = useNavigate();
-  const { rootPath } = useRouting();
   const { t, i18n } = useTranslation();
   const letter = summary.letter ?? null;
   const { capabilities } = useCouncilSettings();
   const isButtonSummaryMode = capabilities.teleprompter;
   const teleprompterTopPad = isButtonSummaryMode ? computeTeleprompterTopPadding(isMobile) : 0;
-  const autoplayPhase = useAutoplayStore((state) => state.phase);
-  const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
-  const button = useButton("summary");
   const showDownload = capabilities.browserUi;
 
-  useEffect(() => {
-    if (!isButtonSummaryMode) {
-      return;
-    }
-    button.claim();
-    return () => button.release();
-  }, [isButtonSummaryMode, button.claim, button.release]);
-
-  useEffect(() => {
-    if (!isButtonSummaryMode) {
-      return;
-    }
-    button.setArmed(true);
-  }, [isButtonSummaryMode, button.setArmed]);
-
-  useButtonBanner({
-    owner: "summary",
-    sessionActive: isButtonSummaryMode,
-    micOpen: false,
-    isConnecting: false,
-    bannerImmediate: true,
-    messageKey: "summary.banner.pressToRestart",
-  });
-
-  useEffect(() => {
-    if (!isButtonSummaryMode) {
-      return;
-    }
-
-    const pressed = button.pressed;
-    const wasPressed = prevPressedRef.current;
-    prevPressedRef.current = pressed;
-
-    if (pressed && !wasPressed) {
-      navigate(rootPath);
-    }
-  }, [button.pressed, isButtonSummaryMode, navigate, rootPath]);
-
-  useEffect(() => {
-    if (!capabilities.autoReturnToLanding || autoplayPhase === "active") {
-      return;
-    }
-    if (connectionError) {
-      return;
-    }
-    if (!summaryProtocolFinished) {
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      navigate(rootPath);
-    }, SUMMARY_RETURN_TO_ROOT_MS);
-
-    return () => window.clearTimeout(timerId);
-  }, [
-    autoplayPhase,
-    capabilities.autoReturnToLanding,
-    connectionError,
-    navigate,
-    rootPath,
-    summaryProtocolFinished,
-  ]);
+  useSummaryExit(isButtonSummaryMode);
 
   useAudioSyncedScroll({
     scrollRef,

@@ -11,12 +11,26 @@ import { buildEnPrompt } from "./setupAgentPromptEn";
 export type SetupAgentTopic = Pick<Topic, "id" | "title" | "description"> & { agentBrief: string };
 export type SetupAgentCharacter = Pick<Character, "id" | "name"> & { description?: string };
 
+/**
+ * What is already chosen when the session starts. A session can open long
+ * after the clicks that made these choices — the visitor turns the agent on
+ * mid-setup, or it reconnects — and the reactions to those clicks went to an
+ * earlier session or to none at all.
+ */
+export type SetupAgentSelection = {
+  /** As the visitor sees it: a listed topic's title, or a custom topic's own text. */
+  topic?: string;
+  /** Council members already picked, by name — without the chair, who is the agent itself. */
+  council: string[];
+};
+
 export type SetupAgentPromptParams = {
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
   phase: MeetingSetupPhase;
   visitorName?: string;
   otherLanguageNames?: string[];
+  selection?: SetupAgentSelection;
   /**
    * Whether the visitor has had a working microphone at all this session. While
    * false the conversational job is suspended: the agent comments on what is
