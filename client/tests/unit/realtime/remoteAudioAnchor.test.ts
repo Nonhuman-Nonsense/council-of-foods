@@ -56,44 +56,58 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("remoteAudioAnchor waiting for the previous response to finish", () => {
-  /**
-   * After a barge-in the old audio's tail can run almost straight into the
-   * new response. A gap missed there anchors the caption clock on a pause
-   * inside the new response, a whole sentence late (observed: a 203ms gap).
-   */
-  it.each([
-    { gapMs: 200, confirmed: true },
-    { gapMs: 100, confirmed: false },
-  ])("a $gapMs ms gap in the audio confirms silence: $confirmed", ({ gapMs, confirmed }) => {
-    const onArmed = vi.fn();
-    const anchor = createRemoteAudioAnchor({
-      track: {} as MediaStreamTrack,
-      onAudioStart: vi.fn(),
-      onArmed,
-    });
+/**
+ * Every question the captions ask of the audio uses one pause length. A 100 ms dip is the
+ * gap between words; a 200 ms gap is a real pause — after a cut, the old reply's audio can
+ * run into the next one with little more than that between them (observed: 203 ms).
+ */
+const GAPS = [
+  { gapMs: 100, pause: false },
+  { gapMs: 200, pause: true },
+];
+
+function createAnchor() {
+  const onAudioStart = vi.fn();
+  const onArmed = vi.fn();
+  const anchor = createRemoteAudioAnchor({ track: {} as MediaStreamTrack, onAudioStart, onArmed });
+  return { anchor, onAudioStart, onArmed };
+}
+
+describe("remoteAudioAnchor telling a pause from a dip between words", () => {
+  it.each(GAPS)("the old reply has stopped, after a $gapMs ms gap: $pause", ({ gapMs, pause }) => {
+    const { anchor, onArmed } = createAnchor();
 
     anchor.arm(true);
     play("speech", 500);
     play("quiet", gapMs);
     play("speech", 500);
 
-    expect(onArmed).toHaveBeenCalledTimes(confirmed ? 1 : 0);
+    expect(onArmed).toHaveBeenCalledTimes(pause ? 1 : 0);
   });
-});
 
-describe("remoteAudioAnchor telling whether sound is playing", () => {
-  /** A dip between words must not read as the end of speech. */
-  it.each([
-    { quietMs: 0, audible: true },
-    { quietMs: 100, audible: true },
-    { quietMs: 200, audible: false },
-  ])("$quietMs ms after speech: audible $audible", ({ quietMs, audible }) => {
-    const anchor = createRemoteAudioAnchor({ track: {} as MediaStreamTrack, onAudioStart: vi.fn() });
+  it.each(GAPS)("$gapMs ms of quiet ends the sound: $pause", ({ gapMs, pause }) => {
+    const { anchor } = createAnchor();
 
     play("speech", 500);
-    play("quiet", quietMs);
+    play("quiet", gapMs);
 
-    expect(anchor.isAudible()).toBe(audible);
+    expect(anchor.isAudible()).toBe(!pause);
+  });
+
+  /**
+   * Asked for while the previous reply still plays, the next reply's start is the first
+   * sound after a pause. A gap that passes for a dip anchors the next reply on a pause
+   * inside it instead, a sentence late.
+   */
+  it.each(GAPS)("a reply starting $gapMs ms after the last one is its start: $pause", ({ gapMs, pause }) => {
+    const { anchor, onAudioStart } = createAnchor();
+
+    anchor.arm();
+    play("speech", 500);
+    anchor.arm();
+    play("quiet", gapMs);
+    play("speech", 500);
+
+    expect(onAudioStart).toHaveBeenCalledTimes(pause ? 2 : 1);
   });
 });

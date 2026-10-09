@@ -1,21 +1,30 @@
+/**
+ * Listens to the agent's incoming audio track and tells sound from pauses.
+ *
+ * Everything the captions need from the audio comes from one reading, kept here once: the
+ * track is either sounding or in a pause, and a pause is quiet lasting {@link PAUSE_MS}.
+ * Shorter quiet is a dip between words and still counts as sound. Every question the
+ * captions ask — where a reply starts, whether the old reply has stopped, whether anything
+ * is playing — and the `[SUBS] AUDIO` log lines are answered from that same state, so they
+ * cannot disagree about what a pause is.
+ */
 export type RemoteAudioAnchor = {
   /**
-   * Arm for the next audible onset.
-   * Pass `true` to wait for a silence period before arming — this prevents
-   * the anchor from firing on audio that is still playing from a previous
-   * response when the new response.created arrives.
+   * Report the start of the next reply through `onAudioStart`: the first sound after a
+   * pause. Sound already playing when this is called is not a start.
+   *
+   * Pass `true` to first wait for the audio playing now to stop — a pause that begins
+   * after this call — reported through `onArmed`. For a reply cut off or still draining,
+   * whose end the playback clock cannot tell.
    */
-  arm: (waitForSilenceFirst?: boolean) => void;
+  arm: (waitForPauseFirst?: boolean) => void;
   /**
    * Returns the AudioContext's hardware-clock time in seconds.
    * Advances continuously regardless of DTX silence — use this as the
    * subtitle playback clock instead of HTMLAudioElement.currentTime.
    */
   getCtxTime: () => number;
-  /**
-   * Whether the track is carrying sound right now. A dip between words
-   * (~100ms) still counts as sound, so a reading taken mid-sentence says so.
-   */
+  /** Whether the track is sounding: not in a pause. A dip between words still counts. */
   isAudible: () => boolean;
   /**
    * Resume the AudioContext, which starts suspended without a user gesture.
@@ -31,36 +40,28 @@ export type RemoteAudioAnchor = {
 
 export type RemoteAudioAnchorOptions = {
   track: MediaStreamTrack;
-  /** Called when the first audible onset is detected after arming. `ctxTime` is `AudioContext.currentTime` at the moment of detection — use it as the subtitle clock anchor. */
+  /** A reply's audio started, after `arm`. `ctxTime` is `AudioContext.currentTime` at that moment — the subtitle clock's anchor. */
   onAudioStart: (nowMs: number, ctxTime: number) => void;
   /**
-   * Called when `arm(true)`'s "wait for silence" completes — sustained real
-   * silence has been confirmed on the track. Reliable signal for "the
-   * previous response's audio has actually stopped," including after a
-   * client-triggered interrupt (`output_audio_buffer.clear`), where audio can
-   * keep draining for a second or two after the command is sent.
+   * `arm(true)`'s pause arrived: the audio playing when it was called has stopped. The
+   * reliable signal for a cut-off reply, whose audio can keep draining for a second or two
+   * after `output_audio_buffer.clear` is sent.
    */
   onArmed?: () => void;
   silenceThreshold?: number;
-  silenceMs?: number;
-  /**
-   * Quiet needed before `arm(true)` counts the previous response as finished.
-   * Shorter than `silenceMs`: after a barge-in the old audio's tail can run
-   * almost straight into the new response, and a gap missed there anchors the
-   * clock on a pause inside the new response, putting its captions a whole
-   * sentence late (observed: a 203ms gap). Dips inside speech stay ~100ms.
-   */
-  drainSilenceMs?: number;
   fftSize?: number;
   log?: (...args: unknown[]) => void;
 };
 
 const DEFAULT_SILENCE_THRESHOLD = 0.01;
-const DEFAULT_SILENCE_MS = 250;
-const DEFAULT_DRAIN_SILENCE_MS = 150;
 const DEFAULT_FFT_SIZE = 512;
-/** Quiet shorter than this is a dip inside speech, not the end of it. */
-const AUDIBLE_HOLD_MS = 150;
+/**
+ * Quiet this long is a pause; anything shorter is a dip inside speech (~100 ms between
+ * words). Not longer: the audio of a cut-off reply can run almost straight into the next
+ * one, and a gap read as a dip puts the next reply's captions a sentence late, on a pause
+ * inside it instead (observed: a 203 ms gap).
+ */
+export const PAUSE_MS = 150;
 
 const getNow = (): number => {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -89,8 +90,6 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
     onAudioStart,
     onArmed,
     silenceThreshold = DEFAULT_SILENCE_THRESHOLD,
-    silenceMs = DEFAULT_SILENCE_MS,
-    drainSilenceMs = DEFAULT_DRAIN_SILENCE_MS,
     fftSize = DEFAULT_FFT_SIZE,
     log,
   } = options;
@@ -106,59 +105,44 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
   const data = new Uint8Array(analyser.fftSize);
   let rafId: number | null = null;
   let disposed = false;
-  let armed = false;
-  let waitingForSilence = false;
-  let firedForCurrentArm = false;
-  let quietSinceMs: number | null = null;
-  /** Separate debounce clock for waitingForSilence, so a single sub-threshold
-   *  frame (e.g. a natural gap between words) doesn't prematurely arm on
-   *  audio that's still playing from the previous response. */
-  let waitingQuietSinceMs: number | null = null;
-  let lastAudibleMs: number | null = null;
 
-  const releaseQuietStateIfSilent = (rms: number, nowMs: number) => {
-    if (!firedForCurrentArm) return;
-    if (rms >= silenceThreshold) {
-      quietSinceMs = null;
-      return;
-    }
-    quietSinceMs ??= nowMs;
-    if (nowMs - quietSinceMs >= silenceMs) {
-      firedForCurrentArm = false;
-      quietSinceMs = null;
-    }
-  };
+  /** The one reading: sounding, or in a pause. The track starts silent. */
+  let sounding = false;
+  /** When sound was last heard, on both clocks. */
+  let lastSoundMs: number | null = null;
+  let lastSoundCtxSec = 0;
+
+  /** What `arm` asked for: nothing, the next start of sound, or first a pause after `armedAtMs`. */
+  let waitingFor: "nothing" | "start" | "pause" = "nothing";
+  let armedAtMs = 0;
 
   const tick = () => {
     if (disposed) return;
     analyser.getByteTimeDomainData(data);
     const nowMs = getNow();
-    const rms = computeRms(data);
-    if (rms >= silenceThreshold) lastAudibleMs = nowMs;
+    const loud = computeRms(data) >= silenceThreshold;
 
-    if (waitingForSilence) {
-      if (rms < silenceThreshold) {
-        waitingQuietSinceMs ??= nowMs;
-        if (nowMs - waitingQuietSinceMs >= drainSilenceMs) {
-          waitingForSilence = false;
-          armed = true;
-          firedForCurrentArm = false;
-          quietSinceMs = null;
-          waitingQuietSinceMs = null;
-          log?.("remote audio anchor: silence detected, now armed");
-          onArmed?.();
+    if (loud) {
+      lastSoundMs = nowMs;
+      lastSoundCtxSec = ctx.currentTime;
+      if (!sounding) {
+        sounding = true;
+        log?.(`[SUBS] AUDIO sound ctxTime=${ctx.currentTime.toFixed(3)}`);
+        if (waitingFor === "start") {
+          waitingFor = "nothing";
+          onAudioStart(nowMs, ctx.currentTime);
         }
-      } else {
-        waitingQuietSinceMs = null;
       }
-    } else if (armed && !firedForCurrentArm && rms >= silenceThreshold) {
-      armed = false;
-      firedForCurrentArm = true;
-      quietSinceMs = null;
-      log?.("remote audio anchor fired", { rms });
-      onAudioStart(nowMs, ctx.currentTime);
-    } else {
-      releaseQuietStateIfSilent(rms, nowMs);
+    } else if (sounding && lastSoundMs != null && nowMs - lastSoundMs >= PAUSE_MS) {
+      sounding = false;
+      log?.(`[SUBS] AUDIO quiet ctxTime=${lastSoundCtxSec.toFixed(3)}`);
+    }
+
+    // A pause that began before `arm(true)` says nothing about the audio it was waiting on,
+    // so the quiet is counted from whichever came later.
+    if (waitingFor === "pause" && !loud && nowMs - Math.max(lastSoundMs ?? -Infinity, armedAtMs) >= PAUSE_MS) {
+      waitingFor = "start";
+      onArmed?.();
     }
 
     rafId = requestAnimationFrame(tick);
@@ -169,7 +153,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
   return {
     getCtxTime: () => ctx.currentTime,
 
-    isAudible: () => lastAudibleMs != null && getNow() - lastAudibleMs < AUDIBLE_HOLD_MS,
+    isAudible: () => sounding,
 
     getState: () => ctx.state,
 
@@ -178,17 +162,10 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
       void ctx.resume().catch((err) => log?.("remote audio anchor resume failed", err));
     },
 
-    arm: (waitForSilenceFirst?: boolean) => {
+    arm: (waitForPauseFirst?: boolean) => {
       if (disposed) return;
-      if (waitForSilenceFirst) {
-        waitingForSilence = true;
-        armed = false;
-      } else {
-        waitingForSilence = false;
-        armed = true;
-      }
-      quietSinceMs = null;
-      waitingQuietSinceMs = null;
+      waitingFor = waitForPauseFirst ? "pause" : "start";
+      armedAtMs = getNow();
       if (ctx.state === "suspended") {
         void ctx.resume().catch((err) => log?.("remote audio anchor resume failed", err));
       }
@@ -197,9 +174,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
     dispose: () => {
       if (disposed) return;
       disposed = true;
-      armed = false;
-      waitingForSilence = false;
-      waitingQuietSinceMs = null;
+      waitingFor = "nothing";
       if (rafId != null) {
         cancelAnimationFrame(rafId);
         rafId = null;
