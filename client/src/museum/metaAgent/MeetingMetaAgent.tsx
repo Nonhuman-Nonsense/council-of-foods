@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useButton } from "@museum/button/useButton";
 import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
+import RisingMic from "@council/humanInput/RisingMic";
 import Loading from "@main/Loading";
 import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
 import { useDelayedTrue } from "@/utils";
@@ -412,9 +413,14 @@ export default function MeetingMetaAgent({
     metaAgentPhase === "extension" &&
     (awaitingExtensionReply || connectionState !== "ready");
 
+  // The mic rises once the floor is the visitor's: at once for an interruption
+  // (they pressed to talk), and for the extension once the chair is asking.
+  const showMic = !showExtensionLoader;
+
   return (
     <>
       {showExtensionLoader && <Loading />}
+      {showMic && <RisingMic />}
       <RealtimeCaptionOverlay
         notice={showBusyNotice ? t("error.busyRetrying") : null}
         lastCaption={lastCaption}

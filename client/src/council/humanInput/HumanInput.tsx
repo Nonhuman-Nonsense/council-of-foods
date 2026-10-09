@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh } from "@/utils";
+import { useMobile } from "@/utils";
 import { z } from "@/zIndexLayers";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
@@ -17,7 +17,7 @@ import {
 import { requestMicrophone, useMicAvailabilityStore } from "@realtime/micAvailabilityStore";
 import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
-import micIcon from "@assets/mic.avif";
+import RisingMic from "./RisingMic";
 import type { ParticipationPhase } from "./participationPhase";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
@@ -979,16 +979,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     alignItems: "center",
   };
 
-  const micStyle: React.CSSProperties = {
-    position: "absolute",
-    bottom: `-${2}${dvh}`,
-    height: `${45}${dvh}`,
-    minHeight: "135px",
-    zIndex: z.councilMic,
-    animation: "4s micAppearing",
-    animationFillMode: "both",
-  };
-
   const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
@@ -1033,7 +1023,7 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
 
   return (<>
     <div style={wrapperStyle}>
-      <img alt="Say something!" src={micIcon} style={micStyle} />
+      <RisingMic />
       <div style={{ zIndex: z.humanInputField, position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}
