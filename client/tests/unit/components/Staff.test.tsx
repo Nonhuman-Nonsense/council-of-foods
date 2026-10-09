@@ -374,21 +374,6 @@ describe('Staff overlay', () => {
     expect(localStorage.getItem('councilDevLogEnabled')).toBe('false');
   });
 
-  it('sends the log to the server only while logging is on', () => {
-    render(<Staff />);
-    const toggle = screen.getByTestId('staff-server-log-toggle');
-    expect(toggle).toHaveAttribute('aria-pressed', 'false');
-
-    fireEvent.click(toggle);
-    expect(localStorage.getItem('councilServerLogEnabled')).toBe('true');
-    expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    // Nothing to say while the log is arriving.
-    expect(screen.queryByTestId('staff-server-log-status')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('staff-dev-log-off'));
-    expect(screen.getByTestId('staff-server-log-toggle')).toBeDisabled();
-  });
-
   it('toggles a dev log category pill', () => {
     render(<Staff />);
     const api = screen.getByTestId('staff-dev-log-category-API');

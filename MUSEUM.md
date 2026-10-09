@@ -455,12 +455,11 @@ presenter) without reload.
 
 Optional category toggles on `#staff` for field debugging (`localStorage`-backed).
 
-**Send log to server** (Logging panel) stores everything the console prints on the council
-server as well, so an installation's log can be read after something went wrong — nobody has
-to have had DevTools open. It needs logging on, and follows the category toggles: what is
-stored is exactly what is printed. The line under the switch shows it arriving ("Sending —
-last batch 3 s ago") and the page's id. Lines are batched every 5 s and kept while the
-server is unreachable. The server keeps the newest 512 MB (the `client_log` collection is
+While logging is on, everything the console prints is also stored on the council server, so
+an installation's log can be read after something went wrong — nobody has to have had
+DevTools open. There is no separate switch; it follows the category toggles: what is stored
+is exactly what is printed. A line under the switch appears only when sending fails. Lines
+are batched every 5 s and kept while the server is unreachable. The server keeps the newest 512 MB (the `client_log` collection is
 capped, so it never needs pruning).
 
 Read it back from `server/` (it reads the database the server's `.env` names):

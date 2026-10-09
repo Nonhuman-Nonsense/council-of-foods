@@ -6,7 +6,7 @@ import { Logger } from "@utils/Logger.js";
 import { resolveVenueId } from "@utils/venues.js";
 
 /**
- * Stores browsers' console logs, sent while #staff → Logging → "Send log to server" is on,
+ * Stores browsers' console logs, sent whenever #staff → Logging is on,
  * so a kiosk's log can be read after the fact (`npm run logs`).
  *
  * The endpoint is open — the page has no secret to send. What keeps it ours is that only a

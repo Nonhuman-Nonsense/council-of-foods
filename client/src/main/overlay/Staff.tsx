@@ -633,8 +633,6 @@ function Staff(): ReactElement {
     devLogCategories,
     setDevLogCategoryEnabled,
     setAllDevLogCategories,
-    serverLogEnabled,
-    setServerLogEnabled,
   } = useCouncilSettings();
   const bridgeButtonActive = pttHardwareEnabled;
   const { bridgeStatus, bridgeError, bridgeAvailable } =
@@ -1244,18 +1242,6 @@ function Staff(): ReactElement {
                 </button>
               </StaffSegmented>
             </div>
-            <button
-              type="button"
-              data-testid="staff-server-log-toggle"
-              className={serverLogEnabled ? "control" : ""}
-              aria-pressed={serverLogEnabled}
-              disabled={!devLogEnabled}
-              title={t("staff.logging.server.hint")}
-              onClick={() => setServerLogEnabled(!serverLogEnabled)}
-              style={{ ...ledPreviewToggleStyle(serverLogEnabled), opacity: devLogEnabled ? 1 : 0.4 }}
-            >
-              {t("staff.logging.server.label")}
-            </button>
             <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
               <button
                 type="button"
@@ -1283,7 +1269,7 @@ function Staff(): ReactElement {
               </button>
             </div>
           </div>
-          {serverLogEnabled && devLogEnabled ? <ServerLogFailureNote /> : null}
+          {devLogEnabled ? <ServerLogFailureNote /> : null}
           <div
             role="group"
             aria-label={t("staff.logging.categoriesLabel")}

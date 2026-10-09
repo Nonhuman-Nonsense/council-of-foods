@@ -30,8 +30,6 @@ function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSett
         devLogCategories: Object.fromEntries(DEV_LOG_CATEGORIES.map((c) => [c, false])) as Record<typeof DEV_LOG_CATEGORIES[number], boolean>,
         setDevLogCategoryEnabled: vi.fn(),
         setAllDevLogCategories: vi.fn(),
-        serverLogEnabled: false,
-        setServerLogEnabled: vi.fn(),
         ...overrides,
     };
 }

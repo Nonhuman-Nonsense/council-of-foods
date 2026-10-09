@@ -1,7 +1,7 @@
 /**
  * Sends what the console logs to the server as well, so a kiosk's log can be read after the
- * fact (`npm run logs` on the server). On only while #staff → Logging → "Send log to server"
- * is on; the logger hands over exactly the lines it prints, already shortened.
+ * fact (`npm run logs` on the server). On whenever #staff → Logging is; the logger hands over
+ * exactly the lines it prints, already shortened.
  *
  * Lines are batched every few seconds rather than sent one by one, and kept while the server
  * is unreachable — up to a cap, past which the oldest go and the next batch says how many.
@@ -15,7 +15,7 @@ import {
   type ClientLogLine,
   type LogCategory,
 } from "@shared/ClientLogTypes";
-import { getServerLogEnabled, getVenueId } from "@/settings/councilSettings";
+import { getDevLogEnabled, getVenueId } from "@/settings/councilSettings";
 
 export const CLIENT_LOG_PATH = "/api/client-log";
 /** How often a batch goes out while there is something to send. */
@@ -97,9 +97,13 @@ function fitData(data: unknown): unknown {
   return { truncated: clip(json, CLIENT_LOG_LIMITS.maxDataChars - 100) };
 }
 
-/** Whether lines are being collected for the server right now. */
+/**
+ * Whether lines are being collected for the server right now: whenever logging is on
+ * (#staff → Logging). There is no separate switch — a log that only lived in a console
+ * nobody had open is the one that is missing when something has gone wrong.
+ */
 export function isServerLogOn(): boolean {
-  return typeof window !== "undefined" && getServerLogEnabled();
+  return typeof window !== "undefined" && getDevLogEnabled();
 }
 
 /**

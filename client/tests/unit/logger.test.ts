@@ -3,12 +3,10 @@ import { log, summarizeLogPayload } from "@/logger";
 
 const mockGetDevLogEnabled = vi.fn(() => true);
 const mockIsDevLogCategoryEnabled = vi.fn((_category?: string) => true);
-const mockGetServerLogEnabled = vi.fn(() => false);
 
 vi.mock("@/settings/councilSettings", () => ({
   getDevLogEnabled: () => mockGetDevLogEnabled(),
   isDevLogCategoryEnabled: (category: string) => mockIsDevLogCategoryEnabled(category),
-  getServerLogEnabled: () => mockGetServerLogEnabled(),
   getVenueId: () => "",
 }));
 
@@ -132,21 +130,18 @@ describe("server log", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.useRealTimers();
-    mockGetServerLogEnabled.mockReturnValue(false);
   });
 
-  /** The stored log is exactly what the console prints, and only while staff have it on. */
+  /** The stored log is exactly what the console prints: whenever logging is on, nothing else. */
   it.each([
-    { master: true, server: true, category: true, sent: true },
-    { master: true, server: false, category: true, sent: false },
-    { master: false, server: true, category: true, sent: false },
-    { master: true, server: true, category: false, sent: false },
+    { master: true, category: true, sent: true },
+    { master: false, category: true, sent: false },
+    { master: true, category: false, sent: false },
   ])(
-    "queues a line for the server: $sent (logging $master, server log $server, category $category)",
-    async ({ master, server, category, sent }) => {
+    "queues a line for the server: $sent (logging $master, category $category)",
+    async ({ master, category, sent }) => {
       mockGetDevLogEnabled.mockReturnValue(master);
       mockIsDevLogCategoryEnabled.mockReturnValue(category);
-      mockGetServerLogEnabled.mockReturnValue(server);
       const { log: freshLog } = await import("../../src/logger");
       const { getServerLogStatus } = await import("../../src/logging/serverLogSink");
 

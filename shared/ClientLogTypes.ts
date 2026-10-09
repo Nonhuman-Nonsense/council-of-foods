@@ -1,6 +1,6 @@
 /**
- * The client log the browser sends to `POST /api/client-log` when "Send log to server" is on
- * in #staff. It is exactly what the console prints, batched: tuning what gets stored means
+ * The client log the browser sends to `POST /api/client-log` whenever logging is on in
+ * #staff. It is exactly what the console prints, batched: tuning what gets stored means
  * tuning the log calls, not this format.
  *
  * The endpoint is open, so the server accepts only batches shaped exactly like these. The

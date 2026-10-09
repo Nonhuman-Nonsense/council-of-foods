@@ -1,6 +1,6 @@
 /**
- * Reads back the browser logs stored by `POST /api/client-log` (#staff → Logging → "Send log
- * to server"), as a timeline in the console's own format. Reads the database the server's .env
+ * Reads back the browser logs stored by `POST /api/client-log` (sent whenever #staff → Logging
+ * is on), as a timeline in the console's own format. Reads the database the server's .env
  * names, like the other scripts here.
  *
  *   npm run logs -- --venue havremagasinet --unanswered --since 24h   visitor turns the agent never answered

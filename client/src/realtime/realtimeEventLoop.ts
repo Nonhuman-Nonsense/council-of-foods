@@ -364,7 +364,7 @@ export function createEventLoop(params: {
    * starts speaking. The Realtime API defaults `interrupt_response` to true.
    */
   let speechInterruptsResponse = false;
-  /** Push-to-talk: the visitor holds (or latched) the talk button. */
+  /** Push-to-talk: the visitor holds the talk button. */
   let userTurnOpen = false;
   /** Push-to-talk: a released turn waiting out {@link PTT_COMMIT_DELAY_MS}. */
   let commitTimer: ReturnType<typeof setTimeout> | null = null;
@@ -536,7 +536,8 @@ export function createEventLoop(params: {
     devLog.flat("TURN", `turn: ${outcome}`, {
       held: secs(releasedAt - pressedAt),
       transcript: turnLog.transcript,
-      transcriptAfter: transcriptAt == null ? null : secs(transcriptAt - releasedAt),
+      // A long hold is transcribed as it goes, so the words can be in before the release.
+      transcriptAfter: transcriptAt == null ? null : transcriptAt < releasedAt ? "before release" : secs(transcriptAt - releasedAt),
       transcriptError: turnLog.transcriptError,
       speechHeard: turnLog.speechHeard,
       cutAgent: turnCutAgent,

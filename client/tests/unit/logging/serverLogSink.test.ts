@@ -12,10 +12,10 @@ import {
 } from "@/logging/serverLogSink";
 import { CLIENT_LOG_LIMITS, type ClientLogBatch } from "@shared/ClientLogTypes";
 
-const settings = vi.hoisted(() => ({ serverLog: true, venueId: "museum-oslo" }));
+const settings = vi.hoisted(() => ({ logging: true, venueId: "museum-oslo" }));
 
 vi.mock("@/settings/councilSettings", () => ({
-  getServerLogEnabled: () => settings.serverLog,
+  getDevLogEnabled: () => settings.logging,
   getVenueId: () => settings.venueId,
 }));
 
@@ -28,7 +28,7 @@ function sentBatches(): ClientLogBatch[] {
 describe("serverLogSink", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    settings.serverLog = true;
+    settings.logging = true;
     settings.venueId = "museum-oslo";
     resetServerLogSinkForTests();
     fetchMock.mockReset();
@@ -126,8 +126,8 @@ describe("serverLogSink", () => {
     expect(getServerLogStatus()).toMatchObject({ failure: "400", pending: 0 });
   });
 
-  it("collects nothing while switched off", async () => {
-    settings.serverLog = false;
+  it("collects nothing while logging is off", async () => {
+    settings.logging = false;
     pushServerLogLine("ERROR", "STALL no-answer");
 
     await vi.advanceTimersByTimeAsync(SERVER_LOG_FLUSH_MS);
