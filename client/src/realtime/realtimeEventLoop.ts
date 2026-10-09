@@ -358,6 +358,13 @@ export function createEventLoop(params: {
    * the press, and speech landing in it never announces itself.
    */
   let turnHasWords = false;
+  /**
+   * A tool result went back while the reply that called the tool was still
+   * running: the follow-up reply is owed, and asked for once that reply is done.
+   * Inworld's own follow-up (`auto_tool_response`) is off — it started the
+   * moment the result landed and cancelled whatever the reply was still saying.
+   */
+  let toolFollowUpOwed = false;
   /** Push-to-talk: this turn's press cut the agent off mid-reply. */
   let turnCutAgent = false;
   /**
@@ -407,6 +414,8 @@ export function createEventLoop(params: {
   };
 
   const cancelActiveResponse = (): void => {
+    // Whoever cancels takes over; a follow-up to the cancelled reply is not wanted.
+    toolFollowUpOwed = false;
     sendCancelIfPossible("OUT response.cancel");
     callbacks.onCaption(null);
   };
@@ -416,6 +425,8 @@ export function createEventLoop(params: {
    * item to what was heard (if known), and clear the audio still buffered.
    */
   const cutOutput = (reason: string, audioElapsedMs?: number): void => {
+    // The interruption replaces any follow-up the cut-off reply had owed.
+    toolFollowUpOwed = false;
     sendCancelIfPossible("OUT response.cancel (interrupt)", { reason });
     // Trim the assistant's last-spoken item down to what was actually heard,
     // so the model's own transcript doesn't include audio that got cut off —
@@ -515,6 +526,8 @@ export function createEventLoop(params: {
     }
     userTurnOpen = true;
     turnHasWords = false;
+    // The visitor's turn takes over from any follow-up still owed.
+    toolFollowUpOwed = false;
     turnCutAgent = options?.interrupt != null;
     // A new turn from the visitor: the recovery budgets are theirs again.
     emptyResponseRetries = 0;
@@ -560,6 +573,7 @@ export function createEventLoop(params: {
   ): void => {
     sessionReady = false;
     pendingDeferredResponse = false;
+    toolFollowUpOwed = false;
     cancelInFlight = false;
     pendingCreateEventId = null;
     pendingCreateReason = null;
@@ -740,6 +754,15 @@ export function createEventLoop(params: {
         usage: rFull?.usage,
         responseId: typeof rFull?.id === "string" ? rFull.id : undefined,
       });
+      if (toolFollowUpOwed && activeResponses === 0) {
+        toolFollowUpOwed = false;
+        // A reply cancelled or failed mid-way is not continued: whatever ended
+        // it (a press, a mute) has taken over.
+        if (r?.status !== "cancelled" && r?.status !== "failed" && sessionReady) {
+          sendResponseCreate("tool-follow-up");
+          return true;
+        }
+      }
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         sendResponseCreate("deferred-on-response-done");
@@ -851,13 +874,15 @@ export function createEventLoop(params: {
         },
       });
 
-      // Only ask the model to continue if nothing else is currently producing
-      // a response. With semantic_vad + create_response: true the server may
-      // already be producing one for the next user turn; queueing another one
-      // here is what caused the cancel-cascade in the old hook.
+      // The model continues from the result in a reply of its own — but only
+      // once the reply that made the call has finished, or anything it is still
+      // saying would be cut off. Several calls in one reply get one follow-up.
       if (result.ok && result.suppressContinuation) {
         cancelActiveResponse();
         devLog.flat("TURN", "skip response.create: tool requested suppressContinuation", { name });
+      } else if (activeResponses > 0) {
+        toolFollowUpOwed = true;
+        devLog.flat("TURN", "tool follow-up owed — after the current reply", { name });
       } else {
         requestResponseIfIdle("tool-continuation");
       }

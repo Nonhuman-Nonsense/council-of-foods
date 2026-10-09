@@ -51,6 +51,8 @@ describe("createStallDetector", () => {
     // A tool result, which the provider follows with a reply of its own.
     { name: "a tool result followed by a reply", steps: [created("r1"), toolCall("r1"), toolOutput, done("r1"), wait(1_000), created("r2")], stall: null },
     { name: "a tool result followed by nothing", steps: [created("r1"), toolCall("r1"), toolOutput, done("r1"), wait(STALL_TIMEOUTS_MS["no-tool-continuation"])], stall: "no-tool-continuation" },
+    { name: "a tool result whose reply is still speaking for a while", steps: [created("r1"), toolCall("r1"), toolOutput, wait(STALL_TIMEOUTS_MS["no-tool-continuation"] - 1_000), audio("r1"), done("r1"), wait(2_000), created("r2")], stall: null },
+    { name: "a tool result whose reply was cancelled", steps: [created("r1"), toolCall("r1"), toolOutput, done("r1", "cancelled"), wait(STALL_TIMEOUTS_MS["no-tool-continuation"])], stall: null },
     { name: "a tool result whose continuation we cancelled", steps: [toolOutput, { out: { type: "response.cancel" } }, wait(STALL_TIMEOUTS_MS["no-tool-continuation"])], stall: null },
     // A reply we asked for.
     { name: "a requested reply that starts", steps: [{ out: { type: "response.create", event_id: "e1" } }, created("r1"), audio("r1"), done("r1")], stall: null },

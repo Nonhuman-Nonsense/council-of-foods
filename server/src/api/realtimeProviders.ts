@@ -81,7 +81,14 @@ function buildInworldChairRealtimeSession(params: {
         ttsProviderData.steering_handling = "emit_once";
         ttsProviderData.segmenter_strategy = "sentence";
     }
-    session.providerData = { tts: ttsProviderData };
+    session.providerData = {
+        tts: ttsProviderData,
+        // The client asks for the reply after a tool result itself, once the reply that made
+        // the call has finished. Inworld's own follow-up starts the moment the result lands
+        // and cancels (`superseded`) whatever that reply was still saying — so an agent that
+        // acknowledges out loud while it calls a tool was cut off every time.
+        auto_tool_response: false,
+    };
 
     return session;
 }

@@ -1299,3 +1299,83 @@ describe("push-to-talk turns", () => {
         expect(await run(steps as Step[], { replying })).toEqual(sent);
     });
 });
+
+/**
+ * After a tool result the client asks for the follow-up reply itself, once the
+ * reply that made the call has finished. Inworld's automatic follow-up started
+ * the moment the result landed and cut off whatever that reply was still saying.
+ */
+describe("tool follow-up", () => {
+    type Step = { in: Record<string, unknown> } | { press: true };
+
+    const created: Step = { in: { type: "response.created", response: { id: "r1" } } };
+    const done = (status = "completed"): Step => ({ in: { type: "response.done", response: { id: "r1", status, output: [{}] } } });
+    const toolCall = (itemId: string, name = "select_topic"): Step[] => [
+        { in: { type: "response.output_item.added", item: { type: "function_call", id: itemId, call_id: `c-${itemId}`, name } } },
+        { in: { type: "response.function_call_arguments.done", item_id: itemId, arguments: "{}" } },
+    ];
+
+    async function run(steps: Step[]): Promise<string[]> {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({
+                toolHandlers: {
+                    select_topic: () => ({ ok: true }),
+                    switch_language: () => ({ ok: true, suppressContinuation: true }),
+                },
+            }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        send.mockClear();
+        for (const step of steps) {
+            if ("press" in step) loop.beginUserTurn();
+            else await loop.handleEvent(step.in);
+        }
+        return send.mock.calls
+            .map((c) => c[0] as { type: string; item?: { type?: string } })
+            .map((p) => (p.item?.type === "function_call_output" ? "function_call_output" : p.type));
+    }
+
+    it.each([
+        {
+            name: "waits for the reply that made the call to finish",
+            steps: [created, ...toolCall("i1")],
+            sent: ["function_call_output"],
+        },
+        {
+            name: "asks for the follow-up once that reply is done",
+            steps: [created, ...toolCall("i1"), done()],
+            sent: ["function_call_output", "response.create"],
+        },
+        {
+            name: "gives several calls in one reply one follow-up",
+            steps: [created, ...toolCall("i1"), ...toolCall("i2"), done()],
+            sent: ["function_call_output", "function_call_output", "response.create"],
+        },
+        {
+            name: "does not continue a reply that was cancelled",
+            steps: [created, ...toolCall("i1"), done("cancelled")],
+            sent: ["function_call_output"],
+        },
+        {
+            name: "lets a press of the talk button take over",
+            steps: [created, ...toolCall("i1"), { press: true }, done()],
+            sent: ["function_call_output", "input_audio_buffer.clear"],
+        },
+        {
+            name: "asks at once when the reply already finished",
+            steps: [created, { in: { type: "response.output_audio.delta", response_id: "r1" } }, done(), ...toolCall("i1")],
+            sent: ["function_call_output", "response.create"],
+        },
+        {
+            name: "does not continue after a tool that asks it not to",
+            steps: [created, ...toolCall("i1", "switch_language"), done()],
+            sent: ["function_call_output", "response.cancel"],
+        },
+    ])("$name", async ({ steps, sent }) => {
+        expect(await run(steps as Step[])).toEqual(sent);
+    });
+});

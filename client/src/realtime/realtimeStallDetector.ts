@@ -175,6 +175,12 @@ export function createStallDetector(params: { onStall: (report: StallReport) => 
         const counts = responses.get(key) ?? { audioDeltas: 0, textDeltas: 0, toolCalls: 0 };
         responses.delete(key);
         const status = asStr(response?.status);
+        if (watches.has("tool")) {
+          // The follow-up is asked for once the reply that made the call is done —
+          // so the wait starts now. A cancelled reply owes no follow-up.
+          if (status === "cancelled" || status === "failed") clear("tool");
+          else watch("tool", "no-tool-continuation");
+        }
         if (
           status === "completed" &&
           counts.audioDeltas === 0 &&
