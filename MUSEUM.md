@@ -428,6 +428,9 @@ takes effect at once, without a reload; off, the output is the usual stereo mix.
   stereo audio as mono** off, and the Sound balance slider centred.
 - Leave it off on any screen someone listens to in headphones: they would hear the voices in
   one ear only.
+- With the split on, the microphone opens without the browser's echo canceller, which coloured
+  the agents' voices. Keep speakers that play voices away from the mic, or the agents may hear
+  themselves. This part follows the switch only when the mic next opens: reload the page.
 
 ### Hear yourself
 

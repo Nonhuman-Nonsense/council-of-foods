@@ -11,6 +11,7 @@ import type { RealtimeSessionServerDefaults } from "./realtimeProtocol";
 import type { IceServer, RealtimeBootstrapResponse } from "@shared/RealtimeSessionTypes";
 import { councilFetch } from "@/api/http";
 import { monitorMicrophone } from "@/audio/sidetone";
+import { getSplitAudioEnabled } from "@/settings/councilSettings";
 
 // ---------------------------------------------------------------------------
 // Error types
@@ -68,9 +69,16 @@ export class MicrophoneUnavailableError extends Error {
   }
 }
 
-const MIC_CONSTRAINTS: MediaStreamConstraints = {
-  audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: false },
-};
+/**
+ * Echo cancellation is off on a split audio output: there the agents play through Web Audio
+ * onto one side, and the canceller coloured the sound it let through. Read at each request,
+ * so switching the split takes effect from the next time the microphone is opened.
+ */
+function micConstraints(): MediaStreamConstraints {
+  return {
+    audio: { echoCancellation: !getSplitAudioEnabled(), noiseSuppression: true, autoGainControl: false },
+  };
+}
 
 /**
  * Acquire the microphone with an explicit guard + normalized errors.
@@ -99,7 +107,7 @@ export async function acquireMicrophone(): Promise<MediaStream> {
 
   let stream: MediaStream;
   try {
-    stream = await mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+    stream = await mediaDevices.getUserMedia(micConstraints());
   } catch (err) {
     const name = err instanceof Error ? err.name : "";
     switch (name) {

@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { setSplitAudioEnabled } from "@/settings/councilSettings";
 import {
   acquireMicrophone,
   createRealtimeConnection,
@@ -750,6 +751,21 @@ describe("acquireMicrophone", () => {
       expect((err as MicrophoneUnavailableError).reason).toBe(reason);
       expect((err as MicrophoneUnavailableError).cause).toBeInstanceOf(Error);
     }
+  });
+
+  it.each([
+    { split: false, echoCancellation: true },
+    { split: true, echoCancellation: false },
+  ])("split audio $split: opens the mic with echo cancellation $echoCancellation", async ({ split, echoCancellation }) => {
+    setSplitAudioEnabled(split);
+    const getUserMedia = stubGetUserMedia(
+      vi.fn().mockResolvedValue({ id: "mic", getAudioTracks: () => [] }),
+    );
+
+    await acquireMicrophone();
+
+    expect(getUserMedia.mock.calls[0][0].audio).toMatchObject({ echoCancellation });
+    setSplitAudioEnabled(false);
   });
 
   it("resolves with the stream on success", async () => {
