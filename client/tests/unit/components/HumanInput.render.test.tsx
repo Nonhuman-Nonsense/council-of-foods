@@ -416,18 +416,40 @@ describe('HumanInput Component', () => {
 
     // ── Recording flow ─────────────────────────────────────────────────────────
 
-    it('should handle recording flow: ready → recording → stop → ready', async () => {
+    /** A quick press and release of the on-screen mic. */
+    function clickMic(icon: 'record_voice_off' | 'record_voice_on') {
+        // The same element both times: the press re-renders its icon before the release.
+        const mic = screen.getByTestId(`icon-${icon}`);
+        fireEvent.pointerDown(mic);
+        fireEvent.pointerUp(mic);
+    }
+
+    it('switches the mic on with a click, and off with another: ready → recording → ready', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        // Hold the mic → enable track → recording
-        fireEvent.pointerDown(screen.getByTestId('icon-record_voice_off'));
-
+        // The transcript streams into the field as they talk, so the mic can stay on.
+        clickMic('record_voice_off');
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        // Let go → no audio active → goes straight to ready
+        // No audio active → goes straight to ready
+        clickMic('record_voice_on');
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+    });
+
+    it('records only while the mic is held for longer than a click', async () => {
+        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
+        const now = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+
+        fireEvent.pointerDown(screen.getByTestId('icon-record_voice_off'));
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        now.mockReturnValue(1_600);
         fireEvent.pointerUp(screen.getByTestId('icon-record_voice_on'));
+        now.mockRestore();
 
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
@@ -440,6 +462,26 @@ describe('HumanInput Component', () => {
         await waitFor(() => {
             expect(screen.getAllByTestId('visualizer').length).toBeGreaterThan(0);
         });
+    });
+
+    it.each([
+        ['the textarea receives focus', () => fireEvent.focus(screen.getByPlaceholderText('human.placeholder'))],
+        ['the window loses focus', () => fireEvent.blur(window)],
+    ])('switches the mic off when %s, and keeps it off', async (_label, endTake) => {
+        // The no-speech path settles recording → finishing → ready inside one
+        // batch; a mic still switched on would re-open the instant it landed.
+        await renderAndWaitReady();
+
+        clickMic('record_voice_off');
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        endTake();
+
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
 
     it('should enable the mic track when recording starts', async () => {
