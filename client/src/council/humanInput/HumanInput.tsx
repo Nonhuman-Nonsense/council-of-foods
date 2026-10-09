@@ -553,10 +553,16 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     setConnectionState("connecting");
     hiLog("connect-start", { language: i18n.language, phase });
 
+    // Owned here until the connection takes it; a connect abandoned before then (aborted by
+    // an unmount — StrictMode does one on every mount in dev — or failed) releases it, or the
+    // mic stays live with nothing left to close it.
+    let micStreamForCall: MediaStream | null = preAcquiredMic ?? null;
+    let micHandedOver = false;
+
     try {
       // Every mic request goes through the store so it knows what the browser
       // did; a caller that already holds one passes it straight in.
-      const micStreamForCall = preAcquiredMic ?? (await requestMicrophone());
+      micStreamForCall ??= await requestMicrophone();
 
       const bootstrap = await bootstrapHumanInputRealtimeSession(
         { feature: "human-input", language: i18n.language },
@@ -630,6 +636,9 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
         },
       });
 
+      // From here the connection owns the mic, and closing it stops the mic.
+      micHandedOver = true;
+
       if (controller.signal.aborted) {
         hiLog("connect-aborted", { language: i18n.language });
         connection.close();
@@ -671,6 +680,7 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
       console.error("Failed to start realtime human input session", err);
       setConnectionState("idle");
     } finally {
+      if (!micHandedOver) micStreamForCall?.getTracks().forEach((t) => t.stop());
       if (startAbortRef.current === controller) {
         startAbortRef.current = null;
       }

@@ -508,6 +508,39 @@ describe('HumanInput Component', () => {
         expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
     });
 
+    it('should release the microphone when it closes before the connection takes it', async () => {
+        const stop = vi.fn();
+        vi.mocked(acquireMicrophone).mockResolvedValueOnce({
+            id: 'abandoned-mic',
+            getAudioTracks: () => [],
+            getTracks: () => [{ stop }],
+        } as unknown as MediaStream);
+        const bootstrap = deferred<Awaited<ReturnType<typeof bootstrapHumanInputRealtimeSession>>>();
+        mockBootstrapHumanInputRealtimeSession.mockReturnValueOnce(bootstrap.promise);
+
+        const { unmount } = render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+        await waitFor(() => {
+            expect(bootstrapHumanInputRealtimeSession).toHaveBeenCalled();
+        });
+
+        unmount();
+        bootstrap.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+
+        await waitFor(() => {
+            expect(stop).toHaveBeenCalled();
+        });
+        expect(createRealtimeConnection).not.toHaveBeenCalled();
+    });
+
     it('should surface non-abort startup failures and auto-retry', async () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
         mockCreateRealtimeConnection

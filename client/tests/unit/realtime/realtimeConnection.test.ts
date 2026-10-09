@@ -475,6 +475,28 @@ describe("realtimeConnection", () => {
     connection.close();
   });
 
+  it("releases a microphone handed to a session that has closed", async () => {
+    stubRtcGlobals();
+    stubGetUserMedia(vi.fn());
+    stubCallAnswer();
+
+    const connection = await createRealtimeConnection({
+      session: { type: "realtime" },
+      iceServers: [],
+      callPath: "/api/realtime/call",
+      deferMic: true,
+      onEvent: vi.fn(),
+      onRemoteTrack: vi.fn(),
+    });
+    connection.close();
+
+    const micTrack = new MockTrack("audio");
+    await connection.attachMic(new MockMediaStream([micTrack]) as unknown as MediaStream);
+
+    expect(micTrack.stop).toHaveBeenCalled();
+    expect(connection.micStream).toBeNull();
+  });
+
   it("releases the microphone on detachMic but keeps the session open", async () => {
     stubRtcGlobals();
     stubGetUserMedia(vi.fn());
@@ -766,6 +788,17 @@ describe("acquireMicrophone", () => {
 
     expect(getUserMedia.mock.calls[0][0].audio).toMatchObject({ echoCancellation });
     setSplitAudioEnabled(false);
+  });
+
+  it("hands the microphone out closed, so nothing is sent or heard until it is opened", async () => {
+    const track = { enabled: true };
+    stubGetUserMedia(
+      vi.fn().mockResolvedValue({ id: "mic", getAudioTracks: () => [track] }),
+    );
+
+    await acquireMicrophone();
+
+    expect(track.enabled).toBe(false);
   });
 
   it("resolves with the stream on success", async () => {

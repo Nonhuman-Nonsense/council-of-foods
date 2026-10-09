@@ -88,6 +88,7 @@ function micConstraints(): MediaStreamConstraints {
  *    is missing (non-secure context / unsupported browser) instead of throwing
  *    an opaque `TypeError` that gets misclassified as a retryable network blip;
  *  - maps each DOMException name to a specific reason + user-facing message;
+ *  - hands the stream out closed: its tracks are disabled until the caller opens them;
  *  - hands the stream to the sidetone, so the visitor can hear themselves.
  */
 export async function acquireMicrophone(): Promise<MediaStream> {
@@ -141,6 +142,9 @@ export async function acquireMicrophone(): Promise<MediaStream> {
         );
     }
   }
+  // A fresh track is enabled. Closed here, a mic nobody has opened yet — still connecting, or
+  // abandoned before it was — sends nothing and plays nothing in the sidetone.
+  stream.getAudioTracks().forEach((t) => { t.enabled = false; });
   // Every mic goes to the headphones too, heard whenever its track is open (staff level).
   monitorMicrophone(stream);
   return stream;
@@ -671,11 +675,25 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       micStream,
 
       attachMic: async (stream: MediaStream) => {
-        if (closed) return;
+        // The stream is handed over: one that never gets attached is released here, or it
+        // stays open with nothing to close it.
+        const release = () => stream.getTracks().forEach((t) => t.stop());
+        if (closed) {
+          release();
+          return;
+        }
         const track = stream.getAudioTracks()[0];
         if (!track) throw new Error("Microphone stream has no audio track");
-        if (!finalSender) throw new Error("Realtime connection has no audio sender");
-        await finalSender.replaceTrack(track);
+        if (!finalSender) {
+          release();
+          throw new Error("Realtime connection has no audio sender");
+        }
+        try {
+          await finalSender.replaceTrack(track);
+        } catch (err) {
+          release();
+          throw err;
+        }
         // Release the previous mic only once the new one is live, so a failed
         // swap leaves the session audible rather than silently deaf.
         stopMic();
