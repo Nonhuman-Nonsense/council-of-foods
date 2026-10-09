@@ -46,3 +46,6 @@ server/gen-lang-client-*.json
 .print-spool/
 # button bridge printer alert settings (secret)
 button/bridge/alerts.env
+
+# Letter print runs: real letters and visitors' words, never committed
+server/scripts/letters/print-out/
