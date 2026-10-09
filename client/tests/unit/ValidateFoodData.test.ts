@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import { AVAILABLE_VOICES, VoiceOption } from '@shared/ModelTypes';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata';
+import { SINGLE_AGENDA_POINT_PLACEHOLDER } from '@shared/agendaPointInjection';
 import fs from 'fs';
 import path from 'path';
 import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
@@ -31,6 +32,7 @@ interface CharacterSetupDataFile {
         last_updated: string;
     };
     panelWithHumans: string;
+    singleAgendaPoint?: string;
     addHuman: {
         id: string;
         name: string;
@@ -107,6 +109,15 @@ describe('Validate Food Data JSONs', () => {
                     owner.set(key, character.id);
                 }
             }
+        }
+    });
+
+    /** Without the text, the placeholder is silently removed and a one-question meeting loses its rule. */
+    it('gives the chair\'s single-agenda-point placeholder its rule in every language', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            const data = loadCharacterData(lang);
+            if (!data.characters[0].prompt?.includes(SINGLE_AGENDA_POINT_PLACEHOLDER)) continue;
+            expect(data.singleAgendaPoint?.trim(), `singleAgendaPoint missing in "${lang}"`).toBeTruthy();
         }
     });
 

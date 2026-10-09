@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
-import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
+import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK, SINGLE_AGENDA_POINT_PLACEHOLDER } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
 import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
 
@@ -9,13 +9,14 @@ vi.mock("@newMeeting/CharacterSetup", () => ({
   CHAIR_ID: "chair",
   getCharacterSetupBundle: () => ({
     panelWithHumans: " [HUMANS] ",
+    singleAgendaPoint: " Stay on the one point.",
     characters: [
       {
         id: "chair",
         name: "Chair",
         description: "Moderator",
         voice: "alloy",
-        prompt: `Welcome [CHARACTERS].[HUMANS] Agenda: ${RANDOM_AGENDA_POINT_PLACEHOLDER}`,
+        prompt: `Welcome [CHARACTERS].[HUMANS] Agenda: ${RANDOM_AGENDA_POINT_PLACEHOLDER}.${SINGLE_AGENDA_POINT_PLACEHOLDER}`,
       },
       {
         id: "food-a",
@@ -584,6 +585,20 @@ describe("buildMeetingCharactersPayload", () => {
     const chair = result.characters[0] as Character;
     expect(chair.prompt).toContain(RANDOM_AGENDA_POINT_FALLBACK);
     expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_PLACEHOLDER);
+  });
+
+  it.each([
+    { case: "a single agenda point", agendaPoints: ["Who owns the wind?"], staysOnPoint: true },
+    { case: "several agenda points", agendaPoints: ["One", "Two"], staysOnPoint: false },
+    { case: "no agenda points", agendaPoints: undefined, staysOnPoint: false },
+  ])("gives the chair the stay-on-the-point rule only for $case", ({ agendaPoints, staysOnPoint }) => {
+    const result = buildCharactersPayload(agendaPoints);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const chair = result.characters[0] as Character;
+    expect(chair.prompt.includes("Stay on the one point.")).toBe(staysOnPoint);
+    expect(chair.prompt).not.toContain(SINGLE_AGENDA_POINT_PLACEHOLDER);
   });
 
   it.each([

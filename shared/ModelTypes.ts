@@ -85,6 +85,8 @@ export interface CharacterSetupData {
         last_updated: string;
     };
     panelWithHumans: string;
+    /** Chair rule injected at `[SINGLE_AGENDA_POINT]` only when the agenda has exactly one point. */
+    singleAgendaPoint?: string;
     addHuman: {
         id: string;
         name: string;
