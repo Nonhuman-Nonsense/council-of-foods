@@ -11,6 +11,7 @@ import type { ConversationCompletionResult, ConversationService } from "@service
 import { withNetworkRetry } from "@utils/NetworkUtils.js";
 import { recordUsage, usageTagsFor } from "@services/UsageService.js";
 import type { UsageFeature } from "@shared/UsageTypes.js";
+import { turnForModel } from "./turnForModel.js";
 
 /**
  * How many times a single generation may be sampled before giving up. A model
@@ -538,10 +539,9 @@ export class DialogGenerator {
         for (const msg of conversation) {
             if (msg.type === "skipped") continue;
 
-            const speakerName = msg.type === 'human' ? (meeting.state?.humanName || "Human") : (meeting.characters.find(c => c.id === msg.speaker)?.name || "Unknown");
             messages.push({
                 role: speaker.id === msg.speaker ? "assistant" : "user",
-                content: speakerName + ": " + msg.text + "\n---",
+                content: turnForModel(msg, meeting) + "\n---",
             });
         }
 

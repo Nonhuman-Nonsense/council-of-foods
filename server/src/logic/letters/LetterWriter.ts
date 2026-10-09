@@ -11,6 +11,7 @@ import { Logger } from "@utils/Logger.js";
 import { buildLetterFooter } from "./footer.js";
 import { LETTER_FORMS, letterPrompts, type LetterForm } from "./prompts/letterPrompts.js";
 import { HUMAN_HANDLINGS, humanSortingPrompt, type HumanHandling } from "./prompts/humanSorting.js";
+import { turnForModel } from "../turnForModel.js";
 
 /**
  * The three steps that turn a finished meeting into a letter (see docs/council-letters.md):
@@ -87,12 +88,7 @@ function spokenMeeting(meeting: StoredMeeting): StoredMeeting {
 
 function transcript(meeting: StoredMeeting): string {
     return spokenTurns(meeting.conversation)
-        .map((message) => {
-            const name = message.type === "human"
-                ? (meeting.state?.humanName || "Visitor")
-                : (meeting.characters.find((character) => character.id === message.speaker)?.name ?? message.speaker);
-            return `${name}: ${message.text}`;
-        })
+        .map((message) => turnForModel(message, meeting))
         .join("\n\n");
 }
 
