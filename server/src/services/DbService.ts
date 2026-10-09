@@ -38,7 +38,13 @@ export let clientLogCollection: Collection<StoredClientLogBatch> | undefined;
 /** Installations' network, sampled by their bridges (api/networkSamples.ts). */
 export let networkSamplesCollection: Collection<StoredNetworkSample> | undefined;
 
-export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> => {
+/**
+ * `readOnly` skips the setup below (counters, indexes, capped collections), which writes: for
+ * the read scripts, which may run as a read-only user against production (`npm run prod`).
+ */
+export const initDb = async (
+  dbUrl?: string, dbPrefix?: string, { readOnly = false }: { readOnly?: boolean } = {}
+): Promise<void> => {
   // Config is already validated by the time we import this, but allow overrides for testing
   const url = dbUrl || config.COUNCIL_DB_URL;
   const prefix = dbPrefix || config.COUNCIL_DB_PREFIX;
@@ -70,6 +76,13 @@ export const initDb = async (dbUrl?: string, dbPrefix?: string): Promise<void> =
   letterBlocklistCollection = db.collection<BlockedRecipient>("letter_blocklist");
   letterRepliesCollection = db.collection<LetterReply>("letter_replies");
   activeConnectionKey = connectionKey;
+
+  if (readOnly) {
+    clientLogCollection = db.collection<StoredClientLogBatch>(CLIENT_LOG_COLLECTION);
+    networkSamplesCollection = db.collection<StoredNetworkSample>(NETWORK_SAMPLES_COLLECTION);
+    Logger.info("init", "Database ready (read-only).");
+    return;
+  }
 
   await initializeCounters();
   await ensureMeetingIndexes();

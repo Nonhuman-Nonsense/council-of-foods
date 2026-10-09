@@ -130,7 +130,7 @@ async function main(): Promise<void> {
     const utc = flag("utc");
     const limit = Number(arg("limit") ?? 5000);
 
-    await initDb();
+    await initDb(undefined, undefined, { readOnly: true });
     try {
         if (!clientLogCollection) throw new Error("client_log collection unavailable");
         if (flag("range")) {

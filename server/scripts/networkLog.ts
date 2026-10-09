@@ -111,7 +111,7 @@ async function main(): Promise<void> {
     const venue = arg("venue");
     const since = parseSince(arg("since") ?? "24h");
 
-    await initDb();
+    await initDb(undefined, undefined, { readOnly: true });
     try {
         if (!networkSamplesCollection) throw new Error("network_samples collection unavailable");
         const filter: Filter<StoredNetworkSample> = { t: { $gte: since } };

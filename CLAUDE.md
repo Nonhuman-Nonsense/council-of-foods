@@ -57,3 +57,6 @@ they can switch on beats a screenshot — and say when it is ready to test.
 - Read an installation's stored browser log (stored whenever #staff → Logging is on):
   `cd server && npm run logs -- --venue <id> --unanswered --since 24h`, then `--setup <id>`.
   See [MUSEUM.md](MUSEUM.md) → Dev logging.
+- Those read scripts (`logs`, `network`, …) read the database `server/.env` names. For production,
+  `cd server && npm run prod -- <script> …` (SSH tunnel, read-only user; needs
+  `server/.env.production.local`, see [server/README.md](server/README.md) → Reading production data).

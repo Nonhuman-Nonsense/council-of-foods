@@ -53,6 +53,26 @@ there now, by number; a plug at no venue is refused.
 
 To try alerts locally without Brevo, leave the Brevo key unset: the alert endpoint answers 503. To send a real email to yourself, set a Brevo key and add a venue with your own address.
 
+## Reading production data
+The read scripts (`npm run network`, `npm run logs`, …) read whatever database `.env` names. To run one against production instead:
+
+```
+npm run prod -- network --venue havremagasinet --since 2h --minutes
+npm run prod -- logs --venue havremagasinet --unanswered --since 24h
+```
+
+`scripts/prod.mjs` opens an SSH tunnel to the production server, runs the script with that database in place of the dev one, and closes the tunnel afterwards. The server publishes Mongo on its own localhost only, so the tunnel is the only way in, and it needs the server's SSH key.
+
+Nothing about the server is in this repo. It all lives in `server/.env.production.local` (git-ignored), which `prod.mjs` refuses to run without:
+
+```
+COUNCIL_PROD_SSH_HOST=<your ~/.ssh/config alias for the server>
+COUNCIL_PROD_DB_URL=mongodb://<reader user>:<password>@127.0.0.1:27018/?authSource=<database>&directConnection=true
+COUNCIL_PROD_DB_PREFIX=<database, e.g. CouncilOfForest>
+```
+
+Use the server's **read-only** user for this product's database, never the app's own: then nothing run this way can change production. Keep the local port off 27017, so a dev Mongo is never mistaken for the tunnel. The server side (the published port and the read-only users) is set up in the private server repo.
+
 ## Footprint meter
 
 AI usage is recorded for the footprint meter (`/meter`); see
