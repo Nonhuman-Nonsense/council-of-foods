@@ -446,61 +446,39 @@ describe('AudioSystem Inworld Integration', () => {
         );
     });
 
-    it('should send language and TTS-2 model when voiceLocale is set', async () => {
-        const message = { id: 'msg-sv', text: 'Hej', sentences: ['Hej'] };
-        const speaker = {
-            id: 'char1',
-            voice: 'custom-sv-voice',
-            voiceProvider: 'inworld',
-            voiceLocale: 'sv-SE',
-        };
+    it.each([
+        // configured model, speaker fields → model sent, language, temperature, deliveryMode
+        ['inworld-tts-2', {}, 'inworld-tts-2', undefined, undefined, undefined],
+        ['inworld-tts-2', { voiceTemperature: 1.5 }, 'inworld-tts-2', undefined, undefined, 'CREATIVE'],
+        ['inworld-tts-2', { voiceTemperature: 0.8 }, 'inworld-tts-2', undefined, undefined, 'STABLE'],
+        ['inworld-tts-2', { voiceTemperature: 1.1 }, 'inworld-tts-2', undefined, undefined, undefined],
+        ['inworld-tts-2', { voiceLocale: 'sv-SE' }, 'inworld-tts-2', 'sv-SE', undefined, undefined],
+        ['inworld-tts-2-flash', { voiceTemperature: 1.5 }, 'inworld-tts-2-flash', undefined, undefined, 'CREATIVE'],
+        ['inworld-tts-1.5-max', { voiceTemperature: 1.2 }, 'inworld-tts-1.5-max', undefined, 1.2, undefined],
+        ['inworld-tts-1.5-max', { voiceLocale: 'sv-SE', voiceTemperature: 1.2 }, 'inworld-tts-2', 'sv-SE', undefined, undefined],
+    ])('with %s and %o sends model %s, language %s, temperature %s, deliveryMode %s',
+        async (configuredModel, speakerFields, model, language, temperature, deliveryMode) => {
+            const message = { id: 'msg-1', text: 'Hello', sentences: ['Hello'] };
+            const speaker = { id: 'char1', voice: 'Pippa', voiceProvider: 'inworld', ...speakerFields };
 
-        mockFetch.mockResolvedValue({
-            ok: true,
-            json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
+            mockFetch.mockResolvedValue({
+                ok: true,
+                json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
+            });
+
+            await audioSystem.generateAudio(
+                message,
+                speaker,
+                'en',
+                serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: configuredModel }),
+                meeting(),
+                'production'
+            );
+
+            const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+            expect(body.model_id).toBe(model);
+            expect(body.language).toBe(language);
+            expect(body.temperature).toBe(temperature);
+            expect(body.deliveryMode).toBe(deliveryMode);
         });
-
-        await audioSystem.generateAudio(
-            message,
-            speaker,
-            'sv',
-            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5-max' }),
-            meeting(),
-            'production'
-        );
-
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-        expect(body.model_id).toBe('inworld-tts-2');
-        expect(body.language).toBe('sv-SE');
-        expect(body.temperature).toBeUndefined();
-    });
-
-    it('should use TTS 1.5 without language when voiceLocale is unset', async () => {
-        const message = { id: 'msg-en', text: 'Hello', sentences: ['Hello'] };
-        const speaker = {
-            id: 'char1',
-            voice: 'Pippa',
-            voiceProvider: 'inworld',
-            voiceTemperature: 1.2,
-        };
-
-        mockFetch.mockResolvedValue({
-            ok: true,
-            json: async () => ({ audioContent: Buffer.from('audio').toString('base64') }),
-        });
-
-        await audioSystem.generateAudio(
-            message,
-            speaker,
-            'en',
-            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1.5-max' }),
-            meeting(),
-            'production'
-        );
-
-        const body = JSON.parse(mockFetch.mock.calls[0][1].body);
-        expect(body.model_id).toBe('inworld-tts-1.5-max');
-        expect(body.language).toBeUndefined();
-        expect(body.temperature).toBe(1.2);
-    });
 });

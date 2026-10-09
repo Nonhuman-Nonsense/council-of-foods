@@ -91,7 +91,7 @@ const DEMO_INTERVAL_MS = 2500;
 const DEMO_TURN: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">[] = [
   { feature: "dialogue", provider: "inworld", model: "mistral/mistral-large-3", measures: { input_tokens: 2800, output_tokens: 220 } },
   { feature: "classifier", provider: "inworld", model: "google-ai-studio/gemini-2.5-flash", measures: { input_tokens: 900, output_tokens: 4 } },
-  { feature: "tts", provider: "inworld", model: "inworld-tts-1.5-max", measures: { characters: 480, audio_seconds: 24 } },
+  { feature: "tts", provider: "inworld", model: "inworld-tts-2", measures: { characters: 480, audio_seconds: 24 } },
 ];
 
 /** Live usage with no message: the meta agent listening to a visitor. */
@@ -114,7 +114,7 @@ const DEMO_SETUP_TICKS = 4;
 /** One exchange with the setup agent, before the meeting exists. */
 const DEMO_SETUP_TURN: Pick<MeterUsageEvent, "feature" | "provider" | "model" | "measures">[] = [
   { feature: "setup-agent", provider: "inworld", model: "mistral/mistral-large-3", measures: { input_tokens: 1500, output_tokens: 60 } },
-  { feature: "setup-agent", provider: "inworld", model: "inworld-tts-1.5-max", measures: { characters: 140, audio_seconds: 7 } },
+  { feature: "setup-agent", provider: "inworld", model: "inworld-tts-2", measures: { characters: 140, audio_seconds: 7 } },
   { feature: "setup-agent", provider: "inworld", model: "soniox/stt-rt-v4", measures: { audio_seconds: 5 } },
 ];
 

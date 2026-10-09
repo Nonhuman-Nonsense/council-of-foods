@@ -20,10 +20,6 @@ function usesCustomVoiceId(character) {
   return character?.voiceProvider === 'inworld' || character?.voiceProvider === 'elevenlabs';
 }
 
-function usesInworldTts2(character) {
-  return Boolean(character?.voiceLocale?.trim());
-}
-
 const LANGUAGE_MODEL_KEYS = [
   'conversationModel',
   'conversationReasoning',
@@ -36,7 +32,7 @@ const defaultLanguageModelProfile = {
   conversationModel: "mistral/mistral-large-3",
   conversationReasoning: "none",
   voiceModel: "gpt-4o-mini-tts",
-  inworldVoiceModel: "inworld-tts-1.5-mini",
+  inworldVoiceModel: "inworld-tts-2",
   elevenlabsVoiceModel: "eleven_flash_v2_5",
 };
 
@@ -122,9 +118,6 @@ const CharacterCard = {
   props: ['character', 'isActive', 'isExpanded', 'voiceLists', 'isSorting', 'isPinned'],
   emits: ['toggle-active', 'toggle-expanded'],
   methods: {
-    usesInworldTts2(char) {
-      return usesInworldTts2(char);
-    },
     usesCustomVoiceId(char) {
       return usesCustomVoiceId(char);
     },

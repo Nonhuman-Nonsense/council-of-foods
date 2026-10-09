@@ -93,7 +93,7 @@ export const MockFactory = {
             conversationModel: "mistral/mistral-small-3-2",
             conversationReasoning: "none",
             voiceModel: "gpt-4o-mini-tts",
-            inworldVoiceModel: "inworld-tts-1.5-mini",
+            inworldVoiceModel: "inworld-tts-2",
             elevenlabsVoiceModel: "eleven_flash_v2_5",
             temperature: 1,
             maxTokens: 100,
@@ -127,7 +127,7 @@ export const MockFactory = {
                     en: {
                         provider: "inworld",
                         llmModel: "google-ai-studio/gemini-2.5-flash",
-                        ttsModel: "inworld-tts-1.5-max",
+                        ttsModel: "inworld-tts-2",
                         transcriptionModel: "test/stt-chair",
                         agentVoice: null,
                     },
