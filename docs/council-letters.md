@@ -64,8 +64,18 @@ Built 4 Oct 2026 (step 3) — `server/src/logic/letters/LetterEnding.ts`, driven
    voice, set apart, or left out — the only step the human waits for (~5 s). Their words are
    not read back first; they go straight into the letter. Meeting's language.
 6. **Read and show**: the letter is the meeting's `summary`, read aloud by its **author** (not the
-   chair), shown on the summary page as a letter (from / to / subject), printed where printing
-   is on — if the human was there to answer.
+   chair), shown on the summary page as a letter (from / to / subject). The human's words,
+   as said, are a `human` message before it, so a replay hears what was added (live, nobody
+   reads them back).
+   **Where the installation prints** (`printsLetters`, sent at creation: `printSummary` with
+   staff's printing on), the letter is not read or shown live. The chair says farewell
+   instead (`letter_farewell`, generated while the letter is finished): thanks to the author
+   and the human, that the email was sent to the recipient and is printing behind them — or,
+   when nobody answered, that it was not sent and the button starts a new meeting. Then the
+   `credits` marker: every meeting ends on the same credits page ("Thank You", then a fixed
+   60 s roll), and the letter prints `LETTER_PRINT_DELAY_MS` (20 s) after it arrives — if the
+   human was there to answer. The letter `summary` still follows, with its audio, for replay;
+   replay drops the farewell and the credits.
 7. **Send**: the letter goes into the outbox; a worker sends it from the being's address
    (`reindeer@council-of-forest.com`). Step 5; until then nothing is sent.
 
@@ -131,8 +141,9 @@ stopped (see RESILIENCE.md):
 closing line with the bridge, letter_pending          + meeting.letter = { authorId }
   → author announcement, awaiting_letter_addition     + recipientId, points, form, asksReply
                                                         (+ draft, when it is ready)
-  → summary_pending (their words go to the letter)    + present, addition
+  → human (their words, as said; none on a skip), summary_pending   + present, addition
   → summary { text: what the author reads, letter: LetterView }   + the finished letter
+    or, where the installation prints: letter_farewell, credits, summary   (one write)
 ```
 
 - Each arrow is one write: the marker and what was said go in together. The run loop resolves

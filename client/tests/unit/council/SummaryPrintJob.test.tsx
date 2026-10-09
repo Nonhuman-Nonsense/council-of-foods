@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "@shared/ModelTypes";
-import SummaryPrintJob from "@council/protocol/SummaryPrintJob";
+import SummaryPrintJob, { LETTER_PRINT_DELAY_MS } from "@council/protocol/SummaryPrintJob";
 
 const mockPrintProtocolOnce = vi.fn();
 const mockCreateProtocolPdf = vi.fn();
@@ -67,6 +67,27 @@ describe("SummaryPrintJob", () => {
     }
     expect(printed).not.toContain("Sent by Council of Forest");
     expect(printed).not.toContain("[disclaimer]");
+  });
+
+  describe("a letter's timing", () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it("lays the letter out at once but hands it to the printer only after the delay, while the farewell plays", async () => {
+      const blob = new Blob(["%PDF-"]);
+      mockCreateProtocolPdf.mockResolvedValue({ output: vi.fn().mockReturnValue(blob) });
+      const { unmount } = render(<SummaryPrintJob meetingId={42} textMessages={[letterSummary(true)]} />);
+
+      let handedOver = false;
+      void mockPrintProtocolOnce.mock.calls[0][1]().then(() => { handedOver = true; });
+      unmount(); // leaving the meeting does not stop the print
+      await vi.advanceTimersByTimeAsync(LETTER_PRINT_DELAY_MS - 1);
+      expect(mockCreateProtocolPdf).toHaveBeenCalledTimes(1);
+      expect(handedOver).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(handedOver).toBe(true);
+    });
   });
 
   it("does not print a letter when the human was not there to answer", () => {

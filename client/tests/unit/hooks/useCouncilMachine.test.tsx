@@ -867,6 +867,7 @@ describe('useCouncilMachine', () => {
         it.each([
             ['question', { type: 'awaiting_human_question' }, 'human'],
             ['panelist', { type: 'awaiting_human_panelist', speaker: 'human-panelist-1' }, 'panelist'],
+            ['letter addition', { type: 'awaiting_letter_addition', speaker: 'Frank', text: '' }, 'human'],
         ])('%s: plays the reply next, and the input when navigated back to', async (_mode, awaiting, echoType) => {
             vi.useFakeTimers();
             try {
@@ -1639,6 +1640,18 @@ describe('useCouncilMachine', () => {
             expect(result.current.state.textMessages).toEqual([]); // no local "skipped" placeholder to step past
             act(() => { socketHandlers.onConversationUpdate?.([letterSummary]); });
             expect(result.current.state.councilState).toBe('summary');
+        });
+
+        it.each([
+            ['the credits, where the installation prints its letters', [{ type: 'credits' }, letterSummary], 'credits'],
+            ['the letter, elsewhere', [letterSummary], 'summary'],
+        ])('ends on %s', (_label, ending, shown) => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.(ending); });
+
+            expect(result.current.state.councilState).toBe('summary');
+            expect(result.current.state.visibleOverlay).toBe('summary');
+            expect(result.current.state.summary?.type).toBe(shown);
         });
 
         it.each([

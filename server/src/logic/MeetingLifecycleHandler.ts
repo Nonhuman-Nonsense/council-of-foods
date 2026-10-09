@@ -230,21 +230,32 @@ export class MeetingLifecycleHandler {
 
         // A meeting that ended in a letter has the letter as its summary, read by its author;
         // otherwise the chair reads the protocol.
-        const written: { summary: Message; reader: Character; spoken: string; letter?: MeetingLetter } = m.letter
+        const written: {
+            summary: Message;
+            reader: Character;
+            spoken: string;
+            letter?: MeetingLetter;
+            farewell?: { message: Message; chair: Character };
+        } = m.letter
             ? await this.letterEnding.writeSummary()
             : await this.writeProtocol(date);
         if (!manager.isActive) return;
-        const { summary, reader, spoken: textForAudio } = written;
+        const { summary, reader, spoken: textForAudio, farewell } = written;
 
-        // Replace the marker in place so the summary occupies the same (tail) index. Removing
+        // Replace the marker in place so the summary is at the tail. Removing
         // the marker as soon as we have the TEXT means the client shows the summary immediately;
         // its audio (queued below) arrives shortly after. If a crash lands after this write but
         // before the audio/promotion, reconnect self-heals: missing audio is regenerated and the
         // promotion re-runs (see ConnectionHandler). Re-find after the await in case a concurrent
         // event shifted the marker.
-        const summaryIndex = m.conversation.findIndex((msg) => msg.type === "summary_pending");
-        if (summaryIndex === -1) return;
-        m.conversation[summaryIndex] = summary;
+        // Where the installation prints its letters, the chair's farewell and the credits go before
+        // the letter, in the same write: live plays the farewell and ends on the credits, replay
+        // drops both and shows the letter.
+        const markerIndex = m.conversation.findIndex((msg) => msg.type === "summary_pending");
+        if (markerIndex === -1) return;
+        const ending: Message[] = farewell ? [farewell.message, { type: "credits" }, summary] : [summary];
+        m.conversation.splice(markerIndex, 1, ...ending);
+        const summaryIndex = markerIndex + ending.length - 1;
         m.maximumPlayedIndex = summaryIndex;
         if (written.letter) m.letter = written.letter;
 
@@ -274,6 +285,15 @@ export class MeetingLifecycleHandler {
         // skipMatching stays true: the summary is a read-out document, not word-timed subtitles.
         // waitForIdle then acts as the conclude audio barrier — it waits for the closing line +
         // summary + any trailing message audio before we promote meetingComplete.
+        if (farewell) {
+            manager.audioSystem.queueAudioGeneration(
+                farewell.message as AudioMessage,
+                farewell.chair,
+                m,
+                manager.environment,
+                manager.serverOptions,
+            );
+        }
         manager.audioSystem.queueAudioGeneration(
             audioMessage as AudioMessage,
             reader,

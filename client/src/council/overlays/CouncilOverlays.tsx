@@ -2,6 +2,7 @@ import type { Character } from "@shared/ModelTypes";
 import QueryExtension from "./QueryExtension";
 import Incomplete from "./Incomplete";
 import Summary, { SummaryData } from "./Summary";
+import Credits from "./Credits";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
 import { useCouncilSettings } from "@/settings/councilSettings";
@@ -72,6 +73,7 @@ function CouncilOverlays({
           />
         );
       case "summary":
+        if (summary?.credits) return <Credits />;
         return (summary ?
           <Summary
             summary={summary}

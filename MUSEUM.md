@@ -220,7 +220,14 @@ prints it with macOS's own printing, so a crash, a reboot or a printer that is
 off only delays a protocol, never loses it. Each meeting prints once.
 
 In a meeting that ends in a letter, the letter is what prints — and only if the
-visitor was there to answer when asked to add something. **Replies** to the letters
+visitor was there to answer when asked to add something. With printing on, the letter is
+not read aloud or shown on screen: the chair thanks the author and the visitor, says the
+email was sent and is printing behind them (or that it was not sent, because nobody
+answered), and every meeting ends on the same **credits** — "Thank You", then a
+60-second roll — while the letter prints, 20 seconds after it is ready
+(`LETTER_PRINT_DELAY_MS` in `SummaryPrintJob.tsx`). The button or a click starts a new
+meeting; otherwise the start page returns 20 seconds after the credits. Replays skip
+the chair's farewell and the credits and show the letter. **Replies** to the letters
 print here too, as they arrive: the page asks the bridge for new replies to this
 venue's letters once a minute (the bridge asks the council server with the
 installation key, so the key and the venue must be set), prints each once, and
