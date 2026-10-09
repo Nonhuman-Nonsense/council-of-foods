@@ -44,6 +44,8 @@ const eventLoopMocks = vi.hoisted(() => ({
   requestResponseIfIdle: vi.fn(),
   isResponseActive: vi.fn(() => false),
   interruptAndRespond: vi.fn(),
+  beginUserTurn: vi.fn(),
+  endUserTurn: vi.fn(),
 }));
 
 vi.mock("@realtime/realtimeEventLoop", () => ({
@@ -921,6 +923,35 @@ describe("useRealtimeVoiceSession", () => {
       result.current.setMicEnabled(false);
     });
     expect(result.current.micStream).toBeNull();
+  });
+
+  /** The talk button is the turn: opening starts it, closing sends it or throws it out. */
+  it("turns the talk button's open and close into the visitor's turn", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(result.current.connectionState).toBe("ready"));
+    eventLoopMocks.beginUserTurn.mockClear();
+    eventLoopMocks.endUserTurn.mockClear();
+
+    act(() => result.current.setMicEnabled(true));
+    act(() => result.current.setMicEnabled(true));
+    act(() => result.current.setMicEnabled(false));
+    act(() => result.current.setMicEnabled(false));
+    act(() => result.current.setMicEnabled(true));
+    act(() => result.current.setMicEnabled(false, { discard: true }));
+
+    expect(eventLoopMocks.beginUserTurn).toHaveBeenCalledTimes(2);
+    expect(eventLoopMocks.endUserTurn.mock.calls).toEqual([[{ respond: true }], [{ respond: false }]]);
+  });
+
+  it("cuts the agent off when the talk button opens during a reply", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(result.current.connectionState).toBe("ready"));
+    eventLoopMocks.isResponseActive.mockReturnValue(true);
+
+    act(() => result.current.setMicEnabled(true));
+
+    expect(eventLoopMocks.beginUserTurn).toHaveBeenLastCalledWith({ interrupt: expect.any(Object) });
+    eventLoopMocks.isResponseActive.mockReturnValue(false);
   });
 
   it("connects without asking for the microphone when deferMic is set", async () => {

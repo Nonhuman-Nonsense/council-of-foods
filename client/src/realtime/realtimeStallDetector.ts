@@ -12,7 +12,7 @@
  */
 
 export type StallRule =
-  /** The visitor stopped speaking and no reply began. */
+  /** The visitor's push-to-talk turn was sent and no reply began. */
   | "no-answer"
   /** A reply began and never finished. */
   | "response-unfinished"
@@ -35,9 +35,9 @@ export type SessionStallRule =
 
 /** How long each follow-up may take. Generous: these are for silence, not slowness. */
 export const STALL_TIMEOUTS_MS: Record<Exclude<StallRule, "empty-response">, number> = {
-  // Semantic VAD waits out a visitor pausing mid-thought, so a reply can lag the
-  // end of speech by a few seconds without anything being wrong.
-  "no-answer": 8_000,
+  // From the commit: a reply waits for the transcript, and for anything still
+  // playing (a cut-off reply's done, the meta-agent's greeting) to finish.
+  "no-answer": 20_000,
   "response-unfinished": 45_000,
   "no-tool-continuation": 6_000,
   "create-unanswered": 8_000,
@@ -117,7 +117,13 @@ export function createStallDetector(params: { onStall: (report: StallReport) => 
     const type = asStr(obj?.type);
     if (!obj || !type) return;
 
-    if (type === "response.create") {
+    if (type === "input_audio_buffer.commit") {
+      // The talk button was released and the turn sent: a reply must follow.
+      watch("answer", "no-answer");
+    } else if (type === "input_audio_buffer.clear") {
+      // A new press, or a turn thrown away: nothing is owed.
+      clear("answer");
+    } else if (type === "response.create") {
       watch("create", "create-unanswered", { eventId: asStr(obj.event_id) });
     } else if (type === "response.cancel") {
       // A cancelled continuation is deliberate (suppressContinuation), not a stall.
@@ -136,19 +142,6 @@ export function createStallDetector(params: { onStall: (report: StallReport) => 
     if (!obj || !type) return;
 
     switch (type) {
-      case "input_audio_buffer.speech_started":
-        // Still talking: the reply waits for them, and the clock with it.
-        clear("answer");
-        return;
-      case "input_audio_buffer.speech_stopped":
-        watch("answer", "no-answer");
-        return;
-      case "conversation.item.input_audio_transcription.completed": {
-        // Nothing intelligible was said, so there is nothing to answer.
-        const transcript = asStr(obj.transcript);
-        if (!transcript || transcript.trim().length === 0) clear("answer");
-        return;
-      }
       case "response.created": {
         clear("answer");
         clear("create");

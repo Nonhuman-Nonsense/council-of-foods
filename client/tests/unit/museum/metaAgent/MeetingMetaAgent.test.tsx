@@ -326,7 +326,7 @@ describe("MeetingMetaAgent", () => {
     expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });
 
-  it("closes mic when metaAgentPhase transitions to inactive", () => {
+  it("puts the mic away without sending the turn when the agent goes inactive", () => {
     const { rerender } = render(
       <MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />,
     );
@@ -334,7 +334,7 @@ describe("MeetingMetaAgent", () => {
     mockSetMicEnabled.mockClear();
 
     rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "inactive" })} />);
-    expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
+    expect(mockSetMicEnabled).toHaveBeenCalledWith(false, { discard: true });
   });
 
   it("mic follows pressed state inside active mode", () => {

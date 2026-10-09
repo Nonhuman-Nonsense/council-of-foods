@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from "vitest";
-import { createEventLoop } from "@realtime/realtimeEventLoop";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
+import { createEventLoop, PTT_COMMIT_DELAY_MS, PTT_TRANSCRIPT_TIMEOUT_MS } from "@realtime/realtimeEventLoop";
 import type { RealtimeSessionConfig } from "@realtime/realtimeProtocol";
 import type { ToolHandler } from "@realtime/realtimeTools";
 
@@ -1160,5 +1160,142 @@ describe("realtimeEventLoop", () => {
             ok: false,
             error: "No handler for tool: missing_tool",
         });
+    });
+});
+
+/**
+ * Push-to-talk: the talk button, not the provider's turn detection, says when
+ * the visitor's turn ends. Inworld's detector can open an empty turn right
+ * after one ends and never close it, which used to cancel the reply it had just
+ * started and leave the agent silent for good. So every release is committed,
+ * and the transcript decides whether there is anything to answer.
+ */
+describe("push-to-talk turns", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
+    type Step =
+        | { press: true; interrupt?: boolean }
+        | { release: true; discard?: boolean }
+        | { in: Record<string, unknown> }
+        | { wait: number };
+
+    const press: Step = { press: true };
+    const release: Step = { release: true };
+    const commitWait: Step = { wait: PTT_COMMIT_DELAY_MS };
+    const committed = (itemId: string): Step => ({ in: { type: "input_audio_buffer.committed", item_id: itemId } });
+    const transcript = (itemId: string, text: string): Step => ({
+        in: { type: "conversation.item.input_audio_transcription.completed", item_id: itemId, transcript: text },
+    });
+    const failed = (itemId: string): Step => ({
+        in: { type: "conversation.item.input_audio_transcription.failed", item_id: itemId, error: { code: "stt_timeout" } },
+    });
+    /** A spoken turn, all the way to its transcript. */
+    const spoken = (itemId: string, text = "Yes, let's go."): Step[] => [press, release, commitWait, committed(itemId), transcript(itemId, text)];
+
+    async function run(steps: Step[], options: { replying?: boolean } = {}): Promise<string[]> {
+        const send = vi.fn();
+        const loop = createEventLoop({
+            send,
+            getCtx: () => ({ toolHandlers: {} }),
+            callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError: vi.fn() },
+        });
+        loop.configureSession(makeSession());
+        await loop.handleEvent({ type: "session.updated" });
+        if (options.replying) await loop.handleEvent({ type: "response.created", response: { id: "r0" } });
+        send.mockClear();
+        for (const step of steps) {
+            if ("press" in step) loop.beginUserTurn(step.interrupt ? { interrupt: {} } : undefined);
+            else if ("release" in step) loop.endUserTurn({ respond: !step.discard });
+            else if ("in" in step) await loop.handleEvent(step.in);
+            else await vi.advanceTimersByTimeAsync(step.wait);
+        }
+        return send.mock.calls.map((c) => (c[0] as { type: string }).type);
+    }
+
+    const ANSWERED = ["input_audio_buffer.clear", "input_audio_buffer.commit", "response.create"];
+    const DROPPED = ["input_audio_buffer.clear", "input_audio_buffer.commit", "input_audio_buffer.clear"];
+
+    it.each([
+        { name: "a spoken turn is answered once its transcript is in", steps: spoken("u1"), sent: ANSWERED },
+        {
+            name: "nothing is committed before the commit delay is over",
+            steps: [press, release, { wait: PTT_COMMIT_DELAY_MS - 1 }],
+            sent: ["input_audio_buffer.clear"],
+        },
+        {
+            name: "the reply waits for the turn's own transcript",
+            steps: [press, release, commitWait, committed("u1")],
+            sent: ["input_audio_buffer.clear", "input_audio_buffer.commit"],
+        },
+        {
+            name: "a turn with no words is dropped, not answered",
+            steps: [press, release, commitWait, committed("u1"), transcript("u1", "  ")],
+            sent: DROPPED,
+        },
+        {
+            // The provider committed the speech itself mid-press; ours finds nothing left.
+            name: "words the provider committed during the press still get their answer",
+            steps: [press, committed("v1"), transcript("v1", "Yes."), release, commitWait, committed("u1"), failed("u1")],
+            sent: ANSWERED,
+        },
+        {
+            name: "an empty commit still answers words heard during the press",
+            steps: [press, transcript("v1", "Yes."), release, commitWait, { in: { type: "error", error: { code: "input_audio_buffer_commit_empty" } } }],
+            sent: ANSWERED,
+        },
+        {
+            name: "a transcript that never comes does not leave the turn hanging",
+            steps: [press, transcript("v1", "Yes."), release, commitWait, committed("u1"), { wait: PTT_TRANSCRIPT_TIMEOUT_MS }],
+            sent: ANSWERED,
+        },
+        {
+            name: "pressing again before the commit continues the same turn",
+            steps: [press, release, { wait: 100 }, press, release, commitWait, committed("u1"), transcript("u1", "Yes.")],
+            sent: ANSWERED,
+        },
+        {
+            name: "pressing again before the transcript makes one turn of both",
+            steps: [press, release, commitWait, committed("u1"), press, release, commitWait, committed("u2"), transcript("u1", "Yes."), transcript("u2", "And Frank.")],
+            sent: ["input_audio_buffer.clear", "input_audio_buffer.commit", "input_audio_buffer.commit", "response.create"],
+        },
+        {
+            name: "a discarded turn is thrown away",
+            steps: [press, { release: true, discard: true }, commitWait],
+            sent: ["input_audio_buffer.clear", "input_audio_buffer.clear"],
+        },
+        { name: "a release with no turn open does nothing", steps: [release, commitWait], sent: [] },
+        {
+            name: "pressing during a reply cuts the agent off first",
+            replying: true,
+            steps: [{ press: true, interrupt: true }],
+            sent: ["response.cancel", "output_audio_buffer.clear", "input_audio_buffer.clear"],
+        },
+        {
+            name: "a press that cut the agent off for nothing lets it carry on",
+            replying: true,
+            steps: [
+                { press: true, interrupt: true },
+                { in: { type: "response.done", response: { id: "r0", status: "cancelled", output: [] } } },
+                release, commitWait, committed("u1"), failed("u1"),
+            ],
+            sent: [
+                "response.cancel", "output_audio_buffer.clear", "input_audio_buffer.clear",
+                "input_audio_buffer.commit", "input_audio_buffer.clear", "conversation.item.create", "response.create",
+            ],
+        },
+        {
+            name: "a turn finished while a reply is still running is answered after it",
+            replying: true,
+            steps: [...spoken("u1"), { in: { type: "response.done", response: { id: "r0", status: "completed", output: [{}] } } }],
+            sent: ANSWERED,
+        },
+    ])("$name", async ({ steps, sent, replying }) => {
+        expect(await run(steps as Step[], { replying })).toEqual(sent);
     });
 });

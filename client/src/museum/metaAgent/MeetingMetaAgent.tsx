@@ -272,7 +272,8 @@ export default function MeetingMetaAgent({
 
   useEffect(() => {
     silenceRef.current = () => {
-      setMicEnabled(false);
+      // Put away, not answered: whatever the visitor was saying is dropped.
+      setMicEnabled(false, { discard: true });
       setAgentOutputMuted(true);
     };
     reconfigureRef.current = () => reconfigureSession();
@@ -400,7 +401,7 @@ export default function MeetingMetaAgent({
 
   useEffect(() => {
     if (metaAgentPhase === "inactive") {
-      setMicEnabled(false);
+      setMicEnabled(false, { discard: true });
     }
   }, [metaAgentPhase, setMicEnabled]);
 

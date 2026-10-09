@@ -13,9 +13,8 @@ const done = (id: string, status = "completed"): Step => ({ in: { type: "respons
 const audio = (id: string): Step => ({ in: { type: "response.output_audio.delta", response_id: id } });
 const toolCall = (id: string): Step => ({ in: { type: "response.function_call_arguments.done", response_id: id, item_id: "i1", arguments: "{}" } });
 const toolOutput: Step = { out: { type: "conversation.item.create", item: { type: "function_call_output", call_id: "c1", output: "{}" } } };
-const speechStarted: Step = { in: { type: "input_audio_buffer.speech_started" } };
-const speechStopped: Step = { in: { type: "input_audio_buffer.speech_stopped" } };
-const transcript = (text: string): Step => ({ in: { type: "conversation.item.input_audio_transcription.completed", transcript: text } });
+const commit: Step = { out: { type: "input_audio_buffer.commit" } };
+const clearBuffer: Step = { out: { type: "input_audio_buffer.clear" } };
 const wait = (ms: number): Step => ({ wait: ms });
 
 describe("createStallDetector", () => {
@@ -40,11 +39,10 @@ describe("createStallDetector", () => {
   }
 
   it.each([
-    // The visitor stopped talking.
-    { name: "a reply that starts after the visitor stops", steps: [speechStopped, wait(2_000), created("r1"), audio("r1"), done("r1")], stall: null },
-    { name: "no reply after the visitor stops", steps: [speechStopped, wait(STALL_TIMEOUTS_MS["no-answer"])], stall: "no-answer" },
-    { name: "the visitor carrying on after a pause", steps: [speechStopped, wait(3_000), speechStarted, wait(STALL_TIMEOUTS_MS["no-answer"])], stall: null },
-    { name: "nothing intelligible said", steps: [speechStopped, transcript("  "), wait(STALL_TIMEOUTS_MS["no-answer"])], stall: null },
+    // The visitor's push-to-talk turn.
+    { name: "a reply that starts after the turn is sent", steps: [commit, wait(2_000), created("r1"), audio("r1"), done("r1")], stall: null },
+    { name: "no reply after the turn is sent", steps: [commit, wait(STALL_TIMEOUTS_MS["no-answer"])], stall: "no-answer" },
+    { name: "a new press after the turn is sent", steps: [commit, wait(3_000), clearBuffer, wait(STALL_TIMEOUTS_MS["no-answer"])], stall: null },
     // A reply in progress.
     { name: "a reply that never finishes", steps: [created("r1"), audio("r1"), wait(STALL_TIMEOUTS_MS["response-unfinished"])], stall: "response-unfinished" },
     { name: "a reply with nothing in it", steps: [created("r1"), done("r1")], stall: "empty-response" },
@@ -67,7 +65,7 @@ describe("createStallDetector", () => {
   it("goes quiet once disposed, so a closed session reports nothing", async () => {
     const reports: StallReport[] = [];
     const detector = createStallDetector({ onStall: (report) => reports.push(report) });
-    detector.observeIncoming({ type: "input_audio_buffer.speech_stopped" });
+    detector.observeOutgoing({ type: "input_audio_buffer.commit" });
 
     detector.dispose();
     await vi.advanceTimersByTimeAsync(STALL_TIMEOUTS_MS["no-answer"]);

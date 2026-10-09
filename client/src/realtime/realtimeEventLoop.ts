@@ -63,6 +63,13 @@ export type EventLoopCallbacks = {
   ) => void;
 };
 
+/**
+ * Sent when the talk button cut the agent off but the visitor then said nothing:
+ * the agent picks up again instead of waiting in silence for the idle nudge.
+ */
+const RESUME_AFTER_EMPTY_PRESS_TEXT =
+  "(The visitor pressed the talk button, which cut you off, but said nothing. Pick up briefly where you were cut off — do not start over.)";
+
 /** Synthetic user turn that kicks off the first assistant reply (Inworld WebRTC quickstart pattern). */
 const DEFAULT_GREETING_USER_TEXT =
   "The session just connected. Give your opening greeting now, following your instructions.";
@@ -121,7 +128,31 @@ export type EventLoop = {
     userText: string,
     options?: { reason?: string; audioElapsedMs?: number }
   ) => void;
+  /**
+   * Push-to-talk press: the visitor's turn starts. Discards whatever the input
+   * buffer held from before, and — when `interrupt` is given — cuts the agent
+   * off first, the way a voice barge-in used to. A press that lands within the
+   * commit delay of the last release continues that turn instead.
+   */
+  beginUserTurn: (options?: { interrupt?: { audioElapsedMs?: number } }) => void;
+  /**
+   * Push-to-talk release: the turn is over. After {@link PTT_COMMIT_DELAY_MS},
+   * so the last audio still on its way is in, commits the input buffer and asks
+   * for the reply. `respond: false` throws the turn away instead (the agent was
+   * dismissed, not answered). A no-op when no turn is open.
+   */
+  endUserTurn: (options?: { respond?: boolean }) => void;
 };
+
+/**
+ * How long after the talk button is released the turn is committed. The audio
+ * travels over RTP and the commit over the data channel, so committing at once
+ * would race the last few hundred ms of speech.
+ */
+export const PTT_COMMIT_DELAY_MS = 300;
+
+/** How long a released turn waits for its transcript before deciding without it. */
+export const PTT_TRANSCRIPT_TIMEOUT_MS = 3_000;
 
 type FunctionCallMeta = { name?: string; call_id?: string };
 
@@ -315,6 +346,26 @@ export function createEventLoop(params: {
    * starts speaking. The Realtime API defaults `interrupt_response` to true.
    */
   let speechInterruptsResponse = false;
+  /** Push-to-talk: the visitor holds (or latched) the talk button. */
+  let userTurnOpen = false;
+  /** Push-to-talk: a released turn waiting out {@link PTT_COMMIT_DELAY_MS}. */
+  let commitTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Push-to-talk: words were transcribed since the button went down. Only a
+   * turn with words is answered — the model would otherwise reply to an empty
+   * turn every time someone brushes the button. The transcript, not
+   * `speech_started`, is the signal: Inworld can leave a turn open from before
+   * the press, and speech landing in it never announces itself.
+   */
+  let turnHasWords = false;
+  /** Push-to-talk: this turn's press cut the agent off mid-reply. */
+  let turnCutAgent = false;
+  /**
+   * Push-to-talk: the released turn's commit, waiting for its transcript before
+   * deciding whether to answer. `"sent"` until the provider names the item.
+   */
+  let awaitingTurn: "sent" | { itemId: string } | null = null;
+  let awaitingTurnTimer: ReturnType<typeof setTimeout> | null = null;
 
   /** Send `response.cancel` unless one is already outstanding. */
   const sendCancelIfPossible = (logLabel: string, fields: object = {}): void => {
@@ -360,17 +411,17 @@ export function createEventLoop(params: {
     callbacks.onCaption(null);
   };
 
-  const interruptAndRespond = (
-    userText: string,
-    options?: { reason?: string; audioElapsedMs?: number }
-  ): void => {
-    const reason = options?.reason ?? "interrupt-request";
+  /**
+   * Cut the agent off: cancel any in-flight response, trim its last-spoken
+   * item to what was heard (if known), and clear the audio still buffered.
+   */
+  const cutOutput = (reason: string, audioElapsedMs?: number): void => {
     sendCancelIfPossible("OUT response.cancel (interrupt)", { reason });
     // Trim the assistant's last-spoken item down to what was actually heard,
     // so the model's own transcript doesn't include audio that got cut off —
     // otherwise it may reference things it never actually said out loud.
     if (
-      options?.audioElapsedMs != null &&
+      audioElapsedMs != null &&
       currentAssistantAudioItemId != null &&
       currentAssistantAudioContentIndex != null
     ) {
@@ -379,7 +430,7 @@ export function createEventLoop(params: {
       // (observed: "audio_end_ms 20660 exceeds actual audio duration 20659").
       // The caller is responsible for the larger question of whether the
       // offset is trustworthy at all; a rejection here is absorbed, not fatal.
-      const audioEndMs = Math.max(0, Math.floor(options.audioElapsedMs));
+      const audioEndMs = Math.max(0, Math.floor(audioElapsedMs));
       devLog.flat("TURN", "OUT conversation.item.truncate (interrupt)", {
         reason,
         itemId: currentAssistantAudioItemId,
@@ -395,6 +446,14 @@ export function createEventLoop(params: {
     devLog.flat("TURN", "OUT output_audio_buffer.clear (interrupt)", { reason });
     send({ type: "output_audio_buffer.clear" });
     callbacks.onOutputInterrupted?.(reason);
+  };
+
+  const interruptAndRespond = (
+    userText: string,
+    options?: { reason?: string; audioElapsedMs?: number }
+  ): void => {
+    const reason = options?.reason ?? "interrupt-request";
+    cutOutput(reason, options?.audioElapsedMs);
     // Leave the current caption on screen, same as real voice interruption:
     // it's cleared naturally when the new response starts (onResponseStarted).
     sendUserMessage(userText);
@@ -403,6 +462,86 @@ export function createEventLoop(params: {
       return;
     }
     sendResponseCreate(reason);
+  };
+
+  const isAwaitedItem = (itemId: unknown): boolean =>
+    awaitingTurn != null && awaitingTurn !== "sent" && awaitingTurn.itemId === itemId;
+
+  /**
+   * The released turn's transcript is in (or will not come): answer it if the
+   * visitor said anything, otherwise let it go.
+   */
+  const finishUserTurn = (why: string): void => {
+    if (awaitingTurnTimer != null) clearTimeout(awaitingTurnTimer);
+    awaitingTurnTimer = null;
+    awaitingTurn = null;
+    if (!turnHasWords) {
+      devLog.flat("TURN", "push-to-talk turn had no words — not answered", { why, turnCutAgent });
+      trySendJson({ type: "input_audio_buffer.clear" });
+      // The press silenced the agent for nothing: let it carry on.
+      if (turnCutAgent && sessionReady && activeResponses === 0) {
+        sendUserMessage(RESUME_AFTER_EMPTY_PRESS_TEXT);
+        sendResponseCreate("push-to-talk-resume");
+      }
+      return;
+    }
+    if (!sessionReady || activeResponses > 0) {
+      // Answered once the session is configured, or once what is playing ends.
+      devLog.flat("TURN", "push-to-talk reply deferred", { why, sessionReady, activeResponses });
+      pendingDeferredResponse = true;
+      return;
+    }
+    sendResponseCreate("push-to-talk");
+  };
+
+  const beginUserTurn = (options?: { interrupt?: { audioElapsedMs?: number } }): void => {
+    if (awaitingTurn != null) {
+      // Pressed again while the last turn's transcript was still coming: it all
+      // becomes one turn, answered when this one is released.
+      if (awaitingTurnTimer != null) clearTimeout(awaitingTurnTimer);
+      awaitingTurnTimer = null;
+      awaitingTurn = null;
+      userTurnOpen = true;
+      devLog.flat("TURN", "push-to-talk re-pressed before the reply — same turn");
+      return;
+    }
+    if (commitTimer != null) {
+      // Pressed again before the last release was committed: one turn, not two.
+      clearTimeout(commitTimer);
+      commitTimer = null;
+      userTurnOpen = true;
+      devLog.flat("TURN", "push-to-talk re-pressed before commit — same turn");
+      return;
+    }
+    userTurnOpen = true;
+    turnHasWords = false;
+    turnCutAgent = options?.interrupt != null;
+    // A new turn from the visitor: the recovery budgets are theirs again.
+    emptyResponseRetries = 0;
+    createRejectedRetries = 0;
+    capacityRetries = 0;
+    if (options?.interrupt) cutOutput("push-to-talk", options.interrupt.audioElapsedMs);
+    devLog.flat("TURN", "OUT input_audio_buffer.clear (push-to-talk press)");
+    trySendJson({ type: "input_audio_buffer.clear" });
+  };
+
+  const endUserTurn = (options?: { respond?: boolean }): void => {
+    if (!userTurnOpen) return;
+    userTurnOpen = false;
+    if (options?.respond === false) {
+      devLog.flat("TURN", "OUT input_audio_buffer.clear (push-to-talk discarded)");
+      trySendJson({ type: "input_audio_buffer.clear" });
+      return;
+    }
+    commitTimer = setTimeout(() => {
+      commitTimer = null;
+      devLog.flat("TURN", "OUT input_audio_buffer.commit (push-to-talk release)");
+      trySendJson({ type: "input_audio_buffer.commit" });
+      awaitingTurn = "sent";
+      // A transcript that never comes (observed: stt_timeout after ~1 s) must
+      // not leave the turn hanging.
+      awaitingTurnTimer = setTimeout(() => finishUserTurn("transcript-timeout"), PTT_TRANSCRIPT_TIMEOUT_MS);
+    }, PTT_COMMIT_DELAY_MS);
   };
 
   const trySendJson = (payload: unknown) => {
@@ -768,6 +907,8 @@ export function createEventLoop(params: {
       capacityRetries = 0;
       const transcript = asStr(obj.transcript);
       lastUserTranscript = transcript ?? "";
+      const inTurn = userTurnOpen || commitTimer != null || awaitingTurn != null;
+      if (inTurn && transcript && transcript.trim().length > 0) turnHasWords = true;
       devLog.flat("TURN", "IN transcription.completed", {
         transcript: transcript ?? "(null)",
         length: transcript?.length ?? 0,
@@ -777,6 +918,23 @@ export function createEventLoop(params: {
         callbacks.onUserTranscript(transcript);
         callbacks.onCaption(null);
       }
+      if (isAwaitedItem(obj.item_id)) finishUserTurn("transcript");
+      return true;
+    }
+
+    if (type === "conversation.item.input_audio_transcription.failed") {
+      devLog.flat("TURN", "IN transcription.failed", summarizeLogPayload(obj));
+      if (isAwaitedItem(obj.item_id)) finishUserTurn("transcript-failed");
+      return true;
+    }
+
+    if (type === "input_audio_buffer.committed") {
+      // The first commit after ours is ours; the provider now names the item.
+      if (awaitingTurn === "sent") {
+        const itemId = asStr(obj.item_id);
+        if (itemId) awaitingTurn = { itemId };
+      }
+      devLog.flat("TURN", "IN input_audio_buffer.committed", { itemId: asStr(obj.item_id) });
       return true;
     }
 
@@ -804,6 +962,11 @@ export function createEventLoop(params: {
       // is a no-op, not a session failure. Take the server's word for it: no
       // response is active, so correct our own count rather than leaving it
       // stuck high, which would make `requestResponseIfIdle` refuse forever.
+      if (errorCode(errRaw) === "input_audio_buffer_commit_empty" && awaitingTurn === "sent") {
+        // Nothing was left to commit — the provider had committed it all itself.
+        finishUserTurn("commit-empty");
+      }
+
       if (isStaleCancelError(errRaw)) {
         cancelInFlight = false;
         activeResponses = 0;
@@ -871,7 +1034,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "input_audio_buffer.speech_started") {
-      devLog.flat("TURN", "IN speech_started", { activeResponses });
+      devLog.flat("TURN", "IN speech_started", { activeResponses, userTurnOpen });
       if (speechInterruptsResponse) callbacks.onOutputInterrupted?.("speech-started");
       return true;
     }
@@ -905,5 +1068,7 @@ export function createEventLoop(params: {
     sendUserMessage,
     cancelActiveResponse,
     interruptAndRespond,
+    beginUserTurn,
+    endUserTurn,
   };
 }

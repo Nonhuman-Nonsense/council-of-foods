@@ -20,11 +20,21 @@ import type {
 const opts = getGlobalOptions();
 const INWORLD_BASE = "https://api.inworld.ai";
 
+/**
+ * The agents are push-to-talk everywhere, so the talk button — not Inworld — says when the
+ * visitor's turn ends: the client commits the audio and asks for the reply on release, and
+ * cuts the agent off on press. Turn detection stays on only to transcribe while they speak.
+ *
+ * Inworld's detector can open an empty turn right after one ends (reliably when the mic
+ * closes within ~0.3 s of the last word) and never close it. With replies and interruptions
+ * left to the detector, that empty turn cancelled the reply it had just started and the agent
+ * went silent for good.
+ */
 const SEMANTIC_VAD_TURN_DETECTION = {
     type: "semantic_vad" as const,
     eagerness: "medium" as const,
-    create_response: true,
-    interrupt_response: true,
+    create_response: false,
+    interrupt_response: false,
 };
 
 function buildInworldChairRealtimeSession(params: {
