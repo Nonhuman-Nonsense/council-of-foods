@@ -14,6 +14,7 @@ interface CharacterDataEntry {
     id: string;
     name: string;
     description: string;
+    aliases?: string[];
     prompt?: string;
     type?: string;
     index?: number;
@@ -91,6 +92,22 @@ describe('Validate Food Data JSONs', () => {
             expect(data.addHuman).toHaveProperty('name');
             expect(data.addHuman).toHaveProperty('description');
         });
+    });
+
+    /** An everyday name that points at two characters would let the setup agent pick the wrong one. */
+    it('gives every everyday name to exactly one character, never another one\'s name', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            const owner = new Map<string, string>();
+            for (const character of loadCharacterData(lang).characters) {
+                for (const name of [character.name, ...(character.aliases ?? [])]) {
+                    const key = name.trim().toLocaleLowerCase();
+                    const previous = owner.get(key);
+                    expect(previous === undefined || previous === character.id,
+                        `"${name}" (${lang}) belongs to both ${previous} and ${character.id}`).toBe(true);
+                    owner.set(key, character.id);
+                }
+            }
+        }
     });
 
     it('should have matching food IDs across all languages', () => {

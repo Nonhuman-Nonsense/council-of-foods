@@ -9,7 +9,7 @@ const TOPICS = [
 
 const CHARACTERS = [
   { id: CHAIR_ID, name: 'Chair', description: 'Moderator' },
-  { id: 'food1', name: 'Food One', description: 'Desc One' },
+  { id: 'food1', name: 'Food One', description: 'Desc One', aliases: ['Snack'] },
   { id: 'food2', name: 'Food Two', description: 'Desc Two' },
   { id: 'addhuman', name: 'Add Human', description: 'Add' },
   { id: 'panelist0', name: 'Alice', description: 'Human' },
@@ -264,6 +264,13 @@ describe('setupAgentTools', () => {
       expect(res).toEqual({ ok: true, data: { name: 'Food One', description: 'Desc One' } });
       expect(useMeetingSetupStore.getState().selectedCharacters).toContain('food1');
       expect(useMeetingSetupStore.getState().hoveredCharacter).toBe('food1');
+    });
+
+    it.each(['Snack', 'snack', 'food one'])('resolves "%s" to the character it names', async (name) => {
+      const handlers = createSetupAgentToolHandlers(ctx);
+      const res = await handlers.select_character({ name });
+      expect(res).toMatchObject({ ok: true, data: { name: 'Food One' } });
+      expect(useMeetingSetupStore.getState().selectedCharacters).toContain('food1');
     });
 
     it('returns error if name is missing', async () => {

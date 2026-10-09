@@ -74,7 +74,8 @@ Talk to the user and check that they want to proceed with the selected topic. Wh
 Food Selection:
 Help the visitor select a small set of 2-6 food characters${typedSetup ? ", and optionally 1-3 human panelists," : ""}
 Available foods:
-${bullets(characters.map((c) => `${c.name}`))}
+${bullets(characters.map((c) => (c.aliases?.length ? `${c.name} (visitors may also say: ${c.aliases.join(", ")})` : c.name)))}
+Visitors often use an everyday name rather than the listed one. Work out who they mean, and always pass the listed name to the tools.
 If the visitor mentions a certain food or wants details about a food, call select_character. This selects that food character for the meeting and highlights it in the UI. You should then explain it briefly out loud.
 If the visitor mentions multiple foods directly, you can call select_character multiple times with each of the mentioned foods characters, and then make a short sentence commenting on their selection.
 Based on the topic at hand, feel free to recommend particular food characters to the visitor, based on what would make the most meaningful discussion.

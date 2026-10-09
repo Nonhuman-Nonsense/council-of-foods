@@ -84,6 +84,20 @@ function isSelectableCharacter(character: Pick<SetupAgentCharacter, "id">): bool
   return !character.id.startsWith("panelist") && character.id !== "addhuman" && character.id !== CHAIR_ID;
 }
 
+/**
+ * The tools list each character by name, but visitors use everyday names ("biet"
+ * for Humlan) and the model sometimes passes their word on instead. Resolve it
+ * the same way rather than answering "unknown character" for someone on screen.
+ */
+function findCharacter(ctx: SetupAgentToolContext, name: string): SetupAgentCharacter | undefined {
+  const exact = ctx.characters.find((c) => c.name === name);
+  if (exact) return exact;
+  const wanted = name.trim().toLocaleLowerCase();
+  return ctx.characters.find((c) =>
+    [c.name, ...(c.aliases ?? [])].some((candidate) => candidate.toLocaleLowerCase() === wanted),
+  );
+}
+
 const CHAIR_ALWAYS_PRESENT = "is the chair and is always in the meeting; there is nothing to change.";
 
 /**
@@ -355,7 +369,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       const obj = asObject(raw);
       const name = asString(obj?.name);
       if (!name) return { ok: false, error: "Missing name" };
-      const found = ctx.characters.find((c) => c.name === name);
+      const found = findCharacter(ctx, name);
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
       if (found.id === CHAIR_ID) return { ok: true, data: { name: found.name, note: `${found.name} ${CHAIR_ALWAYS_PRESENT}` } };
       const success = useMeetingSetupStore.getState().handleSelectCharacterId(found.id);
@@ -372,7 +386,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       const obj = asObject(raw);
       const name = asString(obj?.name);
       if (!name) return { ok: false, error: "Missing name" };
-      const found = ctx.characters.find((c) => c.name === name);
+      const found = findCharacter(ctx, name);
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
       if (found.id === CHAIR_ID) return { ok: false, error: `${found.name} ${CHAIR_ALWAYS_PRESENT}` };
       useMeetingSetupStore.getState().handleDeselectCharacterId(found.id);

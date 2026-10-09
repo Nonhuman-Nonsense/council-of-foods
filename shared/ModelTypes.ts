@@ -61,6 +61,11 @@ export interface Character {
     name: string;
     voice: VoiceOption | string;
     description: string;
+    /**
+     * Everyday names visitors use for this character instead of `name` — "biet"
+     * for Humlan. Only the setup agent reads them, to recognise who is meant.
+     */
+    aliases?: string[];
     prompt: string;
     voiceProvider?: 'openai' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;

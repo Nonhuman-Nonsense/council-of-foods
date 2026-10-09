@@ -87,4 +87,11 @@ describe('buildSetupAgentPrompt', () => {
       }
     });
   });
+
+  /** Without them the agent has to guess that a visitor saying "biet" means Humlan. */
+  it.each(['en', 'sv'])('%s: lists the everyday names visitors use for a character', (language) => {
+    const withAliases = [{ id: 'apple', name: 'Apple', aliases: ['Crunchy'] }];
+    const prompt = buildSetupAgentPrompt({ language, topics, characters: withAliases, phase: 'characters' });
+    expect(prompt).toContain('Crunchy');
+  });
 });

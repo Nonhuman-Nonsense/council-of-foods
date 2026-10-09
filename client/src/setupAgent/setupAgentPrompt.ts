@@ -9,7 +9,7 @@ import { buildEnPrompt } from "./setupAgentPromptEn";
  * from, and every topic it can offer has one (asserted in ValidateTopicsData).
  */
 export type SetupAgentTopic = Pick<Topic, "id" | "title" | "description"> & { agentBrief: string };
-export type SetupAgentCharacter = Pick<Character, "id" | "name"> & { description?: string };
+export type SetupAgentCharacter = Pick<Character, "id" | "name" | "aliases"> & { description?: string };
 
 /**
  * What is already chosen when the session starts. A session can open long

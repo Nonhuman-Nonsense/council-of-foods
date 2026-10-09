@@ -90,6 +90,7 @@ export default function MeetingSetupAgent({
       id: character.id,
       name: character.name,
       description: character.description,
+      aliases: character.aliases,
     }));
   }, [characterSetupBundle]);
 
