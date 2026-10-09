@@ -6,19 +6,6 @@ import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 import { characterAlignmentToWords, type CharacterAlignment } from "@utils/ElevenLabsAlignmentUtils.js";
 
 const INWORLD_TTS_2_MODEL = "inworld-tts-2";
-/** TTS-2 and its variants (e.g. `-flash`) take `deliveryMode` instead of `temperature`. */
-const isInworldTts2 = (model: string) => model.startsWith(INWORLD_TTS_2_MODEL);
-/**
- * Characters are tuned with a 1.x-era `voiceTemperature`. TTS-2 ignores temperature, so the
- * clearly expressive or clearly steady ones keep that intent through `deliveryMode`; the rest
- * get Inworld's default.
- */
-function inworldDeliveryMode(temperature: number | undefined): "STABLE" | "CREATIVE" | undefined {
-    if (temperature === undefined) return undefined;
-    if (temperature >= 1.3) return "CREATIVE";
-    if (temperature <= 0.9) return "STABLE";
-    return undefined;
-}
 export const WHISPER_MODEL = "whisper-1";
 /**
  * TTS draws on the same account-wide concurrency pool as every other provider
@@ -155,10 +142,7 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
 
     const url = 'https://api.inworld.ai/tts/v1/voice';
     const locale = speaker.voiceLocale?.trim() || undefined;
-    // A locale needs TTS-2 (1.x has no `language`), whatever the configured model is.
-    const modelId = locale && !isInworldTts2(options.inworldVoiceModel)
-        ? INWORLD_TTS_2_MODEL
-        : options.inworldVoiceModel;
+    const modelId = locale ? INWORLD_TTS_2_MODEL : options.inworldVoiceModel;
 
     const payload: Record<string, unknown> = {
         text: processedText,
@@ -172,10 +156,8 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
     };
 
     if (locale) payload.language = locale;
-    if (isInworldTts2(modelId)) {
-        const deliveryMode = inworldDeliveryMode(speaker.voiceTemperature);
-        if (deliveryMode) payload.deliveryMode = deliveryMode;
-    } else {
+    // TTS-2 ignores temperature; deliveryMode is optional for later.
+    if (modelId !== INWORLD_TTS_2_MODEL) {
         payload.temperature = speaker.voiceTemperature || 1.0;
     }
 

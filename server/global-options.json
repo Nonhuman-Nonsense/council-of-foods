@@ -2,7 +2,7 @@
   "conversationModel": "mistral/mistral-large-3",
   "conversationReasoning": "none",
   "voiceModel": "gpt-4o-mini-tts",
-  "inworldVoiceModel": "inworld-tts-2",
+  "inworldVoiceModel": "inworld-tts-1.5-max",
   "elevenlabsVoiceModel": "eleven_flash_v2_5",
   "temperature": 1,
   "maxTokens": 400,
@@ -76,7 +76,7 @@
         "provider": "inworld",
         "llmModel": "anthropic/claude-sonnet-5-5",
         "reasoning": "none",
-        "ttsModel": "inworld-tts-2",
+        "ttsModel": "inworld-tts-1.5-max",
         "transcriptionModel": "soniox/stt-rt-v4",
         "agentVoice": null
       },
