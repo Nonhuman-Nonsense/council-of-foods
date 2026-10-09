@@ -131,7 +131,6 @@ function Credits(): React.ReactElement {
           </div>
         </section>
       ))}
-      <p style={{ margin: "0 0 2em" }}>{t("credits.funding")}</p>
       <div style={{ ...screen, flexDirection: "column", gap: "2em" }}>
         {CREDIT_LOGOS.map((row) => (
           <div key={row[0].src} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "2em", width: "100%" }}>

@@ -4,7 +4,7 @@ import type { CreditGroup, CreditLogo } from "./creditsTypes";
 
 /**
  * Who made the council, as its credits roll (Credits.tsx). This file differs between Council of
- * Foods and Council of Forest; the intro and funding lines are `credits.*` in the locales.
+ * Foods and Council of Forest; its intro is `credits.intro` in the locales.
  *
  * Council of Foods keeps its protocol ending, so it never reaches the credits: a placeholder,
  * to be filled in before Foods ends in printed letters.
