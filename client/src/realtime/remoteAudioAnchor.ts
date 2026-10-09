@@ -13,6 +13,11 @@ export type RemoteAudioAnchor = {
    */
   getCtxTime: () => number;
   /**
+   * Whether the track is carrying sound right now. A dip between words
+   * (~100ms) still counts as sound, so a reading taken mid-sentence says so.
+   */
+  isAudible: () => boolean;
+  /**
    * Resume the AudioContext, which starts suspended without a user gesture.
    * Its `currentTime` is the subtitle clock, so a suspended context leaves
    * captions frozen even when the audio element itself is playing.
@@ -54,6 +59,8 @@ const DEFAULT_SILENCE_THRESHOLD = 0.01;
 const DEFAULT_SILENCE_MS = 250;
 const DEFAULT_DRAIN_SILENCE_MS = 150;
 const DEFAULT_FFT_SIZE = 512;
+/** Quiet shorter than this is a dip inside speech, not the end of it. */
+const AUDIBLE_HOLD_MS = 150;
 
 const getNow = (): number => {
   if (typeof performance !== "undefined" && typeof performance.now === "function") {
@@ -107,6 +114,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
    *  frame (e.g. a natural gap between words) doesn't prematurely arm on
    *  audio that's still playing from the previous response. */
   let waitingQuietSinceMs: number | null = null;
+  let lastAudibleMs: number | null = null;
 
   const releaseQuietStateIfSilent = (rms: number, nowMs: number) => {
     if (!firedForCurrentArm) return;
@@ -126,6 +134,7 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
     analyser.getByteTimeDomainData(data);
     const nowMs = getNow();
     const rms = computeRms(data);
+    if (rms >= silenceThreshold) lastAudibleMs = nowMs;
 
     if (waitingForSilence) {
       if (rms < silenceThreshold) {
@@ -159,6 +168,8 @@ export function createRemoteAudioAnchor(options: RemoteAudioAnchorOptions): Remo
 
   return {
     getCtxTime: () => ctx.currentTime,
+
+    isAudible: () => lastAudibleMs != null && getNow() - lastAudibleMs < AUDIBLE_HOLD_MS,
 
     getState: () => ctx.state,
 

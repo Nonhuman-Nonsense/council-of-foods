@@ -81,3 +81,19 @@ describe("remoteAudioAnchor waiting for the previous response to finish", () => 
     expect(onArmed).toHaveBeenCalledTimes(confirmed ? 1 : 0);
   });
 });
+
+describe("remoteAudioAnchor telling whether sound is playing", () => {
+  /** A dip between words must not read as the end of speech. */
+  it.each([
+    { quietMs: 0, audible: true },
+    { quietMs: 100, audible: true },
+    { quietMs: 200, audible: false },
+  ])("$quietMs ms after speech: audible $audible", ({ quietMs, audible }) => {
+    const anchor = createRemoteAudioAnchor({ track: {} as MediaStreamTrack, onAudioStart: vi.fn() });
+
+    play("speech", 500);
+    play("quiet", quietMs);
+
+    expect(anchor.isAudible()).toBe(audible);
+  });
+});

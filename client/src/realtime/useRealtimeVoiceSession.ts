@@ -356,6 +356,11 @@ export function useRealtimeVoiceSession(
   const responseTransitionPendingRef = useRef(false);
   /** Fallback timer that force-resets if confirmed silence never arrives. */
   const pendingResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /**
+   * Back-to-back responses: hands the captions over to the next response
+   * when the previous one, still playing, reaches its known end.
+   */
+  const pendingHandoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const alignmentRafRef = useRef<number | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   /** Agent-output mute state, kept outside the element so reconnects preserve it. */
@@ -495,6 +500,10 @@ export function useRealtimeVoiceSession(
     if (pendingResetTimeoutRef.current != null) {
       clearTimeout(pendingResetTimeoutRef.current);
       pendingResetTimeoutRef.current = null;
+    }
+    if (pendingHandoverTimeoutRef.current != null) {
+      clearTimeout(pendingHandoverTimeoutRef.current);
+      pendingHandoverTimeoutRef.current = null;
     }
     if (alignmentRafRef.current != null) {
       cancelAnimationFrame(alignmentRafRef.current);
@@ -705,6 +714,14 @@ export function useRealtimeVoiceSession(
       }> = [];
       const PENDING_RESET_TIMEOUT_MS = 8000;
 
+      /** When the previous response's audio ends, on the AudioContext clock; null when unknown. */
+      const previousResponseEndCtxSec = (): number | null => {
+        const anchorCtxSec = responseAudioAnchorCtxSecRef.current;
+        const endSec = subtitleTrack.getPlaybackEndSec();
+        if (anchorCtxSec == null || endSec == null) return null;
+        return anchorCtxSec + endSec;
+      };
+
       /**
        * Whether the previous response's audio has certainly finished playing,
        * per the word-alignment playback clock. False means "may still be
@@ -750,6 +767,10 @@ export function useRealtimeVoiceSession(
           clearTimeout(pendingResetTimeoutRef.current);
           pendingResetTimeoutRef.current = null;
         }
+        if (pendingHandoverTimeoutRef.current != null) {
+          clearTimeout(pendingHandoverTimeoutRef.current);
+          pendingHandoverTimeoutRef.current = null;
+        }
         if (!responseTransitionPendingRef.current) return;
         responseTransitionPendingRef.current = false;
         // A stale closure's fallback timeout could otherwise fire after a
@@ -767,6 +788,12 @@ export function useRealtimeVoiceSession(
       const watchForOutputCut = (reason: string) => {
         if (outputCutPending || isPreviousResponseAudioFinished()) return;
         outputCutPending = true;
+        // The cut ends the audio early, so its known end no longer holds;
+        // the silence detector takes over.
+        if (pendingHandoverTimeoutRef.current != null) {
+          clearTimeout(pendingHandoverTimeoutRef.current);
+          pendingHandoverTimeoutRef.current = null;
+        }
         remoteAudioAnchorRef.current?.arm(true);
         realtimeDebugLog(`[SUBS] CUT (${reason}) waiting for silence ctxTime=${remoteAudioAnchorRef.current?.getCtxTime().toFixed(3) ?? "n/a"}`);
       };
@@ -984,10 +1011,44 @@ export function useRealtimeVoiceSession(
               return;
             }
 
-            // Approximate path (interrupts, back-to-back responses): audio may
-            // still be draining, so keep the current caption and wait for the
-            // detector to confirm real silence — or a fallback timeout, in
-            // case it never does.
+            // Back-to-back path: the previous response finished generating but
+            // is still playing (a tool follow-up is asked for the moment the
+            // reply that called the tool is done). Inworld plays the next one
+            // straight after it, with no gap the silence detector could find —
+            // it took a pause inside one of the two for the boundary, and the
+            // captions ran seconds early or late. The previous response's end
+            // is known, so the next one's clock starts there; if nothing is
+            // playing by then, its audio is late and its onset anchors it.
+            if (pendingHandoverTimeoutRef.current != null) clearTimeout(pendingHandoverTimeoutRef.current);
+            pendingHandoverTimeoutRef.current = null;
+            const previousEndCtxSec = responseCancelled ? null : previousResponseEndCtxSec();
+            if (anchor != null && previousEndCtxSec != null) {
+              const remainingSec = previousEndCtxSec - anchor.getCtxTime();
+              pendingHandoverTimeoutRef.current = setTimeout(() => {
+                pendingHandoverTimeoutRef.current = null;
+                if (isStale() || !responseTransitionPendingRef.current) return;
+                const current = remoteAudioAnchorRef.current;
+                if (current?.isAudible()) {
+                  performResponseTransitionReset("back-to-back");
+                  responseAudioAnchorCtxSecRef.current = previousEndCtxSec;
+                  realtimeDebugLog(`[SUBS] ANCHOR set: anchorCtxSec=${previousEndCtxSec.toFixed(3)} (straight after the previous response)`);
+                } else {
+                  performResponseTransitionReset("playback-complete");
+                  current?.arm(false);
+                }
+              }, remainingSec * 1000);
+              realtimeDebugLog(`[SUBS] response.created — previous response still playing ${remainingSec.toFixed(3)}s, handing over at its end`);
+              if (pendingResetTimeoutRef.current != null) clearTimeout(pendingResetTimeoutRef.current);
+              pendingResetTimeoutRef.current = setTimeout(() => {
+                pendingResetTimeoutRef.current = null;
+                performResponseTransitionReset("timeout-fallback");
+              }, remainingSec * 1000 + PENDING_RESET_TIMEOUT_MS);
+              return;
+            }
+
+            // Approximate path (interrupts): audio may still be draining, so
+            // keep the current caption and wait for the detector to confirm
+            // real silence — or a fallback timeout, in case it never does.
             anchor?.arm(true);
             if (pendingResetTimeoutRef.current != null) clearTimeout(pendingResetTimeoutRef.current);
             pendingResetTimeoutRef.current = setTimeout(() => {

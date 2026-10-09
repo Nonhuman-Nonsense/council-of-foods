@@ -30,6 +30,7 @@ let eventLoopCallbacks: {
   }) => void;
 } = {};
 
+let mockAudible = true;
 let mockCtxTime = 10;
 let mockOnAudioStart: ((nowMs: number, ctxTime: number) => void) | undefined;
 let mockOnArmed: (() => void) | undefined;
@@ -127,6 +128,7 @@ beforeEach(() => {
   vi.useRealTimers();
   eventLoopCallbacks = {};
   mockCtxTime = 10;
+  mockAudible = true;
   mockOnAudioStart = undefined;
   mockOnArmed = undefined;
   rafCallback = null;
@@ -134,6 +136,7 @@ beforeEach(() => {
   mockCreateRemoteAudioAnchor.mockImplementation(() => ({
     arm: vi.fn(),
     getCtxTime: () => mockCtxTime,
+    isAudible: () => mockAudible,
     getState: () => "running",
     dispose: vi.fn(),
   }));
@@ -351,6 +354,61 @@ describe("useRealtimeVoiceSession", () => {
     await waitFor(() => {
       expect(result.current.lastCaption).toBe("World");
     });
+  });
+
+  /**
+   * A tool follow-up is asked for as soon as the reply that called the tool is
+   * done generating, while that reply is still playing, and Inworld plays the
+   * two back to back with no gap to detect. The silence detector took a pause
+   * inside one of them for the boundary and the captions ran seconds early or
+   * late. The next response's clock starts where the previous one ends — or,
+   * if nothing is playing by then, at its own onset.
+   */
+  it.each([
+    { playingAtEnd: true, expected: "anchored at the previous end" },
+    { playingAtEnd: false, expected: "waits for its own onset" },
+  ])("a response queued behind one still playing: audio at its end $playingAtEnd → $expected", async ({ playingAtEnd }) => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(mockOnAudioStart).toBeTypeOf("function"));
+    const arm = (mockCreateRemoteAudioAnchor.mock.results.at(-1)?.value as { arm: ReturnType<typeof vi.fn> }).arm;
+
+    // A reply with 1.0 s of speech, 0.8 s into playback.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Wonderful.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onResponseDone?.({ status: "completed" });
+      mockCtxTime = 0.8;
+    });
+
+    // The follow-up starts, its alignment arriving while the reply still plays.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "First.", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Second.", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+    });
+    arm.mockClear();
+    mockAudible = playingAtEnd;
+    mockCtxTime = 1.7;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    act(() => {
+      rafCallback?.(0);
+    });
+
+    if (playingAtEnd) {
+      // 0.7 s past the previous end: the second sentence.
+      expect(result.current.lastCaption).toBe("Second.");
+      expect(arm).not.toHaveBeenCalled();
+    } else {
+      expect(result.current.lastCaption).toBeNull();
+      expect(arm).toHaveBeenCalledWith(false);
+    }
   });
 
   /**
