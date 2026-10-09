@@ -165,6 +165,29 @@ function asStr(v: unknown): string | null {
   return typeof v === "string" ? v : null;
 }
 
+/** A duration for the log, in seconds: "1.4s". */
+function secs(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
+ * Provider events that only repeat what the turn and reply summaries already say — each
+ * reply's transcript would otherwise be logged half a dozen times. Anything not handled
+ * and not listed here is still logged, once, as it arrives.
+ */
+const UNLOGGED_EVENT_TYPES = new Set([
+  "session.created",
+  "conversation.item.added",
+  "conversation.item.done",
+  "conversation.item.truncated",
+  "response.output_item.done",
+  "response.content_part.done",
+  "response.output_text.done",
+  "response.output_audio.done",
+  "input_audio_buffer.cleared",
+  "input_audio_buffer.turn_suggestion",
+]);
+
 /**
  * Does this `error` event reject the `response.create` we're still waiting on?
  *
@@ -327,11 +350,6 @@ export function createEventLoop(params: {
   /** Most recent user transcript text (for correlating in logs). */
   let lastUserTranscript = "";
   /**
-   * What the current response streamed, for its one-line summary on `response.done`.
-   * Deltas arrive dozens per second, so they are counted rather than logged.
-   */
-  let streamed = { audioDeltas: 0, words: 0, transcriptDeltas: 0, other: {} as Record<string, number> };
-  /**
    * True between sending a `response.cancel` and the next response event.
    *
    * `activeResponses` only predicts the server's state: the server closes a
@@ -374,16 +392,44 @@ export function createEventLoop(params: {
   let awaitingTurn: "sent" | { itemId: string } | null = null;
   let awaitingTurnTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Send `response.cancel` unless one is already outstanding. */
-  const sendCancelIfPossible = (logLabel: string, fields: object = {}): void => {
-    if (activeResponses === 0) return;
+  /**
+   * What the visitor's current turn did, for its one-line summary when it is decided.
+   * Times are `Date.now()`; a press that continues the turn keeps its first press.
+   */
+  let turnLog = {
+    pressedAt: 0,
+    releasedAt: 0,
+    speechHeard: false,
+    transcript: null as string | null,
+    transcriptAt: null as number | null,
+    transcriptError: null as string | null,
+  };
+  /** When the last turn was released, for how long the visitor waited on the reply. */
+  let lastTurnReleasedAt: number | null = null;
+  /** When the pending `response.create` was sent; moved onto the reply once it starts. */
+  let pendingAskedAt: number | null = null;
+  /** What the current reply did, for its one-line summary on `response.done`. */
+  let replyLog = {
+    askedAt: null as number | null,
+    firstAudioAt: null as number | null,
+    tools: [] as string[],
+    said: null as string | null,
+  };
+
+  /**
+   * Send `response.cancel` unless one is already outstanding. Returns whether it was sent;
+   * `logLabel` null leaves the logging to the caller.
+   */
+  const sendCancelIfPossible = (logLabel: string | null, fields: object = {}): boolean => {
+    if (activeResponses === 0) return false;
     if (cancelInFlight) {
-      devLog.flat("TURN", "skip response.cancel: already cancelling", fields);
-      return;
+      if (logLabel != null) devLog.flat("TURN", "skip response.cancel: already cancelling", fields);
+      return false;
     }
     cancelInFlight = true;
-    devLog.flat("TURN", logLabel, fields);
+    if (logLabel != null) devLog.flat("TURN", logLabel, fields);
     send({ type: "response.cancel" });
+    return true;
   };
 
   const sendResponseCreate = (reason: string): void => {
@@ -391,7 +437,8 @@ export function createEventLoop(params: {
     const eventId = `cof_response_create_${responseCreateEventCounter}`;
     pendingCreateReason = reason;
     pendingCreateEventId = eventId;
-    devLog.flat("TURN", "OUT response.create", { reason, eventId, lastUserTranscript });
+    pendingAskedAt = Date.now();
+    devLog.flat("TURN", "asked for a reply", { reason });
     send({ type: "response.create", event_id: eventId });
   };
 
@@ -427,7 +474,8 @@ export function createEventLoop(params: {
   const cutOutput = (reason: string, audioElapsedMs?: number): void => {
     // The interruption replaces any follow-up the cut-off reply had owed.
     toolFollowUpOwed = false;
-    sendCancelIfPossible("OUT response.cancel (interrupt)", { reason });
+    const cancelled = sendCancelIfPossible(null);
+    let heardMs: number | null = null;
     // Trim the assistant's last-spoken item down to what was actually heard,
     // so the model's own transcript doesn't include audio that got cut off —
     // otherwise it may reference things it never actually said out loud.
@@ -442,11 +490,7 @@ export function createEventLoop(params: {
       // The caller is responsible for the larger question of whether the
       // offset is trustworthy at all; a rejection here is absorbed, not fatal.
       const audioEndMs = Math.max(0, Math.floor(audioElapsedMs));
-      devLog.flat("TURN", "OUT conversation.item.truncate (interrupt)", {
-        reason,
-        itemId: currentAssistantAudioItemId,
-        audioEndMs,
-      });
+      heardMs = audioEndMs;
       send({
         type: "conversation.item.truncate",
         item_id: currentAssistantAudioItemId,
@@ -454,7 +498,11 @@ export function createEventLoop(params: {
         audio_end_ms: audioEndMs,
       });
     }
-    devLog.flat("TURN", "OUT output_audio_buffer.clear (interrupt)", { reason });
+    devLog.flat("TURN", "cut the agent off", {
+      reason,
+      heard: heardMs == null ? null : secs(heardMs),
+      stillGenerating: cancelled,
+    });
     send({ type: "output_audio_buffer.clear" });
     callbacks.onOutputInterrupted?.(reason);
   };
@@ -482,12 +530,25 @@ export function createEventLoop(params: {
    * The released turn's transcript is in (or will not come): answer it if the
    * visitor said anything, otherwise let it go.
    */
+  /** The visitor's turn in one line, once it is decided. */
+  const logTurn = (outcome: string): void => {
+    const { pressedAt, releasedAt, transcriptAt } = turnLog;
+    devLog.flat("TURN", `turn: ${outcome}`, {
+      held: secs(releasedAt - pressedAt),
+      transcript: turnLog.transcript,
+      transcriptAfter: transcriptAt == null ? null : secs(transcriptAt - releasedAt),
+      transcriptError: turnLog.transcriptError,
+      speechHeard: turnLog.speechHeard,
+      cutAgent: turnCutAgent,
+    });
+  };
+
   const finishUserTurn = (why: string): void => {
     if (awaitingTurnTimer != null) clearTimeout(awaitingTurnTimer);
     awaitingTurnTimer = null;
     awaitingTurn = null;
     if (!turnHasWords) {
-      devLog.flat("TURN", "push-to-talk turn had no words — not answered", { why, turnCutAgent });
+      logTurn(`not answered (${why})`);
       trySendJson({ type: "input_audio_buffer.clear" });
       // The press silenced the agent for nothing: let it carry on.
       if (turnCutAgent && sessionReady && activeResponses === 0) {
@@ -498,10 +559,11 @@ export function createEventLoop(params: {
     }
     if (!sessionReady || activeResponses > 0) {
       // Answered once the session is configured, or once what is playing ends.
-      devLog.flat("TURN", "push-to-talk reply deferred", { why, sessionReady, activeResponses });
+      logTurn(sessionReady ? "answered after the current reply" : "answered once the session is ready");
       pendingDeferredResponse = true;
       return;
     }
+    logTurn("answered");
     sendResponseCreate("push-to-talk");
   };
 
@@ -526,6 +588,14 @@ export function createEventLoop(params: {
     }
     userTurnOpen = true;
     turnHasWords = false;
+    turnLog = {
+      pressedAt: Date.now(),
+      releasedAt: Date.now(),
+      speechHeard: false,
+      transcript: null,
+      transcriptAt: null,
+      transcriptError: null,
+    };
     // The visitor's turn takes over from any follow-up still owed.
     toolFollowUpOwed = false;
     turnCutAgent = options?.interrupt != null;
@@ -534,21 +604,21 @@ export function createEventLoop(params: {
     createRejectedRetries = 0;
     capacityRetries = 0;
     if (options?.interrupt) cutOutput("push-to-talk", options.interrupt.audioElapsedMs);
-    devLog.flat("TURN", "OUT input_audio_buffer.clear (push-to-talk press)");
     trySendJson({ type: "input_audio_buffer.clear" });
   };
 
   const endUserTurn = (options?: { respond?: boolean }): void => {
     if (!userTurnOpen) return;
     userTurnOpen = false;
+    turnLog.releasedAt = Date.now();
+    lastTurnReleasedAt = turnLog.releasedAt;
     if (options?.respond === false) {
-      devLog.flat("TURN", "OUT input_audio_buffer.clear (push-to-talk discarded)");
+      logTurn("discarded");
       trySendJson({ type: "input_audio_buffer.clear" });
       return;
     }
     commitTimer = setTimeout(() => {
       commitTimer = null;
-      devLog.flat("TURN", "OUT input_audio_buffer.commit (push-to-talk release)");
       trySendJson({ type: "input_audio_buffer.commit" });
       awaitingTurn = "sent";
       // A transcript that never comes (observed: stt_timeout after ~1 s) must
@@ -715,12 +785,8 @@ export function createEventLoop(params: {
       pendingCreateEventId = null;
       currentAssistantAudioItemId = null;
       currentAssistantAudioContentIndex = null;
-      streamed = { audioDeltas: 0, words: 0, transcriptDeltas: 0, other: {} };
-      devLog.flat("TURN", "IN response.created", {
-        reason: currentResponseReason,
-        forUserTranscript: lastUserTranscript,
-        activeResponses,
-      });
+      replyLog = { askedAt: pendingAskedAt, firstAudioAt: null, tools: [], said: null };
+      pendingAskedAt = null;
       callbacks.onResponseStarted?.({ responseId: asStr(asObj(obj.response)?.id) ?? undefined });
       return true;
     }
@@ -735,19 +801,20 @@ export function createEventLoop(params: {
       const rFull = obj.response as
         | { id?: string; status?: string; usage?: unknown; output?: unknown[] }
         | undefined;
-      devLog.flat("TURN", "IN response.done", {
+      const audioSeconds = asObj(asObj(rFull?.usage)?.tts)?.audio_seconds;
+      const { askedAt, firstAudioAt } = replyLog;
+      // How long the visitor waited, release to first audio — only for the reply to their turn.
+      const answersTurn = currentResponseReason === "push-to-talk" || currentResponseReason.startsWith("deferred");
+      devLog.flat("TURN", `reply: ${r?.status ?? "done"}`, {
         reason: currentResponseReason,
-        status: r?.status,
-        sawOutput: sawOutputThisResponse,
-        forUserTranscript: lastUserTranscript,
-        usage: rFull?.usage ?? null,
-        outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
-        statusDetails: r?.status_details ?? null,
-        audioDeltas: streamed.audioDeltas,
-        words: streamed.words,
-        transcriptDeltas: streamed.transcriptDeltas,
-        otherDeltas: streamed.other,
-        activeResponses,
+        firstAudio: askedAt != null && firstAudioAt != null ? secs(firstAudioAt - askedAt) : null,
+        afterRelease: answersTurn && lastTurnReleasedAt != null && firstAudioAt != null
+          ? secs(firstAudioAt - lastTurnReleasedAt)
+          : null,
+        audio: typeof audioSeconds === "number" ? `${audioSeconds.toFixed(1)}s` : null,
+        tools: replyLog.tools,
+        said: replyLog.said,
+        ...(r?.status_details ? { statusDetails: r.status_details } : {}),
       });
       callbacks.onResponseDone?.({
         status: r?.status,
@@ -805,7 +872,6 @@ export function createEventLoop(params: {
     if (type === "response.output_item.added") {
       sawOutputThisResponse = true;
       const item = (obj as { item?: { type?: string; id?: string; call_id?: string; name?: string } }).item;
-      devLog.flat("TURN", "IN output_item.added", { itemType: item?.type ?? null, name: item?.name ?? null });
       if (item?.type === "function_call" && item.id) {
         functionCallMeta.set(item.id, { call_id: item.call_id, name: item.name });
       }
@@ -815,7 +881,6 @@ export function createEventLoop(params: {
     if (type === "response.content_part.added") {
       sawOutputThisResponse = true;
       const part = asObj(obj.part);
-      devLog.flat("TURN", "IN content_part.added", { partType: asStr(part?.type) });
       if (asStr(part?.type) === "audio") {
         const itemId = asStr(obj.item_id);
         const contentIndex = (obj as Record<string, unknown>).content_index;
@@ -834,8 +899,8 @@ export function createEventLoop(params: {
       const meta = functionCallMeta.get(itemId);
       const name = meta?.name;
       const callId = meta?.call_id ?? itemId;
-      devLog.flat("TURN", "tool call emitted", { name, createdBy: currentResponseReason });
       if (!name) return true;
+      replyLog.tools.push(name);
 
       let parsedArgs: unknown;
       try {
@@ -882,7 +947,6 @@ export function createEventLoop(params: {
         devLog.flat("TURN", "skip response.create: tool requested suppressContinuation", { name });
       } else if (activeResponses > 0) {
         toolFollowUpOwed = true;
-        devLog.flat("TURN", "tool follow-up owed — after the current reply", { name });
       } else {
         requestResponseIfIdle("tool-continuation");
       }
@@ -892,7 +956,7 @@ export function createEventLoop(params: {
 
     if (type === "response.output_audio.delta") {
       sawOutputThisResponse = true;
-      streamed.audioDeltas += 1;
+      replyLog.firstAudioAt ??= Date.now();
       const contentIndex = (obj as Record<string, unknown>).content_index;
       const timestampInfo = asObj((obj as Record<string, unknown>).timestamp_info);
       const wordAlignment = asObj(timestampInfo?.word_alignment);
@@ -904,7 +968,6 @@ export function createEventLoop(params: {
         const ends = Array.isArray(wordAlignment.word_end_time_seconds)
           ? (wordAlignment.word_end_time_seconds as number[])
           : [];
-        streamed.words += words.length;
         callbacks.onWordAlignment?.(
           typeof contentIndex === "number" ? contentIndex : 0,
           words.map((w, i) => ({ w, s: starts[i] ?? 0, e: ends[i] ?? 0 }))
@@ -915,13 +978,12 @@ export function createEventLoop(params: {
 
     if (type === "response.output_audio_transcript.delta") {
       sawOutputThisResponse = true;
-      streamed.transcriptDeltas += 1;
       return true;
     }
 
     if (type === "response.output_audio_transcript.done") {
       // What the agent said, whole — the captions only ever show a sentence of it.
-      devLog.flat("TURN", "IN agent said", { transcript: asStr(obj.transcript) ?? "" });
+      replyLog.said = asStr(obj.transcript);
       return true;
     }
 
@@ -933,12 +995,13 @@ export function createEventLoop(params: {
       const transcript = asStr(obj.transcript);
       lastUserTranscript = transcript ?? "";
       const inTurn = userTurnOpen || commitTimer != null || awaitingTurn != null;
-      if (inTurn && transcript && transcript.trim().length > 0) turnHasWords = true;
-      devLog.flat("TURN", "IN transcription.completed", {
-        transcript: transcript ?? "(null)",
-        length: transcript?.length ?? 0,
-        blank: !transcript || transcript.trim().length === 0,
-      });
+      if (inTurn && transcript && transcript.trim().length > 0) {
+        turnHasWords = true;
+        turnLog.transcript = transcript;
+        turnLog.transcriptAt = Date.now();
+      }
+      // A turn's transcript goes in its summary; one outside any turn has nowhere else to show.
+      if (!inTurn) devLog.flat("TURN", "transcript outside a turn", { transcript });
       if (transcript && transcript.trim().length > 0) {
         callbacks.onUserTranscript(transcript);
         callbacks.onCaption(null);
@@ -948,8 +1011,13 @@ export function createEventLoop(params: {
     }
 
     if (type === "conversation.item.input_audio_transcription.failed") {
-      devLog.flat("TURN", "IN transcription.failed", summarizeLogPayload(obj));
-      if (isAwaitedItem(obj.item_id)) finishUserTurn("transcript-failed");
+      const code = asStr(asObj(obj.error)?.code) ?? asStr(asObj(obj.error)?.message) ?? "unknown";
+      if (isAwaitedItem(obj.item_id)) {
+        turnLog.transcriptError = code;
+        finishUserTurn("transcript-failed");
+      } else {
+        devLog.flat("TURN", "transcription failed", { code });
+      }
       return true;
     }
 
@@ -959,7 +1027,6 @@ export function createEventLoop(params: {
         const itemId = asStr(obj.item_id);
         if (itemId) awaitingTurn = { itemId };
       }
-      devLog.flat("TURN", "IN input_audio_buffer.committed", { itemId: asStr(obj.item_id) });
       return true;
     }
 
@@ -1059,13 +1126,12 @@ export function createEventLoop(params: {
     }
 
     if (type === "input_audio_buffer.speech_started") {
-      devLog.flat("TURN", "IN speech_started", { activeResponses, userTurnOpen });
+      if (userTurnOpen || commitTimer != null || awaitingTurn != null) turnLog.speechHeard = true;
       if (speechInterruptsResponse) callbacks.onOutputInterrupted?.("speech-started");
       return true;
     }
 
     if (type === "input_audio_buffer.speech_stopped") {
-      devLog.flat("TURN", "IN speech_stopped");
       return true;
     }
 
@@ -1074,11 +1140,9 @@ export function createEventLoop(params: {
       return true;
     }
 
-    // Everything else the provider sends is still worth seeing once: a stall can turn out
-    // to be an event nobody handles. Streams are counted into the response summary.
-    if (type.endsWith(".delta")) {
-      streamed.other[type] = (streamed.other[type] ?? 0) + 1;
-    } else {
+    // Everything else the provider sends is still worth seeing once: a silent agent can turn
+    // out to be an event nobody handles. Streams arrive dozens a second and are left out.
+    if (!type.endsWith(".delta") && !UNLOGGED_EVENT_TYPES.has(type)) {
       devLog.flat("REALTIME", `IN ${type}`, summarizeLogPayload(obj));
     }
     return false;

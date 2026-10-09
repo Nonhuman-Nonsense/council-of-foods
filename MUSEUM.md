@@ -466,17 +466,17 @@ capped, so it never needs pruning).
 Read it back from `server/` (it reads the database the server's `.env` names):
 
 ```
-npm run logs -- --venue havremagasinet --stalls --since 24h
+npm run logs -- --venue havremagasinet --unanswered --since 24h
 npm run logs -- --setup <setupId>
 npm run logs -- --page <pageId>
 npm run logs -- --range
 ```
 
-`--stalls` lists the moments a realtime agent went quiet when it should not have (the visitor
-stopped speaking and no reply began, a reply never finished, audio arrived but was not
-played, a tool result got no follow-up…). Those are also reported to ErrorBot as
-`realtime.<agent>.stall` whether or not logging is on, with the setup id and page id to look
-up.
+The realtime agents log each visitor turn and each reply as one line (`turn: answered`,
+`reply: completed`, with the transcript, the wait and the tools called), and `[SUBS] AUDIO`
+lines where the agent's audio really starts and pauses — read those against the captions'
+`DISPLAY` lines when captions drift. `--unanswered` lists the turns the agent decided to
+answer that no reply ever followed: where it froze, with the setup id and page id to look up.
 
 ---
 

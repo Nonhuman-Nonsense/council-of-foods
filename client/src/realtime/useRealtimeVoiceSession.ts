@@ -28,18 +28,6 @@ import {
   type InworldWordToken,
 } from "@realtime/inworldSubtitleTrack";
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
-import {
-  createStallDetector,
-  type SessionStallRule,
-  type StallDetector,
-  type StallReport,
-} from "@realtime/realtimeStallDetector";
-import {
-  createAudioMonitor,
-  readPeerAudioStats,
-  type AudioMonitor,
-} from "@realtime/realtimeAudioMonitor";
-import { getLogPageId } from "@/logging/serverLogSink";
 import { log, summarizeLogPayload } from "@/logger";
 import { getVenueId, useCouncilSettings } from "@/settings/councilSettings";
 import { createVoicesSideOutput, type VoicesSideOutput } from "@/audio/audioRouting";
@@ -67,17 +55,6 @@ function realtimeDebugLog(...args: unknown[]): void {
 }
 
 export type RealtimeVoiceFeature = "meta-agent" | "setup-agent";
-
-/** What ErrorBot is told for each kind of stall. */
-const STALL_MESSAGES: Record<SessionStallRule, string> = {
-  "no-answer": "the visitor stopped speaking and no reply began",
-  "response-unfinished": "a reply began and never finished",
-  "no-tool-continuation": "a tool result went back and no reply followed",
-  "create-unanswered": "a requested reply was neither started nor refused",
-  "empty-response": "a reply finished with nothing in it",
-  "audio-not-received": "a reply carried audio but none reached the page",
-  "audio-blocked": "a reply carried audio but the browser is not playing it",
-};
 
 export type RealtimeVoiceSessionConnectionState = "idle" | "connecting" | "ready" | "error";
 
@@ -339,10 +316,8 @@ export function useRealtimeVoiceSession(
   const audioElementRef = useRef(audioElement);
   const serverDefaultsRef = useRef<RealtimeSessionServerDefaults | null>(null);
   const eventLoopRef = useRef<ReturnType<typeof createEventLoop> | null>(null);
-  const stallDetectorRef = useRef<StallDetector | null>(null);
   /** Whether the talk button has the mic open — turn edges are its changes. */
   const micGateOpenRef = useRef(false);
-  const audioMonitorRef = useRef<AudioMonitor | null>(null);
   const subtitleTrackRef = useRef<InworldSubtitleTrack | null>(null);
   /** Keeps the caption clear while the agent is muted, until the next response. */
   const outputMuteRef = useRef<(() => void) | null>(null);
@@ -515,12 +490,8 @@ export function useRealtimeVoiceSession(
     responseAudioAnchorCtxSecRef.current = null;
     responseTransitionPendingRef.current = false;
     eventLoopRef.current = null;
-    stallDetectorRef.current?.dispose();
-    stallDetectorRef.current = null;
     // A new session starts with the mic shut and no turn open.
     micGateOpenRef.current = false;
-    audioMonitorRef.current?.dispose();
-    audioMonitorRef.current = null;
     remoteAudioAnchorRef.current?.dispose();
     remoteAudioAnchorRef.current = null;
     voicesSideRef.current?.dispose();
@@ -666,11 +637,7 @@ export function useRealtimeVoiceSession(
 
       serverDefaultsRef.current = defaults;
 
-      const subtitleTrack = createInworldSubtitleTrack({
-        onSentenceFlushed: (s, total) => {
-          realtimeDebugLog(`[SUBS] SENTENCE ${total - 1} start=${s.start.toFixed(3)} end=${s.end.toFixed(3)} text="${s.text.slice(0, 60)}"`);
-        },
-      });
+      const subtitleTrack = createInworldSubtitleTrack();
       subtitleTrackRef.current = subtitleTrack;
       responseAudioAnchorCtxSecRef.current = null;
 
@@ -868,61 +835,10 @@ export function useRealtimeVoiceSession(
 
       let activeConn: RealtimeConnection | null = null;
 
-      /**
-       * The agent went quiet when it should not have. Always reported to ErrorBot (sampled);
-       * the log line is what marks the spot in a stored log.
-       */
-      const reportStall = ({ rule, detail }: StallReport) => {
-        if (isStale()) return;
-        const where = {
-          setupId: setupSession?.get() ?? null,
-          venueId: getVenueId() || null,
-          pageId: getLogPageId(),
-        };
-        log.event("ERROR", `STALL ${rule}`, { feature, ...detail, ...where });
-        reportRealtimeIssue({
-          feature,
-          kind: "stall",
-          code: rule,
-          message: `Realtime agent stalled: ${STALL_MESSAGES[rule]}`,
-          detail: { ...detail, ...where },
-        });
-      };
-      // A failed attempt leaves its watchers behind; the retry replaces them.
-      stallDetectorRef.current?.dispose();
-      audioMonitorRef.current?.dispose();
-      const stallDetector = createStallDetector({ onStall: reportStall });
-      stallDetectorRef.current = stallDetector;
-
-      const currentPc = () => activeConn?.pc ?? connectionRef.current?.pc ?? null;
-      audioMonitorRef.current = createAudioMonitor({
-        probe: {
-          readStats: () => readPeerAudioStats(currentPc()),
-          playback: () => ({
-            elementPaused: remoteAudioRef.current?.paused ?? null,
-            elementMuted: agentOutputMutedRef.current,
-            blocked: audioBlockedRef.current,
-            contextState: remoteAudioAnchorRef.current?.getState() ?? null,
-          }),
-          connection: () => {
-            const pc = currentPc();
-            const dc = activeConn?.dc ?? connectionRef.current?.dc ?? null;
-            return {
-              pc: pc?.connectionState ?? null,
-              ice: pc?.iceConnectionState ?? null,
-              dc: dc?.readyState ?? null,
-            };
-          },
-        },
-        log: (message, data) => log.flat("REALTIME", message, { feature, ...data }),
-        onStall: reportStall,
-      });
-
       const sendOnDc = (payload: unknown) => {
         const dc = activeConn?.dc ?? connectionRef.current?.dc;
         if (!dc || dc.readyState !== "open") return;
         dc.send(JSON.stringify(payload));
-        stallDetector.observeOutgoing(payload);
       };
 
       const loop = createEventLoop({
@@ -1093,9 +1009,6 @@ export function useRealtimeVoiceSession(
                 setAgentSpeaking(false);
               }
             }
-            if (responseAudioAnchorCtxSecRef.current == null) {
-              realtimeDebugLog("[SUBS] WARN: response.done but anchor was never set — no captions shown");
-            }
           },
           onAudioPartReady: () => {
             if (!isStale()) setHasReceivedAudioPart(true);
@@ -1161,8 +1074,6 @@ export function useRealtimeVoiceSession(
         },
         onEvent: (event) => {
           if (isStale()) return;
-          stallDetector.observeIncoming(event);
-          audioMonitorRef.current?.observeIncoming(event);
           // Never let a throw inside the loop become an invisible unhandled
           // rejection — on an unattended installation a silent handler crash is
           // indistinguishable from the agent simply going quiet.
@@ -1249,11 +1160,6 @@ export function useRealtimeVoiceSession(
       }
 
       conn?.close();
-      // Nothing to watch until the next attempt connects.
-      stallDetectorRef.current?.dispose();
-      stallDetectorRef.current = null;
-      audioMonitorRef.current?.dispose();
-      audioMonitorRef.current = null;
 
       const kind = classifyRealtimeError(e, { selfHealing: selfHealingRef.current });
       const msg = e instanceof Error ? e.message : FEATURE_MESSAGES[feature].startFailed;

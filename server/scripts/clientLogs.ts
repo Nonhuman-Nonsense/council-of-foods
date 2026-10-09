@@ -3,7 +3,7 @@
  * to server"), as a timeline in the console's own format. Reads the database the server's .env
  * names, like the other scripts here.
  *
- *   npm run logs -- --venue havremagasinet --stalls --since 24h   which visits stalled, and where
+ *   npm run logs -- --venue havremagasinet --unanswered --since 24h   visitor turns the agent never answered
  *   npm run logs -- --setup <setupId>                             one visit's setup conversation
  *   npm run logs -- --meeting <id>                                one meeting
  *   npm run logs -- --page <pageId>                               everything one page load logged
@@ -61,11 +61,42 @@ function clock(t: number, utc: boolean): string {
           `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}.${pad(date.getMilliseconds(), 3)}`;
 }
 
+/** The client's one-line summaries of a visitor turn and an agent reply (realtimeEventLoop). */
+const isTurnLine = (line: ClientLogLine) => line.cat === "TURN" && line.msg.startsWith("turn: ");
+const isReplyLine = (line: ClientLogLine) => line.cat === "TURN" && line.msg.startsWith("reply: ");
+
+/** Replies asked for on the visitor's behalf: their turn, or a retry of it. */
+function answersTurn(line: ClientLogLine): boolean {
+    const reason = String((line.data as { reason?: unknown } | undefined)?.reason ?? "");
+    return reason === "push-to-talk" || reason.startsWith("deferred") || reason.endsWith("-retry");
+}
+
+/**
+ * Turns the client decided to answer that no reply followed before the visitor's next turn
+ * (or the end of the log) — the agent froze on them.
+ */
+function findUnansweredTurns<Row extends { line: ClientLogLine; batch: StoredClientLogBatch }>(rows: Row[]): Row[] {
+    const unanswered: Row[] = [];
+    const waiting = new Map<string, Row>();
+    for (const row of rows) {
+        const page = row.batch.pageId;
+        if (isTurnLine(row.line)) {
+            const previous = waiting.get(page);
+            if (previous) unanswered.push(previous);
+            waiting.delete(page);
+            if (row.line.msg.startsWith("turn: answered")) waiting.set(page, row);
+        } else if (isReplyLine(row.line) && answersTurn(row.line)) {
+            waiting.delete(page);
+        }
+    }
+    unanswered.push(...waiting.values());
+    return unanswered.sort((a, b) => a.line.t - b.line.t);
+}
+
 function formatLine(line: ClientLogLine, previousT: number | null, utc: boolean): string {
     const gap = previousT == null ? "" : `+${((line.t - previousT) / 1000).toFixed(1)}s`;
     const color = CATEGORY_COLOR[line.cat] ?? ((text: string) => text);
-    const isStall = line.cat === "ERROR" && line.msg.startsWith("STALL ");
-    const message = isStall ? bold(red(line.msg)) : line.msg;
+    const message = isTurnLine(line) || isReplyLine(line) ? bold(line.msg) : line.msg;
     const data = line.data === undefined ? "" : ` ${gray(JSON.stringify(line.data))}`;
     return `${gray(clock(line.t, utc))} ${gray(gap.padStart(8))} ${color(`[${line.cat}]`)} ${message}${data}`;
 }
@@ -94,7 +125,7 @@ async function main(): Promise<void> {
     const page = arg("page");
     const sinceArg = arg("since");
     const categories = arg("cat")?.split(",").map((c) => c.trim().toUpperCase());
-    const stallsOnly = flag("stalls");
+    const unansweredOnly = flag("unanswered");
     const asJson = flag("json");
     const utc = flag("utc");
     const limit = Number(arg("limit") ?? 5000);
@@ -126,8 +157,8 @@ async function main(): Promise<void> {
         if (setup) rows = rows.filter(({ line }) => line.ctx?.setupId === setup);
         if (meeting != null) rows = rows.filter(({ line }) => line.ctx?.meetingId === meeting);
         if (categories) rows = rows.filter(({ line }) => categories.includes(line.cat));
-        if (stallsOnly) rows = rows.filter(({ line }) => line.cat === "ERROR" && line.msg.startsWith("STALL "));
         rows.sort((a, b) => a.line.t - b.line.t);
+        if (unansweredOnly) rows = findUnansweredTurns(rows);
 
         const lost = batches.reduce((sum, batch) => sum + (batch.dropped ?? 0), 0);
         if (rows.length > limit) {
@@ -140,13 +171,13 @@ async function main(): Promise<void> {
             return;
         }
 
-        if (stallsOnly) {
+        if (unansweredOnly) {
             for (const { line, batch } of rows) {
                 const data = (line.data ?? {}) as Record<string, unknown>;
                 console.log(
-                    `${clock(line.t, utc)}  ${red(line.msg.slice("STALL ".length))}  ` +
+                    `${clock(line.t, utc)}  ${red(JSON.stringify(data.transcript ?? ""))}  ` +
                         `venue ${batch.venueId ?? "-"}  setup ${line.ctx?.setupId ?? "-"}  ` +
-                        `meeting ${line.ctx?.meetingId ?? "-"}  page ${batch.pageId}  ${gray(String(data.feature ?? ""))}`,
+                        `meeting ${line.ctx?.meetingId ?? "-"}  page ${batch.pageId}`,
                 );
             }
             if (rows.length > 0) console.log(gray("\nRead one with: npm run logs -- --setup <setupId>   (or --page <pageId>)"));

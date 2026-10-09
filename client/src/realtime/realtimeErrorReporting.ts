@@ -27,9 +27,7 @@ export type RealtimeIssueKind =
   /** Retries ran out — the agent is down for this visitor. */
   | "retry-exhausted"
   /** The server turned the session down — the agent is off for this visitor. */
-  | "refused"
-  /** The agent went quiet when it should not have (see realtimeStallDetector). */
-  | "stall";
+  | "refused";
 
 const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
   "provider-error": "warning",
@@ -38,7 +36,6 @@ const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
   "capacity": "warning",
   "retry-exhausted": "error",
   "refused": "error",
-  "stall": "warning",
 };
 
 const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
@@ -53,8 +50,6 @@ const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
   "retry-exhausted": "none",
   // The agent is off, but the app carries on without it.
   "refused": "none",
-  // Observed, not caused: the report changes nothing about the session.
-  "stall": "none",
 };
 
 /** Occurrence numbers worth reporting: dense at first, then a thinning heartbeat. */
