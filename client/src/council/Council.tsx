@@ -182,6 +182,9 @@ function Council({
       return pendingMessage?.type === 'awaiting_human_panelist' ? pendingMessage.speaker : "";
     }
     const activeMessage = textMessages[playingNowIndex];
+    // On the summary page only the summary's reader speaks: on the credits, the chair's farewell
+    // before them has finished, and nobody's sound should keep playing under them.
+    if (councilState === 'summary' && activeMessage?.type !== 'summary') return "";
     if (activeMessage && isSpeakerMessage(activeMessage)) return activeMessage.speaker;
     return "";
   }, [metaAgentPhase, agentSpeaking, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);

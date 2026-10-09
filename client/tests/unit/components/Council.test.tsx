@@ -327,6 +327,20 @@ describe('Council Component', () => {
         });
     });
 
+    it.each([
+        ['the credits, after the farewell', [{ id: 'f1', type: 'letter_farewell', speaker: 'river', text: 'Thank you.' }, { type: 'credits' }], ''],
+        ['the summary being read', [{ id: 's1', type: 'summary', speaker: 'reindeer', text: 'Dear …' }], 'reindeer'],
+    ] as [string, Message[], string][])('gives the summary page the right speaker on %s', (_label, messages, speaker) => {
+        const setCurrentSpeakerId = vi.fn();
+        mockCouncilStateMachine.state.councilState = 'summary';
+        mockCouncilStateMachine.state.textMessages = messages;
+        mockCouncilStateMachine.state.playingNowIndex = 0;
+
+        render(<Council {...defaultProps} setCurrentSpeakerId={setCurrentSpeakerId} />);
+
+        expect(setCurrentSpeakerId).toHaveBeenLastCalledWith(speaker);
+    });
+
     it('clears lifted meeting runtime and autoplay council flags on unmount', () => {
         const setCurrentSpeakerId = vi.fn();
         const setPaused = vi.fn();
