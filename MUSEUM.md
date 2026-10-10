@@ -187,6 +187,10 @@ reconnect overlay, so a hiccup mid-screening recovers without anyone touching a
 keyboard. The error screen offers a plain **Restart** button instead of a
 countdown.
 
+Letters, printing and the credits are the museum's: a letter goes out when the
+presenter answers the turn asking to add to it, and with **Print summaries** on the
+meeting ends on the credits while the letter prints.
+
 `client/src/settings/capabilities.ts` is the full, authoritative answer for what
 each mode does — every difference between the three is one row of that table,
 and nothing in the app branches on the mode itself.
@@ -212,7 +216,8 @@ Install and service the bridge daemon per
 With **Print summaries** on, museum mode prints the protocol of every **live**
 meeting on the Mac's printer as soon as the summary is ready. That includes
 resumed meetings and meetings the visitor walked away from. Replays and
-idle-autoplay never print, and neither do presenter or web mode. Nothing appears
+idle-autoplay never print, and neither does web mode. Presenter mode prints like the
+museum; switch **Print summaries** off on `#staff` for a screening that should not. Nothing appears
 on screen.
 
 The browser sends the PDF to the bridge. The bridge keeps it in a folder queue and
@@ -226,7 +231,7 @@ email was sent and is printing behind them (or that it was not sent, because nob
 answered), and every meeting ends on the same **credits** — "Thank You", then a
 60-second roll — while the letter prints, 20 seconds after it is ready
 (`LETTER_PRINT_DELAY_MS` in `SummaryPrintJob.tsx`). The button or a click starts a new
-meeting; otherwise the start page returns 20 seconds after the credits. Replays skip
+meeting; otherwise, in museum mode, the start page returns 20 seconds after the credits. Replays skip
 the chair's farewell and the credits and show the letter. **Replies** to the letters
 print here too, as they arrive: the page asks the bridge for new replies to this
 venue's letters once a minute (the bridge asks the council server with the
@@ -526,6 +531,8 @@ During a live meeting, the button also drives human input and the meta-agent
 1. Same hardware setup as above  
 2. `#staff` → **Presenter** (+ **Hardware button** if using one)  
 3. Nothing advances on its own — you drive the pace  
+4. Letters are sent and printed as in the museum — answer when asked to add to the letter,
+   or it goes unsent. Switch **Print summaries** off if the printer should stay quiet  
 
 ---
 

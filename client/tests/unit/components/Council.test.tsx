@@ -219,7 +219,7 @@ describe('Council Component', () => {
         { name: 'a live museum meeting with printing on', mode: 'museum', enabled: true, liveKey: 'live', prints: true },
         { name: 'a museum replay', mode: 'museum', enabled: true, liveKey: null, prints: false },
         { name: 'museum with printing switched off', mode: 'museum', enabled: false, liveKey: 'live', prints: false },
-        { name: 'a presenter screening', mode: 'presenter', enabled: true, liveKey: 'live', prints: false },
+        { name: 'a live presenter screening with printing on', mode: 'presenter', enabled: true, liveKey: 'live', prints: true },
         { name: 'the web app', mode: 'web', enabled: true, liveKey: 'live', prints: false },
     ] as const)('prints the protocol only for $name → $prints', ({ mode, enabled, liveKey, prints }) => {
         mockUseCouncilSettings.mockReturnValue({

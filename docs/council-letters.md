@@ -162,7 +162,7 @@ closing line with the bridge, letter_pending          + meeting.letter = { autho
 - `submit_human_message` / `skip_human_turn` accept `awaiting_letter_addition`; resume keeps
   both letter markers, read-only replay drops them.
 - Meeting creation takes `sendsLetters` (default false); the client passes its capability:
-  the museum yes, the web and a presented screening no.
+  the installations (museum and presenter) yes, the web no.
 
 ### Outbox
 
