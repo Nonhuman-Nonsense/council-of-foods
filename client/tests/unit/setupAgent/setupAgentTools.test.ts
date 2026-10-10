@@ -2,6 +2,7 @@ import { createSetupAgentToolHandlers, createSetupAgentTools, SetupAgentToolCont
 import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { MAX_HUMAN_PANELISTS } from '@newMeeting/meetingSetup';
 import { CHAIR_ID } from '@/prompts/characterSetupBundles';
+import { setAppMode } from '@/settings/councilSettings';
 
 const TOPICS = [
   { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One' },
@@ -468,6 +469,24 @@ describe('setupAgentTools', () => {
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.remember_visitor_name({ name: '   ' });
       expect(res).toEqual({ ok: false, error: 'Name cannot be empty.' });
+    });
+
+    it('renames the visitor\'s own panelist when an installation visitor corrects their name', async () => {
+      setAppMode('museum');
+      try {
+        const handlers = createSetupAgentToolHandlers(ctx);
+        await handlers.remember_visitor_name({ name: 'Lea' });
+        const res = await handlers.remember_visitor_name({ name: 'Leo' });
+
+        expect(res).toEqual({ ok: true, data: { name: 'Leo' } });
+        const { visitorName, humans, numberOfHumans } = useMeetingSetupStore.getState();
+        expect(visitorName).toBe('Leo');
+        expect(numberOfHumans).toBe(1);
+        expect(humans[0].name).toBe('Leo');
+        expect((await handlers.remember_visitor_name({ name: 'Leo' })).ok).toBe(true);
+      } finally {
+        setAppMode('web');
+      }
     });
 
     it('rejects names that collide with council participants', async () => {

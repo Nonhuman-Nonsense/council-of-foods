@@ -68,8 +68,8 @@ function participantNames(ctx: SetupAgentToolContext): string[] {
   ].filter((name) => name.length > 0);
 }
 
-function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext): boolean {
-  const names = participantNames(ctx);
+function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext, except?: string): boolean {
+  const names = participantNames(ctx).filter((existing) => existing !== except);
   names.push(name);
   return new Set(names).size !== names.length;
 }
@@ -482,7 +482,13 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!rawName) return { ok: false, error: "Missing name" };
       const name = normalizeVisitorName(rawName);
       if (!name) return { ok: false, error: "Name cannot be empty." };
-      if (isDuplicateParticipantName(name, ctx)) {
+      const installation = !getCapabilities().typedSetup;
+      // At an installation the visitor is panelist 0, so their own name is theirs to repeat or
+      // correct, not a collision.
+      const ownPanelistName = installation && useMeetingSetupStore.getState().numberOfHumans > 0
+        ? useMeetingSetupStore.getState().humans[0]?.name
+        : undefined;
+      if (isDuplicateParticipantName(name, ctx, ownPanelistName)) {
         return {
           ok: false,
           error: "That name is already used by a council participant. Ask for a different name.",
@@ -490,8 +496,19 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       }
       useMeetingSetupStore.getState().setVisitorName(name);
 
-      if (!getCapabilities().typedSetup) {
+      if (installation) {
         const store = useMeetingSetupStore.getState();
+        if (store.numberOfHumans > 0) {
+          // A corrected name renames the visitor's panelist too, or the meeting would address
+          // the visitor by one name while the council seats them under another.
+          store.setHumans((prev) => {
+            const next = [...prev];
+            if (next[0]) {
+              next[0] = { ...next[0], name };
+            }
+            return next;
+          });
+        }
         if (store.numberOfHumans === 0) {
           store.setHumans((prev) => {
             const next = [...prev];
