@@ -33,6 +33,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
   // Our own words for a named failure; the server's message only when we have
   // none — and never when the message is internal prose.
   const detail = errorCopy(t, error.errorKey, error.message).trim();
+  const restart = () => restartNow({ inPlace: error.reloadInPlace });
   const showGenericOnly =
     detail.length === 0 || error.technical === true || TECHNICAL_SOURCES.has(error.source);
 
@@ -56,7 +57,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
           timeout={HEALTH_RETRY_SECONDS}
           guardAction={probeOriginHealth}
           guardRetryMessage={t("error.restartUnavailableRetrying")}
-          action={restartNow}
+          action={restart}
           style={{ marginTop: "10px" }}
         >
           {t("app.restart")}
@@ -65,7 +66,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
         <button
           type="button"
           style={{ marginTop: "10px" }}
-          onClick={restartNow}
+          onClick={restart}
         >
           {t("app.restart")}
         </button>

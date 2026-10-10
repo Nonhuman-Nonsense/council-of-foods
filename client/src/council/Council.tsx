@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { summaryDocument, summaryLetter } from "@council/protocol/summaryDocument";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import { HttpStatusError } from "@api/http";
+import { HttpStatusError, isNetworkError } from "@api/http";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 import CouncilReplaySession from "./CouncilReplaySession";
@@ -100,14 +100,19 @@ function Council({
         const msg =
           error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.message");
         const isNotFound = error instanceof HttpStatusError && error.status === 404;
+        // No response even after councilFetch's retries: the visitor's network (or ours) is
+        // down, not a bug. Say what to check, and let restarting try this same link again.
+        const unreachable = isNetworkError(error);
         setUnrecoverableError({
           message: msg,
           errorKey: error instanceof HttpStatusError ? error.errorKey : undefined,
           source: "Council.loadMeeting",
           cause: error,
           meetingId: currentMeetingId,
+          connectionLost: unreachable,
+          reloadInPlace: unreachable,
           // Temporarily 'warning' (not 'info') to watch stale meeting link volume for a while.
-          severity: isNotFound ? "warning" : undefined,
+          severity: isNotFound || unreachable ? "warning" : undefined,
         });
       }
     })();

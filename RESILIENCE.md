@@ -69,8 +69,13 @@ Every Kind A/B event is intent-backed: `raise_hand`, `submit_human_message` /
 `meeting_incomplete` → "Resume" flow, `PUT /api/meetings/:id` in
 `handleOnAttemptResume`/`resumeMeeting.ts`) are a different transport with no `sendBuffer`, no
 `attempt_reconnection` handshake, and no sentinel dance — this pattern doesn't transplant
-there as-is. That path currently hard-errors (`setUnrecoverableError`) on any failure,
-including a transient network blip; that's a known, accepted gap, not an oversight — see the
+there as-is. HTTP gets a simpler net instead: `councilFetch` (`client/src/api/http.ts`)
+retries a request that got no response at all a few times with a short backoff, for GET/HEAD
+only by default — a POST/PUT that did reach the server would act twice, so those opt in with
+`retryOnNetworkError` only when the server makes a repeat harmless. HTTP error statuses are
+never retried. `isNetworkError()` lets a caller tell "unreachable" from "the server said no"
+once the retries run out. The resume `PUT` is therefore still one attempt and hard-errors
+(`setUnrecoverableError`) on a blip; that's a known, accepted gap, not an oversight — see the
 plan doc's "meeting_incomplete" discussion if you want to revisit it.
 
 ## The `pendingIntentStore` design
