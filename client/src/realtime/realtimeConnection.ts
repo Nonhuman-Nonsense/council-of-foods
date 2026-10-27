@@ -310,6 +310,8 @@ export function computeRealtimeCapacityRetryDelay(attempt: number): number {
 
 export type ConnectionLogger = (...args: unknown[]) => void;
 
+export type RealtimeCloseReason = "dc_close" | "dc_error" | "pc_failed" | "connect_timeout";
+
 export type RealtimeConnection = {
   /** Active peer connection. */
   pc: RTCPeerConnection;
@@ -370,8 +372,19 @@ export type CreateConnectionParams = {
   onEvent: (event: unknown) => void;
   /** Called when the data channel opens (e.g. Inworld expects `session.update` here over WebRTC). */
   onOpen?: (ctx: { dc: RTCDataChannel }) => void;
-  /** Called when the channel/peer closes (or errors). */
-  onClose?: (reason: "dc_close" | "dc_error" | "pc_failed") => void;
+  /**
+   * Called when the channel/peer closes (or errors). `connect_timeout`: the data
+   * channel had not opened {@link CreateConnectionParams.connectTimeoutMs} after
+   * the SDP exchange.
+   */
+  onClose?: (reason: RealtimeCloseReason) => void;
+  /**
+   * Give up on a connection whose data channel has not opened this long after the
+   * SDP exchange, with `onClose("connect_timeout")`. Left out, the browser decides
+   * — about 15 s after ICE stops getting anywhere. The caller closes the
+   * connection, as for any other close.
+   */
+  connectTimeoutMs?: number;
   /** Optional debug hook. */
   log?: ConnectionLogger;
   /**
@@ -382,7 +395,24 @@ export type CreateConnectionParams = {
   signal?: AbortSignal;
 };
 
-const ICE_GATHER_TIMEOUT_MS = 2_500;
+/**
+ * How long the offer waits for its ICE candidates.
+ *
+ * Inworld connects with the candidates in the offer and no later ones, and behind
+ * a NAT a relay (TURN) candidate is what makes it reliable: from the Havremagasinet
+ * kiosk, offers without one failed 9 times in 16 after ~15.5 s, offers with one
+ * never. Gathering "complete" cannot be waited for instead — with microphone
+ * permission Chrome gathers on every interface, and on one with no route out
+ * (Tailscale's) it never completes. So the offer goes once a relay candidate is in
+ * and its siblings have had a moment to follow, and waits longer for a late relay.
+ */
+export const RELAY_GRACE_MS = 300;
+/** Longest wait for a relay candidate, when the ICE servers include TURN. */
+export const RELAY_WAIT_CAP_MS = 6_000;
+/** Without TURN there is no relay to wait for: gathering gets this long. */
+export const ICE_GATHER_TIMEOUT_MS = 2_500;
+/** A data channel not open this long after the SDP exchange gets its ICE state logged. Healthy: < 1 s. */
+const SLOW_CONNECT_LOG_MS = 3_000;
 const FETCH_TIMEOUT_MS = 15_000;
 
 async function fetchWithTimeout(
@@ -426,36 +456,91 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) throw new AbortError();
 }
 
-async function waitForIceGatheringComplete(pc: RTCPeerConnection, timeoutMs: number): Promise<void> {
-  if (pc.iceGatheringState === "complete") return;
-  await new Promise<void>((resolve) => {
-    const timeout = window.setTimeout(() => {
-      cleanup();
-      resolve();
-    }, timeoutMs);
+function hasTurnServer(iceServers: IceServer[]): boolean {
+  return iceServers.some((server) => [server.urls].flat().some((url) => /^turns?:/i.test(url)));
+}
 
-    const cleanup = () => {
-      window.clearTimeout(timeout);
+type OfferReady = {
+  /** What let the offer go: gathering finished, a relay candidate came in, or the wait ran out. */
+  sentOn: "complete" | "relay" | "timeout";
+  /** When the first relay candidate came in, after the wait started. */
+  relayAtMs: number | null;
+};
+
+/**
+ * Settles when the offer has the candidates it needs (see {@link RELAY_GRACE_MS}).
+ * Call it before `setLocalDescription`, so no early candidate slips past.
+ */
+function waitForOfferCandidates(pc: RTCPeerConnection, expectRelay: boolean): Promise<OfferReady> {
+  const startedAt = Date.now();
+  let relayAtMs: number | null = null;
+  if (pc.iceGatheringState === "complete") return Promise.resolve({ sentOn: "complete", relayAtMs });
+  return new Promise((resolve) => {
+    let graceTimer: number | null = null;
+    const finish = (sentOn: OfferReady["sentOn"]) => {
+      window.clearTimeout(capTimer);
+      if (graceTimer != null) window.clearTimeout(graceTimer);
       pc.removeEventListener("icegatheringstatechange", onState);
       pc.removeEventListener("icecandidate", onCandidate);
+      resolve({ sentOn, relayAtMs });
     };
+    const capTimer = window.setTimeout(() => finish("timeout"), expectRelay ? RELAY_WAIT_CAP_MS : ICE_GATHER_TIMEOUT_MS);
 
     const onState = () => {
-      if (pc.iceGatheringState === "complete") {
-        cleanup();
-        resolve();
-      }
+      if (pc.iceGatheringState === "complete") finish("complete");
     };
     const onCandidate = (e: RTCPeerConnectionIceEvent) => {
       if (e.candidate == null) {
-        cleanup();
-        resolve();
+        finish("complete");
+      } else if (expectRelay && e.candidate.type === "relay" && relayAtMs == null) {
+        relayAtMs = Date.now() - startedAt;
+        graceTimer = window.setTimeout(() => finish("relay"), RELAY_GRACE_MS);
       }
     };
 
     pc.addEventListener("icegatheringstatechange", onState);
     pc.addEventListener("icecandidate", onCandidate);
   });
+}
+
+/** The candidates an SDP offers, by kind: `{ "relay/udp": 2, "host/tcp": 6, … }`. */
+export function countSdpCandidates(sdp: string): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const line of sdp.split(/\r?\n/)) {
+    if (!line.startsWith("a=candidate:")) continue;
+    const parts = line.split(" ");
+    const typ = parts.indexOf("typ");
+    if (typ === -1) continue;
+    const kind = `${parts[typ + 1]}/${parts[2]?.toLowerCase()}`;
+    counts[kind] = (counts[kind] ?? 0) + 1;
+  }
+  return counts;
+}
+
+/**
+ * Where ICE has got to: each candidate pair, its state and how many checks it
+ * sent and got answered. Taken while still connecting — once the connection has
+ * failed, Chrome reports no pairs at all.
+ */
+async function describeIceState(pc: RTCPeerConnection): Promise<Record<string, unknown>> {
+  try {
+    const report = await pc.getStats();
+    const byId = new Map<string, Record<string, unknown>>();
+    report.forEach((stat: Record<string, unknown>) => byId.set(String(stat.id), stat));
+    const pairs: string[] = [];
+    byId.forEach((stat) => {
+      if (stat.type !== "candidate-pair") return;
+      const local = byId.get(String(stat.localCandidateId));
+      const remote = byId.get(String(stat.remoteCandidateId));
+      pairs.push(
+        `${local?.candidateType}/${local?.protocol}→${remote?.candidateType}/${remote?.protocol} ` +
+          `${stat.state} sent=${stat.requestsSent ?? 0} answered=${stat.responsesReceived ?? 0}`,
+      );
+    });
+    return { iceConnectionState: pc.iceConnectionState, pairs };
+  } catch (err) {
+    return { iceConnectionState: pc.iceConnectionState, statsError: err instanceof Error ? err.message : String(err) };
+  }
 }
 
 function parseRealtimeSessionServerDefaults(
@@ -558,12 +643,14 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
     onEvent,
     onOpen,
     onClose,
+    connectTimeoutMs,
     log = () => undefined,
     signal,
   } = params;
 
   let pc: RTCPeerConnection | null = null;
   let dc: RTCDataChannel | null = null;
+  let dcOpened = false;
   let micStream: MediaStream | null = null;
   let audioSender: RTCRtpSender | null = null;
 
@@ -606,6 +693,7 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
 
     dc = pc.createDataChannel("oai-events", { ordered: true });
     dc.onopen = () => {
+      dcOpened = true;
       log("data channel open");
       const openDc = dc!;
       onOpen?.({ dc: openDc });
@@ -643,13 +731,16 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       audioSender = pc.addTransceiver("audio", { direction: "sendrecv" }).sender;
     }
 
+    const offerReady = waitForOfferCandidates(pc, hasTurnServer(iceServers));
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
-    await waitForIceGatheringComplete(pc, ICE_GATHER_TIMEOUT_MS);
+    const { sentOn, relayAtMs } = await offerReady;
     throwIfAborted(signal);
 
     const sdpOffer = pc.localDescription?.sdp;
     if (!sdpOffer) throw new Error("Missing SDP offer");
+    // What the far end gets to try: an offer without a relay is the one that stalls.
+    log("ice offer", { sentOn, relayAtMs, candidates: countSdpCandidates(sdpOffer) });
 
     const { sdp: sdpAnswer, callId } = await exchangeSdp(sdpOffer, session, callPath, callHeaders, callBodyExtras, signal);
     // The provider's name for this session — what to quote to Inworld about it.
@@ -659,6 +750,15 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
 
     let closed = false;
     const finalPc = pc;
+    const slowConnectTimer = window.setTimeout(() => {
+      if (dcOpened || closed) return;
+      void describeIceState(finalPc).then((state) => log("ice still connecting", state));
+    }, SLOW_CONNECT_LOG_MS);
+    const connectDeadlineTimer = connectTimeoutMs == null ? null : window.setTimeout(() => {
+      if (dcOpened || closed) return;
+      log("connect deadline passed", { connectTimeoutMs });
+      onClose?.("connect_timeout");
+    }, connectTimeoutMs);
     const finalDc = dc;
     const finalSender = audioSender;
 
@@ -711,6 +811,8 @@ export async function createRealtimeConnection(params: CreateConnectionParams): 
       close: () => {
         if (closed) return;
         closed = true;
+        window.clearTimeout(slowConnectTimer);
+        if (connectDeadlineTimer != null) window.clearTimeout(connectDeadlineTimer);
         try {
           finalDc.close();
         } catch { /* ignore */ }

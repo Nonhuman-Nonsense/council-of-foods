@@ -227,6 +227,14 @@ function hiLog(step: string, data?: Record<string, unknown>): void {
   log.flat("REALTIME", `human-input | ${step}`, data);
 }
 
+/** The connection's own lines (offer candidates, ICE and data channel states), under the same prefix. */
+function hiConnectionLog(step: unknown, data?: unknown): void {
+  const fields = data === undefined || (typeof data === "object" && data !== null)
+    ? (data as Record<string, unknown> | undefined)
+    : { value: data };
+  hiLog(String(step), fields);
+}
+
 function dcEventType(event: unknown): string {
   if (event && typeof event === "object" && "type" in event) {
     return typeof (event as { type: unknown }).type === "string"
@@ -609,6 +617,7 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
           feature: "human-input",
           provider: bootstrap.provider,
         },
+        log: hiConnectionLog,
         signal: controller.signal,
         onOpen: ({ dc }) => {
           if (controller.signal.aborted) return;
