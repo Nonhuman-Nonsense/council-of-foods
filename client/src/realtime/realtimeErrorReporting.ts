@@ -16,10 +16,10 @@
 import { reportTerminalError, type ClientReportImpact, type ClientReportSeverity } from "@/logger";
 
 export type RealtimeIssueKind =
-  /** A provider error that forced a teardown + reconnect. */
-  | "provider-error"
-  /** The transport dropped mid-session (ICE failure, data channel error). */
-  | "connection-lost"
+  /** The agent is back after an outage a visitor could notice (see realtimeOutage). */
+  | "recovered"
+  /** An outage with no give-up coming is still going: the heartbeat of a wedged installation. */
+  | "still-down"
   /** A turn the event loop rescued after the provider refused it. */
   | "turn-recovered"
   /** The provider refused work because the account is at its concurrency limit. */
@@ -30,8 +30,8 @@ export type RealtimeIssueKind =
   | "refused";
 
 const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
-  "provider-error": "warning",
-  "connection-lost": "warning",
+  "recovered": "warning",
+  "still-down": "warning",
   "turn-recovered": "warning",
   "capacity": "warning",
   "retry-exhausted": "error",
@@ -40,8 +40,8 @@ const SEVERITY: Record<RealtimeIssueKind, ClientReportSeverity> = {
 
 const IMPACT: Record<RealtimeIssueKind, ClientReportImpact> = {
   // The visitor sees a spinner at worst; the session comes back on its own.
-  "provider-error": "none",
-  "connection-lost": "none",
+  "recovered": "none",
+  "still-down": "none",
   "turn-recovered": "none",
   // The session survives; at worst the visitor waits a few seconds longer.
   "capacity": "none",
@@ -83,12 +83,14 @@ export function reportRealtimeIssue(params: {
   code?: string | null;
   /** Extra context for the ErrorBot payload (attempt number, reason, …). */
   detail?: Record<string, unknown>;
+  /** The caller already thins its own reports (an outage heartbeat): skip the sampling here. */
+  presampled?: boolean;
 }): void {
-  const { feature, kind, message, code, detail } = params;
+  const { feature, kind, message, code, detail, presampled } = params;
   const key = `${feature}|${kind}|${code ?? ""}`;
   const count = (occurrences.get(key) ?? 0) + 1;
   occurrences.set(key, count);
-  if (!shouldReportOccurrence(count)) return;
+  if (!presampled && !shouldReportOccurrence(count)) return;
 
   reportTerminalError(
     `realtime.${feature}.${kind}`,

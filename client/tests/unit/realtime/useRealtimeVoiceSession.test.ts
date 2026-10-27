@@ -1115,6 +1115,28 @@ describe("useRealtimeVoiceSession", () => {
   });
 
   /**
+   * The first request after a laptop wakes often dies on a connection the
+   * browser kept from before it slept. The retry works a second later and the
+   * visitor sees a spinner, not a fault — nothing for a person to act on.
+   */
+  it("sends nothing to ErrorBot when a failed start works on the retry", async () => {
+    mockFetchRealtimeBootstrap.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: Infinity, giveUpSilently: false },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
+    expect(reportRealtimeIssue).not.toHaveBeenCalled();
+  });
+
+  /**
    * A network that blocks WebRTC still completes the SDP exchange — ICE fails
    * ~20s later. Counting that as a working session reset the retry budget every
    * time round, so the visitor reconnected forever into a silent agent.
@@ -1196,11 +1218,17 @@ describe("useRealtimeVoiceSession", () => {
         })
       );
 
-      await waitFor(() => expect(getClose()).toBeDefined());
-      act(() => getClose()!("pc_failed"));
+      for (let i = 0; i < 3; i++) {
+        await waitFor(() => expect(getClose()).toBeDefined());
+        const close = getClose()!;
+        mockCreateRealtimeConnection.mockClear();
+        act(() => close("pc_failed"));
+        if (i < 2) await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+      }
 
+      expect(reportRealtimeIssue).toHaveBeenCalledOnce();
       expect(reportRealtimeIssue).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: "connection-lost" })
+        expect.objectContaining({ kind: "still-down", code: "pc_failed" })
       );
     });
 
@@ -1241,7 +1269,7 @@ describe("useRealtimeVoiceSession", () => {
       // A session that worked and then dropped is a real visitor losing a live
       // agent — still worth reporting, on the usual thinning schedule.
       expect(reportRealtimeIssue).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: "connection-lost" })
+        expect.objectContaining({ kind: "recovered", code: "pc_failed" })
       );
     });
 
@@ -1276,8 +1304,10 @@ describe("useRealtimeVoiceSession", () => {
       act(() => close("dc_close"));
 
       await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalledTimes(2));
-      expect(reportRealtimeIssue).toHaveBeenCalledWith(
-        expect.objectContaining({ kind: "connection-lost", code: "dc_close" })
+      await waitFor(() =>
+        expect(reportRealtimeIssue).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: "recovered", code: "dc_close" })
+        )
       );
     });
   });

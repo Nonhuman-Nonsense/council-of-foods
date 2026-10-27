@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   acquireMicrophone,
   classifyRealtimeError,
@@ -28,6 +28,7 @@ import {
   type InworldWordToken,
 } from "@realtime/inworldSubtitleTrack";
 import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
+import { createRealtimeOutageReporter } from "@realtime/realtimeOutage";
 import { log, summarizeLogPayload } from "@/logger";
 import { getVenueId, useCouncilSettings } from "@/settings/councilSettings";
 import { createVoicesSideOutput, type VoicesSideOutput } from "@/audio/audioRouting";
@@ -354,6 +355,8 @@ export function useRealtimeVoiceSession(
   const retryAttemptsRef = useRef(0);
   /** True once onConnectionLost has been called and onConnectionRestored not yet. */
   const hasNotifiedLostRef = useRef(false);
+  /** Turns the failed attempts of one outage into a single ErrorBot report. */
+  const outage = useMemo(() => createRealtimeOutageReporter(feature), [feature]);
   /**
    * The data channel opened, so this session genuinely worked. An SDP exchange
    * that returns proves nothing: on a network that blocks WebRTC, ICE fails
@@ -512,14 +515,26 @@ export function useRealtimeVoiceSession(
 
   /**
    * Schedule a retry attempt with jittered exponential backoff.
-   * Notifies onConnectionLost on the first failure, tracks exhaustion.
+   * Notifies onConnectionLost on the first failure, tracks exhaustion, and
+   * hands the failure to the outage reporter — the one place attempts reach
+   * ErrorBot.
    */
-  const scheduleRetry = useCallback((resetAttempts = false, capacity = false) => {
+  const scheduleRetry = useCallback((failure: {
+    /** Short code for what failed (`start-failed`, `pc_failed`, …). */
+    cause: string;
+    message?: string;
+    /** A working session was just lost, rather than one failing to start. */
+    wasLive?: boolean;
+    resetAttempts?: boolean;
+    capacity?: boolean;
+  }) => {
+    const { cause, message, wasLive = false, resetAttempts = false, capacity = false } = failure;
     if (resetAttempts) retryAttemptsRef.current = 0;
 
     const attempt = retryAttemptsRef.current++;
     const policy = retryPolicyRef.current;
     const maxRetries = retryBudgetFor(policy, capacity);
+    outage.failed({ cause, message, wasLive, retriesUnlimited: maxRetries === Infinity });
 
     // Notify once that the connection is down.
     if (!hasNotifiedLostRef.current) {
@@ -530,12 +545,7 @@ export function useRealtimeVoiceSession(
     // Without a policy, fall through to error state.
     if (!policy || (maxRetries !== Infinity && attempt >= maxRetries)) {
       log.event("REALTIME", "retry exhausted", { feature, attempt });
-      reportRealtimeIssue({
-        feature,
-        kind: "retry-exhausted",
-        message: `Realtime agent gave up after ${attempt} reconnect attempts${policy?.giveUpSilently ? ", switched off" : ""}`,
-        detail: { attempt, giveUpSilently: policy?.giveUpSilently ?? false, everOpened: dcOpenedRef.current },
-      });
+      outage.gaveUp({ giveUpSilently: policy?.giveUpSilently ?? false });
       if (policy?.giveUpSilently) {
         setConnectionState("idle");
         onExhaustedRef.current?.();
@@ -556,7 +566,7 @@ export function useRealtimeVoiceSession(
       retryTimerRef.current = null;
       startRef.current();
     }, delay);
-  }, [feature]);
+  }, [feature, outage]);
 
   /**
    * The session is live: the data channel is open *and* the connection is
@@ -569,8 +579,9 @@ export function useRealtimeVoiceSession(
       onConnectionRestoredRef.current?.();
     }
     retryAttemptsRef.current = 0;
+    outage.recovered();
     setConnectionState("ready");
-  }, [feature]);
+  }, [feature, outage]);
 
   const start = useCallback(async () => {
     if (connectionRef.current || abortRef.current) return;
@@ -862,13 +873,9 @@ export function useRealtimeVoiceSession(
           onError: (message) => {
             if (isStale()) return;
             log.event("ERROR", "realtime provider error", { feature, message });
-            reportRealtimeIssue({
-              feature,
-              kind: "provider-error",
-              message: `Realtime provider error, reconnecting: ${message}`,
-            });
+            const wasLive = dcOpenedRef.current;
             cleanup();
-            scheduleRetry();
+            scheduleRetry({ cause: "provider-error", message, wasLive });
           },
           onNonFatalError: ({ message, code, handling, capacity }) => {
             if (isStale()) return;
@@ -1107,30 +1114,12 @@ export function useRealtimeVoiceSession(
           const providerClosed = reason === "dc_close" && !pageUnloading;
           if (reason === "pc_failed" || reason === "dc_error" || providerClosed) {
             log.event("ERROR", "realtime connection lost", { feature, reason });
-            // Don't report an attempt a summary is already coming for: a
-            // bounded budget ends in one `retry-exhausted` report, so a visitor
-            // whose network blocks WebRTC costs one message instead of four.
-            // An installation retries forever — no summary ever comes, so its
-            // heartbeat is the only sign the kiosk is wedged.
-            const summaryComing =
-              !dcOpenedRef.current && retryPolicyRef.current?.maxRetries !== Infinity;
-            if (!summaryComing) {
-              reportRealtimeIssue({
-                feature,
-                kind: "connection-lost",
-                message: dcOpenedRef.current
-                  ? `Realtime connection lost (${reason}), reconnecting`
-                  : `Realtime connection failed before media started (${reason}), retrying`,
-                code: reason,
-                detail: { everOpened: dcOpenedRef.current },
-              });
-            }
             // A session that really worked gets a fresh retry budget; one that
             // never carried media spends the budget it started with, so a
             // visitor whose network blocks WebRTC stops rather than looping.
             const everOpened = dcOpenedRef.current;
             cleanup();
-            scheduleRetry(everOpened);
+            scheduleRetry({ cause: reason, wasLive: everOpened, resetAttempts: everOpened });
           }
         },
       });
@@ -1196,15 +1185,9 @@ export function useRealtimeVoiceSession(
           message: `Realtime session refused for capacity, retrying: ${msg}`,
           code: "start-refused",
         });
-        scheduleRetry(false, true);
+        scheduleRetry({ cause: "capacity", message: msg, capacity: true });
       } else {
-        reportRealtimeIssue({
-          feature,
-          kind: "connection-lost",
-          message: `Realtime session failed to start, retrying: ${msg}`,
-          code: "start-failed",
-        });
-        scheduleRetry();
+        scheduleRetry({ cause: "start-failed", message: msg });
       }
     } finally {
       if (abortRef.current === controller) abortRef.current = null;
@@ -1247,6 +1230,8 @@ export function useRealtimeVoiceSession(
       // Reset retry budget so the next manual start gets a full retry cycle.
       retryAttemptsRef.current = 0;
       hasNotifiedLostRef.current = false;
+      // Stopping on purpose ends an outage without anyone being let down.
+      outage.reset();
       return;
     }
     if (!autoConnect) return;
