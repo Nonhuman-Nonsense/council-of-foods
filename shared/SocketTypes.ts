@@ -29,6 +29,18 @@ export interface CreateMeetingBody {
     language: string;
     /** Audience member name learned during voice setup (optional). */
     humanName?: string;
+    /** Venue chosen on #staff for this installation; tags the meeting's AI usage. */
+    venueId?: string;
+    /** The setup-agent conversation that led to this meeting; its usage joins the meeting. */
+    setupId?: string;
+    /** The app mode's `sendsLetters` capability: whether this meeting's letter may go out. */
+    sendsLetters?: boolean;
+    /**
+     * The installation prints this meeting's letter: its `printSummary` capability with staff's
+     * printing switched on. The meeting then ends on the chair's farewell and the credits, and
+     * the letter is read from the paper (docs/council-letters.md).
+     */
+    printsLetters?: boolean;
 }
 
 export interface ResumeMeetingResponse {
@@ -72,14 +84,34 @@ export interface ClientErrorDebug {
     raw?: unknown;
 }
 
+/**
+ * Stable name for a failure the visitor can be told about, so the client can
+ * show its own translated copy rather than the server's English prose. Add a
+ * value here and the client's copy map stops compiling until it has words for
+ * it — which is the point.
+ */
+export type ClientErrorKey =
+    | "invalidRequest"
+    | "elsewhere"
+    | "busy"
+    | "notFound"
+    | "unauthorized"
+    | "forbidden"
+    | "meetingComplete"
+    | "invalidAudioId"
+    | "realtimeUnavailable"
+    | "unexpected";
+
 export interface ErrorPayload {
+    /** English fallback. The client prefers its own copy for a known `errorKey`. */
     message: string;
     code: number;
+    errorKey?: ClientErrorKey;
     debug?: ClientErrorDebug;
 }
 
 /** HTTP error JSON body (`message` + optional `debug`; status code is on the response). */
-export type ApiErrorBody = Pick<ErrorPayload, "message" | "debug">;
+export type ApiErrorBody = Pick<ErrorPayload, "message" | "errorKey" | "debug">;
 
 export interface ClientKeyResponse {
     value: string;

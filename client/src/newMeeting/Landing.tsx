@@ -1,6 +1,7 @@
 import RotateDevice from "@main/overlay/RotateDevice";
 import { useMediaQuery } from 'react-responsive'
-import { Link } from "react-router";
+import { Link, useOutletContext } from "react-router";
+import type { MeetingSetupOutletContext } from "./MeetingSetupShell";
 import { useMobile, dvh } from "@/utils";
 import { useTranslation } from 'react-i18next';
 import { useRouting } from "@/navigation";
@@ -20,9 +21,10 @@ import asilomarLogo from "@assets/logos/SOA_PrimaryLogo_WHT.png";
  */
 const Landing: React.FC = () => {
   const { newMeetingPath } = useRouting();
+  const { setLastUserEvent } = useOutletContext<MeetingSetupOutletContext>();
   const isPortrait = useMediaQuery({ query: '(orientation: portrait)' })
   const isMobile = useMobile();
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const { t } = useTranslation();
 
   const wrapper: React.CSSProperties = {
@@ -58,11 +60,19 @@ const Landing: React.FC = () => {
         {isPortrait ?
           <RotateDevice />
           :
-          !isMuseumMode && (
+          capabilities.browserUi && (
             <div style={{ maxWidth: "470px" }}>
               <p style={{ marginBottom: isMobile ? "10px" : "20px" }}>{t('landing.description')}</p>
               <div>
-                <Link to={newMeetingPath} className="button" data-testid="landing-go">
+                <Link
+                  to={newMeetingPath}
+                  className="button"
+                  data-testid="landing-go"
+                  // The agent has no other way to notice this step change: with
+                  // the microphone off it cannot be told, and it is not the one
+                  // driving the navigation.
+                  onClick={() => setLastUserEvent({ type: "setup_started" })}
+                >
                   {t('landing.go')}
                 </Link>
               </div>

@@ -34,7 +34,7 @@ ENTRYPOINT="$TMP_DIR/dist/button/bridge/src/index.js"
 PORT=18765
 export BUTTON_BRIDGE_PORT="$PORT"
 
-(cd "$TMP_DIR" && "$NODE_BIN" "$ENTRYPOINT") &
+(cd "$TMP_DIR" && exec "$NODE_BIN" "$ENTRYPOINT") &
 PID=$!
 
 for _ in $(seq 1 20); do

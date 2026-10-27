@@ -7,6 +7,7 @@ const mockIsDevLogCategoryEnabled = vi.fn((_category?: string) => true);
 vi.mock("@/settings/councilSettings", () => ({
   getDevLogEnabled: () => mockGetDevLogEnabled(),
   isDevLogCategoryEnabled: (category: string) => mockIsDevLogCategoryEnabled(category),
+  getVenueId: () => "",
 }));
 
 describe("logger", () => {
@@ -34,6 +35,20 @@ describe("summarizeLogPayload", () => {
     expect(summary.id).toBe("clip-1");
     expect(summary.note).toBe("hello");
     expect(summary.audioBase64).toBe("[audioBase64 400 chars]");
+  });
+
+  it("keeps what was said in full, up to a much longer limit", () => {
+    const said = "word ".repeat(100);
+    const summary = summarizeLogPayload({ transcript: said, note: said }) as Record<string, string>;
+
+    expect(summary.transcript).toBe(said);
+    expect(summary.note.length).toBeLessThan(said.length);
+  });
+
+  it("describes an Error by its name and message", () => {
+    expect(summarizeLogPayload({ error: new TypeError("Failed to fetch") })).toEqual({
+      error: { name: "TypeError", message: "Failed to fetch" },
+    });
   });
 });
 
@@ -103,6 +118,41 @@ describe("logEvent", () => {
   });
 });
 
+describe("server log", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.resetModules();
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "groupCollapsed").mockImplementation(() => undefined);
+    vi.spyOn(console, "groupEnd").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** The stored log is exactly what the console prints: whenever logging is on, nothing else. */
+  it.each([
+    { master: true, category: true, sent: true },
+    { master: false, category: true, sent: false },
+    { master: true, category: false, sent: false },
+  ])(
+    "queues a line for the server: $sent (logging $master, category $category)",
+    async ({ master, category, sent }) => {
+      mockGetDevLogEnabled.mockReturnValue(master);
+      mockIsDevLogCategoryEnabled.mockReturnValue(category);
+      const { log: freshLog } = await import("../../src/logger");
+      const { getServerLogStatus } = await import("../../src/logging/serverLogSink");
+
+      freshLog.flat("TURN", "IN response.created", { reason: "greeting" });
+      freshLog.event("REALTIME", "connection closed", { reason: "dc_close" });
+
+      expect(getServerLogStatus().pending).toBe(sent ? 2 : 0);
+    },
+  );
+});
+
 describe("reportTerminalError", () => {
   it("does not POST client reports outside production", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
@@ -133,14 +183,14 @@ describe("installGlobalErrorHandlers", () => {
   // Captures the registered 'error' handler directly instead of using real window
   // listeners, since installGlobalErrorHandlers has no teardown and listeners would
   // otherwise accumulate on the shared jsdom `window` across tests/module reloads.
-  async function installAndCaptureErrorHandler() {
+  async function installAndCaptureErrorHandler(type: "error" | "unhandledrejection" = "error") {
     vi.stubEnv("PROD", true);
     vi.resetModules();
     const addEventListenerSpy = vi.spyOn(window, "addEventListener");
     const { installGlobalErrorHandlers } = await import("@/logger");
     installGlobalErrorHandlers();
-    const handler = addEventListenerSpy.mock.calls.find(([type]) => type === "error")?.[1] as (
-      event: ErrorEvent,
+    const handler = addEventListenerSpy.mock.calls.find(([registered]) => registered === type)?.[1] as (
+      event: { message?: string; reason?: unknown },
     ) => void;
     addEventListenerSpy.mockRestore();
     return handler;
@@ -163,15 +213,33 @@ describe("installGlobalErrorHandlers", () => {
     fetchSpy.mockRestore();
   });
 
-  it("drops known-noise messages like the in-app-browser webkit bridge", async () => {
+  // Host-environment noise, not bugs in our code: an in-app browser's bridge,
+  // a browser extension, and autoplay policy refusing someone's play().
+  it.each([
+    {
+      name: "in-app browser webkit bridge",
+      type: "error" as const,
+      event: { message: "undefined is not an object (evaluating 'window.webkit.messageHandlers')" },
+    },
+    {
+      name: "browser extension messaging",
+      type: "unhandledrejection" as const,
+      event: { reason: new Error("No Listener: tabs:outgoing.message.ready") },
+    },
+    {
+      name: "Safari autoplay refusal",
+      type: "unhandledrejection" as const,
+      event: {
+        reason: new Error(
+          "The play method is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.",
+        ),
+      },
+    },
+  ])("drops known noise: $name", async ({ type, event }) => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
-    const handler = await installAndCaptureErrorHandler();
+    const handler = await installAndCaptureErrorHandler(type);
 
-    handler(
-      new ErrorEvent("error", {
-        message: "undefined is not an object (evaluating 'window.webkit.messageHandlers')",
-      }),
-    );
+    handler(event);
 
     expect(fetchSpy).not.toHaveBeenCalled();
     fetchSpy.mockRestore();

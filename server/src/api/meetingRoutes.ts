@@ -7,6 +7,7 @@ import { buildReplayMeetingManifest } from "./replayManifest.js";
 import { resumeMeeting } from "./resumeMeeting.js";
 import { getAutoplayMeeting, parseAutoplayLanguageQuery } from "./getAutoplayMeeting.js";
 import { BadRequestError, CouncilError } from "@models/Errors.js";
+import { resolveVenueId } from "@utils/venues.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
 
@@ -67,8 +68,9 @@ export function registerMeetingRoutes(app: Express, environment: string): void {
     app.get("/api/autoplay", async (req: Request, res: Response) => {
         await apiRouteWithErrorHandling("GET", "/api/autoplay", req, res, async (_req: Request, res: Response) => {
             const language = parseAutoplayLanguageQuery(req.query.language);
-            const { meetingId } = await getAutoplayMeeting(language);
-            await Logger.info("api", `GET /api/autoplay → meeting ${meetingId}`);
+            const venueId = resolveVenueId(req.query.venue);
+            const { meetingId } = await getAutoplayMeeting(language, venueId);
+            await Logger.info("api", `GET /api/autoplay${venueId ? ` (venue ${venueId})` : ""} → meeting ${meetingId}`);
             res.status(200).json({ meetingId });
         });
     });

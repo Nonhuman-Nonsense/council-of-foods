@@ -51,6 +51,47 @@ export type SerialDetail =
   | "probing"
   | "shutdown";
 
+export type BridgePrinterState = "idle" | "printing" | "stopped" | "unknown";
+
+/** The bridge's print spool, as reported in `/health`. */
+export type BridgePrintHealth =
+  | { enabled: false }
+  | {
+      enabled: true;
+      /** Null until the bridge has asked CUPS for the first time. */
+      printer: {
+        name: string | null;
+        state: BridgePrinterState;
+        alerts: string[];
+        message: string | null;
+        /** Absent from older bridges. */
+        queuedJobs?: number;
+        oldestJobAt?: string | null;
+      } | null;
+      pending: number;
+      /** Why the printer needs someone to look at it; absent from older bridges. */
+      attention?: { reason: string; since: string } | null;
+      lastError: string | null;
+      lastPrintedAt: string | null;
+    };
+
+/** The bridge's printer alert emails, as reported in `/health`. */
+export type BridgeAlertsHealth = {
+  /**
+   * The council server the installation key was saved for (a page origin); null until staff
+   * enter one. Absent from bridges that predate the installation key.
+   */
+  server?: string | null;
+  venue: { id: string; name: string; recipients: string[] } | null;
+  /** Whether the venue is open right now; null without a venue. */
+  open: boolean | null;
+  phase: "ok" | "pending" | "alerting";
+  lastSentAt: string | null;
+  lastError: string | null;
+  /** An alert is waiting to be delivered to the council server. */
+  undelivered: boolean;
+};
+
 export type ButtonBridgeHealthState =
   | { status: "checking" }
   | {
@@ -62,6 +103,10 @@ export type ButtonBridgeHealthState =
       serialMessage: string;
       expectedVendorId: string | null;
       scannedPorts: UsbPortInfo[];
+      /** Null from a bridge that predates printing. */
+      print: BridgePrintHealth | null;
+      /** Null when printing is off, or from a bridge that predates alerts. */
+      alerts: BridgeAlertsHealth | null;
     }
   | { status: "not_running" }
   | { status: "error"; message: string };
@@ -75,6 +120,8 @@ type ButtonBridgeHealthResponse = {
   serialMessage?: string;
   expectedVendorId?: string | null;
   scannedPorts?: UsbPortInfo[];
+  print?: BridgePrintHealth;
+  alerts?: BridgeAlertsHealth | null;
 };
 
 /** Stable summary for health state-change logging (not per-poll HTTP). */
@@ -139,6 +186,8 @@ export async function fetchButtonBridgeHealth(
       serialMessage: body.serialMessage ?? "",
       expectedVendorId: body.expectedVendorId ?? null,
       scannedPorts: body.scannedPorts ?? [],
+      print: body.print ?? null,
+      alerts: body.alerts ?? null,
     };
   } catch {
     return { status: "not_running" };

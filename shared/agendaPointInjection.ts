@@ -2,6 +2,8 @@ import { agendaPointCountFromAgendaPoints } from "./topicPrompt.js";
 
 export const RANDOM_AGENDA_POINT_PLACEHOLDER = "[RANDOM_AGENDA_POINT]";
 
+export const SINGLE_AGENDA_POINT_PLACEHOLDER = "[SINGLE_AGENDA_POINT]";
+
 export const RANDOM_AGENDA_POINT_FALLBACK =
   "Choose ONE point from todays agenda in RANDOM order, just because it is at the top of the list doesn't mean it always comes first.";
 
@@ -26,4 +28,18 @@ export function injectRandomAgendaPoint(chairPrompt: string, agendaPoints?: stri
       : RANDOM_AGENDA_POINT_FALLBACK;
 
   return chairPrompt.replaceAll(RANDOM_AGENDA_POINT_PLACEHOLDER, replacement);
+}
+
+/**
+ * Replaces `[SINGLE_AGENDA_POINT]` in the chair prompt with `rule` when the agenda has exactly
+ * one point (a visitor's own question), so the chair stays on it; with several points the
+ * placeholder is removed and the chair moves through the agenda as usual.
+ */
+export function injectSingleAgendaPointRule(
+  chairPrompt: string,
+  agendaPoints?: string[],
+  rule = "",
+): string {
+  const single = agendaPointCountFromAgendaPoints(agendaPoints) === 1;
+  return chairPrompt.replaceAll(SINGLE_AGENDA_POINT_PLACEHOLDER, single ? rule : "");
 }

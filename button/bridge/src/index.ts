@@ -1,5 +1,14 @@
+import os from "node:os";
+import path from "node:path";
+import { AlertMonitor } from "./alertMonitor.js";
+import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import { loadConfig } from "./config.js";
 import { MockSerialManager } from "./mockSerialManager.js";
+import { NetworkMonitor } from "./networkMonitor.js";
+import { PowerButtonShutdown } from "./powerButton.js";
+import { LpPrinter, MockPrinter } from "./printer.js";
+import type { PrintRuntime } from "./printRoutes.js";
+import { PrintSpool } from "./printSpool.js";
 import { SerialManager } from "./serialManager.js";
 import type { SerialManagerLike } from "./serialManagerLike.js";
 import { WsServer } from "./wsServer.js";
@@ -12,13 +21,79 @@ function createSerialManager(config: ReturnType<typeof loadConfig>): SerialManag
   return new SerialManager(config);
 }
 
+function createPrintRuntime(config: ReturnType<typeof loadConfig>): PrintRuntime | null {
+  if (!config.printEnabled) {
+    console.log("[button-bridge] printing disabled (BRIDGE_PRINT_ENABLED)");
+    return null;
+  }
+  const mockPrinter = config.mockPrinter
+    ? new MockPrinter(path.join(config.printSpoolDir, "mock-printed"), config.mockPrinter)
+    : null;
+  if (mockPrinter) {
+    console.log("[button-bridge] BRIDGE_MOCK_PRINTER enabled — using mock printer");
+  }
+  const spool = new PrintSpool({
+    dir: config.printSpoolDir,
+    printer: mockPrinter ?? new LpPrinter(config.printer),
+    retryBaseMs: config.printRetryBaseMs,
+    retryMaxMs: config.printRetryMaxMs,
+    statusIntervalMs: config.printStatusIntervalMs,
+    notPrintingAfterMs: config.printNotPrintingAfterMs,
+  });
+  const alerts = new AlertMonitor({
+    spool,
+    stateFile: path.join(config.printSpoolDir, "alerts-state.json"),
+    installationFile: path.join(config.printSpoolDir, "installation.json"),
+    host: os.hostname(),
+    timings: {
+      graceMs: config.alertGraceMs,
+      reminderMs: config.alertReminderMs,
+      openingReminderGapMs: config.alertOpeningReminderGapMs,
+    },
+    tickMs: config.alertTickMs,
+    venueRefreshMs: config.alertVenueRefreshMs,
+    deliveryRetryBaseMs: config.alertRetryBaseMs,
+    deliveryRetryMaxMs: config.alertRetryMaxMs,
+    testAlertIntervalMs: config.alertTestIntervalMs,
+  });
+  return { spool, mockPrinter, alerts };
+}
+
+function notifyNoClientIfSerialOpen(serial: SerialManagerLike, clientCount: number): void {
+  if (clientCount > 0 || !serial.isOpen()) return;
+  void serial.writeLine(LED_ERROR).catch((error: unknown) => {
+    const msg = error instanceof Error ? error.message : String(error);
+    console.warn("[button-bridge] failed to signal no-client error state", msg);
+  });
+}
+
 async function main(): Promise<void> {
   const config = loadConfig();
   const serial = createSerialManager(config);
-  const ws = new WsServer(config, serial);
+  const print = createPrintRuntime(config);
+  const alerts = print?.alerts;
+  // Rides on the alert setup: the same installation key and venue say where samples go.
+  const network = alerts
+    ? new NetworkMonitor({
+        target: () => alerts.target(),
+        host: os.hostname(),
+        sampleMs: config.networkSampleMs,
+        internetHost: config.networkInternetHost,
+      })
+    : null;
+  const powerButton = config.powerButtonShutdown ? new PowerButtonShutdown() : null;
+  const ws = new WsServer(
+    config,
+    serial,
+    (clientCount) => {
+      notifyNoClientIfSerialOpen(serial, clientCount);
+    },
+    print,
+  );
 
   serial.on("open", ({ path }) => {
     ws.broadcast({ type: "status", state: "connected", path });
+    notifyNoClientIfSerialOpen(serial, ws.getClientCount());
   });
 
   serial.on("close", ({ reason }) => {
@@ -33,12 +108,24 @@ async function main(): Promise<void> {
     console.error("[button-bridge/serial] error", message);
   });
 
+  // Before the server starts, so the first job is checked against what is already on disk.
+  // A spool that cannot start (unwritable folder) must not take the button down with it.
+  await print?.spool.start().catch((error: unknown) => {
+    console.error("[button-bridge/print] spool failed to start — printing unavailable", error);
+  });
+  await print?.alerts?.start();
+  network?.start();
   serial.start();
   ws.start();
+  powerButton?.start();
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[button-bridge] ${signal} — shutting down`);
+    powerButton?.stop();
+    await network?.stop();
     await serial.stop();
+    await print?.alerts?.stop();
+    await print?.spool.stop();
     await ws.stop();
     process.exit(0);
   };

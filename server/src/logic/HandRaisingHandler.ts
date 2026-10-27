@@ -1,6 +1,7 @@
 import type { Message } from "@shared/ModelTypes.js";
 import type { IHandRaisingContext } from "@interfaces/MeetingInterfaces.js";
 import { splitSentences } from "@shared/textUtils.js";
+import { isConcluding } from "@shared/meetingEnding.js";
 import { Logger } from "@utils/Logger.js";
 
 
@@ -37,11 +38,11 @@ export class HandRaisingHandler {
             return;
         }
 
-        // Once a meeting is concluding (closing line + summary_pending) or concluded (summary),
-        // it is finished — reject any raise-hand. Critical for correctness, not just UX: the
-        // slice() below would otherwise truncate the conclusion. The client hides the button too,
-        // but the server must not trust that.
-        if (m.conversation.some((msg) => msg.type === "summary_pending" || msg.type === "summary")) {
+        // Once a meeting is concluding (closing line + summary_pending or a letter's markers) or
+        // concluded (summary), it is finished — reject any raise-hand. Critical for correctness,
+        // not just UX: the slice() below would otherwise truncate the conclusion. The client hides
+        // the button too, but the server must not trust that.
+        if (isConcluding(m.conversation)) {
             Logger.staleEvent("handRaising", "raise_hand", "meeting is concluding/concluded", { from: manager });
             return;
         }

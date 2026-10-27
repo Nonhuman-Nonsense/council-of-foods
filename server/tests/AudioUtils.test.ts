@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 // Import the mergeAudioBuffers function directly to test it
 // We'll dynamically import the module to access the private function
 // Import directly from the new utility file
-import { AudioQueue, mergeAudioBuffers, splitTextForTts, prepareInworldTtsChunks } from '@root/src/logic/audio/AudioUtils.js';
+import { AudioQueue, mergeAudioBuffers, measureLoudness, normalizeLoudness, splitTextForTts, prepareInworldTtsChunks } from '@root/src/logic/audio/AudioUtils.js';
 import { Logger } from '@utils/Logger.js';
 
 // Mock music-metadata
@@ -188,3 +188,44 @@ describe('AudioUtils: FFmpeg Audio Merging', () => {
     });
 });
 
+
+describe('AudioUtils: normalizeLoudness', () => {
+    // A real speech clip at about -27.8 LUFS.
+    let speech: Buffer;
+    const target = { targetLufs: -18, skipBelowDb: 1.5, truePeakDb: -1.5 };
+
+    async function durationOf(buffer: Buffer): Promise<number> {
+        const { parseBuffer } = await vi.importActual<typeof import('music-metadata')>('music-metadata');
+        const metadata = await parseBuffer(buffer, { mimeType: 'audio/ogg', size: buffer.length }, { duration: true });
+        return metadata.format.duration ?? 0;
+    }
+
+    beforeEach(async () => {
+        speech = await fs.readFile(path.join(__dirname, 'fixtures', 'test-chunk-1.ogg'));
+    });
+
+    it.each([
+        { direction: 'raises a quiet message', targetLufs: -16 },
+        { direction: 'lowers a loud message', targetLufs: -36 },
+    ])('$direction to the target loudness without changing its length', async ({ targetLufs }) => {
+        const result = await normalizeLoudness(speech, { ...target, targetLufs });
+
+        expect(await measureLoudness(result.audio)).toBeCloseTo(targetLufs, 0);
+        expect(await durationOf(result.audio)).toBeCloseTo(await durationOf(speech), 1);
+    });
+
+    it('passes a message within the skip threshold through untouched', async () => {
+        const measured = (await measureLoudness(speech))!;
+        const result = await normalizeLoudness(speech, { ...target, targetLufs: measured + 1 });
+
+        expect(result.audio).toBe(speech);
+        expect(result.gainDb).toBe(0);
+    });
+
+    it('passes audio that is not OGG through untouched', async () => {
+        const notOgg = Buffer.from('not-a-real-codec-but-bytes');
+        const result = await normalizeLoudness(notOgg, target);
+
+        expect(result.audio).toBe(notOgg);
+    });
+});

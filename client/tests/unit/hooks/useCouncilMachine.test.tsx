@@ -1,7 +1,7 @@
 
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { useCouncilMachine } from '@council/hooks/useCouncilMachine';
+import { useCouncilMachine, CREDITS_PAUSE_MS } from '@council/hooks/useCouncilMachine';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
 import { usePendingIntentStore } from '@council/hooks/pendingIntentStore';
@@ -90,7 +90,7 @@ describe('useCouncilMachine', () => {
             isPaused: false,
             setPaused: vi.fn(),
             isMuseumMode: false,
-            agentMode: "off",
+            hasMetaAgent: false,
             setMetaAgentPhase: vi.fn(),
             metaAgentPhase: "inactive",
         };
@@ -144,6 +144,38 @@ describe('useCouncilMachine', () => {
 
         expect(result.current.state.councilState).toBe('playing');
         expect(result.current.state.playingNowIndex).toBe(0);
+        vi.useRealTimers();
+    });
+
+    it('holds in the pause between messages while the meta agent has the floor', async () => {
+        vi.useFakeTimers();
+        const { result, rerender } = renderHook(
+            (props: any) => useCouncilMachine(props),
+            { initialProps: { ...defaultProps, currentMeetingId: 1 } },
+        );
+
+        audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+        await act(async () => {
+            socketHandlers.onConversationUpdate?.([
+                { id: 'msg1', text: 'Hello', speaker: 'banana', type: 'message' },
+                { id: 'msg2', text: 'Hi', speaker: 'tomato', type: 'message' },
+            ]);
+            socketHandlers.onAudioUpdate?.({ id: 'msg1', audio: new ArrayBuffer(8) });
+            socketHandlers.onAudioUpdate?.({ id: 'msg2', audio: new ArrayBuffer(8) });
+        });
+        act(() => { vi.advanceTimersByTime(10); });
+        act(() => { result.current.actions.handleOnFinishedPlaying(); });
+        expect(result.current.state.councilState).toBe('waiting');
+
+        rerender({ ...defaultProps, currentMeetingId: 1, metaAgentPhase: 'interruption' });
+        act(() => { vi.advanceTimersByTime(5000); });
+        expect(result.current.state.councilState).toBe('waiting');
+        expect(result.current.state.playingNowIndex).toBe(0);
+
+        rerender({ ...defaultProps, currentMeetingId: 1, metaAgentPhase: 'inactive' });
+        act(() => { vi.advanceTimersByTime(1000); });
+        expect(result.current.state.councilState).toBe('playing');
+        expect(result.current.state.playingNowIndex).toBe(1);
         vi.useRealTimers();
     });
 
@@ -356,7 +388,7 @@ describe('useCouncilMachine', () => {
             const setPaused = vi.fn();
             before();
 
-            const props = { ...defaultProps, isPaused: true, isMuseumMode: museum, setPaused };
+            const props = { ...defaultProps, isPaused: true, selfHealing: museum, setPaused };
             const { rerender } = renderHook((p) => useCouncilMachine(p), { initialProps: props });
 
             setPaused.mockClear();
@@ -381,7 +413,7 @@ describe('useCouncilMachine', () => {
                     initialProps: {
                         ...defaultProps,
                         isPaused: true,
-                        isMuseumMode: true,
+                        selfHealing: true,
                         setPaused,
                     },
                 },
@@ -392,7 +424,7 @@ describe('useCouncilMachine', () => {
             rerender({
                 ...defaultProps,
                 isPaused: true,
-                isMuseumMode: true,
+                selfHealing: true,
                 setPaused,
             });
             expect(setPaused).not.toHaveBeenCalledWith(false);
@@ -402,7 +434,7 @@ describe('useCouncilMachine', () => {
             rerender({
                 ...defaultProps,
                 isPaused: true,
-                isMuseumMode: true,
+                selfHealing: true,
                 setPaused,
             });
             expect(setPaused).toHaveBeenCalledWith(false);
@@ -441,7 +473,7 @@ describe('useCouncilMachine', () => {
                     initialProps: {
                         ...defaultProps,
                         isPaused: false,
-                        isMuseumMode: true,
+                        selfHealing: true,
                         setPaused,
                     },
                 },
@@ -459,7 +491,7 @@ describe('useCouncilMachine', () => {
             rerender({
                 ...defaultProps,
                 isPaused: true,
-                isMuseumMode: true,
+                selfHealing: true,
                 setPaused,
             });
 
@@ -474,7 +506,7 @@ describe('useCouncilMachine', () => {
                     initialProps: {
                         ...defaultProps,
                         isPaused: false,
-                        isMuseumMode: true,
+                        selfHealing: true,
                         setPaused,
                     },
                 },
@@ -492,13 +524,13 @@ describe('useCouncilMachine', () => {
             rerender({
                 ...defaultProps,
                 isPaused: true,
-                isMuseumMode: true,
+                selfHealing: true,
                 setPaused,
             });
             rerender({
                 ...defaultProps,
                 isPaused: true,
-                isMuseumMode: true,
+                selfHealing: true,
                 setPaused,
             });
 
@@ -697,14 +729,14 @@ describe('useCouncilMachine', () => {
         expect(defaultProps.setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
-    it('museum mode with ptt activates meta-agent extension instead of query_extension overlay', () => {
+    it('the meta agent takes the extension question instead of the query_extension overlay', () => {
         const setMetaAgentPhase = vi.fn();
 
         const { result } = renderHook(() =>
             useCouncilMachine({
                 ...defaultProps,
-                isMuseumMode: true,
-                agentMode: "ptt",
+                selfHealing: true,
+                hasMetaAgent: true,
                 setMetaAgentPhase,
             } as any),
         );
@@ -720,14 +752,14 @@ describe('useCouncilMachine', () => {
         expect(setMetaAgentPhase).toHaveBeenCalledWith('extension');
     });
 
-    it('museum mode without ptt uses query_extension overlay', () => {
+    it('without a meta agent the query_extension overlay is used', () => {
         const setMetaAgentPhase = vi.fn();
 
         const { result } = renderHook(() =>
             useCouncilMachine({
                 ...defaultProps,
-                isMuseumMode: true,
-                agentMode: "always-on",
+                selfHealing: true,
+                hasMetaAgent: false,
                 setMetaAgentPhase,
             } as any),
         );
@@ -829,6 +861,41 @@ describe('useCouncilMachine', () => {
         // Next action calculation should transition back to loading or appropriate state
         // If textMessages is empty, tryToFind will fail -> loading
         expect(result.current.state.councilState).toBe('loading');
+    });
+
+    describe('submitted human input is not read back', () => {
+        it.each([
+            ['question', { type: 'awaiting_human_question' }, 'human'],
+            ['panelist', { type: 'awaiting_human_panelist', speaker: 'human-panelist-1' }, 'panelist'],
+            ['letter addition', { type: 'awaiting_letter_addition', speaker: 'Frank', text: '' }, 'human'],
+        ])('%s: plays the reply next, and the input when navigated back to', async (_mode, awaiting, echoType) => {
+            vi.useFakeTimers();
+            try {
+                const { result } = renderHook(() => useCouncilMachine(defaultProps as any));
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                act(() => { vi.advanceTimersByTime(10); });
+
+                act(() => { socketHandlers.onConversationUpdate?.([awaiting]); });
+                act(() => { result.current.actions.handleOnSubmitHumanMessage('My words'); });
+
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'echo', type: echoType, speaker: 'Frank', text: 'Frank said: My words' },
+                        { id: 'reply', type: 'message', speaker: 'banana', text: 'Indeed.' },
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'echo', audio: new ArrayBuffer(8) });
+                    socketHandlers.onAudioUpdate?.({ id: 'reply', audio: new ArrayBuffer(8) });
+                });
+
+                expect(result.current.state.councilState).toBe('playing');
+                expect(result.current.state.playingNowIndex).toBe(1);
+
+                act(() => { result.current.actions.handleOnSkipBackward(); });
+                expect(result.current.state.playingNowIndex).toBe(0);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
     });
 
     it('skips human panelist turn on abandon', () => {
@@ -1531,6 +1598,108 @@ describe('useCouncilMachine', () => {
                 ]);
             });
             expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Hello world' });
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+    });
+
+    describe('letter addition (a meeting ending in a letter)', () => {
+        const marker = { type: 'awaiting_letter_addition', speaker: 'Frank', text: '' };
+        const letterSummary = {
+            id: 'letter-1', type: 'summary', speaker: 'reindeer', text: 'Dear Skogsstyrelsen …', sentences: [],
+            letter: {
+                authorId: 'reindeer', authorName: 'Reindeer', recipientName: 'Skogsstyrelsen', recipientOrganisation: null,
+                subject: 'Three weeks', body: 'Dear Skogsstyrelsen …', humanNote: null, footer: 'Footer',
+                present: false, send: false, sendReason: 'the human did not answer',
+            },
+        };
+        const render = () => renderHook(() =>
+            useCouncilMachine({ ...defaultProps, currentMeetingId: 1, humanName: 'Frank' } as any),
+        );
+
+        it('asks the human through the usual human input, and submits their words as a letter addition', () => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+            expect(result.current.state.councilState).toBe('human_input');
+
+            act(() => { result.current.actions.handleOnSubmitHumanMessage('Please listen.'); });
+
+            expect(mockSocketEmit).toHaveBeenCalledTimes(1);
+            expect(mockSocketEmit).toHaveBeenCalledWith('submit_human_message', { text: 'Please listen.' });
+            expect(result.current.state.textMessages).toEqual([]);
+            expect(result.current.state.councilState).toBe('loading');
+            expect(usePendingIntentStore.getState().intent).toBeNull();
+        });
+
+        it('reaches the letter after a skip: the letter arrives where the marker was', () => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+
+            act(() => { result.current.actions.handleOnAbandonHumanTurn(); });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith('skip_human_turn');
+            expect(result.current.state.textMessages).toEqual([]); // no local "skipped" placeholder to step past
+            act(() => { socketHandlers.onConversationUpdate?.([letterSummary]); });
+            expect(result.current.state.councilState).toBe('summary');
+        });
+
+        it.each([
+            ['the credits, where the installation prints its letters', [{ type: 'credits' }, letterSummary], 'credits'],
+            ['the letter, elsewhere', [letterSummary], 'summary'],
+        ])('ends on %s', (_label, ending, shown) => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.(ending); });
+
+            expect(result.current.state.councilState).toBe('summary');
+            expect(result.current.state.visibleOverlay).toBe('summary');
+            expect(result.current.state.summary?.type).toBe(shown);
+        });
+
+        it('pauses after the farewell before the credits open', async () => {
+            vi.useFakeTimers();
+            try {
+                const { result } = render();
+                audioContextMock.current.decodeAudioData.mockResolvedValue('fake-buffer');
+                act(() => { vi.advanceTimersByTime(10); });
+                await act(async () => {
+                    socketHandlers.onConversationUpdate?.([
+                        { id: 'farewell', type: 'letter_farewell', speaker: 'river', text: 'Thank you.' },
+                        { type: 'credits' },
+                        letterSummary,
+                    ]);
+                    socketHandlers.onAudioUpdate?.({ id: 'farewell', audio: new ArrayBuffer(8) });
+                });
+                expect(result.current.state.councilState).toBe('playing');
+
+                act(() => { result.current.actions.handleOnFinishedPlaying(); });
+                act(() => { vi.advanceTimersByTime(CREDITS_PAUSE_MS - 100); });
+                expect(result.current.state.councilState).toBe('waiting');
+
+                act(() => { vi.advanceTimersByTime(100); });
+                expect(result.current.state.councilState).toBe('summary');
+                expect(result.current.state.summary?.type).toBe('credits');
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it.each([
+            ['submit', 'submit_human_message', { text: 'Please listen.' }],
+            ['skip', 'skip_human_turn', undefined],
+        ] as const)('retries a %s lost to a disconnect once the resumed meeting still asks', (action, event, payload) => {
+            const { result } = render();
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+            act(() => { socketHandlers.simulateReconnect(); });
+
+            act(() => {
+                if (action === 'submit') result.current.actions.handleOnSubmitHumanMessage('Please listen.');
+                else result.current.actions.handleOnAbandonHumanTurn();
+            });
+            expect(usePendingIntentStore.getState().intent).toMatchObject({ mode: 'letter' });
+            mockSocketEmit.mockClear();
+
+            act(() => { socketHandlers.onConversationUpdate?.([marker]); });
+
+            expect(mockSocketEmit).toHaveBeenCalledWith(event, ...(payload ? [payload] : []));
             expect(usePendingIntentStore.getState().intent).toBeNull();
         });
     });

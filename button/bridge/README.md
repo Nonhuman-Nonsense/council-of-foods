@@ -102,7 +102,7 @@ curl http://127.0.0.1:8765/health
 
 ## Museum Mac install (persistent)
 
-Apple Silicon (arm64) only. Node 20+ must be installed once on the Mac.
+Apple Silicon (arm64) only. Node 24+ must be installed once on the Mac.
 
 ### From GitHub Release (recommended — no git clone)
 
@@ -135,6 +135,41 @@ sudo button/bridge/install/macos/install.sh --rebuild
 
 If `dist/` is already built, `install.sh` skips the build step.
 
+The installer also sets up printing:
+
+- It creates the spool at `/usr/local/lib/council-button-bridge/print`, next to the bridge
+  code, writable by staff, and passes it to the daemon as `BRIDGE_PRINT_SPOOL_DIR`.
+  Reinstalling or updating replaces the code but keeps `print/`.
+- It puts a **Council Print** shortcut to the spool on the logged-in user's Desktop. The
+  folder isn't on the Desktop itself, because macOS privacy protection can block the root
+  daemon from writing there.
+- It makes sure there is a **system-wide** default printer. The daemon runs as root, and
+  choosing a default in System Settings → Printers & Scanners only sets it for the
+  logged-in user (`~/.cups/lpoptions`), so `lp` in the daemon sees none. When only the
+  installing user has a default, the installer makes it the system-wide one with
+  `sudo lpadmin -d <printer>`, and says so.
+- It sets `printer-error-policy=retry-job` on that printer, so CUPS doesn't leave the
+  queue stopped after paper out or a jam. With no default printer at all it warns, and
+  jobs wait in `pending/` until one is set and the installer is re-run (or
+  `sudo lpadmin -d <printer>` is run; `lpstat -e` lists the printers).
+
+The installer also gives a desktop Mac (no battery: Mac mini, Studio, iMac) a power button
+that shuts it down properly, for a Mac with no mouse or keyboard. macOS on its own can only
+sleep, or ask in a dialog nobody can click. The installer stops the button sleeping the Mac
+(`PowerButtonSleepsSystem` off, fully in effect from the next login), and the daemon watches
+the kernel log for the press and runs `shutdown -h now`. A laptop's power button is its
+Touch ID and lock button, so laptops keep macOS's own. To choose yourself, install with
+`COUNCIL_POWER_BUTTON_SHUTDOWN=1` or `=0` (with the release install:
+`curl … | sudo COUNCIL_POWER_BUTTON_SHUTDOWN=0 bash`). Uninstalling gives the button back to
+macOS.
+
+The press is noticed by a kernel log line, not an API, so a macOS update could reword it.
+The button would then show the dialog again instead of shutting down. Press it once after
+every macOS update.
+
+There is nothing else to configure. The council server and its installation key come from
+the `#staff` page (see [Alert emails](#alert-emails)).
+
 ### Uninstall
 
 From a git checkout:
@@ -154,6 +189,9 @@ Add `--purge-logs` to remove log files too:
 ```bash
 curl -fsSL .../uninstall-release.sh | sudo bash -s -- --purge-logs
 ```
+
+Uninstalling removes everything, including the Desktop shortcut and the printed protocols in
+`/usr/local/lib/council-button-bridge/print`.
 
 Logs: `/var/log/council-button-bridge.log`
 
@@ -187,6 +225,9 @@ button/bridge/install/macos/smoke-bundle.sh
 
 ## Environment variables
 
+An installed bridge needs none of these set by hand: the installer writes the address, port
+and spool folder, and everything else has a working default. They exist for development.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `BUTTON_BRIDGE_HOST` | `127.0.0.1` | Bind address |
@@ -197,6 +238,122 @@ button/bridge/install/macos/smoke-bundle.sh
 | `BUTTON_SERIAL_VENDOR_ID` | `2341` | Arduino USB vendor (Council button board) |
 | `BUTTON_MOCK_SERIAL` | `0` | `1` = mock device (no USB) |
 | `BUTTON_BAUD_RATE` | `115200` | Match Arduino firmware |
+| `BRIDGE_PRINT_ENABLED` | `1` | `0` = refuse print jobs |
+| `BRIDGE_PRINT_SPOOL_DIR` | `./.print-spool` | Folder holding `pending/` and `done/` |
+| `BRIDGE_PRINTER` | system default | CUPS queue name to print to |
+| `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer; or start it in a mode: `fail`, `paper-out`, `stuck` |
+| `BRIDGE_POWER_BUTTON_SHUTDOWN` | `0` | `1` = shut the Mac down when its power button is pressed (needs root; the installer sets it on desktop Macs) |
+
+## Printing
+
+The museum app prints each live meeting's protocol by posting the PDF to the bridge:
+
+```
+POST /v1/print?meetingId=42      Content-Type: application/pdf, body = PDF bytes
+POST /v1/print?test=1            staff test page: never a duplicate
+→ 202 {"status":"queued"} · 200 {"status":"duplicate"} · 400 · 403 · 413 · 503 (printing off)
+```
+
+Jobs go through a folder spool, so printing survives crashes, reboots and a printer that is off:
+
+- The PDF is written to `pending/<host>_<meetingId>.pdf`, where `<host>` is the page's host.
+- A worker prints one job at a time with `lp -o media=A4` and moves it to `done/` (kept forever).
+- A job `lp` refuses stays in `pending/` and is retried with backoff (5 s up to 5 min) until it prints.
+- Anything in `pending/` is printed when the bridge starts, or within 5 s of being copied
+  there. To reprint a protocol, copy it from `done/` back into `pending/`.
+- A key already in `pending/` or `done/` is never printed again, so client retries are safe.
+
+`/health` includes a `print` block: the printer (`name`, `state`, CUPS `alerts`, and the jobs
+still in its queue, `queuedJobs`/`oldestJobAt`), the `pending` count, `lastError`,
+`lastPrintedAt`, and `attention`.
+
+`attention` (`{ reason, since }` or `null`) says the printer needs someone to look at it. It
+comes from `src/printAttention.ts` and is re-checked every 5 s:
+
+- A CUPS error the printer reports (`media-empty`, `media-jam`, `door-open`…), with the
+  `-error`/`-report` suffix removed. Warnings such as low toner don't count. `offline`
+  only counts while something is waiting to print, so a printer switched off overnight
+  is fine.
+- `stopped`: the print queue is paused.
+- `not-printing`: a protocol has waited 10 minutes, in `pending/` or in the printer's
+  queue, whatever the printer says. Many USB printers never report being out of paper.
+- `no-printer`: there's no system-wide default printer (see the installer above).
+
+The wording for each reason is in `shared/printerReasons.ts`.
+
+`lp` succeeding means CUPS accepted the job, not that paper came out. After that CUPS holds
+the job, and by default it stops the whole queue on a printer error.
+
+### Alert emails
+
+The bridge decides **when** museum staff should hear about `attention`; the council server
+decides **who** and sends the email (see `server/README.md`). Nothing here holds an address.
+
+- `src/printAlerts.ts` holds the rules: 2 min grace, a new email when the reason changes,
+  reminders every 4 h (only while the venue is open, plus one at opening), and "resolved"
+  after 2 min fixed (the server passes that to errorbot only, not staff). A problem that
+  clears before staff were told sends nothing.
+- `src/alertMonitor.ts` runs them every 30 s and posts to `/api/installation/printer-alerts`
+  with `X-Installation-Key`, retrying with backoff (30 s up to 10 min) if the server is
+  unreachable. Only the newest undelivered alert is kept. The venue and state are saved in
+  `print/alerts-state.json`, so restarts don't resend.
+- **The server and key come from the staff page.** Staff paste the council server's
+  `COUNCIL_INSTALLATION_KEY` on `#staff`. The bridge takes the server to be the page's own
+  origin, checks the key against it, and saves both in `print/installation.json` (mode 600,
+  so root only). Requests from another server's page are then refused, and saving a key for
+  a different server clears the venue.
+- Staff page endpoints (same origin rules as `/v1/print`):
+  - `PUT /v1/installation/key {"key": "…" | null}`: from a page only (it needs the origin);
+    saved once the server accepts it, `null` forgets it. Never read back.
+  - `GET /v1/installation/venues`: `{ venues, current }` from the server, addresses masked
+  - `PUT /v1/installation/venue {"venueId": "…" | null}`: only listed venues
+  - `POST /v1/alerts/test`: test alert to the chosen venue, once a minute
+- `/health` has an `alerts` block: `server` (where the key was saved for), `venue`, `open`,
+  `phase`, `lastSentAt`, `lastError`, `undelivered`. It never includes the key.
+
+In development it works the same way: open `#staff` on the local client (`http://localhost:5173`,
+which passes `/api` on to the local server) and paste `COUNCIL_INSTALLATION_KEY` from `server/.env`.
+
+### Network samples
+
+`src/networkMonitor.ts` samples the Mac's network every minute, once the installation key and
+venue are set: `route -n get default` for the router and interface, 5 pings each to the
+router and to `BRIDGE_NETWORK_INTERNET_HOST` (default `1.1.1.1`), one timed
+`GET /api/installation/venues`, `netstat -I` error counters (as a difference from the
+previous sample) and the link from `ifconfig`. Samples go to `/api/installation/network`, at
+most 200 per request. While the server can't be reached they are kept in memory, a day at
+most; a restart loses them. Samples the server refuses (4xx) are dropped, not retried.
+
+The server stores them and reports outages to errorbot; see
+[MUSEUM.md](../../MUSEUM.md#network-log).
+
+### Developing without a printer
+
+`npm run dev:mock` also runs the mock printer: "printed" PDFs are copied to
+`.print-spool/mock-printed/` so you can open them. To exercise the endpoint and a printer
+outage by hand. The modes are `fail` (lp refuses jobs), `paper-out` (jobs wait and the
+printer reports `media-empty-error`), `stuck` (jobs wait and the printer reports nothing) and
+`ok` (waiting jobs print):
+
+```bash
+curl -X POST -H 'Content-Type: application/pdf' --data-binary @protocol.pdf \
+  'http://127.0.0.1:8765/v1/print?meetingId=42'
+curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"fail"}'   # jobs pile up in pending/
+curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"paper-out"}'  # jobs wait in the printer
+curl -X POST http://127.0.0.1:8765/v1/test/printer -d '{"mode":"ok"}'     # they print
+```
+
+To test real `lp`/`lpstat` without paper, add a fake network printer that `nc` listens for.
+Don't test against a real printer queue that happens to be disconnected: its jobs wait in CUPS
+and come out the next time it's plugged in.
+
+```bash
+sudo lpadmin -p CouncilFake -E -v socket://127.0.0.1:9100 -o printer-error-policy=retry-job \
+  -P /System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/PrintCore.framework/Versions/A/Resources/Generic.ppd
+nc -l 9100 > /tmp/printed.ps          # the "printer"; stop nc to switch it off
+BRIDGE_PRINTER=CouncilFake BUTTON_MOCK_SERIAL=1 npm run dev
+sudo lpadmin -x CouncilFake           # clean up
+```
 
 ## Wire protocol
 
@@ -213,12 +370,20 @@ button/bridge/install/macos/smoke-bundle.sh
 { "type": "write", "line": "LED_PULSE" }
 ```
 
+**Bridge → Arduino (self-initiated, no browser involved)**
+
+Whenever the serial device is open but zero browsers are connected over `/v1/button`
+(e.g. blocked by a browser's local-network permission), the bridge writes `LED_ERROR`
+directly to the Arduino. It's cleared automatically the moment a browser client
+connects and resyncs its LED mode — no bridge-side "revert" logic needed.
+
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Bridge: Not running | Daemon not started | `npm run dev` or `install.sh` |
 | Bridge running, Serial disconnected | USB unplugged or wrong port | Replug; set `BUTTON_SERIAL_PATH` |
-| LED cycles one-at-a-time | No serial host | Bridge not connected to device |
+| LED cycles one-at-a-time (fast, ~1s/light) | No serial host | Bridge not connected to device |
+| LED cycles one-at-a-time (slow, ~3s/light) | Serial connected, no browser client | Browser can't reach bridge (e.g. blocked local-network permission); check bridge WS URL/CORS |
 | Tests fail | Bridge code regressed or port conflict | Run `npm run stop`, then `npm test` |
 | Port busy | Arduino IDE Serial Monitor open | Close Serial Monitor |

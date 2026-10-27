@@ -39,31 +39,49 @@ describe("parseAutoplayLanguageQuery", () => {
 });
 
 describe("getAutoplayMeeting", () => {
+    const baseMatch = {
+        meetingComplete: true,
+        date: { $gte: "2025-01-01T00:00:00.000Z" },
+        audio: { $exists: true, $not: { $size: 0 } },
+        language: "en",
+    };
+
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it("returns a meeting id when aggregation samples a meetingComplete row", async () => {
-        mockAggregateToArray.mockResolvedValue([{ _id: 42 }]);
+    it.each([
+        {
+            name: "without a venue, samples every venue's meetings",
+            venueId: undefined,
+            samples: [[{ _id: 42 }]],
+            expectedMatches: [baseMatch],
+        },
+        {
+            name: "with a venue, samples that venue's meetings",
+            venueId: "havremagasinet",
+            samples: [[{ _id: 42 }]],
+            expectedMatches: [{ ...baseMatch, venueId: "havremagasinet" }],
+        },
+        {
+            name: "with a venue that has none, falls back to every venue's meetings",
+            venueId: "havremagasinet",
+            samples: [[], [{ _id: 42 }]],
+            expectedMatches: [{ ...baseMatch, venueId: "havremagasinet" }, baseMatch],
+        },
+    ])("$name", async ({ venueId, samples, expectedMatches }) => {
+        for (const sample of samples) mockAggregateToArray.mockResolvedValueOnce(sample);
 
-        await expect(getAutoplayMeeting("en")).resolves.toEqual({ meetingId: 42 });
+        await expect(getAutoplayMeeting("en", venueId)).resolves.toEqual({ meetingId: 42 });
 
-        expect(mockAggregate).toHaveBeenCalledWith([
-            {
-                $match: {
-                    meetingComplete: true,
-                    date: { $gte: "2025-01-01T00:00:00.000Z" },
-                    audio: { $exists: true, $not: { $size: 0 } },
-                    language: "en",
-                },
-            },
-            { $sample: { size: 1 } },
-        ]);
+        expect(mockAggregate.mock.calls).toEqual(
+            expectedMatches.map((match) => [[{ $match: match }, { $sample: { size: 1 } }]]),
+        );
     });
 
-    it("throws NotFoundError when the aggregation pipeline returns no candidates", async () => {
+    it("throws NotFoundError when no meeting matches, even at every venue", async () => {
         mockAggregateToArray.mockResolvedValue([]);
 
-        await expect(getAutoplayMeeting("en")).rejects.toBeInstanceOf(NotFoundError);
+        await expect(getAutoplayMeeting("en", "havremagasinet")).rejects.toBeInstanceOf(NotFoundError);
     });
 });

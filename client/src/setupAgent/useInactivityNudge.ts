@@ -9,6 +9,19 @@ type UseInactivityNudgeParams = {
   delayMs: number;
   enabled: boolean;
   onNudgeFired?: () => void;
+  /**
+   * Opaque value that changes whenever the visitor does something the hook
+   * can't otherwise observe — e.g. typing in a text field, which touches
+   * neither `agentSpeaking` nor `lastUserTranscript`. Any change resets the
+   * countdown, same as a transcript change. Compared by reference/value each
+   * render, so a fresh object each time (like a click-event record) works.
+   */
+  lastActivity?: unknown;
+  /**
+   * The visitor is holding the talk button. Never nudge someone mid-sentence: no
+   * countdown runs while it is held, and letting go starts it afresh.
+   */
+  visitorTalking?: boolean;
 };
 
 /**
@@ -17,7 +30,8 @@ type UseInactivityNudgeParams = {
  *
  * Timer starts when `agentSpeaking` is false (audio ended).
  * Timer clears when `agentSpeaking` is true (agent speaking again).
- * Timer resets when `lastUserTranscript` changes (visitor spoke).
+ * Timer resets when `lastUserTranscript` changes (visitor spoke) or
+ * `lastActivity` changes (visitor did something else, e.g. typing).
  *
  * Does nothing until the agent has spoken at least once.
  */
@@ -30,6 +44,8 @@ export function useInactivityNudge({
   delayMs,
   enabled,
   onNudgeFired,
+  lastActivity,
+  visitorTalking = false,
 }: UseInactivityNudgeParams): void {
   const agentHasSpokenRef = useRef(false);
   const sendMessageRef = useRef(sendMessage);
@@ -58,7 +74,7 @@ export function useInactivityNudge({
   // Re-runs (and resets the countdown) whenever agentSpeaking or
   // lastUserTranscript changes.
   useEffect(() => {
-    if (!enabled || !agentHasSpokenRef.current || agentSpeaking) return;
+    if (!enabled || !agentHasSpokenRef.current || agentSpeaking || visitorTalking) return;
 
     const id = setTimeout(() => {
       onNudgeFiredRef.current?.();
@@ -66,6 +82,6 @@ export function useInactivityNudge({
       requestResponseRef.current();
     }, delayMs);
     return () => clearTimeout(id);
-   
-  }, [agentSpeaking, lastUserTranscript, enabled, delayMs]);
+
+  }, [agentSpeaking, lastUserTranscript, enabled, delayMs, lastActivity, visitorTalking]);
 }

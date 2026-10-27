@@ -64,7 +64,7 @@ describe('MeetingManager - Concurrency & Isolation', () => {
         expect(p1.manager.meeting.topic.title).toBe('Topic 1');
         expect(p2.manager.meeting.topic.title).toBe('Topic 2');
 
-        vi.spyOn(p1.manager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
+        vi.spyOn(p1.manager.dialogGenerator, 'generateResponse').mockResolvedValue({
             response: "P1 Response", id: "msg_p1", sentences: []
         });
 
@@ -119,13 +119,13 @@ describe('MeetingManager - Concurrency & Isolation', () => {
         vi.spyOn(p2.manager.audioSystem, 'queueAudioGeneration').mockImplementation(() => { });
 
         // M1 is going to take 100ms to generate
-        vi.spyOn(p1.manager.dialogGenerator, 'generateTextFromGPT').mockImplementation(async () => {
+        vi.spyOn(p1.manager.dialogGenerator, 'generateResponse').mockImplementation(async () => {
             await delay(100);
             return { response: "Slow Response", id: "m1", sentences: [] };
         });
 
         // M2 is instant
-        vi.spyOn(p2.manager.dialogGenerator, 'generateTextFromGPT').mockResolvedValue({
+        vi.spyOn(p2.manager.dialogGenerator, 'generateResponse').mockResolvedValue({
             response: "Fast Response", id: "m2", sentences: []
         });
 

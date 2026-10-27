@@ -27,6 +27,11 @@ interface SelectTopicProps {
   onContinueForward: (selectedTopic: Topic) => void;
   onPreviewTopic?: (topicId: string, topicTitle: string) => void;
   onCommitTopic?: (selectedTopic: Topic) => void;
+  /**
+   * Every keystroke in the custom topic box, carrying the text as it now
+   * stands — the reaction is debounced downstream, so this stays raw.
+   */
+  onCustomTopicTyped?: (text: string) => void;
   currentTopic?: Topic;
   onReset?: (resetTopic: Topic) => void;
   onCancel?: () => void;
@@ -36,6 +41,7 @@ function SelectTopic({
   onContinueForward,
   onPreviewTopic,
   onCommitTopic,
+  onCustomTopicTyped,
   currentTopic,
   onReset,
   onCancel,
@@ -45,7 +51,7 @@ function SelectTopic({
     customTopic, setCustomTopic,
   } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
   const topicTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -84,6 +90,9 @@ function SelectTopic({
     const newTopic = e.target.value;
     const capitalizedTopic = capitalizeFirstLetter(newTopic).substring(0, 300);
     setCustomTopic(capitalizedTopic);
+    // The processed value, not the raw keystroke: what's on screen is what
+    // the agent should be told about.
+    onCustomTopicTyped?.(capitalizedTopic);
   }
 
   function proceedForward(): void {
@@ -140,6 +149,10 @@ function SelectTopic({
   const standardTopics = topicsBundle.topics;
   const isSingleColumn = standardTopics.length <= 6;
 
+
+  // Asilomar's topic descriptions run to three sentences, so the slot is taller than main's.
+  const detailSlotHeight = isMobile ? (isMobileXs ? "65px" : "80px") : "100px";
+
   const containerStyle: React.CSSProperties = {
     width: "96vw",
     maxWidth: "1100px",
@@ -147,6 +160,7 @@ function SelectTopic({
     flexDirection: "column",
     justifyContent: "flex-start",
     alignItems: "center",
+    marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "40px",
   };
 
   const gridContainerStyle: React.CSSProperties = {
@@ -173,7 +187,7 @@ function SelectTopic({
     marginTop: isMobile ? "9px" : "15px",
     marginBottom: 0,
     width: isMobile ? "80%" : "70%",
-    height: showTextBox() ? "0" : isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
+    height: showTextBox() ? "0" : detailSlotHeight,
     overflow: "hidden"
   };
 
@@ -188,7 +202,8 @@ function SelectTopic({
     resize: "none",
     padding: "0",
     margin: "0",
-    height: isMobile ? (isMobileXs ? "65px" : "80px") : "100px",
+    height: detailSlotHeight,
+    overflowY: "auto",
     display: showTextBox() ? "" : "none",
   };
 
@@ -276,14 +291,14 @@ function SelectTopic({
           <textarea
             ref={topicTextareaRef}
             className="unfocused topic-textarea"
-            rows={3}
+            rows={2}
             value={customTopic}
             placeholder={t('meeting.customTopicPlaceholder')}
             onChange={handleInputTopic}
             style={textBoxStyle}
           />
 
-          {!isMuseumMode ? (
+          {capabilities.browserUi ? (
             <button
               onClick={proceedForward}
               style={{ visibility: shouldShowNextButton ? undefined : "hidden" }}

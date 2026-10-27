@@ -1,21 +1,25 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEV_LOG_CATEGORIES, type LogCategory } from "@/logger";
+import { capabilitiesFor, type Capabilities } from "./capabilities";
 
 export { DEV_LOG_CATEGORIES, type LogCategory };
+export { capabilitiesFor, type Capabilities };
 
 export const APP_MODE_STORAGE_KEY = "councilAppMode";
 
 export const APP_MODE_CHANGE_EVENT = "council-app-mode-change";
 
-export type AppMode = "web" | "museum";
+export const APP_MODES = ["web", "museum", "presenter"] as const;
 
-export const AGENT_MODE_STORAGE_KEY = "councilAgentMode";
+export type AppMode = (typeof APP_MODES)[number];
 
-export const AGENT_MODE_CHANGE_EVENT = "council-agent-mode-change";
-
-export type AgentMode = "off" | "always-on" | "ptt";
-
-const AGENT_MODES: readonly AgentMode[] = ["off", "always-on", "ptt"];
+/**
+ * The non-web mode the escape hatch returns to. Museum and presenter are both
+ * installations, so the top-left staff target toggles web ↔ whichever of them
+ * was last chosen rather than cycling through all three: the control exists to
+ * drop out to web and come back, not to browse modes.
+ */
+export const LAST_INSTALLATION_MODE_STORAGE_KEY = "councilLastInstallationMode";
 
 export const DEV_LOG_ENABLED_KEY = "councilDevLogEnabled";
 
@@ -27,61 +31,95 @@ export const PTT_HARDWARE_ENABLED_KEY = "councilPttHardwareEnabled";
 
 export const PTT_HARDWARE_CHANGE_EVENT = "council-ptt-hardware-change";
 
-export const MUSEUM_SWITCH_BUTTON_ENABLED_KEY = "councilMuseumSwitchButtonEnabled";
+export const PRINT_SUMMARIES_ENABLED_KEY = "councilPrintSummariesEnabled";
 
-export const MUSEUM_SWITCH_BUTTON_CHANGE_EVENT = "council-museum-switch-button-change";
+export const PRINT_SUMMARIES_CHANGE_EVENT = "council-print-summaries-change";
 
-const LEGACY_ESCAPE_HATCH_ENABLED_KEY = "councilEscapeHatchEnabled";
+export const SPLIT_AUDIO_ENABLED_KEY = "councilSplitAudioEnabled";
+
+export const SPLIT_AUDIO_CHANGE_EVENT = "council-split-audio-change";
+
+export const SIDETONE_LEVEL_KEY = "councilSidetoneLevel";
+
+export const SIDETONE_LEVEL_CHANGE_EVENT = "council-sidetone-level-change";
+
+export const VENUE_ID_KEY = "councilVenueId";
+
+export const MODE_SWITCH_BUTTON_ENABLED_KEY = "councilModeSwitchButtonEnabled";
+
+export const MODE_SWITCH_BUTTON_CHANGE_EVENT = "council-mode-switch-button-change";
+
+function parseAppMode(value: string | null): AppMode {
+  return (APP_MODES as readonly string[]).includes(value ?? "") ? (value as AppMode) : "web";
+}
 
 export function getAppMode(): AppMode {
   try {
-    return localStorage.getItem(APP_MODE_STORAGE_KEY) === "museum" ? "museum" : "web";
+    return parseAppMode(localStorage.getItem(APP_MODE_STORAGE_KEY));
   } catch {
     return "web";
   }
 }
 
+/** Installation mode the escape hatch switches into. Museum until staff pick otherwise. */
+export function getLastInstallationMode(): Exclude<AppMode, "web"> {
+  try {
+    const stored = parseAppMode(localStorage.getItem(LAST_INSTALLATION_MODE_STORAGE_KEY));
+    return stored === "web" ? "museum" : stored;
+  } catch {
+    return "museum";
+  }
+}
+
+/** Capabilities outside React — same source of truth as the hook. */
+export function getCapabilities(): Capabilities {
+  return capabilitiesFor(getAppMode());
+}
+
 export function setAppMode(mode: AppMode): void {
   try {
     localStorage.setItem(APP_MODE_STORAGE_KEY, mode);
+    if (mode !== "web") {
+      localStorage.setItem(LAST_INSTALLATION_MODE_STORAGE_KEY, mode);
+    }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
-  }
-
-  if (mode === "museum" && getAgentMode() === "off") {
-    setAgentMode("always-on");
   }
 
   window.dispatchEvent(new CustomEvent<AppMode>(APP_MODE_CHANGE_EVENT, { detail: mode }));
 }
 
-export function getAgentMode(): AgentMode {
+/**
+ * The venue this installation runs at (an id from the server's `COUNCIL_VENUES`), chosen on
+ * #staff. Tags the AI usage of meetings and setup sessions for the footprint meter, picks the
+ * meetings idle autoplay replays, and is the venue the bridge sends printer alerts for. Empty when
+ * unset.
+ */
+export function getVenueId(): string {
   try {
-    const stored = localStorage.getItem(AGENT_MODE_STORAGE_KEY);
-    if (stored && AGENT_MODES.includes(stored as AgentMode)) {
-      return stored as AgentMode;
-    }
+    return localStorage.getItem(VENUE_ID_KEY)?.trim() ?? "";
   } catch {
-    // ignore storage errors
+    return "";
   }
-  return "off";
 }
 
-export function setAgentMode(mode: AgentMode): void {
+export function setVenueId(venueId: string): void {
   try {
-    localStorage.setItem(AGENT_MODE_STORAGE_KEY, mode);
+    const trimmed = venueId.trim();
+    if (trimmed) {
+      localStorage.setItem(VENUE_ID_KEY, trimmed);
+    } else {
+      localStorage.removeItem(VENUE_ID_KEY);
+    }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
-
-  if (mode !== "ptt") {
-    setPttHardwareEnabled(false);
-  }
-
-  window.dispatchEvent(new CustomEvent<AgentMode>(AGENT_MODE_CHANGE_EVENT, { detail: mode }));
 }
 
-/** USB hardware button via local bridge. Only applies when agent mode is push-to-talk. */
+/**
+ * USB hardware button via local bridge. Independent of the mode: a laptop in web
+ * mode can drive a real button to test one.
+ */
 export function getPttHardwareEnabled(): boolean {
   try {
     return localStorage.getItem(PTT_HARDWARE_ENABLED_KEY) === "true";
@@ -104,41 +142,113 @@ export function setPttHardwareEnabled(enabled: boolean): void {
   window.dispatchEvent(new CustomEvent<boolean>(PTT_HARDWARE_CHANGE_EVENT, { detail: enabled }));
 }
 
-/** Top-left staff control to toggle web/museum without opening #staff. */
-export function getMuseumSwitchButtonEnabled(): boolean {
+/**
+ * Print live meetings' protocols through the local bridge. Staff opt in per
+ * install, since it needs a printer; only takes effect where the mode's
+ * capabilities include `printSummary`.
+ */
+export function getPrintSummariesEnabled(): boolean {
   try {
-    const stored = localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);
-    if (stored === "true") {
-      return true;
-    }
-
-    const legacy = localStorage.getItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
-    if (legacy === "true") {
-      localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, "true");
-      localStorage.removeItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
-      return true;
-    }
-
-    return false;
+    return localStorage.getItem(PRINT_SUMMARIES_ENABLED_KEY) === "true";
   } catch {
     return false;
   }
 }
 
-export function setMuseumSwitchButtonEnabled(enabled: boolean): void {
+export function setPrintSummariesEnabled(enabled: boolean): void {
   try {
     if (enabled) {
-      localStorage.setItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY, "true");
+      localStorage.setItem(PRINT_SUMMARIES_ENABLED_KEY, "true");
     } else {
-      localStorage.removeItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY);
-      localStorage.removeItem(LEGACY_ESCAPE_HATCH_ENABLED_KEY);
+      localStorage.removeItem(PRINT_SUMMARIES_ENABLED_KEY);
     }
   } catch {
     // ignore storage errors (private mode, quota, etc.)
   }
 
   window.dispatchEvent(
-    new CustomEvent<boolean>(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, { detail: enabled }),
+    new CustomEvent<boolean>(PRINT_SUMMARIES_CHANGE_EVENT, { detail: enabled }),
+  );
+}
+
+/**
+ * Split the audio output for a Y-cable: the scene alone on the left, the full mix on the
+ * right (see `audio/audioRouting.ts`). Independent of the mode, since it describes the
+ * install's cabling; off everywhere else, where a listener in headphones would hear the
+ * voices in one ear only.
+ */
+export function getSplitAudioEnabled(): boolean {
+  try {
+    return localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setSplitAudioEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(SPLIT_AUDIO_ENABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(SPLIT_AUDIO_ENABLED_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(new CustomEvent<boolean>(SPLIT_AUDIO_CHANGE_EVENT, { detail: enabled }));
+}
+
+/**
+ * How loud the visitor hears their own voice in the headphones while they hold the button
+ * (see `audio/sidetone.ts`): 0 (off) to 1. Independent of the mode, since it depends on
+ * headphones being there; off by default, because over speakers the mic hears itself and howls.
+ */
+export function getSidetoneLevel(): number {
+  try {
+    const level = Number(localStorage.getItem(SIDETONE_LEVEL_KEY));
+    return Number.isFinite(level) ? Math.min(Math.max(level, 0), 1) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setSidetoneLevel(level: number): void {
+  try {
+    if (level > 0) {
+      localStorage.setItem(SIDETONE_LEVEL_KEY, String(level));
+    } else {
+      localStorage.removeItem(SIDETONE_LEVEL_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(new CustomEvent<number>(SIDETONE_LEVEL_CHANGE_EVENT, { detail: level }));
+}
+
+/** Top-left staff control to switch mode without opening #staff. */
+export function getModeSwitchButtonEnabled(): boolean {
+  try {
+    return localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setModeSwitchButtonEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(MODE_SWITCH_BUTTON_ENABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(MODE_SWITCH_BUTTON_ENABLED_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(
+    new CustomEvent<boolean>(MODE_SWITCH_BUTTON_CHANGE_EVENT, { detail: enabled }),
   );
 }
 
@@ -214,14 +324,20 @@ export function setAllDevLogCategories(enabled: boolean): void {
 
 export function useCouncilSettings(): {
   mode: AppMode;
-  isMuseumMode: boolean;
+  /** Non-web mode the escape hatch switches into — see {@link getLastInstallationMode}. */
+  lastInstallationMode: Exclude<AppMode, "web">;
   setAppMode: (mode: AppMode) => void;
-  agentMode: AgentMode;
-  setAgentMode: (mode: AgentMode) => void;
+  capabilities: Capabilities;
   pttHardwareEnabled: boolean;
   setPttHardwareEnabled: (enabled: boolean) => void;
-  museumSwitchButtonEnabled: boolean;
-  setMuseumSwitchButtonEnabled: (enabled: boolean) => void;
+  printSummariesEnabled: boolean;
+  setPrintSummariesEnabled: (enabled: boolean) => void;
+  splitAudioEnabled: boolean;
+  setSplitAudioEnabled: (enabled: boolean) => void;
+  sidetoneLevel: number;
+  setSidetoneLevel: (level: number) => void;
+  modeSwitchButtonEnabled: boolean;
+  setModeSwitchButtonEnabled: (enabled: boolean) => void;
   devLogEnabled: boolean;
   setDevLogEnabled: (enabled: boolean) => void;
   devLogCategories: Record<LogCategory, boolean>;
@@ -229,10 +345,14 @@ export function useCouncilSettings(): {
   setAllDevLogCategories: (enabled: boolean) => void;
 } {
   const [mode, setMode] = useState<AppMode>(getAppMode);
-  const [agentMode, setAgentModeState] = useState(getAgentMode);
+  const [lastInstallationMode, setLastInstallationMode] = useState<Exclude<AppMode, "web">>(getLastInstallationMode);
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
-  const [museumSwitchButtonEnabled, setMuseumSwitchButtonEnabledState] =
-    useState(getMuseumSwitchButtonEnabled);
+  const [printSummariesEnabled, setPrintSummariesEnabledState] =
+    useState(getPrintSummariesEnabled);
+  const [splitAudioEnabled, setSplitAudioEnabledState] = useState(getSplitAudioEnabled);
+  const [sidetoneLevel, setSidetoneLevelState] = useState(getSidetoneLevel);
+  const [modeSwitchButtonEnabled, setModeSwitchButtonEnabledState] =
+    useState(getModeSwitchButtonEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
   const [devLogCategories, setDevLogCategoriesState] = useState(getDevLogCategoryStates);
 
@@ -245,14 +365,7 @@ export function useCouncilSettings(): {
     function onAppModeChange(event: Event): void {
       const next = (event as CustomEvent<AppMode>).detail;
       setMode(next);
-    }
-
-    function onAgentModeChange(event: Event): void {
-      const next = (event as CustomEvent<AgentMode>).detail;
-      setAgentModeState(next);
-      if (next !== "ptt") {
-        setPttHardwareEnabledState(false);
-      }
+      setLastInstallationMode(getLastInstallationMode());
     }
 
     function onPttHardwareChange(event: Event): void {
@@ -260,26 +373,47 @@ export function useCouncilSettings(): {
       setPttHardwareEnabledState(next);
     }
 
-    function onMuseumSwitchButtonChange(event: Event): void {
+    function onPrintSummariesChange(event: Event): void {
       const next = (event as CustomEvent<boolean>).detail;
-      setMuseumSwitchButtonEnabledState(next);
+      setPrintSummariesEnabledState(next);
+    }
+
+    function onSplitAudioChange(event: Event): void {
+      const next = (event as CustomEvent<boolean>).detail;
+      setSplitAudioEnabledState(next);
+    }
+
+    function onSidetoneLevelChange(event: Event): void {
+      const next = (event as CustomEvent<number>).detail;
+      setSidetoneLevelState(next);
+    }
+
+    function onModeSwitchButtonChange(event: Event): void {
+      const next = (event as CustomEvent<boolean>).detail;
+      setModeSwitchButtonEnabledState(next);
     }
 
     function onStorage(event: StorageEvent): void {
       if (event.key === APP_MODE_STORAGE_KEY) {
         setMode(getAppMode());
       }
-      if (event.key === AGENT_MODE_STORAGE_KEY) {
-        setAgentModeState(getAgentMode());
-        if (getAgentMode() !== "ptt") {
-          setPttHardwareEnabledState(false);
-        }
+      if (event.key === LAST_INSTALLATION_MODE_STORAGE_KEY) {
+        setLastInstallationMode(getLastInstallationMode());
       }
       if (event.key === PTT_HARDWARE_ENABLED_KEY) {
         setPttHardwareEnabledState(getPttHardwareEnabled());
       }
-      if (event.key === MUSEUM_SWITCH_BUTTON_ENABLED_KEY) {
-        setMuseumSwitchButtonEnabledState(getMuseumSwitchButtonEnabled());
+      if (event.key === PRINT_SUMMARIES_ENABLED_KEY) {
+        setPrintSummariesEnabledState(getPrintSummariesEnabled());
+      }
+      if (event.key === SPLIT_AUDIO_ENABLED_KEY) {
+        setSplitAudioEnabledState(getSplitAudioEnabled());
+      }
+      if (event.key === SIDETONE_LEVEL_KEY) {
+        setSidetoneLevelState(getSidetoneLevel());
+      }
+      if (event.key === MODE_SWITCH_BUTTON_ENABLED_KEY) {
+        setModeSwitchButtonEnabledState(getModeSwitchButtonEnabled());
       }
       if (
         event.key === DEV_LOG_ENABLED_KEY ||
@@ -294,16 +428,20 @@ export function useCouncilSettings(): {
     }
 
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
-    window.addEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
     window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
-    window.addEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
+    window.addEventListener(PRINT_SUMMARIES_CHANGE_EVENT, onPrintSummariesChange);
+    window.addEventListener(SPLIT_AUDIO_CHANGE_EVENT, onSplitAudioChange);
+    window.addEventListener(SIDETONE_LEVEL_CHANGE_EVENT, onSidetoneLevelChange);
+    window.addEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
     return () => {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
-      window.removeEventListener(AGENT_MODE_CHANGE_EVENT, onAgentModeChange);
       window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
-      window.removeEventListener(MUSEUM_SWITCH_BUTTON_CHANGE_EVENT, onMuseumSwitchButtonChange);
+      window.removeEventListener(PRINT_SUMMARIES_CHANGE_EVENT, onPrintSummariesChange);
+      window.removeEventListener(SPLIT_AUDIO_CHANGE_EVENT, onSplitAudioChange);
+      window.removeEventListener(SIDETONE_LEVEL_CHANGE_EVENT, onSidetoneLevelChange);
+      window.removeEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
     };
@@ -312,18 +450,7 @@ export function useCouncilSettings(): {
   const setAppModeFromHook = useCallback((next: AppMode) => {
     setAppMode(next);
     setMode(next);
-    if (next === "museum" && getAgentMode() === "off") {
-      setAgentMode("always-on");
-      setAgentModeState("always-on");
-    }
-  }, []);
-
-  const setAgentModeFromHook = useCallback((next: AgentMode) => {
-    setAgentMode(next);
-    setAgentModeState(next);
-    if (next !== "ptt") {
-      setPttHardwareEnabledState(false);
-    }
+    setLastInstallationMode(getLastInstallationMode());
   }, []);
 
   const setPttHardwareEnabledFromHook = useCallback((enabled: boolean) => {
@@ -331,9 +458,24 @@ export function useCouncilSettings(): {
     setPttHardwareEnabledState(enabled);
   }, []);
 
-  const setMuseumSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
-    setMuseumSwitchButtonEnabled(enabled);
-    setMuseumSwitchButtonEnabledState(enabled);
+  const setPrintSummariesEnabledFromHook = useCallback((enabled: boolean) => {
+    setPrintSummariesEnabled(enabled);
+    setPrintSummariesEnabledState(enabled);
+  }, []);
+
+  const setSplitAudioEnabledFromHook = useCallback((enabled: boolean) => {
+    setSplitAudioEnabled(enabled);
+    setSplitAudioEnabledState(enabled);
+  }, []);
+
+  const setSidetoneLevelFromHook = useCallback((level: number) => {
+    setSidetoneLevel(level);
+    setSidetoneLevelState(level);
+  }, []);
+
+  const setModeSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
+    setModeSwitchButtonEnabled(enabled);
+    setModeSwitchButtonEnabledState(enabled);
   }, []);
 
   const setDevLogEnabledFromHook = useCallback((enabled: boolean) => {
@@ -352,16 +494,23 @@ export function useCouncilSettings(): {
     refreshDevLogSettings();
   }, [refreshDevLogSettings]);
 
+  const capabilities = useMemo(() => capabilitiesFor(mode), [mode]);
+
   return {
     mode,
-    isMuseumMode: mode === "museum",
+    lastInstallationMode,
     setAppMode: setAppModeFromHook,
-    agentMode,
-    setAgentMode: setAgentModeFromHook,
+    capabilities,
     pttHardwareEnabled,
     setPttHardwareEnabled: setPttHardwareEnabledFromHook,
-    museumSwitchButtonEnabled,
-    setMuseumSwitchButtonEnabled: setMuseumSwitchButtonEnabledFromHook,
+    printSummariesEnabled,
+    setPrintSummariesEnabled: setPrintSummariesEnabledFromHook,
+    splitAudioEnabled,
+    setSplitAudioEnabled: setSplitAudioEnabledFromHook,
+    sidetoneLevel,
+    setSidetoneLevel: setSidetoneLevelFromHook,
+    modeSwitchButtonEnabled,
+    setModeSwitchButtonEnabled: setModeSwitchButtonEnabledFromHook,
     devLogEnabled,
     setDevLogEnabled: setDevLogEnabledFromHook,
     devLogCategories,

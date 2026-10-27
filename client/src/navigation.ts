@@ -5,7 +5,8 @@ import { useLocation, useNavigate } from "react-router";
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
 import routes from "@/routes.json";
 import { setUnrecoverableError, useErrorStore } from "@main/overlay/errorStore";
-import { getAppMode } from "@/settings/councilSettings";
+import { getCapabilities } from "@/settings/councilSettings";
+import { probeOriginHealth } from "@/health";
 
 const APP_ROOT = "/";
 
@@ -105,46 +106,22 @@ export function useRouting() {
 }
 
 // ---------------------------------------------------------------------------
-// Museum kiosk health + guarded reload
+// Installation health + guarded reload
 // ---------------------------------------------------------------------------
 
-export const HEALTH_PROBE_TIMEOUT_MS = 2_000;
-
-/** Museum kiosk: wait between failed health probes / restart countdowns. */
-export const MUSEUM_HEALTH_RETRY_MS = 10_000;
-export const MUSEUM_HEALTH_RETRY_SECONDS = MUSEUM_HEALTH_RETRY_MS / 1_000;
-
-/** Museum kiosk: true when same-origin GET /health returns 200. */
-export async function probeOriginHealth(): Promise<boolean> {
-  const controller = new AbortController();
-  const timeoutId = window.setTimeout(() => controller.abort(), HEALTH_PROBE_TIMEOUT_MS);
-
-  try {
-    const response = await fetch("/health", {
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    return response.status === 200;
-  } catch {
-    return false;
-  } finally {
-    window.clearTimeout(timeoutId);
-  }
-}
-
 /**
- * Hard-reload at `targetPath`. In museum mode, probes `/health` first.
+ * Hard-reload at `targetPath`. On an installation, probes `/health` first.
  * On failure, escalates to `CouncilError` when not already shown.
  */
 async function guardedReload(targetPath: string): Promise<boolean> {
-  if (getAppMode() !== "museum") {
+  if (!getCapabilities().installationReload) {
     window.location.href = targetPath;
     return true;
   }
 
   if (!(await probeOriginHealth())) {
     if (useErrorStore.getState().unrecoverableError == null) {
-      setUnrecoverableError({ message: "Reconnect failed", source: "reload" });
+      setUnrecoverableError({ message: "Reconnect failed", source: "reload", connectionLost: true });
     }
     return false;
   }
@@ -154,11 +131,11 @@ async function guardedReload(targetPath: string): Promise<boolean> {
 }
 
 /**
- * Hard-reload the app. Museum mode resets to `/` (default language) after a
+ * Hard-reload the app. Installations reset to `/` (default language) after a
  * health probe; web mode reloads the current language root.
  */
 export async function reloadApp(): Promise<boolean> {
-  const targetPath = getAppMode() === "museum" ? APP_ROOT : `${basePath(i18n.language)}/`;
+  const targetPath = getCapabilities().installationReload ? APP_ROOT : `${basePath(i18n.language)}/`;
   return guardedReload(targetPath);
 }
 
@@ -166,8 +143,16 @@ export async function reloadApp(): Promise<boolean> {
  * Navigate to the app root immediately, without a health probe.
  * Use for manual user-initiated restarts where "just reload" is the right
  * behaviour regardless of server state.
+ *
+ * `inPlace` reloads the current page instead — for a page that failed to load
+ * (a meeting link). An installation still resets to the root: the next visitor
+ * starts fresh.
  */
-export function restartNow(): void {
-  const targetPath = getAppMode() === "museum" ? APP_ROOT : `${basePath(i18n.language)}/`;
+export function restartNow({ inPlace = false }: { inPlace?: boolean } = {}): void {
+  if (inPlace && !getCapabilities().installationReload) {
+    window.location.reload();
+    return;
+  }
+  const targetPath = getCapabilities().installationReload ? APP_ROOT : `${basePath(i18n.language)}/`;
   window.location.href = targetPath;
 }

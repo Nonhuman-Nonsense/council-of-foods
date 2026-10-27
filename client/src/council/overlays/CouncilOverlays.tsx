@@ -2,6 +2,7 @@ import type { Character } from "@shared/ModelTypes";
 import QueryExtension from "./QueryExtension";
 import Incomplete from "./Incomplete";
 import Summary, { SummaryData } from "./Summary";
+import Credits from "./Credits";
 import Name from "./Name";
 import OverlayWrapper from "@main/overlay/OverlayWrapper";
 import { useCouncilSettings } from "@/settings/councilSettings";
@@ -48,7 +49,7 @@ function CouncilOverlays({
   audioContext,
   summaryPlayback = null,
 }: CouncilOverlaysProps): React.ReactElement {
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
 
   const renderOverlayContent = (): React.ReactElement | null => {
     switch (overlay) {
@@ -72,6 +73,7 @@ function CouncilOverlays({
           />
         );
       case "summary":
+        if (summary?.credits) return <Credits />;
         return (summary ?
           <Summary
             summary={summary}
@@ -88,11 +90,11 @@ function CouncilOverlays({
   // Summary in web mode fills the full main region height (scroll + download at
   // bottom). Museum summary breaks out with position:fixed anyway, so fillHeight
   // has no effect there but we keep the condition explicit.
-  const fillHeight = overlay === "summary" && !isMuseumMode;
+  const fillHeight = overlay === "summary" && capabilities.browserUi;
 
   return (
     <OverlayWrapper
-      showX={!(overlay === "summary" && isMuseumMode)}
+      showX={capabilities.browserUi || overlay !== "summary"}
       cancelOverlay={onDismiss}
       fillHeight={fillHeight}
     >

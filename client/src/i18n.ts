@@ -17,7 +17,7 @@ type ButtonOwnerLabelKey = {
 }[ButtonOwnerLabelSlug];
 
 function isButtonOwnerLabelSlug(value: string): value is ButtonOwnerLabelSlug {
-  return Object.prototype.hasOwnProperty.call(buttonOwnerLabels, value);
+  return Object.hasOwn(buttonOwnerLabels, value);
 }
 
 /** Map a runtime button owner id to a typed `staff.button.owners.*` label key. */

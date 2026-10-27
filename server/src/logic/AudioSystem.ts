@@ -3,21 +3,27 @@ import type { ProvidesReportContext, ReportContext } from "@interfaces/ReportCon
 import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { CHAIR_ID, getChairMeetingVoice } from "@logic/characterSetupBundle.js";
 import { Logger } from "@utils/Logger.js";
+import { CapacityError } from "@models/Errors.js";
+import { isCapacityError } from "@utils/NetworkUtils.js";
 import { mapSentencesToWords, splitSentences, Word, type MappedSentence } from "@shared/textUtils.js";
-import type { StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
+import type { StoredAudio, StoredMeeting, SubtitleTimingType } from "@models/DBModels.js";
 import { parseBuffer } from 'music-metadata';
 import {
     generateInworldAudio,
     generateElevenLabsAudio,
     generateOpenAIAudio,
     getWhisperWords,
-    AudioResult
+    AudioResult,
+    WHISPER_MODEL,
 } from "./audio/TTSProviders.js";
+import { recordUsage, usageTagsFor } from "@services/UsageService.js";
 import {
     AudioQueue,
     mergeAudioBuffers,
+    normalizeLoudness,
     splitTextForTts,
     prepareInworldTtsChunks,
+    type LoudnessTarget,
 } from "./audio/AudioUtils.js";
 import { buildEstimatedSentenceTimings } from "./audio/EstimatedSubtitles.js";
 import {
@@ -39,6 +45,15 @@ export * from "./audio/AudioUtils.js";
 // synthesis latency down — longer messages noticeably slow down in practice.
 const TTS_CHUNK_LIMIT = 2000;
 
+/**
+ * How many turns in a row may be lost to provider capacity before the meeting
+ * is called off. One skip is a race we lost and the council survives it; a
+ * second in a row means the account is saturated rather than unlucky, and a
+ * conversation made of skipped speakers is no conversation — better to fail
+ * visibly than to hollow the meeting out turn by turn.
+ */
+const MAX_CONSECUTIVE_CAPACITY_SKIPS = 1;
+
 const DEFAULT_SUBTITLE_TIMING_PRIORITIES: GlobalOptions["subtitleTimingPriorities"] = ['elevenlabs', 'inworld', 'estimated', 'whisper'];
 
 export class AudioSystem {
@@ -46,6 +61,8 @@ export class AudioSystem {
     services: Services;
     queue: AudioQueue;
     private generationToken = 0;
+    /** Turns lost to capacity since the last audio that did come through. */
+    private consecutiveCapacitySkips = 0;
     private readonly reportFrom?: ProvidesReportContext;
 
     constructor(
@@ -101,6 +118,8 @@ export class AudioSystem {
         // Merge context language into options for consistent usage internally
         const effectiveOptions: AudioSystemOptions = { ...serverOptions, language };
         const from = this.reportContextFor(meeting);
+        /** Where the message sits, so its voice is counted on the meter once it has been played. */
+        const messageIndex = meeting.conversation?.findIndex((entry) => entry.id === message.id) ?? -1;
 
         if (effectiveOptions.skipAudio) return;
 
@@ -174,6 +193,7 @@ export class AudioSystem {
             }
 
             let providerWords: (Word[] | undefined)[] = [];
+            let chunkDurations: number[] | undefined;
 
             if (generateNew || buffers.length === 0) {
                 Logger.info("AudioSystem", `Generating new audio for message ${message.id} (${resolvedSpeaker.voiceProvider}/${resolvedSpeaker.voice})`, { from });
@@ -186,6 +206,17 @@ export class AudioSystem {
                 buffers = results.map(r => r.audio);
                 providerWords = results.map(r => r.words);
                 generateNew = true;
+
+                chunkDurations = await Promise.all(buffers.map(b => this.getAudioDuration(b)));
+                results.forEach(({ usage: { characters, region, ...usage } }, i) => {
+                    void recordUsage({
+                        feature: "tts",
+                        ...usage,
+                        ...(region ? { region } : {}),
+                        measures: { characters, audio_seconds: chunkDurations?.[i] },
+                        ...usageTagsFor(meeting, messageIndex),
+                    });
+                });
             }
 
             if (generationToken !== this.generationToken) {
@@ -198,7 +229,9 @@ export class AudioSystem {
             let sentencesWithTimings: MappedSentence[] = [];
             let subtitleTimingType: SubtitleTimingType;
 
-            const durations = shouldSkipMatching ? [] : await Promise.all(buffers.map(async b => this.getAudioDuration(b)));
+            const durations = shouldSkipMatching
+                ? []
+                : chunkDurations ?? await Promise.all(buffers.map(async b => this.getAudioDuration(b)));
 
             if (!shouldSkipMatching) {
                 const subtitleTimingPriorities =
@@ -246,6 +279,13 @@ export class AudioSystem {
                     if (timingType === 'whisper') {
                         try {
                             const chunkWordsWithTimings = await Promise.all(buffers.map(b => this.getWhisperWordsWrapper(b)));
+                            void recordUsage({
+                                feature: "subtitle-timing",
+                                provider: "openai",
+                                model: WHISPER_MODEL,
+                                measures: { audio_seconds: durations.reduce((sum, d) => sum + Math.max(d, 0), 0) },
+                                ...usageTagsFor(meeting, messageIndex),
+                            });
                             const whisperSentences = mapSentencesToWords(
                                 sentenceTexts,
                                 this.offsetChunkWords(chunkWordsWithTimings, durations)
@@ -272,7 +312,13 @@ export class AudioSystem {
             }
 
             // Merge chunks into single buffer using FFmpeg
-            const combinedBuffer = await mergeAudioBuffers(buffers);
+            let combinedBuffer = await mergeAudioBuffers(buffers);
+            let loudness: StoredAudio["loudness"];
+            if (generateNew && effectiveOptions.voiceLoudness) {
+                ({ audio: combinedBuffer, loudness } = await this.normalizeMessageLoudness(
+                    combinedBuffer, effectiveOptions.voiceLoudness, message.id, from,
+                ));
+            }
 
             // Construct payload
             const audioObject: AudioUpdatePayload = {
@@ -288,6 +334,9 @@ export class AudioSystem {
             }
 
             this.broadcaster.broadcastAudioUpdate(audioObject);
+            // Audio is flowing again — earlier skips were a passing squeeze,
+            // not a saturated account.
+            this.consecutiveCapacitySkips = 0;
 
             if (generationToken !== this.generationToken) {
                 return;
@@ -303,7 +352,8 @@ export class AudioSystem {
                             meeting_id: meeting._id,
                             audio: combinedBuffer,
                             sentences: sentencesWithTimings,
-                            subtitleTimingType: subtitleTimingType
+                            subtitleTimingType: subtitleTimingType,
+                            ...(loudness ? { loudness } : {}),
                         }
                     },
                     { upsert: true }
@@ -317,12 +367,97 @@ export class AudioSystem {
             }
 
         } catch (error: unknown) {
+            // Being over capacity is a race we lost, not a broken meeting: the
+            // retries in `withNetworkRetry` already waited it out for ~30s, so
+            // drop this one turn rather than taking everyone's meeting down.
+            if (isCapacityError(error)) {
+                await this.handleCapacityFailure(message, meeting, environment, error, from, generationToken);
+                return;
+            }
+
             //Crash the client and report
             Logger.reportAndCrashClient("AudioSystem", "Error generating audio", {
                 error,
                 from,
                 broadcaster: this.broadcaster,
             });
+        }
+    }
+
+    /**
+     * The provider stayed over capacity through every retry.
+     *
+     * The first lost turn is survivable: mark the message skipped — the client
+     * already steps over those — and let the council carry on one speaker
+     * short. The text is dropped with the audio, because playback only
+     * advances when an audio message arrives, so a message with none would
+     * strand the meeting in `loading` forever. Past
+     * {@link MAX_CONSECUTIVE_CAPACITY_SKIPS} the meeting is failed instead.
+     */
+    private async handleCapacityFailure(
+        message: Message,
+        meeting: StoredMeeting,
+        environment: string,
+        error: unknown,
+        from: ReportContext,
+        generationToken: number,
+    ): Promise<void> {
+        this.consecutiveCapacitySkips += 1;
+
+        if (this.consecutiveCapacitySkips > MAX_CONSECUTIVE_CAPACITY_SKIPS) {
+            Logger.reportAndCrashClient(
+                "AudioSystem",
+                `Provider out of capacity for ${this.consecutiveCapacitySkips} turns in a row`,
+                { error, from, broadcaster: this.broadcaster, clientError: new CapacityError() },
+            );
+            return;
+        }
+
+        void Logger.warn(
+            "AudioSystem",
+            `Provider out of capacity for message ${message.id} — skipping speaker`,
+            { error, from },
+        );
+
+        if (generationToken !== this.generationToken) return;
+
+        const stored = meeting.conversation.find((m) => m.id === message.id);
+        if (stored) stored.type = "skipped";
+
+        if (environment !== "prototype") {
+            // Positional update rather than rewriting the whole conversation:
+            // MeetingManager may be appending the next message right now.
+            await this.services.meetingsCollection.updateOne(
+                { _id: meeting._id, "conversation.id": message.id },
+                { $set: { "conversation.$.type": "skipped" } },
+            );
+        }
+
+        if (generationToken !== this.generationToken) return;
+
+        this.broadcaster.broadcastConversationUpdate(meeting.conversation);
+        this.broadcaster.broadcastAudioUpdate({ id: message.id, type: "skipped" });
+    }
+
+    /**
+     * Evens out a freshly generated message's loudness. Volume is cosmetic, so a failure here
+     * keeps the audio as the provider made it rather than costing the meeting a turn.
+     */
+    private async normalizeMessageLoudness(
+        audio: Buffer,
+        target: LoudnessTarget,
+        messageId: string,
+        from: ReportContext,
+    ): Promise<{ audio: Buffer; loudness?: StoredAudio["loudness"] }> {
+        try {
+            const { audio: normalized, measuredLufs, gainDb } = await normalizeLoudness(audio, target);
+            return { audio: normalized, loudness: { measuredLufs, gainDb } };
+        } catch (error: unknown) {
+            Logger.warn("AudioSystem", `Loudness normalization failed for message ${messageId}; using it as generated.`, {
+                error,
+                from,
+            });
+            return { audio };
         }
     }
 

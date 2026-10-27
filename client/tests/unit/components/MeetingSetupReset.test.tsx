@@ -87,7 +87,7 @@ vi.mock("@main/FullscreenButton", () => ({
   default: () => null,
 }));
 
-vi.mock("@/museum/MuseumSwitchButton", () => ({
+vi.mock("@/museum/ModeSwitchButton", () => ({
   default: () => null,
 }));
 

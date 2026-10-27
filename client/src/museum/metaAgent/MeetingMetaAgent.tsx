@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useButton, type ButtonLedMode } from "@museum/button/useButton";
+import { useButton } from "@museum/button/useButton";
 import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
+import RisingMic from "@council/humanInput/RisingMic";
 import Loading from "@main/Loading";
+import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
+import { useDelayedTrue } from "@/utils";
+import { useTranslation } from "react-i18next";
 import { useMetaAgent, type MetaAgentPhase } from "./useMetaAgent";
 import { useErrorStore, setConnectionError } from "@main/overlay/errorStore";
 import {
@@ -27,6 +31,7 @@ import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { Character, Topic } from "@shared/ModelTypes";
+import { useCouncilSettings } from "@/settings/councilSettings";
 
 export type { MetaAgentPhase } from "./useMetaAgent";
 
@@ -34,6 +39,12 @@ export interface MeetingMetaAgentProps {
   liveKey: string;
   language: string;
   participationPhase: ParticipationPhase;
+  /**
+   * The chair's invitation to a human turn is playing. While it is, the button
+   * is disarmed so an eager press a beat early opens the human turn (once it
+   * lands) rather than pulling the meeting into meta-agent mode.
+   */
+  invitationPlaying: boolean;
   metaAgentPhase: MetaAgentPhase;
   setMetaAgentPhase: (phase: MetaAgentPhase) => void;
   setAgentSpeaking: (speaking: boolean) => void;
@@ -91,7 +102,7 @@ const PHASE_AGENT_CONFIG: Record<
   }
 > = {
   interruption: {
-    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildInstructions: (bundle) => buildMetaAgentPrompt({ bundle }),
     buildTools: (bundle) => createMetaAgentTools({ promptBundle: bundle }),
     buildToolHandlers: (shared, { onRestartMeeting }) =>
       createMetaAgentToolHandlers({ ...shared, onRestartMeeting }),
@@ -102,7 +113,7 @@ const PHASE_AGENT_CONFIG: Record<
     idleTerminalEventName: "idle auto-resume resume_meeting",
   },
   extension: {
-    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle, agentMode: "ptt" }),
+    buildInstructions: (bundle) => buildExtensionAgentPrompt({ bundle }),
     buildTools: (bundle) => createExtensionAgentTools({ promptBundle: bundle }),
     buildToolHandlers: (shared, { onExtendMeeting, onConcludeMeeting }) =>
       createExtensionAgentToolHandlers({ ...shared, onExtendMeeting, onConcludeMeeting }),
@@ -118,6 +129,7 @@ export default function MeetingMetaAgent({
   liveKey,
   language,
   participationPhase,
+  invitationPlaying,
   metaAgentPhase,
   setMetaAgentPhase,
   setAgentSpeaking,
@@ -132,6 +144,8 @@ export default function MeetingMetaAgent({
 }: MeetingMetaAgentProps) {
   const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
+  const { capabilities } = useCouncilSettings();
+  const { t } = useTranslation();
 
   // Track whether the agent is currently unreachable so we can defer showing
   // the connection error until the visitor actually tries to use the agent.
@@ -191,6 +205,7 @@ export default function MeetingMetaAgent({
 
   const {
     connectionState,
+    providerBusy,
     lastCaption,
     lastUserTranscript,
     agentSpeaking,
@@ -258,7 +273,8 @@ export default function MeetingMetaAgent({
 
   useEffect(() => {
     silenceRef.current = () => {
-      setMicEnabled(false);
+      // Put away, not answered: whatever the visitor was saying is dropped.
+      setMicEnabled(false, { discard: true });
       setAgentOutputMuted(true);
     };
     reconfigureRef.current = () => reconfigureSession();
@@ -269,12 +285,11 @@ export default function MeetingMetaAgent({
     return () => button.release();
   }, [button.claim, button.release]);
 
-  const ledMode: ButtonLedMode =
-    connectionState !== "ready" ? "off" : metaAgentPhase !== "inactive" && button.pressed ? "on" : "pulse";
-
   useEffect(() => {
-    button.setLed(ledMode);
-  }, [button.setLed, ledMode]);
+    // Disarm (LED dark) while the chair's invitation plays — the press belongs
+    // to the imminent human turn, and human-input claims the button once it lands.
+    button.setArmed(connectionState === "ready" && !invitationPlaying);
+  }, [button.setArmed, connectionState, invitationPlaying]);
 
   const { bumpBannerActivity } = useButtonBanner({
     owner: "meta-agent",
@@ -287,12 +302,23 @@ export default function MeetingMetaAgent({
       log.event("META", cfg.idleTerminalEventName);
       toolHandlers[cfg.idleTerminalTool]?.({});
     },
+    // Answering for a silent visitor — resuming after an interruption, or
+    // concluding at the soft cap — is a museum behaviour: nobody is coming back
+    // to say which they wanted. A presenter's silence is them talking to the
+    // room, so the chair waits for the button instead of deciding for them.
     canIdleTerminal: () =>
+      capabilities.idleAnswersForVisitor &&
       (metaAgentPhase === "interruption" || metaAgentPhase === "extension") &&
       connectionState === "ready" &&
       !agentSpeaking &&
       !button.pressed,
-    terminalDeps: [metaAgentPhase, connectionState, agentSpeaking, button.pressed],
+    terminalDeps: [
+      capabilities.idleAnswersForVisitor,
+      metaAgentPhase,
+      connectionState,
+      agentSpeaking,
+      button.pressed,
+    ],
   });
 
   useEffect(() => {
@@ -345,13 +371,23 @@ export default function MeetingMetaAgent({
     }
   }, [metaAgentPhase, connectionState, reconfigureSession]);
 
+  // Mirrored for the press handler below, which must not re-run when this
+  // changes — a re-run while the button is held would activate the agent twice.
+  const providerBusyRef = useRef(providerBusy);
+  providerBusyRef.current = providerBusy;
+
+  // The extension loader spins in front of a room with nothing to explain it,
+  // and a capacity wait now runs to minutes — so once the wait is long enough
+  // to look broken, it says what it is waiting for.
+  const showBusyNotice = useDelayedTrue(providerBusy, BUSY_NOTICE_DELAY_MS);
+
   useEffect(() => {
     if (!button.pressed || metaAgentPhase !== "inactive") return;
 
     // If the agent is down when the visitor presses the button, surface the
     // connection error now — this is when the drop actually affects the UX.
     if (agentDownRef.current || connectionState !== "ready") {
-      setConnectionError("meta-agent", true);
+      setConnectionError("meta-agent", true, providerBusyRef.current ? "busy" : "lost");
       return;
     }
 
@@ -366,7 +402,7 @@ export default function MeetingMetaAgent({
 
   useEffect(() => {
     if (metaAgentPhase === "inactive") {
-      setMicEnabled(false);
+      setMicEnabled(false, { discard: true });
     }
   }, [metaAgentPhase, setMicEnabled]);
 
@@ -377,14 +413,20 @@ export default function MeetingMetaAgent({
     metaAgentPhase === "extension" &&
     (awaitingExtensionReply || connectionState !== "ready");
 
+  // The mic rises once the floor is the visitor's: at once for an interruption
+  // (they pressed to talk), and for the extension once the chair is asking.
+  const showMic = !showExtensionLoader;
+
   return (
     <>
       {showExtensionLoader && <Loading />}
+      {showMic && <RisingMic />}
       <RealtimeCaptionOverlay
+        notice={showBusyNotice ? t("error.busyRetrying") : null}
         lastCaption={lastCaption}
         lastUserTranscript={lastUserTranscript}
         subtitleLayout="council"
-        showPttVisualizer
+        showMicRow
         micStream={micStream}
         micActive={button.pressed}
       />

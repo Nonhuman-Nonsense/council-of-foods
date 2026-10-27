@@ -35,7 +35,7 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
     const stored = await getMeeting(meetingId);
 
     if (stored.meetingComplete) {
-        throw new BadRequestError("Meeting already complete");
+        throw new BadRequestError("Meeting already complete", { errorKey: "meetingComplete" });
     }
 
     if (hasLiveSession(meetingId)) {

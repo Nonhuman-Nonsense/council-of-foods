@@ -1,11 +1,12 @@
 import { defineConfig } from 'vitest/config';
-import { commonExclude, dbBackedTests, resolve } from './vitest.shared.js';
+import { testEnv, commonExclude, dbBackedTests, resolve } from './vitest.shared.js';
 
 export default defineConfig({
     test: {
         name: 'integration',
         globals: true,
         environment: 'node',
+        env: testEnv,
         include: dbBackedTests,
         exclude: commonExclude,
         globalSetup: ['tests/globalSetup.js'],

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import CouncilError from "@main/overlay/CouncilError";
+import { capabilitiesFor } from "@/settings/capabilities";
 
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false })),
+  vi.fn(() => ({ isMuseumMode: false, capabilities: capabilitiesFor("web") })),
 );
 
 vi.mock("react-i18next", () => ({
@@ -32,7 +33,7 @@ vi.mock("@assets/error.png?inline", () => ({ default: "data:image/png;base64,tes
 describe("CouncilError overlay", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false, capabilities: capabilitiesFor("web") });
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: vi.fn().mockImplementation((query: string) => ({
@@ -47,6 +48,54 @@ describe("CouncilError overlay", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  // The server names the failure; the words are ours. Its English prose is only
+  // the fallback, so a translated build never shows it for a key we know.
+  it("shows our own copy for a named failure, not the server's prose", () => {
+    render(
+      <CouncilError
+        error={{ message: "This meeting is happening somewhere else", errorKey: "elsewhere", source: "test" }}
+      />,
+    );
+    expect(screen.getByText("error.elsewhere")).toBeInTheDocument();
+  });
+
+  it("falls back to the server message for a key it does not know", () => {
+    render(
+      <CouncilError
+        error={{ message: "Something new went wrong", errorKey: "notInvented" as never, source: "test" }}
+      />,
+    );
+    expect(screen.getByText("Something new went wrong")).toBeInTheDocument();
+  });
+
+  // Internal prose ("state mismatch: expected awaiting_human_panelist…") is for
+  // ErrorBot, never for the visitor standing in front of the screen.
+  it("hides technical detail behind the generic apology", () => {
+    render(
+      <CouncilError
+        error={{ message: "Internal state mismatch: expected awaiting_human_panelist", technical: true, source: "test" }}
+      />,
+    );
+    expect(screen.queryByText(/Internal state mismatch/)).not.toBeInTheDocument();
+    expect(screen.getByText("error.message")).toBeInTheDocument();
+  });
+
+  // An installation that can't restart because the server stays out of reach says what to
+  // check, not that the council broke.
+  it.each([
+    { online: true, heading: "error.serverUnreachable", detail: "error.serverUnreachableDetail" },
+    { online: false, heading: "error.noInternet", detail: "error.noInternetDetail" },
+  ])("a lost connection, online=$online, reads $heading", ({ online, heading, detail }) => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
+    render(<CouncilError error={{ message: "Reconnect failed", source: "reload", connectionLost: true }} />);
+
+    expect(screen.getByText(heading)).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(screen.queryByText("error.title")).not.toBeInTheDocument();
+    expect(screen.queryByText("Reconnect failed")).not.toBeInTheDocument();
   });
 
   it("renders web restart button without probing health", () => {
@@ -57,7 +106,7 @@ describe("CouncilError overlay", () => {
 
   it("museum: navigates after countdown when health is OK", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 200 })),
@@ -90,7 +139,7 @@ describe("CouncilError overlay", () => {
 
   it("museum: does not navigate when health probe fails", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 503 })),
@@ -123,7 +172,7 @@ describe("CouncilError overlay", () => {
   });
 
   it("museum: click navigates immediately without probing health", () => {
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true, capabilities: capabilitiesFor("museum") });
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 

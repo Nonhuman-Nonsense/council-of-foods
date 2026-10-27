@@ -30,6 +30,7 @@ import {
     ConcludeMeetingMessageSchema
 } from "@models/ValidationSchemas.js";
 import { socketHoldsLiveSession } from "@logic/liveSessionRegistry.js";
+import { announceMeetingProgress } from "@services/meterEvents.js";
 
 /** How many message indices beyond `maximumPlayedIndex` the server may generate before waiting for client playback progress. */
 const PLAYBACK_AHEAD_BUFFER = 3;
@@ -48,15 +49,16 @@ const PLAYBACK_AHEAD_BUFFER = 3;
 export const ABSOLUTE_MAX_CONVERSATION_LENGTH = 35;
 
 interface Decision {
-    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
+    type: 'QUERY_EXTENSION' | 'CONCLUDE_MEETING' | 'ANNOUNCE_LETTER' | 'GENERATE_SUMMARY' | 'IDLE' | 'REQUEST_PANELIST' | 'GENERATE_AI_RESPONSE';
     speaker?: Character;
 }
 
 function stopsConversationLoop(action: Decision): boolean {
-    // Note: CONCLUDE_MEETING and GENERATE_SUMMARY are NOT terminal. Concluding pushes the
-    // closing line + a `summary_pending` marker; the loop must keep running so the next
-    // iteration picks up that marker (→ GENERATE_SUMMARY) and produces the summary, after
-    // which the tail becomes a real `summary` and rule 1 of decideNextAction returns IDLE.
+    // Note: CONCLUDE_MEETING, ANNOUNCE_LETTER and GENERATE_SUMMARY are NOT terminal. Concluding
+    // pushes the closing line + a `summary_pending` (or `letter_pending`) marker; the loop must
+    // keep running so the next iteration picks up that marker and resolves it. After a letter's
+    // announcement the tail is `awaiting_letter_addition` and rule 1 returns IDLE; after the
+    // summary the tail is a real `summary` and rule 1 returns IDLE too.
     return action.type === 'IDLE'
         || action.type === 'QUERY_EXTENSION';
 }
@@ -281,6 +283,7 @@ export class MeetingManager implements IMeetingManager {
         const prevLocal = meeting.maximumPlayedIndex;
         meeting.maximumPlayedIndex =
             prevLocal == null ? index : Math.max(prevLocal, index);
+        announceMeetingProgress(meeting);
 
         this.startLoop();
     }
@@ -412,6 +415,11 @@ export class MeetingManager implements IMeetingManager {
             && meeting.conversation[meeting.conversation.length - 1].type === 'summary_pending') {
             return { type: 'GENERATE_SUMMARY' };
         }
+        // 0b. Likewise a meeting ending in a letter: the author's announcement is owed.
+        if (meeting.conversation.length > 0
+            && meeting.conversation[meeting.conversation.length - 1].type === 'letter_pending') {
+            return { type: 'ANNOUNCE_LETTER' };
+        }
 
         // 0. No work while paused or interrupted.
         if (this.isPaused || this.handRaised) {
@@ -427,16 +435,26 @@ export class MeetingManager implements IMeetingManager {
                 lastMsg.type === 'query_extension' ||
                 lastMsg.type === 'summary' ||
                 lastMsg.type === 'awaiting_human_panelist' ||
-                lastMsg.type === 'awaiting_human_question'
+                lastMsg.type === 'awaiting_human_question' ||
+                lastMsg.type === 'awaiting_letter_addition'
             ) {
                 return { type: 'IDLE' };
             }
         }
-        // 2. Check Limits
-        if (meeting.conversation.length >= this.serverOptions.meetingVeryMaxLength || meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
-            const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
+        // 2. Check Limits. A soft cap (one the visitor can extend past) first lets two beings
+        //    reply to a human who just spoke, so their words are never the last before the
+        //    meeting pauses or ends. The hard cap ends the meeting regardless: a few messages
+        //    over it would crowd ABSOLUTE_MAX_CONVERSATION_LENGTH.
+        const length = meeting.conversation.length;
+        const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
+        if (length >= this.serverOptions.meetingVeryMaxLength || length >= currentCap) {
             const hasRoomToExtend = currentCap < this.serverOptions.meetingVeryMaxLength;
-            return { type: hasRoomToExtend ? 'QUERY_EXTENSION' : 'CONCLUDE_MEETING' };
+            const waitForReplies = hasRoomToExtend
+                && length < this.serverOptions.meetingVeryMaxLength
+                && SpeakerSelector.awaitsRepliesToHuman(meeting.conversation, meeting.characters, this.serverOptions.chairId);
+            if (!waitForReplies) {
+                return { type: hasRoomToExtend ? 'QUERY_EXTENSION' : 'CONCLUDE_MEETING' };
+            }
         }
 
         // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played (not in prototype)
@@ -492,6 +510,12 @@ export class MeetingManager implements IMeetingManager {
                 return;
             }
 
+            case 'ANNOUNCE_LETTER':
+                // The tail is `letter_pending`: the author announces the letter, then the human
+                // is asked to add something (`awaiting_letter_addition`).
+                await this.meetingLifecycleHandler.announceLetter();
+                return;
+
             case 'GENERATE_SUMMARY': {
                 // The tail is a `summary_pending` marker (from handleConcludeMeeting). Generate
                 // the summary and replace the marker in place with the real `summary` message.
@@ -509,7 +533,13 @@ export class MeetingManager implements IMeetingManager {
                             (msg.type === "panelist" || msg.type === "skipped")
                     );
 
-                    if (isFirstPanelistTurn) {
+                    // Edge case: if the previous speaker already asked this panelist a direct
+                    // question (directed handoff), the human has effectively been welcomed in —
+                    // skip the chair's welcome invitation and go straight to their turn.
+                    const previousMessage = meeting.conversation[meeting.conversation.length - 1];
+                    const alreadyInvitedByQuestion = previousMessage?.askParticular === panelistId;
+
+                    if (isFirstPanelistTurn && !alreadyInvitedByQuestion) {
                         const panelistName = action.speaker.name || "Human";
                         const invitationIndex = meeting.conversation.length;
                         const chairInterjection = await this.dialogGenerator.chairInterjection(

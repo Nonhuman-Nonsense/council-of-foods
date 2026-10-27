@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
-import AudioOutputMessage from '@council/output/AudioOutputMessage';
+import AudioOutputMessage, { resumeOffsetFor } from '@council/output/AudioOutputMessage';
 import React from 'react';
 
 // Specialized Mocks
@@ -142,5 +142,113 @@ describe('AudioOutputMessage', () => {
         callback();
 
         expect(onFinishedPlaying).toHaveBeenCalled();
+    });
+});
+
+describe('AudioOutputMessage hold and resume', () => {
+    const sentences = [
+        { text: 'One.', start: 0, end: 2 },
+        { text: 'Two.', start: 2, end: 5 },
+        { text: 'Three.', start: 5, end: 8 },
+    ];
+    const audio = { length: 100 } as any;
+
+    function setup() {
+        const context = { currentTime: 100, createBufferSource: vi.fn() };
+        const sources: any[] = [];
+        context.createBufferSource.mockImplementation(() => {
+            const source = {
+                buffer: null,
+                start: vi.fn(),
+                stop: vi.fn(),
+                connect: vi.fn(),
+                disconnect: vi.fn(),
+                addEventListener: vi.fn(),
+                removeEventListener: vi.fn(),
+            };
+            sources.push(source);
+            return source;
+        });
+        const callbacks = { onFinishedPlaying: vi.fn(), onPlaybackStarted: vi.fn() };
+        const view = (message: any, held: boolean) => (
+            <AudioOutputMessage
+                currentAudioMessage={message}
+                audioContext={{ current: context } as any}
+                gainNode={{ current: {} } as any}
+                held={held}
+                {...callbacks}
+            />
+        );
+        return { context, sources, callbacks, view };
+    }
+
+    it('resumes from the start of the interrupted sentence, with the subtitle clock backdated to match', () => {
+        const { context, sources, callbacks, view } = setup();
+        const message = { id: 'm1', audio, sentences };
+        const { rerender } = render(view(message, false));
+
+        context.currentTime = 103.5; // 3.5s in: inside "Two."
+        rerender(view(message, true));
+        expect(sources[0].stop).toHaveBeenCalled();
+
+        context.currentTime = 160;
+        rerender(view(message, false));
+
+        expect(sources).toHaveLength(2);
+        expect(sources[1].start).toHaveBeenCalledWith(0, 2);
+        expect(callbacks.onPlaybackStarted).toHaveBeenLastCalledWith({
+            messageId: 'm1',
+            startedAtAudioContextTime: 158,
+        });
+    });
+
+    it('does not report the message finished when the hold stops it', () => {
+        const { sources, callbacks, view } = setup();
+        const message = { id: 'm1', audio, sentences };
+        const { rerender } = render(view(message, false));
+        const ended = sources[0].addEventListener.mock.calls[0][1];
+
+        rerender(view(message, true));
+        ended();
+
+        expect(callbacks.onFinishedPlaying).not.toHaveBeenCalled();
+    });
+
+    it('holds a message that arrives during the hold, then plays it from the beginning', () => {
+        const { sources, view } = setup();
+        const message = { id: 'm1', audio, sentences };
+        const { rerender } = render(view(message, true));
+        expect(sources).toHaveLength(0);
+
+        rerender(view(message, false));
+        expect(sources[0].start).toHaveBeenCalledWith(0, 0);
+    });
+
+    it('plays the next message from the beginning after an interrupted one', () => {
+        const { context, sources, view } = setup();
+        const first = { id: 'm1', audio, sentences };
+        const { rerender } = render(view(first, false));
+        context.currentTime = 106;
+        rerender(view(first, true));
+        rerender(view({ id: 'm2', audio, sentences }, true));
+
+        rerender(view({ id: 'm2', audio, sentences }, false));
+        expect(sources[1].start).toHaveBeenCalledWith(0, 0);
+    });
+});
+
+describe('resumeOffsetFor', () => {
+    const sentences = [
+        { text: 'One.', start: 0.4, end: 2 },
+        { text: 'Two.', start: 2, end: 5 },
+    ];
+
+    it.each([
+        { name: 'mid-sentence goes back to that sentence', sentences, elapsed: 3.2, expected: 2 },
+        { name: 'exactly on a sentence start stays there', sentences, elapsed: 2, expected: 2 },
+        { name: 'before the first sentence starts from the top', sentences, elapsed: 0.1, expected: 0 },
+        { name: 'without sentence timings resumes where it stopped', sentences: [], elapsed: 3.2, expected: 3.2 },
+    ])('$name', ({ sentences, elapsed, expected }) => {
+        expect(resumeOffsetFor(sentences, elapsed)).toBe(expected);
     });
 });

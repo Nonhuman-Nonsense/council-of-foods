@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import SetupAgentOverlay from '@setupAgent/SetupAgentOverlay';
 import '@testing-library/jest-dom';
 
@@ -13,28 +13,150 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
+  LiveAudioVisualizerPair: () => <div data-testid="live-audio-viz" />,
+}));
+
+// Keep the icon identity — which control is which is the thing under test.
 vi.mock('@council/ConversationControlIcon', () => ({
-  default: () => <button type="button" data-testid="setup-agent-ai-toggle">AI</button>,
+  default: ({ icon, onClick }: { icon: string; onClick: () => void }) => (
+    <button type="button" data-testid={`icon-${icon}`} onClick={onClick}>
+      {icon}
+    </button>
+  ),
 }));
 
 describe('SetupAgentOverlay', () => {
   const baseProps = {
     isConnecting: false,
-    error: null,
     lastCaption: null,
     lastUserTranscript: null,
     muted: false,
     onStart: vi.fn(),
     onStop: vi.fn(),
+    onMicPress: vi.fn(),
   };
 
-  it('shows the AI toggle in web mode', () => {
-    render(<SetupAgentOverlay {...baseProps} isMuseumMode={false} />);
-    expect(screen.getByTestId('setup-agent-ai-toggle')).toBeInTheDocument();
+  it('offers a volume toggle when the visitor has a pointer', () => {
+    render(<SetupAgentOverlay {...baseProps} browserUi />);
+    expect(screen.getByTestId('icon-volume_on')).toBeInTheDocument();
   });
 
-  it('hides the AI toggle in museum mode', () => {
-    render(<SetupAgentOverlay {...baseProps} isMuseumMode />);
-    expect(screen.queryByTestId('setup-agent-ai-toggle')).not.toBeInTheDocument();
+  it('hides the volume toggle on an installation', () => {
+    render(<SetupAgentOverlay {...baseProps} />);
+    expect(screen.queryByTestId('icon-volume_on')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('icon-volume_off')).not.toBeInTheDocument();
+  });
+
+  it('turns the agent off and back on from the volume toggle', () => {
+    const onStop = vi.fn();
+    const onStart = vi.fn();
+
+    const { rerender } = render(
+      <SetupAgentOverlay {...baseProps} browserUi onStop={onStop} onStart={onStart} muted={false} />,
+    );
+    fireEvent.click(screen.getByTestId('icon-volume_on'));
+    expect(onStop).toHaveBeenCalledOnce();
+
+    rerender(
+      <SetupAgentOverlay {...baseProps} browserUi onStop={onStop} onStart={onStart} muted />,
+    );
+    fireEvent.click(screen.getByTestId('icon-volume_off'));
+    expect(onStart).toHaveBeenCalledOnce();
+  });
+
+  it('shows the right mic button state for the session', () => {
+    const liveStream = {} as MediaStream;
+    const cases: Array<{
+      muted: boolean;
+      isConnecting: boolean;
+      micRequested: boolean;
+      micAttaching: boolean;
+      micStream: MediaStream | null;
+      expected: string;
+    }> = [
+      // Off is a real state, not a pending one: the click restarts everything,
+      // so it stays clickable even though the session is not ready.
+      { muted: true, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },
+      // Not connecting because the page turned out not to be audible yet —
+      // spinning here would promise a greeting that nothing is coming for,
+      // and hide the button that supplies the gesture to unblock it.
+      { muted: false, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },
+      // Ready-but-silent still spins, same signal the museum spinner uses —
+      // the greeting itself is what a visitor here is waiting to hear.
+      { muted: false, isConnecting: true, micRequested: false, micAttaching: false, micStream: null, expected: 'connecting' },
+      // Held, the track one render behind: the button is under the visitor's
+      // finger, so it shows "on" rather than being swapped for a spinner. A first
+      // press that has to attach the mic spins through `micAttaching` instead.
+      { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: null, expected: 'on' },
+      // A real attach call is outstanding even though the press was let go
+      // mid-flight (or ended by a blur from the permission prompt itself) — the
+      // spinner reflects the actual outstanding work, not the press.
+      { muted: false, isConnecting: false, micRequested: false, micAttaching: true, micStream: null, expected: 'connecting' },
+      { muted: false, isConnecting: false, micRequested: true, micAttaching: false, micStream: liveStream, expected: 'on' },
+      { muted: false, isConnecting: false, micRequested: false, micAttaching: false, micStream: null, expected: 'off' },
+    ];
+
+    for (const { muted, isConnecting, micRequested, micAttaching, micStream, expected } of cases) {
+      const { unmount } = render(
+        <SetupAgentOverlay
+          {...baseProps}
+          browserUi
+          muted={muted}
+          isConnecting={isConnecting}
+          micRequested={micRequested}
+          micAttaching={micAttaching}
+          micStream={micStream}
+        />,
+      );
+
+      expect(
+        screen.getByTestId('realtime-mic-button'),
+        `muted=${muted} connecting=${isConnecting} requested=${micRequested} attaching=${micAttaching} live=${micStream != null}`,
+      ).toHaveAttribute('data-mic-state', expected);
+      unmount();
+    }
+  });
+
+  // The spinner alone reads as broken once a capacity wait runs into minutes,
+  // so the notice explains it — in the visitor's own caption size, because it
+  // is about the session rather than something the agent said.
+  it('shows a notice through a connecting spinner, in the smaller caption size', () => {
+    const { rerender } = render(
+      <SetupAgentOverlay {...baseProps} browserUi lastUserTranscript="hello there" />,
+    );
+    const userSize = getComputedStyle(screen.getByTestId('agent-user')).fontSize;
+
+    rerender(
+      <SetupAgentOverlay
+        {...baseProps}
+        browserUi
+        isConnecting
+        lastCaption="something the agent said"
+        notice="error.busyRetrying"
+      />,
+    );
+
+    const notice = screen.getByTestId('agent-notice');
+    expect(notice).toHaveTextContent('error.busyRetrying');
+    expect(getComputedStyle(notice).fontSize).toBe(userSize);
+    // Captions stay hidden while connecting; the notice is what replaces them.
+    expect(screen.queryByTestId('agent-caption')).not.toBeInTheDocument();
+  });
+
+  it('shows the visualiser only once the mic is actually live, not on the request alone', () => {
+    const { rerender } = render(
+      <SetupAgentOverlay {...baseProps} browserUi micRequested />,
+    );
+    expect(screen.queryByTestId('live-audio-viz')).not.toBeInTheDocument();
+
+    rerender(<SetupAgentOverlay {...baseProps} browserUi micRequested micStream={{} as MediaStream} />);
+    expect(screen.getByTestId('live-audio-viz')).toBeInTheDocument();
+  });
+
+  it('does not render a clickable mic button without a pointer', () => {
+    render(<SetupAgentOverlay {...baseProps} showMicRow />);
+
+    expect(screen.queryByTestId('realtime-mic-button')).not.toBeInTheDocument();
   });
 });

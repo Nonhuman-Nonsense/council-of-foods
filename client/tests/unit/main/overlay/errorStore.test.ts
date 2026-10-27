@@ -96,3 +96,33 @@ describe("errorStore — unrecoverable error tracking", () => {
     expect(useErrorStore.getState().unrecoverableError).toBeNull();
   });
 });
+
+describe("errorStore — busy vs lost", () => {
+  beforeEach(() => {
+    useErrorStore.getState().resetForTests();
+  });
+
+  it("treats a source as lost unless told otherwise", () => {
+    act(() => useErrorStore.getState().setConnectionError("socket", true));
+    expect(useErrorStore.getState().connectionBusy).toBe(false);
+  });
+
+  it("is busy only while every active source is merely waiting on capacity", () => {
+    act(() => useErrorStore.getState().setConnectionError("setup-agent", true, "busy"));
+    expect(useErrorStore.getState().connectionBusy).toBe(true);
+
+    // A genuine drop alongside it is the more urgent truth.
+    act(() => useErrorStore.getState().setConnectionError("socket", true, "lost"));
+    expect(useErrorStore.getState().connectionBusy).toBe(false);
+
+    act(() => useErrorStore.getState().setConnectionError("socket", false));
+    expect(useErrorStore.getState().connectionBusy).toBe(true);
+  });
+
+  it("is not busy once nothing is wrong", () => {
+    act(() => useErrorStore.getState().setConnectionError("meta-agent", true, "busy"));
+    act(() => useErrorStore.getState().setConnectionError("meta-agent", false));
+    expect(useErrorStore.getState().connectionBusy).toBe(false);
+    expect(useErrorStore.getState().connectionError).toBe(false);
+  });
+});

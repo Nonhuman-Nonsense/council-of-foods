@@ -1,0 +1,85 @@
+<!doctype html>
+<!--
+  Shown by kiosk-window.sh, from this Mac, while the council's server doesn't answer, so staff
+  see why the screen isn't showing the council. The script checks the connection and writes
+  what it found into offline-<role>.js next to this page; the role is this page's #hash. Styled
+  like the app's own error overlay (client/src/main/overlay/CouncilError.tsx).
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The council: no connection</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: black;
+    color: white;
+  }
+  /* Like the council's: the pointer hides once it has stood still for a while. */
+  html.cursor-hidden, html.cursor-hidden * { cursor: none !important; }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    /* Tinos, the app's font, is drawn to match Times New Roman. */
+    font-family: "Tinos", "Times New Roman", serif;
+  }
+  main { max-width: 900px; padding: 0 40px; }
+  img { height: 80px; opacity: 0.7; }
+  h2 { font-size: 48px; margin: 6px; font-weight: normal; }
+  p { font-size: 24px; margin: 13px 0; }
+  .note { opacity: 0.6; font-size: 20px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<main>
+  <img alt="" src="data:image/png;base64,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">
+  <h2 id="title">Checking the connection…</h2>
+  <p id="detail"></p>
+  <p class="note">The council starts again by itself once the connection is back.</p>
+</main>
+<script>
+  const COPY = {
+    "no-network": ["No network", "Check the network cable or Wi‑Fi."],
+    "no-internet": ["No internet", "Check the router and the internet connection."],
+    "no-server": ["Server error", "The council's server isn't responding. Nothing to fix here."],
+  };
+
+  const role = location.hash.slice(1) || "council";
+
+  function show() {
+    const status = window.kioskStatus;
+    if (!status || !COPY[status.problem]) return;
+    const [title, detail] = COPY[status.problem];
+    document.getElementById("title").textContent = title;
+    document.getElementById("detail").textContent = `${detail} (Since ${status.since}.)`;
+  }
+
+  // The script rewrites the status file as the connection changes; read it again every few seconds.
+  function refresh() {
+    const script = document.createElement("script");
+    script.src = `offline-${role}.js?${Date.now()}`;
+    script.onload = script.onerror = () => {
+      script.remove();
+      show();
+    };
+    document.body.appendChild(script);
+  }
+
+  refresh();
+  setInterval(refresh, 3000);
+
+  const CURSOR_IDLE_MS = 3000;
+  let cursorTimer;
+  function showCursor() {
+    document.documentElement.classList.remove("cursor-hidden");
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(() => document.documentElement.classList.add("cursor-hidden"), CURSOR_IDLE_MS);
+  }
+  window.addEventListener("mousemove", showCursor);
+  showCursor();
+</script>
+</body>
+</html>

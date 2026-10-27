@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import i18n from "i18next";
 import * as AvailableLanguagesModule from "@shared/AvailableLanguages";
-import { buildLanguagePath, reloadApp } from "@/navigation";
+import { buildLanguagePath, reloadApp, restartNow } from "@/navigation";
 import { useErrorStore } from "@main/overlay/errorStore";
 
 const mockGetAppMode = vi.hoisted(() => vi.fn(() => "web" as "web" | "museum"));
@@ -10,7 +10,7 @@ vi.mock("@/settings/councilSettings", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/settings/councilSettings")>();
   return {
     ...actual,
-    getAppMode: () => mockGetAppMode(),
+    getCapabilities: () => ({ installationReload: mockGetAppMode() !== "web" }),
   };
 });
 
@@ -127,5 +127,34 @@ describe("reloadApp", () => {
       message: "existing",
       source: "autoplay",
     });
+  });
+});
+
+describe("restartNow", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  // A meeting link that failed to load is worth loading again for the visitor who followed
+  // it; an installation resets to its root regardless, so the next visitor starts fresh.
+  it.each([
+    { mode: "web", inPlace: true, reloads: true, href: undefined },
+    { mode: "web", inPlace: false, reloads: false, href: buildLanguagePath(i18n.language, "/") },
+    { mode: "museum", inPlace: true, reloads: false, href: "/" },
+  ] as const)("$mode, inPlace=$inPlace → reload=$reloads, href=$href", ({ mode, inPlace, reloads, href }) => {
+    mockGetAppMode.mockReturnValue(mode);
+    const reload = vi.fn();
+    const hrefSetter = vi.fn();
+    Object.defineProperty(window, "location", {
+      value: { ...window.location, reload },
+      writable: true,
+    });
+    Object.defineProperty(window.location, "href", { set: hrefSetter, configurable: true });
+
+    restartNow({ inPlace });
+
+    expect(reload).toHaveBeenCalledTimes(reloads ? 1 : 0);
+    if (href === undefined) expect(hrefSetter).not.toHaveBeenCalled();
+    else expect(hrefSetter).toHaveBeenCalledWith(href);
   });
 });

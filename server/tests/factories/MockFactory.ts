@@ -120,6 +120,7 @@ export const MockFactory = {
             transcribeModel: "whisper-1",
             transcribePrompt: { en: "Transcribe" },
             audioConcurrency: 2,
+            voiceLoudness: { targetLufs: -18, skipBelowDb: 1.5, truePeakDb: -1.5 },
             chairRealtime: {
                 strategy: "unified",
                 languages: {
@@ -155,6 +156,20 @@ export const MockFactory = {
             },
             speakerClassifierModel: "google-ai-studio/gemini-2.5-flash",
             directedSpeakerRouting: false,
+            meetingEnding: "protocol",
+            letterSiteUrl: "https://example.org",
+            letterMaxCandidates: 40,
+            letterModel: "mistral/mistral-small-3-2",
+            letterReasoning: "none",
+            letterWeaveModel: "mistral/mistral-small-3-2",
+            letterWeaveReasoning: "none",
+            letterPlanLength: 50,
+            letterWriteLength: 50,
+            letterAuthorCooldown: 3,
+            letterSenderDomain: "example.org",
+            letterReplyDomain: "reply.example.org",
+            letterSenderAddresses: { treeharvester: "tree.harvester" },
+            letterDailyLimit: 5,
             ...overrides,
         }) as GlobalOptions,
 

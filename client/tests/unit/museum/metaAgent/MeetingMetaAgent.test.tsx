@@ -6,10 +6,12 @@ import type { MeetingMetaAgentProps } from "@museum/metaAgent/MeetingMetaAgent";
 import type { ButtonOwner } from "@museum/button/useButton";
 import { BUTTON_BANNER_IDLE_MS } from "@museum/button/useButtonBanner";
 import { useErrorStore } from "@main/overlay/errorStore";
+import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
+import translation from "@/locales/translation_en.json";
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
-const mockSetLed = vi.hoisted(() => vi.fn());
+const mockSetArmed = vi.hoisted(() => vi.fn());
 
 const mockButtonState = vi.hoisted(() => ({
   pressed: false,
@@ -48,8 +50,9 @@ vi.mock("@museum/button/useButton", async () => {
       return {
         claim: mockClaim,
         release: mockRelease,
-        setLed: mockSetLed,
+        setArmed: mockSetArmed,
         pressed,
+        wantsMic: pressed,
         isOwner,
       };
     },
@@ -68,6 +71,7 @@ const sessionCallbacks = vi.hoisted(() => ({
 
 const mockMetaAgentState = vi.hoisted(() => ({
   connectionState: "ready" as "idle" | "connecting" | "ready" | "error",
+  providerBusy: false,
   agentSpeaking: false,
   lastCaption: "Agent reply" as string | null,
   lastUserTranscript: "Visitor question" as string | null,
@@ -78,6 +82,7 @@ vi.mock("@museum/metaAgent/useMetaAgent", () => ({
     sessionCallbacks.onSessionReady = params.onSessionReady;
     return {
       connectionState: mockMetaAgentState.connectionState,
+      providerBusy: mockMetaAgentState.providerBusy,
       lastCaption: mockMetaAgentState.lastCaption,
       lastUserTranscript: mockMetaAgentState.lastUserTranscript,
     agentSpeaking: mockMetaAgentState.agentSpeaking,
@@ -99,15 +104,19 @@ vi.mock("@realtime/RealtimeCaptionOverlay", () => ({
     lastCaption: string | null;
     lastUserTranscript: string | null;
     subtitleLayout?: string;
-    showPttVisualizer?: boolean;
+    notice?: string | null;
+    showMicRow?: boolean;
     micActive?: boolean;
+    micButton?: unknown;
   }) => (
     <div
       data-testid="meta-agent-caption-overlay"
       data-subtitle-layout={props.subtitleLayout}
-      data-show-ptt-viz={String(props.showPttVisualizer)}
+      data-show-ptt-viz={String(props.showMicRow)}
       data-mic-active={String(props.micActive)}
+      data-has-mic-button={String(props.micButton != null)}
     >
+      {props.notice ? <span data-testid="agent-notice">{props.notice}</span> : null}
       {props.lastUserTranscript ? (
         <span data-testid="agent-user">{props.lastUserTranscript}</span>
       ) : null}
@@ -123,6 +132,7 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
     liveKey: "live-key-123",
     language: "en",
     participationPhase: "off",
+    invitationPlaying: false,
     metaAgentPhase: "inactive",
     setMetaAgentPhase: vi.fn(),
     setAgentSpeaking: vi.fn(),
@@ -141,6 +151,7 @@ function makeProps(overrides: Partial<MeetingMetaAgentProps> = {}): MeetingMetaA
 }
 
 beforeEach(() => {
+  localStorage.setItem("councilAppMode", "museum");
   useErrorStore.getState().resetForTests();
   mockButtonState.pressed = false;
   mockButtonState.buttonOwner = "meta-agent";
@@ -157,7 +168,11 @@ beforeEach(() => {
   sessionCallbacks.onSessionReady = undefined;
   mockClaim.mockClear();
   mockRelease.mockClear();
-  mockSetLed.mockClear();
+  mockSetArmed.mockClear();
+});
+
+afterEach(() => {
+  localStorage.clear();
 });
 
 describe("MeetingMetaAgent", () => {
@@ -179,6 +194,51 @@ describe("MeetingMetaAgent", () => {
     expect(overlay).toHaveAttribute("data-subtitle-layout", "council");
     expect(overlay).toHaveAttribute("data-show-ptt-viz", "true");
     expect(overlay).toHaveAttribute("data-mic-active", "false");
+    // The hardware button owns the mic here — no clickable mic control.
+    expect(overlay).toHaveAttribute("data-has-mic-button", "false");
+  });
+
+  // The extension loader spins in front of a room, and a capacity wait now runs
+  // to minutes — long enough that silence reads as a broken installation.
+  it.each([
+    { phase: "inactive", agentSpeaking: false, mic: false },
+    { phase: "interruption", agentSpeaking: false, mic: true },
+    { phase: "extension", agentSpeaking: false, mic: false },
+    { phase: "extension", agentSpeaking: true, mic: true },
+  ] as const)(
+    "raises the mic in $phase (agent speaking: $agentSpeaking): $mic",
+    ({ phase, agentSpeaking, mic }) => {
+      const { rerender } = render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: phase })} />);
+      mockMetaAgentState.agentSpeaking = agentSpeaking;
+      rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: phase })} />);
+      expect(screen.queryByTestId("rising-mic") !== null).toBe(mic);
+    },
+  );
+
+  it("explains a busy provider once the wait has gone on", () => {
+    vi.useFakeTimers();
+    mockMetaAgentState.providerBusy = true;
+    mockMetaAgentState.connectionState = "connecting";
+
+    render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "extension" })} />);
+    expect(screen.queryByTestId("agent-notice")).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(BUSY_NOTICE_DELAY_MS);
+    });
+    expect(screen.getByTestId("agent-notice")).toHaveTextContent(translation.error.busyRetrying);
+    vi.useRealTimers();
+  });
+
+  it("tells the overlay the agent is busy, not disconnected, when the visitor presses", () => {
+    mockMetaAgentState.providerBusy = true;
+    mockMetaAgentState.connectionState = "connecting";
+    render(<MeetingMetaAgent {...makeProps()} />);
+
+    act(() => setMockPressed(true));
+
+    expect(useErrorStore.getState().connectionError).toBe(true);
+    expect(useErrorStore.getState().connectionBusy).toBe(true);
   });
 
   it("claims the button on mount and releases on unmount", () => {
@@ -188,10 +248,15 @@ describe("MeetingMetaAgent", () => {
     expect(mockRelease).toHaveBeenCalled();
   });
 
-  it("sets LED pulse in standby and on while active and pressed", () => {
+  it("arms the button once the realtime session is ready", () => {
     render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />);
-    act(() => setMockPressed(true));
-    expect(mockSetLed).toHaveBeenCalledWith("on");
+    expect(mockSetArmed).toHaveBeenCalledWith(true);
+  });
+
+  it("keeps the button disarmed while the chair's invitation plays", () => {
+    render(<MeetingMetaAgent {...makeProps({ invitationPlaying: true })} />);
+    expect(mockSetArmed).toHaveBeenCalledWith(false);
+    expect(mockSetArmed).not.toHaveBeenCalledWith(true);
   });
 
   it("sets active, opens mic, sends snapshot on button press (standby)", () => {
@@ -276,7 +341,7 @@ describe("MeetingMetaAgent", () => {
     expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });
 
-  it("closes mic when metaAgentPhase transitions to inactive", () => {
+  it("puts the mic away without sending the turn when the agent goes inactive", () => {
     const { rerender } = render(
       <MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />,
     );
@@ -284,7 +349,7 @@ describe("MeetingMetaAgent", () => {
     mockSetMicEnabled.mockClear();
 
     rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "inactive" })} />);
-    expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
+    expect(mockSetMicEnabled).toHaveBeenCalledWith(false, { discard: true });
   });
 
   it("mic follows pressed state inside active mode", () => {
@@ -394,6 +459,34 @@ describe("MeetingMetaAgent", () => {
       expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(true);
       vi.useRealTimers();
     });
+
+    it("holds the extend-or-conclude question open in presenter mode", () => {
+      vi.useFakeTimers();
+      localStorage.setItem("councilAppMode", "presenter");
+      const setMetaAgentPhase = vi.fn();
+      const onConcludeMeeting = vi.fn();
+      const onExtendMeeting = vi.fn();
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentPhase: "extension",
+            setMetaAgentPhase,
+            onConcludeMeeting,
+            onExtendMeeting,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_BANNER_IDLE_MS * 4);
+      });
+
+      expect(onConcludeMeeting).not.toHaveBeenCalled();
+      expect(onExtendMeeting).not.toHaveBeenCalled();
+      expect(setMetaAgentPhase).not.toHaveBeenCalledWith("inactive");
+      vi.useRealTimers();
+    });
   });
 
   describe("idle auto-resume", () => {
@@ -450,6 +543,26 @@ describe("MeetingMetaAgent", () => {
 
       expect(setMetaAgentPhase).toHaveBeenCalledWith("inactive");
       expect(mockSetAgentOutputMuted).toHaveBeenCalledWith(true);
+    });
+
+    it("waits for the presenter instead of resuming on its own", () => {
+      localStorage.setItem("councilAppMode", "presenter");
+      const setMetaAgentPhase = vi.fn();
+
+      render(
+        <MeetingMetaAgent
+          {...makeProps({
+            metaAgentPhase: "interruption",
+            setMetaAgentPhase,
+          })}
+        />,
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(BUTTON_BANNER_IDLE_MS * 4);
+      });
+
+      expect(setMetaAgentPhase).not.toHaveBeenCalled();
     });
 
     it("does not resume before the idle PTT reminder appears", () => {

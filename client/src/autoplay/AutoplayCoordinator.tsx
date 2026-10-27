@@ -5,7 +5,6 @@ import Overlay from "@main/overlay/Overlay";
 import AutoplayWarning from "@main/overlay/AutoplayWarning";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonStore } from "@/museum/button/buttonStore";
-import { useCouncilSettings } from "@/settings/councilSettings";
 import { isRootPath, reloadApp, stripLanguagePrefix } from "@/navigation";
 import routes from "@/routes.json";
 import { getPreferredLanguage } from "@/i18n";
@@ -34,7 +33,6 @@ export interface AutoplayCoordinatorProps {
 }
 
 type IdleInactiveReason =
-  | "not_museum"
   | "phase_not_off"
   | "staff_hash"
   | "staff_button_claim"
@@ -48,7 +46,6 @@ export default function AutoplayCoordinator({
 }: AutoplayCoordinatorProps): React.ReactElement | null {
   const connectionError = useErrorStore((s) => s.connectionError);
   const unrecoverableError = useErrorStore((s) => s.unrecoverableError);
-  const { isMuseumMode } = useCouncilSettings();
   const location = useLocation();
   const navigate = useNavigate();
   const { i18n } = useTranslation();
@@ -73,17 +70,14 @@ export default function AutoplayCoordinator({
     log.event("AUTOPLAY", "idle watch inactive", { reason, ...extra });
   }, []);
 
+  // Mounted only under capabilities.autoplay, so reaching here means active.
   useEffect(() => {
-    if (!isMuseumMode) {
-      log.event("AUTOPLAY", "coordinator inactive", { reason: "not_museum_mode" });
-      return;
-    }
     log.event("AUTOPLAY", "coordinator active", {
       phase,
       pathname: location.pathname,
       thresholdMs: SETUP_IDLE_MS,
     });
-  }, [isMuseumMode]);
+  }, []);
 
   const startAutoplayMeeting = useCallback(async () => {
     try {
@@ -134,51 +128,41 @@ export default function AutoplayCoordinator({
   }, [setPhase]);
 
   useEffect(() => {
-    if (!isMuseumMode || !(connectionError || unrecoverableError)) {
+    if (!(connectionError || unrecoverableError)) {
       return;
     }
     if (useAutoplayStore.getState().phase === "warning") {
       log.event("AUTOPLAY", "warning cleared", { reason: "system_error" });
       setPhase("off");
     }
-  }, [connectionError, isMuseumMode, setPhase, unrecoverableError]);
+  }, [connectionError, setPhase, unrecoverableError]);
 
   useEffect(() => {
-    if (!isMuseumMode) {
-      return;
-    }
     bumpAutoplayActivity("pathname");
-  }, [isMuseumMode, location.pathname]);
+  }, [location.pathname]);
 
   useEffect(() => {
-    if (!isMuseumMode) {
-      return;
-    }
     return useButtonStore.subscribe((state, prevState) => {
       if (state.pressed && !prevState.pressed) {
         bumpAutoplayActivity("button-press");
       }
     });
-  }, [isMuseumMode]);
+  }, []);
 
   useEffect(() => {
-    if (!isMuseumMode || phase === "off") {
+    if (phase === "off") {
       return;
     }
 
     button.claim();
-    button.setLed("pulse");
+    button.setArmed(true);
 
     return () => {
       button.release();
     };
-  }, [phase, button.claim, button.release, button.setLed, isMuseumMode]);
+  }, [phase, button.claim, button.release, button.setArmed]);
 
   useEffect(() => {
-    if (!isMuseumMode) {
-      return;
-    }
-
     const pressed = button.pressed;
     const wasPressed = prevPressedRef.current;
     prevPressedRef.current = pressed;
@@ -195,10 +179,10 @@ export default function AutoplayCoordinator({
     if (phase === "active") {
       exitAutoplay();
     }
-  }, [phase, button.pressed, dismissWarning, exitAutoplay, isMuseumMode]);
+  }, [phase, button.pressed, dismissWarning, exitAutoplay]);
 
   useEffect(() => {
-    if (!isMuseumMode || phase !== "active") {
+    if (phase !== "active") {
       return;
     }
     if (connectionError || unrecoverableError) {
@@ -228,7 +212,6 @@ export default function AutoplayCoordinator({
   }, [
     connectionError,
     councilOnSummary,
-    isMuseumMode,
     startAutoplayMeeting,
     phase,
     summaryProtocolFinished,
@@ -236,10 +219,6 @@ export default function AutoplayCoordinator({
   ]);
 
   useEffect(() => {
-    if (!isMuseumMode) {
-      logIdleInactive("not_museum");
-      return;
-    }
     if (connectionError || unrecoverableError) {
       logIdleInactive("system_error");
       return;
@@ -306,7 +285,6 @@ export default function AutoplayCoordinator({
   }, [
     connectionError,
     councilOnSummary,
-    isMuseumMode,
     location.hash,
     location.pathname,
     logIdleInactive,
@@ -316,10 +294,6 @@ export default function AutoplayCoordinator({
     showWarning,
     unrecoverableError,
   ]);
-
-  if (!isMuseumMode) {
-    return null;
-  }
 
   return (
     <>

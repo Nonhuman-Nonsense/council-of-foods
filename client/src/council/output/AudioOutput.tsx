@@ -1,6 +1,7 @@
 
 import { useEffect, useRef } from "react";
 import AudioOutputMessage, { PlayableAudioMessage, type PlaybackStartInfo } from "./AudioOutputMessage";
+import { audioBusesFor } from "@/audio/audioRouting";
 import React from 'react';
 
 interface AudioOutputProps {
@@ -9,6 +10,8 @@ interface AudioOutputProps {
   onFinishedPlaying: () => void;
   onPlaybackStarted?: (info: PlaybackStartInfo) => void;
   isMuted: boolean;
+  /** Hold playback; releasing resumes from the interrupted sentence. */
+  held?: boolean;
 }
 
 //Most of the audio processing should happen here, but the audioContext is owned higher up
@@ -19,12 +22,13 @@ function AudioOutput({
   onFinishedPlaying,
   onPlaybackStarted,
   isMuted,
+  held,
 }: AudioOutputProps): React.ReactElement {
   const gainNode = useRef<GainNode | null>(null); //The general volume control node
 
   if (audioContext.current && gainNode.current === null) {
     gainNode.current = audioContext.current.createGain();
-    gainNode.current.connect(audioContext.current.destination);
+    gainNode.current.connect(audioBusesFor(audioContext.current).voices);
   }
 
   useEffect(() => {
@@ -50,6 +54,7 @@ function AudioOutput({
       gainNode={gainNode}
       onFinishedPlaying={onFinishedPlaying}
       onPlaybackStarted={onPlaybackStarted}
+      held={held}
     />
   );
 }

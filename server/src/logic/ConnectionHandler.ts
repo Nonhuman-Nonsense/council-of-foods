@@ -3,6 +3,7 @@ import type { Message } from "@shared/ModelTypes.js";
 import type { IMeetingManager } from "@interfaces/MeetingInterfaces.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { splitSentences } from "@shared/textUtils.js";
+import { isConcluding } from "@shared/meetingEnding.js";
 import { ForbiddenError, NotFoundError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
 import { promoteMeetingCompleteIfReady } from "@logic/MeetingLifecycleHandler.js";
@@ -67,10 +68,7 @@ export class ConnectionHandler {
 
             // A concluding/concluded meeting is finished: never carry in a stale raised hand,
             // which would otherwise stall the summary generation (decideNextAction's rule 0).
-            const isConcluding = existingMeeting.conversation.some(
-                (msg) => msg.type === 'summary_pending' || msg.type === 'summary'
-            );
-            manager.handRaised = isConcluding ? false : (options.handRaised ?? false);
+            manager.handRaised = isConcluding(existingMeeting.conversation) ? false : (options.handRaised ?? false);
 
             // TODO, check how the server stores extraMessageCount
             // const baseMax = manager.serverOptions.conversationMaxLength;
@@ -96,8 +94,10 @@ export class ConnectionHandler {
 
                 Logger.info("connection", `(async) generating missing audio for ${audioMsg.speaker}`, { from: manager });
                 audioMsg.sentences = splitSentences(audioMsg.text as string);
-                // Ensure speaker is found
-                const speaker = existingMeeting.characters.find(c => c.id === audioMsg.speaker);
+                // Ensure speaker is found. A human's words are read by the chair.
+                const speaker = audioMsg.type === 'human'
+                    ? existingMeeting.characters[0]
+                    : existingMeeting.characters.find(c => c.id === audioMsg.speaker);
                 if (speaker) {
                     manager.audioSystem.queueAudioGeneration(
                         { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },

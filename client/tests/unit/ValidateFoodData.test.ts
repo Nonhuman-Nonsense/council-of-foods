@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import { AVAILABLE_VOICES, VoiceOption } from '@shared/ModelTypes';
 import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata';
+import { SINGLE_AGENDA_POINT_PLACEHOLDER } from '@shared/agendaPointInjection';
 import fs from 'fs';
 import path from 'path';
 import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
@@ -14,6 +15,7 @@ interface CharacterDataEntry {
     id: string;
     name: string;
     description: string;
+    aliases?: string[];
     prompt?: string;
     type?: string;
     index?: number;
@@ -30,6 +32,7 @@ interface CharacterSetupDataFile {
         last_updated: string;
     };
     panelWithHumans: string;
+    singleAgendaPoint?: string;
     addHuman: {
         id: string;
         name: string;
@@ -91,6 +94,31 @@ describe('Validate Food Data JSONs', () => {
             expect(data.addHuman).toHaveProperty('name');
             expect(data.addHuman).toHaveProperty('description');
         });
+    });
+
+    /** An everyday name that points at two characters would let the setup agent pick the wrong one. */
+    it('gives every everyday name to exactly one character, never another one\'s name', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            const owner = new Map<string, string>();
+            for (const character of loadCharacterData(lang).characters) {
+                for (const name of [character.name, ...(character.aliases ?? [])]) {
+                    const key = name.trim().toLocaleLowerCase();
+                    const previous = owner.get(key);
+                    expect(previous === undefined || previous === character.id,
+                        `"${name}" (${lang}) belongs to both ${previous} and ${character.id}`).toBe(true);
+                    owner.set(key, character.id);
+                }
+            }
+        }
+    });
+
+    /** Without the text, the placeholder is silently removed and a one-question meeting loses its rule. */
+    it('gives the chair\'s single-agenda-point placeholder its rule in every language', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            const data = loadCharacterData(lang);
+            if (!data.characters[0].prompt?.includes(SINGLE_AGENDA_POINT_PLACEHOLDER)) continue;
+            expect(data.singleAgendaPoint?.trim(), `singleAgendaPoint missing in "${lang}"`).toBeTruthy();
+        }
     });
 
     it('should have matching food IDs across all languages', () => {

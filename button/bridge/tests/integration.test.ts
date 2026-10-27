@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { startTestBridge, waitForTicks, waitForWrittenLine, type TestBridge } from "./testHarness.js";
+import { BRIDGE_VERSION } from "../src/types.js";
 
 describe("bridge integration", () => {
   let bridge: TestBridge;
@@ -19,7 +20,7 @@ describe("bridge integration", () => {
 
     expect(response.ok).toBe(true);
     expect(body.ok).toBe(true);
-    expect(body.version).toBe("1.0.0");
+    expect(body.version).toBe(BRIDGE_VERSION);
     expect(body.serial).toBe("connected");
     expect(body.path).toBe("mock");
     expect(body.serialDetail).toBe("connected");
@@ -104,6 +105,46 @@ describe("bridge integration", () => {
     });
 
     expect(bridge.getWrittenLines()).toContain("LED_PULSE");
+  });
+
+  it("signals LED_ERROR when the last websocket client disconnects", async () => {
+    const socket = new WebSocket(bridge.wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      socket.on("open", () => resolve());
+      socket.on("error", reject);
+    });
+
+    bridge.clearWrittenLines();
+    socket.close();
+    await waitForWrittenLine(bridge, "LED_ERROR");
+
+    expect(bridge.getWrittenLines()).toContain("LED_ERROR");
+  });
+
+  it("signals LED_ERROR when serial reconnects with no client attached", async () => {
+    bridge.simulateUsbDisconnect();
+    bridge.clearWrittenLines();
+    bridge.simulateUsbReconnect();
+
+    await waitForWrittenLine(bridge, "LED_ERROR");
+
+    expect(bridge.getWrittenLines()).toContain("LED_ERROR");
+  });
+
+  it("does not signal LED_ERROR while a websocket client is attached", async () => {
+    const socket = new WebSocket(bridge.wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      socket.on("open", () => resolve());
+      socket.on("error", reject);
+    });
+
+    bridge.clearWrittenLines();
+    bridge.simulateUsbDisconnect();
+    bridge.simulateUsbReconnect();
+    await waitForTicks(10);
+
+    expect(bridge.getWrittenLines()).not.toContain("LED_ERROR");
+    socket.close();
   });
 
   it("forwards mock button presses to websocket clients", async () => {

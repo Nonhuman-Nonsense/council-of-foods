@@ -10,12 +10,14 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./humanInput/HumanInput";
 import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
+import { summaryDocument, summaryLetter } from "@council/protocol/summaryDocument";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import { HttpStatusError } from "@api/http";
+import { HttpStatusError, isNetworkError } from "@api/http";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 import CouncilReplaySession from "./CouncilReplaySession";
+import SummaryPrintJob from "./protocol/SummaryPrintJob";
 import ButtonBanner from "@/museum/button/ButtonBanner";
 import MeetingMetaAgent from "@museum/metaAgent/MeetingMetaAgent";
 import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
@@ -50,7 +52,7 @@ function Council({
 
   const { meetingId } = useParams<{ meetingId: string }>();
   const { t, i18n } = useTranslation();
-  const { isMuseumMode, agentMode } = useCouncilSettings();
+  const { capabilities, printSummariesEnabled } = useCouncilSettings();
   const connectionError = useErrorStore((s) => s.connectionError);
 
   const navigate = useNavigate();
@@ -98,13 +100,19 @@ function Council({
         const msg =
           error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.message");
         const isNotFound = error instanceof HttpStatusError && error.status === 404;
+        // No response even after councilFetch's retries: the visitor's network (or ours) is
+        // down, not a bug. Say what to check, and let restarting try this same link again.
+        const unreachable = isNetworkError(error);
         setUnrecoverableError({
           message: msg,
+          errorKey: error instanceof HttpStatusError ? error.errorKey : undefined,
           source: "Council.loadMeeting",
           cause: error,
           meetingId: currentMeetingId,
+          connectionLost: unreachable,
+          reloadInPlace: unreachable,
           // Temporarily 'warning' (not 'info') to watch stale meeting link volume for a while.
-          severity: isNotFound ? "warning" : undefined,
+          severity: isNotFound || unreachable ? "warning" : undefined,
         });
       }
     })();
@@ -124,8 +132,8 @@ function Council({
     audioContext,
     isPaused,
     setPaused,
-    isMuseumMode,
-    agentMode,
+    selfHealing: capabilities.selfHealing,
+    hasMetaAgent: capabilities.metaAgent,
     setMetaAgentPhase,
     metaAgentPhase,
   });
@@ -179,6 +187,9 @@ function Council({
       return pendingMessage?.type === 'awaiting_human_panelist' ? pendingMessage.speaker : "";
     }
     const activeMessage = textMessages[playingNowIndex];
+    // On the summary page only the summary's reader speaks: on the credits, the chair's farewell
+    // before them has finished, and nobody's sound should keep playing under them.
+    if (councilState === 'summary' && activeMessage?.type !== 'summary') return "";
     if (activeMessage && isSpeakerMessage(activeMessage)) return activeMessage.speaker;
     return "";
   }, [metaAgentPhase, agentSpeaking, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
@@ -191,6 +202,7 @@ function Council({
       const detail = "Internal state mismatch: human_panelist state requires an awaiting_human_panelist message.";
       setUnrecoverableError({
         message: detail,
+        technical: true,
         source: "Council.human_panelist_state",
         meetingId: currentMeetingId,
       });
@@ -221,10 +233,18 @@ function Council({
 
   // Derived UI State
   const participationPhase = getParticipationPhase(councilState, textMessages, playingNowIndex);
-  const isButtonMuseumMode = useMemo(
-    () => isMuseumMode && agentMode === "ptt",
-    [isMuseumMode, agentMode]
+  // At the end of a meeting ending in a letter, the human is asked to add to the letter the
+  // being just announced: the message before the marker is that announcement.
+  const letterMarkerIndex = [playNextIndex, playingNowIndex + 1].find(
+    (index) => textMessages[index]?.type === "awaiting_letter_addition",
   );
+  const letterAuthor = letterMarkerIndex === undefined ? undefined : textMessages[letterMarkerIndex - 1];
+  const letterAuthorName = letterAuthor && isSpeakerMessage(letterAuthor)
+    ? participants.find((p) => p.id === letterAuthor.speaker)?.name ?? null
+    : null;
+  // The chair's invitation to a human turn is playing. The button belongs to the
+  // imminent human turn during this window, not the meta-agent — see MeetingMetaAgent.
+  const invitationPlaying = textMessages[playingNowIndex]?.type === "invitation";
   const isWaitingToInterject = isRaisedHand && councilState !== 'human_input';
   const controlsVisible = (
     councilState === 'playing' ||
@@ -256,11 +276,12 @@ function Council({
         agentSpeaking={agentSpeaking}
       />
       {councilState === 'loading' && !connectionError && <Loading />}
-      {isMuseumMode && liveKey && agentMode === "ptt" && (
+      {capabilities.metaAgent && liveKey && (
         <MeetingMetaAgent
           liveKey={liveKey}
           language={i18n.language}
           participationPhase={participationPhase}
+          invitationPlaying={invitationPlaying}
           metaAgentPhase={metaAgentPhase}
           setMetaAgentPhase={setMetaAgentPhase}
           setAgentSpeaking={setAgentSpeaking}
@@ -274,15 +295,18 @@ function Council({
           humanName={humanName}
         />
       )}
+      {liveKey && capabilities.printSummary && printSummariesEnabled && (
+        <SummaryPrintJob meetingId={currentMeetingId} textMessages={textMessages} />
+      )}
       {liveKey && participationPhase !== "off" && (
         <HumanInput
           phase={participationPhase}
           liveKey={liveKey}
           isPanelist={councilState === 'human_panelist'}
+          letterAuthorName={letterAuthorName}
           currentSpeakerName={participants.find(p => p.id === currentSpeakerId)?.name || ""}
           onSubmitHumanMessage={handleOnSubmitHumanMessage}
           onAbandonHumanTurn={handleOnAbandonHumanTurn}
-          isButtonMuseumMode={isButtonMuseumMode}
         />
       )}
       {/* council-shell: flex column owning the overlay content region + footer.
@@ -311,7 +335,7 @@ function Council({
               onConcludeMeeting={handleOnConcludeMeeting}
               proceedWithHumanName={handleHumanNameEntered}
               onDismiss={declineOverlay}
-              summary={{ text: summary?.text || "" }}
+              summary={{ text: summaryDocument(summary, t), letter: summaryLetter(summary), credits: summary?.type === "credits" }}
               meetingId={currentMeetingId}
               participants={participants}
               audioContext={audioContext}
@@ -322,24 +346,25 @@ function Council({
 
         {/* Footer — Output, controls, and banner in the bottom flex column. */}
         <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
-          {metaAgentPhase === "inactive" && (
-            <Output
-              textMessages={textMessages}
-              audioMessages={audioMessages}
-              playingNowIndex={playingNowIndex}
-              councilState={councilState}
-              isMuted={isMuted}
-              isPaused={isPaused}
-              currentSnippetIndex={currentSnippetIndex}
-              setCurrentSnippetIndex={setCurrentSnippetIndex}
-              audioContext={audioContext}
-              handleOnFinishedPlaying={handleOnFinishedPlaying}
-              onSummaryPlaybackChange={setSummaryPlayback}
-            />
-          )}
+          {/* Stays mounted while the meta agent has the floor: unmounting would
+              discard the interrupted message's place, so it is held instead. */}
+          <Output
+            textMessages={textMessages}
+            audioMessages={audioMessages}
+            playingNowIndex={playingNowIndex}
+            councilState={councilState}
+            isMuted={isMuted}
+            isPaused={isPaused}
+            currentSnippetIndex={currentSnippetIndex}
+            setCurrentSnippetIndex={setCurrentSnippetIndex}
+            audioContext={audioContext}
+            handleOnFinishedPlaying={handleOnFinishedPlaying}
+            onSummaryPlaybackChange={setSummaryPlayback}
+            held={metaAgentPhase !== "inactive"}
+          />
           {controlsVisible && metaAgentPhase === "inactive" && (
             <ConversationControls
-              hidden={isMuseumMode}
+              hidden={!capabilities.browserUi}
               onSkipBackward={handleOnSkipBackward}
               onSkipForward={handleOnSkipForward}
               onRaiseHand={handleOnRaiseHand}

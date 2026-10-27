@@ -1,32 +1,31 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router";
+import React, { useLayoutEffect, useRef, useState } from "react";
 import { useMobile, dvh } from "@/utils";
 import parse from 'html-react-parser';
 import { marked } from "marked";
-import { jsPDF } from "jspdf";
-import { useTranslation, Trans } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import { useCouncilSettings } from "@/settings/councilSettings";
-import { useRouting } from "@/navigation";
-import { useErrorStore } from "@main/overlay/errorStore";
-import { useButton } from "@/museum/button/useButton";
-import { useButtonBanner } from "@/museum/button/useButtonBanner";
-import {
-  SUMMARY_RETURN_TO_ROOT_MS,
-  useAutoplayStore,
-} from "@/autoplay/autoplayStore";
+import { useSummaryExit } from "./useSummaryExit";
 import {
   computeTeleprompterBottomPadding,
   computeTeleprompterTopPadding,
   useAudioSyncedScroll,
   type SummaryPlaybackState,
 } from "@council/summaryScrollSync";
-import { externalLinks } from "@/i18n/externalLinks";
 import { QRCodeCanvas } from 'qrcode.react';
 import councilLogoWhite from "@assets/logos/council_logo_white.svg";
-import councilLogo from "@assets/logos/council_logo.png";
+import Disclaimer from "@council/protocol/Disclaimer";
+import ProtocolDocument from "@council/protocol/ProtocolDocument";
+import LetterDocument, { LetterBody, LetterHeader, letterFields } from "@council/protocol/LetterDocument";
+import { letterBody } from "@council/protocol/summaryDocument";
+import type { LetterView } from "@shared/ModelTypes";
+import { createProtocolPdf } from "@council/protocol/protocolPdf";
 
 export interface SummaryData {
   text: string;
+  /** When the meeting ended in a letter: headed like an email, with its own footer and no disclaimer. */
+  letter?: LetterView | null;
+  /** The meeting ends on the credits instead (an installation printing its letters). */
+  credits?: boolean;
 }
 
 interface SummaryProps {
@@ -44,7 +43,7 @@ interface SummaryProps {
  * 
  * Core Logic:
  * - Renders markdown summary provided by server.
- * - Uses `jspdf` to generate a printable PDF from a hidden HTML element (`PDFToPrint`).
+ * - Downloads a PDF of the hidden {@link ProtocolDocument} via `createProtocolPdf`.
  */
 function Summary({
   summary,
@@ -52,97 +51,30 @@ function Summary({
   audioContext,
   summaryPlayback = null,
 }: SummaryProps): React.ReactElement {
-  const connectionError = useErrorStore((s) => s.connectionError);
   const isMobile = useMobile();
   const protocolRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [teleprompterBottomPad, setTeleprompterBottomPad] = useState(0);
   const fallbackAudioContext = useRef<AudioContext | null>(null);
-  const prevPressedRef = useRef(false);
-  const navigate = useNavigate();
-  const { rootPath } = useRouting();
-  const { t } = useTranslation();
-  const { isMuseumMode, agentMode } = useCouncilSettings();
-  const isButtonSummaryMode = isMuseumMode && agentMode === "ptt";
-  const teleprompterTopPad = isMuseumMode ? computeTeleprompterTopPadding(isMobile) : 0;
-  const autoplayPhase = useAutoplayStore((state) => state.phase);
-  const summaryProtocolFinished = useAutoplayStore((state) => state.summaryProtocolFinished);
-  const button = useButton("summary");
-  const showDownload = !isMuseumMode;
+  const { t, i18n } = useTranslation();
+  const letter = summary.letter ?? null;
+  const { capabilities } = useCouncilSettings();
+  const isButtonSummaryMode = capabilities.teleprompter;
+  const teleprompterTopPad = isButtonSummaryMode ? computeTeleprompterTopPadding(isMobile) : 0;
+  const showDownload = capabilities.browserUi;
 
-  useEffect(() => {
-    if (!isButtonSummaryMode) {
-      return;
-    }
-    button.claim();
-    return () => button.release();
-  }, [isButtonSummaryMode, button.claim, button.release]);
-
-  useEffect(() => {
-    if (!isButtonSummaryMode) {
-      return;
-    }
-    button.setLed("pulse");
-  }, [isButtonSummaryMode, button.setLed]);
-
-  useButtonBanner({
-    owner: "summary",
-    sessionActive: isButtonSummaryMode,
-    micOpen: false,
-    isConnecting: false,
-    bannerImmediate: true,
-    messageKey: "summary.banner.pressToRestart",
-  });
-
-  useEffect(() => {
-    if (!isButtonSummaryMode) {
-      return;
-    }
-
-    const pressed = button.pressed;
-    const wasPressed = prevPressedRef.current;
-    prevPressedRef.current = pressed;
-
-    if (pressed && !wasPressed) {
-      navigate(rootPath);
-    }
-  }, [button.pressed, isButtonSummaryMode, navigate, rootPath]);
-
-  useEffect(() => {
-    if (!isButtonSummaryMode || autoplayPhase === "active") {
-      return;
-    }
-    if (connectionError) {
-      return;
-    }
-    if (!summaryProtocolFinished) {
-      return;
-    }
-
-    const timerId = window.setTimeout(() => {
-      navigate(rootPath);
-    }, SUMMARY_RETURN_TO_ROOT_MS);
-
-    return () => window.clearTimeout(timerId);
-  }, [
-    autoplayPhase,
-    connectionError,
-    isButtonSummaryMode,
-    navigate,
-    rootPath,
-    summaryProtocolFinished,
-  ]);
+  useSummaryExit(isButtonSummaryMode);
 
   useAudioSyncedScroll({
     scrollRef,
-    enabled: isMuseumMode,
+    enabled: isButtonSummaryMode,
     playback: summaryPlayback,
     audioContext: audioContext ?? fallbackAudioContext,
     bottomPadding: teleprompterBottomPad,
   });
 
   useLayoutEffect(() => {
-    if (!isMuseumMode) {
+    if (!isButtonSummaryMode) {
       setTeleprompterBottomPad(0);
       return;
     }
@@ -165,27 +97,18 @@ function Summary({
     const observer = new ResizeObserver(updateBottomPadding);
     observer.observe(scrollEl);
     return () => observer.disconnect();
-  }, [isMuseumMode, summary.text, isMobile]);
+  }, [isButtonSummaryMode, summary.text, isMobile]);
 
   const handleCreatePdf = (): void => {
-    import("../../Tinos.js").then(() => {
-      const pdf = new jsPDF("p", "pt", "a4");
-      pdf.setFont("Tinos");
-      if (protocolRef.current) {
-        pdf.html(protocolRef.current, {
-          callback: function (_doc: jsPDF) {
-            pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
-          },
-          autoPaging: 'text',
-          margin: [50, 50, 50, 50]
-        });
-      }
+    if (!protocolRef.current) return;
+    void createProtocolPdf(protocolRef.current).then((pdf) => {
+      pdf.save(`Council of Foods Meeting Summary #${meetingId}.pdf`);
     });
   };
 
   // Web: flex-fill column — scroll area grows, download row sticks to bottom.
   // Museum: position:fixed full-viewport (unchanged).
-  const summaryWrapper: React.CSSProperties = isMuseumMode
+  const summaryWrapper: React.CSSProperties = isButtonSummaryMode
     ? {
       height: "100%",
       overflowY: "auto",
@@ -198,7 +121,7 @@ function Summary({
       mask: "linear-gradient(to bottom, rgb(0, 0, 0) 0, rgb(0,0,0) 93%, rgba(0,0,0, 0) 100% ) repeat-x",
     };
 
-  const wrapper: React.CSSProperties = isMuseumMode
+  const wrapper: React.CSSProperties = isButtonSummaryMode
     ? {
       position: "fixed",
       top: 0,
@@ -235,7 +158,15 @@ function Summary({
     whiteSpace: "pre-wrap",
   };
 
-  const teleprompterContentStyle: React.CSSProperties = isMuseumMode
+  const letterStyle: React.CSSProperties = {
+    textAlign: "left",
+    fontFamily: "Arial, Arimo, sans-serif",
+    fontSize: isMobile ? "16px" : "18px",
+    lineHeight: 1.4,
+    padding: "20px 15px 0",
+  };
+
+  const teleprompterContentStyle: React.CSSProperties = isButtonSummaryMode
     ? {
       paddingTop: teleprompterTopPad,
       paddingBottom: teleprompterBottomPad,
@@ -248,33 +179,46 @@ function Summary({
         <div
           ref={scrollRef}
           style={summaryWrapper}
-          className={isMuseumMode ? "scroll scroll--hide-scrollbar" : "scroll"}
+          className={isButtonSummaryMode ? "scroll scroll--hide-scrollbar" : "scroll"}
           data-testid="summary-protocol"
         >
           <div
             style={teleprompterContentStyle}
             data-testid="summary-teleprompter-content"
           >
-            <hr />
-            <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
-              <div>
-                <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src={councilLogoWhite} alt="council of foods logo" />
+            {letter ? (
+              <div style={letterStyle}>
+                <LetterHeader groups={letterFields(letter, t, i18n.language)} />
+                <div style={{ marginTop: "1.5em" }}>
+                  <LetterBody text={summary.text} />
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", margin: "2em 0 1em" }}>
+                  <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px" }} /></a>
+                  <span style={{ opacity: 0.6, marginTop: "0.5em" }}>Meeting #{meetingId}</span>
+                </div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
-                <h2 style={{ margin: 0 }}>{t('app.council').toUpperCase()}</h2>
-                <h3 style={{ margin: 0 }}>{t('app.meeting')} #{meetingId}</h3>
-              </div>
-              <div>
-                <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px", marginRight: "20px" }} /></a>
-              </div>
-            </div>
-            <hr />
-            <div id="protocol-container" style={protocolStyle}>
-              {/* Ensure synchronous parsing for type safety */}
-              {parse(marked.parse(summary.text, { async: false }) as string)}
-              <hr /><br />
-              <Disclaimer />
-            </div>
+            ) : (
+              <>
+                <div style={{ display: "flex", flexDirection: "row", margin: "20px 0", justifyContent: "space-between" }}>
+                  <div>
+                    <img style={{ width: isMobile ? '80px' : '110px', paddingRight: "10px" }} src={councilLogoWhite} alt="council of foods logo" />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", textAlign: "left", flex: "1", paddingLeft: "15px" }}>
+                    <h2 style={{ margin: 0 }}>{t('app.council').toUpperCase()}</h2>
+                    <h3 style={{ margin: 0 }}>{t('app.meeting')} #{meetingId}</h3>
+                  </div>
+                  <div>
+                    <a href={window.location.href}><QRCodeCanvas value={window.location.href} bgColor="rgba(0,0,0,0)" fgColor="#ffffff" style={{ height: isMobile ? '50px' : "70px", width: isMobile ? '50px' : "70px", marginRight: "20px" }} /></a>
+                  </div>
+                </div>
+                <div id="protocol-container" style={protocolStyle}>
+                  {/* Ensure synchronous parsing for type safety */}
+                  {parse(marked.parse(summary.text, { async: false }) as string)}
+                  <hr /><br />
+                  <Disclaimer />
+                </div>
+              </>
+            )}
           </div>
         </div>
         {showDownload && (
@@ -288,60 +232,19 @@ function Summary({
 
       {/* Hidden PDF Template */}
       {showDownload && <div style={{ position: 'absolute', top: '0', display: 'none' }}>
-        <div ref={protocolRef} style={{
-          position: 'absolute',
-          top: '0',
-          left: 0,
-          backgroundColor: 'white',
-          color: 'black',
-          textAlign: 'left',
-          fontFamily: '"Tinos", sans-serif',
-          fontStyle: 'normal',
-          overflow: 'hidden',
-          width: "480px"
-        }}>
-          <div style={{ width: "100%" }}>
-            <hr />
-            <div style={{ height: "52px", position: 'relative' }}>
-              <img style={{ width: '70px' }} src={councilLogo} alt="council of foods logo" />
-              <h2 style={{ fontSize: '24px', margin: '0', position: 'absolute', left: "80px", top: '2px' }}>{t('app.council').toUpperCase()}</h2>
-              <h3 style={{ fontSize: '15px', margin: '0', position: 'absolute', left: "80px", top: "28px" }}>{t('app.meeting')} #{meetingId}</h3>
-              <QRCodeCanvas value={window.location.href} style={{ position: 'absolute', right: "10px", top: "2.5px", width: "45px", height: "45px" }} />
-            </div>
-            <hr />
-            <div id="printed-style">
-              {/* Ensure synchronous parsing for type safety */}
-              {parse(marked.parse(summary.text, { async: false }) as string)}
-              <hr /><br />
-              <Disclaimer />
-            </div>
-          </div>
-        </div>
+        {letter ? (
+          <LetterDocument
+            ref={protocolRef}
+            groups={letterFields(letter, t, i18n.language)}
+            body={letterBody(letter, t, false)}
+            meetingId={meetingId ?? ""}
+            qrUrl={window.location.href}
+          />
+        ) : (
+          <ProtocolDocument ref={protocolRef} summaryText={summary.text} meetingId={meetingId} />
+        )}
       </div>}
     </>
-  );
-}
-
-function Disclaimer() {
-  const { t } = useTranslation();
-
-  return (
-    <div>
-      <p>{t("disclaimer.intro")}</p>
-      <br />
-      <ol>
-        <li>{t("disclaimer.items.misinformation")}</li>
-        <li>{t("disclaimer.items.notResearch")}</li>
-        <li>{t("disclaimer.items.takeAction")}</li>
-      </ol>
-      <br />
-      <p>
-        <Trans i18nKey="disclaimer.attribution" components={externalLinks} />
-      </p>
-      <br />
-      <p>{t("disclaimer.moreInfo")}</p>
-      <br />
-    </div>
   );
 }
 
