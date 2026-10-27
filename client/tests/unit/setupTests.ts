@@ -1,8 +1,16 @@
 import '@testing-library/jest-dom';
+import type { TestingLibraryMatchers } from '@testing-library/jest-dom/matchers';
 import { vi } from 'vitest';
 import React from 'react';
 import '@/i18n';
 import { applyZIndexCssVariables } from '@/zIndexLayers';
+
+// jest-dom still types its matchers onto vitest 4's one-parameter Assertion; vitest 5 takes
+// custom matchers through Matchers instead.
+declare module 'vitest' {
+    // eslint-disable-next-line @typescript-eslint/no-empty-object-type, @typescript-eslint/no-unused-vars
+    interface Matchers<R extends void | Promise<void>, T> extends TestingLibraryMatchers<unknown, R> {}
+}
 
 applyZIndexCssVariables();
 
