@@ -22,7 +22,7 @@ function installBridgeUrlOverride(wsUrl: string): void {
   });
 }
 
-describe.sequential("button reconnect resilience", () => {
+describe("button reconnect resilience", () => {
   let bridge: TestBridge;
 
   beforeEach(async () => {

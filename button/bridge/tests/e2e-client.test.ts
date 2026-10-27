@@ -21,7 +21,7 @@ function installBridgeUrlOverride(wsUrl: string): void {
   });
 }
 
-describe.sequential("button e2e (mock → bridge → client)", () => {
+describe("button e2e (mock → bridge → client)", () => {
   let bridge: TestBridge;
 
   beforeEach(async () => {
