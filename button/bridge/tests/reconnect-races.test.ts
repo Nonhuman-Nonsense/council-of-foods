@@ -25,7 +25,7 @@ function installBridgeUrlOverride(wsUrl: string): void {
   });
 }
 
-describe.sequential("button reconnect race conditions", () => {
+describe("button reconnect race conditions", () => {
   let bridge: TestBridge;
 
   afterEach(async () => {

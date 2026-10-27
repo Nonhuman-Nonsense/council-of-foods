@@ -41,20 +41,20 @@ describe('Background', () => {
         const { container, rerender } = render(
             <Background zoomIn={true} currentSpeakerIndex={0} totalSpeakers={10} />
         );
-        expect(container.children[0]).toHaveStyle({ backgroundPosition: '10%' });
+        expect(container.children[0]).toHaveStyle({ backgroundPosition: '10% 50%' });
 
         // Case B: Index 5, Total 10 (Middle)
         // 10 + (80 * 5) / 10 = 10 + 40 = 50%
         rerender(
             <Background zoomIn={true} currentSpeakerIndex={5} totalSpeakers={10} />
         );
-        expect(container.children[0]).toHaveStyle({ backgroundPosition: '50%' });
+        expect(container.children[0]).toHaveStyle({ backgroundPosition: '50% 50%' });
 
         // Case C: Index 10, Total 10 (End)
         // 10 + (80 * 10) / 10 = 10 + 80 = 90%
         rerender(
             <Background zoomIn={true} currentSpeakerIndex={10} totalSpeakers={10} />
         );
-        expect(container.children[0]).toHaveStyle({ backgroundPosition: '90%' });
+        expect(container.children[0]).toHaveStyle({ backgroundPosition: '90% 50%' });
     });
 });
