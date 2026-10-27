@@ -1,11 +1,19 @@
 import type OpenAI from "openai";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { upstreamHttpError, withNetworkRetry } from "@utils/NetworkUtils.js";
 import { Word } from "@shared/textUtils.js";
 import { AudioSystemOptions, Speaker } from "./AudioTypes.js";
 import { PronunciationUtils } from "@utils/PronunciationUtils.js";
 import { characterAlignmentToWords, type CharacterAlignment } from "@utils/ElevenLabsAlignmentUtils.js";
 
 const INWORLD_TTS_2_MODEL = "inworld-tts-2";
+export const WHISPER_MODEL = "whisper-1";
+/**
+ * TTS draws on the same account-wide concurrency pool as every other provider
+ * call, so a 429 here is a race we lost rather than a fault. Five attempts of
+ * exponential backoff spans roughly half a minute — long enough for the
+ * generations ahead of us to finish and hand their slot over.
+ */
+const TTS_CAPACITY_RETRIES = 5;
 /** Opus at 48 kHz sample rate, 128 kbps — matches our other OGG/Opus providers. */
 export const ELEVENLABS_OPUS_OUTPUT_FORMAT = "opus_48000_128";
 const ELEVENLABS_DEFAULT_STABILITY = 0.5;
@@ -25,6 +33,8 @@ interface GenerateParams {
 export interface AudioResult {
     audio: Buffer;
     words?: Word[];
+    /** What the provider billed, for the footprint meter. Audio seconds are measured by the caller. */
+    usage: { provider: string; model: string; characters: number; region?: string };
 }
 
 function hasSpokenToken(word: string): boolean {
@@ -44,7 +54,10 @@ export async function generateOpenAIAudio(params: GenerateParams): Promise<Audio
         instructions: speaker.voiceInstruction,
         response_format: "opus"
     }));
-    return { audio: Buffer.from(await mp3.arrayBuffer()) };
+    return {
+        audio: Buffer.from(await mp3.arrayBuffer()),
+        usage: { provider: "openai", model: options.voiceModel, characters: text.length },
+    };
 }
 
 export async function generateElevenLabsAudio(params: GenerateParams): Promise<AudioResult> {
@@ -75,19 +88,18 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
         body.language_code = locale.split("-")[0];
     }
 
-    const response = await withNetworkRetry(() => fetch(url.toString(), {
-        method: "POST",
-        headers: {
-            "xi-api-key": apiKey,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-    }), "AudioSystemElevenLabs");
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`ElevenLabs TTS API Error: ${response.status} ${errText}`);
-    }
+    const response = await withNetworkRetry(async () => {
+        const res = await fetch(url.toString(), {
+            method: "POST",
+            headers: {
+                "xi-api-key": apiKey,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) throw await upstreamHttpError(res, "ElevenLabs TTS");
+        return res;
+    }, "AudioSystemElevenLabs", TTS_CAPACITY_RETRIES);
 
     interface ElevenLabsTimestampResponse {
         audio_base64?: string;
@@ -109,6 +121,13 @@ export async function generateElevenLabsAudio(params: GenerateParams): Promise<A
     return {
         audio: Buffer.from(data.audio_base64, "base64"),
         words,
+        // ElevenLabs bills per character of the text it was sent.
+        usage: {
+            provider: "elevenlabs",
+            model: modelId,
+            characters: processedText.length,
+            region: response.headers.get("x-region") ?? undefined,
+        },
     };
 }
 
@@ -142,19 +161,18 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
         payload.temperature = speaker.voiceTemperature || 1.0;
     }
 
-    const response = await withNetworkRetry(() => fetch(url, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Basic ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-    }), "AudioSystemInworld");
-
-    if (!response.ok) {
-        const errText = await response.text();
-        throw new Error(`Inworld TTS API Error: ${response.status} ${errText}`);
-    }
+    const response = await withNetworkRetry(async () => {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw await upstreamHttpError(res, "Inworld TTS");
+        return res;
+    }, "AudioSystemInworld", TTS_CAPACITY_RETRIES);
 
     interface InworldTtsJson {
         audioContent?: string;
@@ -164,6 +182,10 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
                 wordStartTimeSeconds?: number[];
                 wordEndTimeSeconds?: number[];
             };
+        };
+        usage?: {
+            processedCharactersCount?: number;
+            modelId?: string;
         };
     }
 
@@ -196,7 +218,15 @@ export async function generateInworldAudio(params: GenerateParams): Promise<Audi
             }
         }
 
-        return { audio: buffer, words };
+        return {
+            audio: buffer,
+            words,
+            usage: {
+                provider: "inworld",
+                model: data.usage?.modelId ?? modelId,
+                characters: data.usage?.processedCharactersCount ?? processedText.length,
+            },
+        };
     } else {
         throw new Error("No audio content returned from Inworld TTS");
     }
@@ -209,7 +239,7 @@ export async function getWhisperWords(buffer: Buffer, services: { getOpenAI: () 
     const audioFile = new File([new Uint8Array(buffer)], "speech.ogg", { type: "audio/ogg" });
     const transcription = await withNetworkRetry(() => openai.audio.transcriptions.create({
         file: audioFile,
-        model: "whisper-1",
+        model: WHISPER_MODEL,
         response_format: "verbose_json",
         timestamp_granularities: ["word"]
     }), "AudioSystemWhisper");

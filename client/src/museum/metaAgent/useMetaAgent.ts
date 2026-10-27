@@ -20,12 +20,14 @@ export type UseMetaAgentParams = {
   tools: RealtimeTool[];
   toolHandlers: Record<string, ToolHandler>;
   onSessionReady?: () => void;
-  onConnectionLost?: () => void;
+  onConnectionLost?: (info: { capacity: boolean }) => void;
   onConnectionRestored?: () => void;
 };
 
 export type UseMetaAgentResult = {
   connectionState: MetaAgentConnectionState;
+  /** Waiting out a provider at capacity rather than a failure. */
+  providerBusy: boolean;
   lastCaption: string | null;
   lastUserTranscript: string | null;
   micStream: MediaStream | null;
@@ -34,7 +36,8 @@ export type UseMetaAgentResult = {
    */
   agentSpeaking: boolean;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */
-  setMicEnabled: (open: boolean) => void;
+  /** The talk button: opening starts a turn, closing sends it — or throws it out with `discard`. */
+  setMicEnabled: (open: boolean, options?: { discard?: boolean }) => void;
   /** Inject a user message into the agent conversation (e.g. state snapshot). */
   sendUserMessage: (text: string) => void;
   /** Ask the model to respond when no response is in flight. */
@@ -48,7 +51,7 @@ export type UseMetaAgentResult = {
 /**
  * Meeting meta-agent: thin wrapper around {@link useRealtimeVoiceSession}.
  *
- * - Bootstrap requires a liveKey bearer (museum mode + live meeting only).
+ * - Bootstrap requires a liveKey bearer (capabilities.metaAgent + live meeting only).
  * - Mic gating via `track.enabled` (PTT holds the button).
  * - No opening greeting on connect — agent greets when the visitor activates.
  * - Connects on mount; tears down on unmount.
@@ -90,7 +93,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
     pttMic: true,
     trackAgentSpeaking: true,
     onSessionReady,
-    isMuseumMode: true,
+    selfHealing: true,
     retryPolicy: getRealtimeRetryPolicy(true),
     onFatalError,
     onConnectionLost,
@@ -99,6 +102,7 @@ export function useMetaAgent(params: UseMetaAgentParams): UseMetaAgentResult {
 
   return {
     connectionState: session.connectionState,
+    providerBusy: session.providerBusy,
     lastCaption: session.lastCaption,
     lastUserTranscript: session.lastUserTranscript,
     micStream: session.micStream,

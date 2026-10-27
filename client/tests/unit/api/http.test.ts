@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { councilFetch } from "@api/http";
+import { councilFetch, NETWORK_RETRY_DELAYS_MS } from "@api/http";
 import { log } from "@/logger";
 import * as councilSettings from "@/settings/councilSettings";
 
@@ -104,11 +104,71 @@ describe("councilFetch", () => {
     const networkError = new TypeError("Failed to fetch");
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(networkError));
 
-    await expect(councilFetch("/api/meetings")).rejects.toThrow("Failed to fetch");
+    await expect(councilFetch("/api/meetings", { method: "POST" })).rejects.toThrow("Failed to fetch");
     expect(log.event).toHaveBeenCalledWith(
       "ERROR",
-      "API GET /api/meetings network error",
+      "API POST /api/meetings network error",
       networkError,
     );
+  });
+
+  describe("retry when no response came back", () => {
+    const ok = () => new Response("{}", { status: 200 });
+    const dropped = () => new TypeError("Failed to fetch");
+    const allRetries = NETWORK_RETRY_DELAYS_MS.reduce((a, b) => a + b, 0);
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    /** Each entry is one attempt: a Response resolves, an Error rejects. */
+    function stubFetch(outcomes: Array<Response | Error>) {
+      const fetchMock = vi.fn();
+      for (const outcome of outcomes) {
+        if (outcome instanceof Error) fetchMock.mockRejectedValueOnce(outcome);
+        else fetchMock.mockResolvedValueOnce(outcome);
+      }
+      vi.stubGlobal("fetch", fetchMock);
+      return fetchMock;
+    }
+
+    it.each([
+      { name: "a GET that drops once recovers", method: "GET", options: undefined, outcomes: [dropped(), ok()], result: 200, attempts: 2 },
+      { name: "a GET that drops every time gives up after the last retry", method: "GET", options: undefined, outcomes: [dropped(), dropped(), dropped(), dropped()], result: "Failed to fetch", attempts: 4 },
+      { name: "an HTTP error status is the server's answer, not retried", method: "GET", options: undefined, outcomes: [new Response("", { status: 500 })], result: 500, attempts: 1 },
+      { name: "a POST is not retried — it may have reached the server", method: "POST", options: undefined, outcomes: [dropped(), ok()], result: "Failed to fetch", attempts: 1 },
+      { name: "a POST that opts in is retried", method: "POST", options: { retryOnNetworkError: true }, outcomes: [dropped(), ok()], result: 200, attempts: 2 },
+      { name: "a GET that opts out is not retried", method: "GET", options: { retryOnNetworkError: false }, outcomes: [dropped(), ok()], result: "Failed to fetch", attempts: 1 },
+    ] as const)("$name", async ({ method, options, outcomes, result, attempts }) => {
+      const fetchMock = stubFetch([...outcomes]);
+
+      const settled = councilFetch("/api/meetings/1", { method }, options).then(
+        (res) => res.status,
+        (err: Error) => err.message,
+      );
+      await vi.advanceTimersByTimeAsync(allRetries);
+
+      await expect(settled).resolves.toBe(result);
+      expect(fetchMock).toHaveBeenCalledTimes(attempts);
+    });
+
+    it("stops retrying once the caller aborts", async () => {
+      const fetchMock = stubFetch([dropped(), ok()]);
+      const ac = new AbortController();
+
+      const settled = councilFetch("/api/meetings/1", { signal: ac.signal }).catch(
+        (err: unknown) => err,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      ac.abort();
+      await vi.advanceTimersByTimeAsync(allRetries);
+
+      expect(await settled).toMatchObject({ name: "AbortError" });
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -1,9 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import {
-  AGENT_MODE_STORAGE_KEY,
   APP_MODE_STORAGE_KEY,
-  setAgentMode,
   setAppMode,
   useCouncilSettings,
   DEV_LOG_DISABLED_CATEGORIES_KEY,
@@ -17,33 +15,40 @@ import {
   PTT_HARDWARE_ENABLED_KEY,
   getPttHardwareEnabled,
   setPttHardwareEnabled,
-  MUSEUM_SWITCH_BUTTON_ENABLED_KEY,
-  getMuseumSwitchButtonEnabled,
-  setMuseumSwitchButtonEnabled,
-  getAgentMode,
+  LAST_INSTALLATION_MODE_STORAGE_KEY,
+  getAppMode,
+  getLastInstallationMode,
+  MODE_SWITCH_BUTTON_ENABLED_KEY,
+  getModeSwitchButtonEnabled,
+  setModeSwitchButtonEnabled,
+  getPrintSummariesEnabled,
+  setPrintSummariesEnabled,
+  PRINT_SUMMARIES_ENABLED_KEY,
+  getSplitAudioEnabled,
+  setSplitAudioEnabled,
+  SPLIT_AUDIO_ENABLED_KEY,
+  getSidetoneLevel,
+  setSidetoneLevel,
+  SIDETONE_LEVEL_KEY,
 } from "@/settings/councilSettings";
 
 function SettingsProbe() {
   const {
     mode,
-    isMuseumMode,
+    lastInstallationMode,
     setAppMode: updateAppMode,
-    agentMode,
-    setAgentMode: updateAgentMode,
+    capabilities,
     pttHardwareEnabled,
     setPttHardwareEnabled: updatePttHardware,
   } = useCouncilSettings();
   return (
     <div>
       <span data-testid="mode">{mode}</span>
-      <span data-testid="museum">{String(isMuseumMode)}</span>
-      <span data-testid="agent-mode">{agentMode}</span>
+      <span data-testid="last-installation-mode">{lastInstallationMode}</span>
+      <span data-testid="meta-agent">{String(capabilities.metaAgent)}</span>
       <span data-testid="ptt-hardware">{String(pttHardwareEnabled)}</span>
       <button type="button" onClick={() => updateAppMode("web")}>
         to-web
-      </button>
-      <button type="button" onClick={() => updateAgentMode("ptt")}>
-        to-ptt
       </button>
       <button type="button" onClick={() => updatePttHardware(true)}>
         hardware-on
@@ -57,22 +62,21 @@ describe("councilSettings", () => {
     localStorage.clear();
   });
 
-  describe("agent mode storage", () => {
-    it("defaults to off when unset without writing storage", () => {
-      expect(getAgentMode()).toBe("off");
-      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBeNull();
+  describe("app mode storage", () => {
+    it("falls back to web for a mode this build does not know", () => {
+      localStorage.setItem(APP_MODE_STORAGE_KEY, "kiosk-2019");
+      expect(getAppMode()).toBe("web");
     });
 
-    it("persists explicit agent mode", () => {
-      setAgentMode("ptt");
-      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("ptt");
-      expect(getAgentMode()).toBe("ptt");
+    it("remembers the installation mode the escape hatch should return to", () => {
+      setAppMode("presenter");
+      setAppMode("web");
+      expect(getLastInstallationMode()).toBe("presenter");
+      expect(localStorage.getItem(LAST_INSTALLATION_MODE_STORAGE_KEY)).toBe("presenter");
     });
 
-    it("coerces off to always-on when switching to museum", () => {
-      setAppMode("museum");
-      expect(getAgentMode()).toBe("always-on");
-      expect(localStorage.getItem(AGENT_MODE_STORAGE_KEY)).toBe("always-on");
+    it("returns to museum until staff have chosen an installation mode", () => {
+      expect(getLastInstallationMode()).toBe("museum");
     });
   });
 
@@ -88,39 +92,91 @@ describe("councilSettings", () => {
       expect(getPttHardwareEnabled()).toBe(true);
     });
 
-    it("clears hardware when leaving push-to-talk", () => {
-      setAgentMode("ptt");
+    it("survives a mode switch — hardware is independent of the install", () => {
       setPttHardwareEnabled(true);
-      setAgentMode("always-on");
-      expect(getPttHardwareEnabled()).toBe(false);
-      expect(localStorage.getItem(PTT_HARDWARE_ENABLED_KEY)).toBeNull();
+      setAppMode("museum");
+      setAppMode("web");
+      expect(getPttHardwareEnabled()).toBe(true);
     });
   });
 
-  describe("museum switch button storage", () => {
+  describe("print summaries storage", () => {
+    it("is off until staff switch it on, and removes its key when switched off", () => {
+      expect(getPrintSummariesEnabled()).toBe(false);
+
+      setPrintSummariesEnabled(true);
+      expect(localStorage.getItem(PRINT_SUMMARIES_ENABLED_KEY)).toBe("true");
+      expect(getPrintSummariesEnabled()).toBe(true);
+
+      setPrintSummariesEnabled(false);
+      expect(localStorage.getItem(PRINT_SUMMARIES_ENABLED_KEY)).toBeNull();
+    });
+
+    it("survives a mode switch — whether it prints is the mode's call", () => {
+      setPrintSummariesEnabled(true);
+      setAppMode("presenter");
+      setAppMode("museum");
+      expect(getPrintSummariesEnabled()).toBe(true);
+    });
+  });
+
+  describe("split audio storage", () => {
+    it("is off until staff switch it on, and removes its key when switched off", () => {
+      expect(getSplitAudioEnabled()).toBe(false);
+
+      setSplitAudioEnabled(true);
+      expect(localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY)).toBe("true");
+      expect(getSplitAudioEnabled()).toBe(true);
+
+      setSplitAudioEnabled(false);
+      expect(localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY)).toBeNull();
+    });
+
+    it("survives a mode switch — it describes the install's cabling, not the mode", () => {
+      setSplitAudioEnabled(true);
+      setAppMode("web");
+      expect(getSplitAudioEnabled()).toBe(true);
+    });
+  });
+
+  describe("sidetone level storage", () => {
+    it("is off until staff turn it up, and removes its key when turned off", () => {
+      expect(getSidetoneLevel()).toBe(0);
+
+      setSidetoneLevel(0.5);
+      expect(getSidetoneLevel()).toBe(0.5);
+
+      setSidetoneLevel(0);
+      expect(localStorage.getItem(SIDETONE_LEVEL_KEY)).toBeNull();
+    });
+
+    it.each([
+      { stored: "junk", level: 0 },
+      { stored: "-1", level: 0 },
+      { stored: "3", level: 1 },
+    ])("reads a stored $stored as $level", ({ stored, level }) => {
+      localStorage.setItem(SIDETONE_LEVEL_KEY, stored);
+      expect(getSidetoneLevel()).toBe(level);
+    });
+  });
+
+  describe("mode switch button storage", () => {
     it("defaults to disabled when unset", () => {
-      expect(getMuseumSwitchButtonEnabled()).toBe(false);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
+      expect(getModeSwitchButtonEnabled()).toBe(false);
+      expect(localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
     });
 
     it("persists explicit enablement", () => {
-      setMuseumSwitchButtonEnabled(true);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
-      expect(getMuseumSwitchButtonEnabled()).toBe(true);
+      setModeSwitchButtonEnabled(true);
+      expect(localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
+      expect(getModeSwitchButtonEnabled()).toBe(true);
     });
 
     it("removes storage key when disabled", () => {
-      setMuseumSwitchButtonEnabled(true);
-      setMuseumSwitchButtonEnabled(false);
-      expect(getMuseumSwitchButtonEnabled()).toBe(false);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
-    });
-
-    it("migrates legacy escape hatch storage key", () => {
-      localStorage.setItem("councilEscapeHatchEnabled", "true");
-      expect(getMuseumSwitchButtonEnabled()).toBe(true);
-      expect(localStorage.getItem(MUSEUM_SWITCH_BUTTON_ENABLED_KEY)).toBe("true");
-      expect(localStorage.getItem("councilEscapeHatchEnabled")).toBeNull();
+      setModeSwitchButtonEnabled(true);
+      setModeSwitchButtonEnabled(false);
+      expect(getModeSwitchButtonEnabled()).toBe(false);
+      expect(localStorage.getItem(MODE_SWITCH_BUTTON_ENABLED_KEY)).toBeNull();
     });
   });
 
@@ -178,10 +234,10 @@ describe("councilSettings", () => {
         expect(modes[0]).toHaveTextContent("museum");
         expect(modes[1]).toHaveTextContent("museum");
       });
-      expect(screen.getAllByTestId("museum")[0]).toHaveTextContent("true");
+      expect(screen.getAllByTestId("last-installation-mode")[0]).toHaveTextContent("museum");
     });
 
-    it("syncs agent mode across hook instances via custom event", async () => {
+    it("derives capabilities from the mode, across hook instances", async () => {
       render(
         <>
           <SettingsProbe />
@@ -189,17 +245,16 @@ describe("councilSettings", () => {
         </>,
       );
 
-      const agentModes = screen.getAllByTestId("agent-mode");
-      expect(agentModes[0]).toHaveTextContent("off");
-      expect(agentModes[1]).toHaveTextContent("off");
+      const metaAgent = screen.getAllByTestId("meta-agent");
+      expect(metaAgent[0]).toHaveTextContent("false");
 
       act(() => {
-        setAgentMode("ptt");
+        setAppMode("museum");
       });
 
       await waitFor(() => {
-        expect(agentModes[0]).toHaveTextContent("ptt");
-        expect(agentModes[1]).toHaveTextContent("ptt");
+        expect(metaAgent[0]).toHaveTextContent("true");
+        expect(metaAgent[1]).toHaveTextContent("true");
       });
     });
 
@@ -211,14 +266,6 @@ describe("councilSettings", () => {
       fireEvent.click(screen.getByRole("button", { name: "to-web" }));
       expect(screen.getByTestId("mode")).toHaveTextContent("web");
       expect(localStorage.getItem(APP_MODE_STORAGE_KEY)).toBe("web");
-    });
-
-    it("updates agent mode when setAgentMode is called from a hook", () => {
-      render(<SettingsProbe />);
-
-      expect(screen.getByTestId("agent-mode")).toHaveTextContent("off");
-      fireEvent.click(screen.getByRole("button", { name: "to-ptt" }));
-      expect(screen.getByTestId("agent-mode")).toHaveTextContent("ptt");
     });
 
     it("syncs ptt hardware across hook instances via custom event", async () => {
@@ -244,7 +291,6 @@ describe("councilSettings", () => {
     });
 
     it("updates ptt hardware when setPttHardwareEnabled is called from a hook", () => {
-      localStorage.setItem(AGENT_MODE_STORAGE_KEY, "ptt");
       render(<SettingsProbe />);
 
       fireEvent.click(screen.getByRole("button", { name: "hardware-on" }));

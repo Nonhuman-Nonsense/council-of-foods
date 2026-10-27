@@ -22,6 +22,8 @@ vi.mock("@/museum/button/buttonBridge", () => ({
 describe("useButton", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    localStorage.setItem("councilAppMode", "museum");
     _resetButtonStoreForTests();
     useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: true });
   });
@@ -36,7 +38,7 @@ describe("useButton", () => {
     const { result, unmount } = renderHook(() => useButton("human-input"));
 
     result.current.claim();
-    result.current.setLed("pulse");
+    result.current.setArmed(true);
     await Promise.resolve();
 
     expect(useButtonStore.getState().claims["human-input"]).toBe(true);
@@ -59,7 +61,7 @@ describe("useButton", () => {
     act(() => {
       meta.current.claim();
       human.current.claim();
-      useButtonStore.setState({ pressed: true, ledMode: "pulse" });
+      useButtonStore.setState({ pressed: true, armed: true });
     });
 
     expect(human.current.pressed).toBe(true);
@@ -67,12 +69,33 @@ describe("useButton", () => {
     expect(human.current.isOwner).toBe(true);
   });
 
-  it("keeps owner when claimed with off LED", async () => {
+  it("shows the hold hint for a moment after a click", async () => {
+    vi.useFakeTimers();
+    try {
+      const { useHoldHint } = await import("@/museum/button/useButton");
+      const { result } = renderHook(() => useHoldHint());
+      expect(result.current).toBe(false);
+
+      act(() => {
+        useButtonStore.setState({ shortPressAt: Date.now() });
+      });
+      expect(result.current).toBe(true);
+
+      act(() => {
+        vi.advanceTimersByTime(3_000);
+      });
+      expect(result.current).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps ownership while disarmed", async () => {
     const { useButton } = await import("@/museum/button/useButton");
 
     const { result } = renderHook(() => useButton("meta-agent"));
     result.current.claim();
-    result.current.setLed("off");
+    result.current.setArmed(false);
     await Promise.resolve();
 
     expect(useButtonStore.getState().buttonOwner).toBe("meta-agent");

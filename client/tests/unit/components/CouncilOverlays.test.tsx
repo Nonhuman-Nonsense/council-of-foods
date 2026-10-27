@@ -4,7 +4,8 @@ import CouncilOverlays from '@council/overlays/CouncilOverlays';
 import type { ActiveCouncilOverlay } from '@council/overlays/CouncilOverlays';
 import type { ReactNode } from 'react';
 import type { Character } from '@shared/ModelTypes';
-import type { AppMode, AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor, type Capabilities } from '@/settings/capabilities';
 import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
 
@@ -48,14 +49,12 @@ const mockUseCouncilSettings = vi.fn((): {
     isMuseumMode: boolean;
     mode: AppMode;
     setAppMode: () => void;
-    agentMode: AgentMode;
-    setAgentMode: () => void;
+    capabilities: Capabilities;
 } => ({
     isMuseumMode: false,
     mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off',
-    setAgentMode: vi.fn(),
+    capabilities: capabilitiesFor('web'),
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -96,8 +95,7 @@ describe('CouncilOverlays', () => {
             isMuseumMode: false,
             mode: 'web',
             setAppMode: vi.fn(),
-            agentMode: 'off',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('web'),
         });
     });
 
@@ -131,8 +129,7 @@ describe('CouncilOverlays', () => {
             isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         render(<CouncilOverlays {...defaultProps} overlay="summary" />);

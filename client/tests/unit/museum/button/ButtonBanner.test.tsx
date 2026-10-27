@@ -71,7 +71,6 @@ describe("ButtonBanner", () => {
           meetingId: 42,
           meetingTitle: "Cheese",
           meetingDate: "January 1, 2026",
-          variant: "default",
           isPaused: false,
         },
       },

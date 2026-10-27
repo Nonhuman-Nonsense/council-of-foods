@@ -1,33 +1,52 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useRealtimeVoiceSession } from "@realtime/useRealtimeVoiceSession";
+import {
+  CAPACITY_MIN_RETRIES,
+  getRealtimeRetryPolicy,
+  retryBudgetFor,
+  useRealtimeVoiceSession,
+} from "@realtime/useRealtimeVoiceSession";
+import { setSplitAudioEnabled } from "@/settings/councilSettings";
 
 const mockCreateEventLoop = vi.hoisted(() => vi.fn());
 const mockFetchRealtimeBootstrap = vi.hoisted(() => vi.fn());
 const mockCreateRealtimeConnection = vi.hoisted(() => vi.fn());
 const mockCreateRemoteAudioAnchor = vi.hoisted(() => vi.fn());
+const mockCreateVoicesSideOutput = vi.hoisted(() => vi.fn());
 
 let eventLoopCallbacks: {
   onCaption?: (text: string | null) => void;
   onUserTranscript?: (text: string) => void;
   onWordAlignment?: (contentIndex: number, words: ReadonlyArray<{ w: string; s: number; e: number }>) => void;
   onAudioPartReady?: () => void;
-  onResponseStarted?: () => void;
-  onResponseDone?: (info?: { status?: string }) => void;
+  onResponseStarted?: (info?: { responseId?: string }) => void;
+  onResponseDone?: (info?: { status?: string; responseId?: string }) => void;
+  onOutputInterrupted?: (reason: string) => void;
   onSessionReady?: () => void;
+  onNonFatalError?: (info: {
+    message: string;
+    code: string | null;
+    handling: "ignored" | "recovered";
+  }) => void;
 } = {};
 
+let mockAudible = true;
 let mockCtxTime = 10;
 let mockOnAudioStart: ((nowMs: number, ctxTime: number) => void) | undefined;
+let mockOnArmed: (() => void) | undefined;
 let rafCallback: FrameRequestCallback | null = null;
 
 const eventLoopMocks = vi.hoisted(() => ({
   configureSession: vi.fn(),
+  setGreetingHeld: vi.fn(),
   handleEvent: vi.fn(),
   sendUserMessage: vi.fn(),
   cancelActiveResponse: vi.fn(),
   requestResponseIfIdle: vi.fn(),
   isResponseActive: vi.fn(() => false),
+  interruptAndRespond: vi.fn(),
+  beginUserTurn: vi.fn(),
+  endUserTurn: vi.fn(),
 }));
 
 vi.mock("@realtime/realtimeEventLoop", () => ({
@@ -40,22 +59,56 @@ vi.mock("@realtime/realtimeEventLoop", () => ({
   },
 }));
 
+const mockClassifyRealtimeError = vi.hoisted(() => vi.fn((..._args: unknown[]) => "retryable"));
+const mockCapacityRetryDelay = vi.hoisted(() => vi.fn(() => 0));
+
+const MockMicrophoneUnavailableError = vi.hoisted(
+  () =>
+    class extends Error {
+      constructor(readonly reason: string, message: string) {
+        super(message);
+        this.name = "MicrophoneUnavailableError";
+      }
+    }
+);
+
 vi.mock("@realtime/realtimeConnection", () => ({
   fetchRealtimeBootstrap: (...args: unknown[]) => mockFetchRealtimeBootstrap(...args),
   createRealtimeConnection: (...args: unknown[]) => mockCreateRealtimeConnection(...args),
   acquireMicrophone: () =>
     navigator.mediaDevices.getUserMedia({ audio: true }),
-  classifyRealtimeError: () => "retryable",
+  classifyRealtimeError: (...args: unknown[]) => mockClassifyRealtimeError(...args),
   computeRealtimeRetryDelay: () => 0,
+  computeRealtimeCapacityRetryDelay: () => mockCapacityRetryDelay(),
+  MicrophoneUnavailableError: MockMicrophoneUnavailableError,
   REALTIME_RETRY_BASE_MS: 1000,
   REALTIME_RETRY_MAX_MS: 15000,
 }));
 
+import { reportRealtimeIssue } from "@realtime/realtimeErrorReporting";
+
+vi.mock("@realtime/realtimeErrorReporting", () => ({
+  reportRealtimeIssue: vi.fn(),
+}));
+
+vi.mock("@realtime/micAvailabilityStore", () => ({
+  requestMicrophone: () => navigator.mediaDevices.getUserMedia({ audio: true }),
+}));
+
 vi.mock("@realtime/remoteAudioAnchor", () => ({
-  createRemoteAudioAnchor: (options: { onAudioStart: (nowMs: number, ctxTime: number) => void }) => {
+  createRemoteAudioAnchor: (options: {
+    onAudioStart: (nowMs: number, ctxTime: number) => void;
+    onArmed?: () => void;
+  }) => {
     mockOnAudioStart = options.onAudioStart;
+    mockOnArmed = options.onArmed;
     return mockCreateRemoteAudioAnchor(options);
   },
+}));
+
+vi.mock("@/audio/audioRouting", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/audio/audioRouting")>()),
+  createVoicesSideOutput: mockCreateVoicesSideOutput,
 }));
 
 const defaultParams = {
@@ -75,12 +128,16 @@ beforeEach(() => {
   vi.useRealTimers();
   eventLoopCallbacks = {};
   mockCtxTime = 10;
+  mockAudible = true;
   mockOnAudioStart = undefined;
+  mockOnArmed = undefined;
   rafCallback = null;
 
   mockCreateRemoteAudioAnchor.mockImplementation(() => ({
     arm: vi.fn(),
     getCtxTime: () => mockCtxTime,
+    isAudible: () => mockAudible,
+    getState: () => "running",
     dispose: vi.fn(),
   }));
 
@@ -106,17 +163,30 @@ beforeEach(() => {
     iceServers: [],
   });
 
-  mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
-    onOpen();
-    return {
-      close: vi.fn(),
-      micStream: {
-        getTracks: () => [{ stop: vi.fn() }],
-        getAudioTracks: () => [{ enabled: false }],
-      },
-      dc: { readyState: "open", send: vi.fn() },
-    };
-  });
+  mockClassifyRealtimeError.mockReturnValue("retryable");
+
+  mockCreateRealtimeConnection.mockImplementation(
+    async ({ onOpen, deferMic }: { onOpen: () => void; deferMic?: boolean }) => {
+      onOpen();
+      const connection = {
+        close: vi.fn(),
+        micStream: deferMic
+          ? null
+          : {
+              getTracks: () => [{ stop: vi.fn() }],
+              getAudioTracks: () => [{ enabled: false }],
+            },
+        attachMic: vi.fn(async (stream: unknown) => {
+          connection.micStream = stream as typeof connection.micStream;
+        }),
+        detachMic: vi.fn(() => {
+          connection.micStream = null;
+        }),
+        dc: { readyState: "open", send: vi.fn() },
+      };
+      return connection;
+    }
+  );
 
   vi.stubGlobal("navigator", {
     ...navigator,
@@ -129,6 +199,29 @@ beforeEach(() => {
   });
 });
 
+/**
+ * Connection mock that also delivers a remote audio track, which is what wires
+ * up the audio anchor (`mockOnAudioStart` / `mockOnArmed`). Tests that only
+ * exercise the data channel can rely on the plainer mock in `beforeEach`.
+ */
+function mockConnectionWithRemoteTrack(): void {
+  mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
+    onOpen: () => void;
+    onRemoteTrack: (track: MediaStreamTrack) => void;
+  }) => {
+    onOpen();
+    onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
+    return {
+      close: vi.fn(),
+      micStream: {
+        getTracks: () => [{ stop: vi.fn() }],
+        getAudioTracks: () => [{ enabled: false }],
+      },
+      dc: { readyState: "open", send: vi.fn() },
+    };
+  });
+}
+
 describe("useRealtimeVoiceSession", () => {
   it("bootstraps with feature and auth headers", async () => {
     renderHook(() => useRealtimeVoiceSession(defaultParams));
@@ -136,7 +229,6 @@ describe("useRealtimeVoiceSession", () => {
     await waitFor(() => {
       expect(mockFetchRealtimeBootstrap).toHaveBeenCalledWith(
         { feature: "meta-agent", language: "en" },
-        expect.any(Function),
         expect.any(AbortSignal),
         { Authorization: "Bearer live-key" },
       );
@@ -168,21 +260,7 @@ describe("useRealtimeVoiceSession", () => {
   });
 
   it("tracks inworld agentSpeaking from audio anchor through subtitle end", async () => {
-    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen, onRemoteTrack }: {
-      onOpen: () => void;
-      onRemoteTrack: (track: MediaStreamTrack) => void;
-    }) => {
-      onOpen();
-      onRemoteTrack({ stop: vi.fn() } as unknown as MediaStreamTrack);
-      return {
-        close: vi.fn(),
-        micStream: {
-          getTracks: () => [{ stop: vi.fn() }],
-          getAudioTracks: () => [{ enabled: false }],
-        },
-        dc: { readyState: "open", send: vi.fn() },
-      };
-    });
+    mockConnectionWithRemoteTrack();
 
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
 
@@ -193,6 +271,11 @@ describe("useRealtimeVoiceSession", () => {
 
     act(() => {
       eventLoopCallbacks.onResponseStarted?.();
+      // Response-transition reset now waits for confirmed silence rather than
+      // firing instantly on response.created (fixes captions/anchor clearing
+      // before a click-interrupted response's audio has actually stopped) —
+      // simulate that confirmation, as if silence was already present.
+      mockOnArmed?.();
     });
     expect(result.current.agentSpeaking).toBe(false);
 
@@ -212,6 +295,589 @@ describe("useRealtimeVoiceSession", () => {
       rafCallback?.(0);
     });
     expect(result.current.agentSpeaking).toBe(false);
+  });
+
+  /**
+   * Why this matters: response.created can fire while the previous
+   * response's audio is still audibly draining (notably after a
+   * click-triggered interrupt). Resetting captions/anchor immediately would
+   * hide the old caption before its audio actually stops, and applying new
+   * alignment data straight to the still-displayed subtitle track would
+   * corrupt it with wrong offsets. Both must wait for confirmed silence.
+   */
+  it("keeps the previous caption on screen until confirmed silence, buffering alignment data meanwhile", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    // First response: nothing anchored yet, so it resets immediately.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    // Audio runs to 0.3s of a 0.5s sentence — i.e. still mid-playback.
+    act(() => {
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello", s: 0.1, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.3;
+      rafCallback?.(0);
+    });
+    await waitFor(() => {
+      expect(result.current.lastCaption).toBe("Hello");
+    });
+
+    // Second response.created fires — old audio may still be draining, so
+    // the caption must not clear yet, and the new response's alignment data
+    // must not be applied to the still-displayed old sentence yet.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "World", s: 0.1, e: 0.5 }]);
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Hello");
+
+    // Confirmed silence arrives — now it's safe to reset and apply the
+    // buffered chunk for the new response.
+    act(() => {
+      mockOnArmed?.();
+      mockCtxTime = 5;
+      mockOnAudioStart?.(performance.now(), 5);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 6;
+      rafCallback?.(0);
+    });
+    await waitFor(() => {
+      expect(result.current.lastCaption).toBe("World");
+    });
+  });
+
+  /**
+   * A tool follow-up is asked for as soon as the reply that called the tool is
+   * done generating, while that reply is still playing, and Inworld plays the
+   * two back to back with no gap to detect. The silence detector took a pause
+   * inside one of them for the boundary and the captions ran seconds early or
+   * late. The next response's clock starts where the previous one ends — or,
+   * if nothing is playing by then, at its own onset.
+   */
+  it.each([
+    { playingAtEnd: true, expected: "anchored at the previous end" },
+    { playingAtEnd: false, expected: "waits for its own onset" },
+  ])("a response queued behind one still playing: audio at its end $playingAtEnd → $expected", async ({ playingAtEnd }) => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(mockOnAudioStart).toBeTypeOf("function"));
+    const arm = (mockCreateRemoteAudioAnchor.mock.results.at(-1)?.value as { arm: ReturnType<typeof vi.fn> }).arm;
+
+    // A reply with 1.0 s of speech, 0.8 s into playback.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Wonderful.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onResponseDone?.({ status: "completed" });
+      mockCtxTime = 0.8;
+    });
+
+    // The follow-up starts, its alignment arriving while the reply still plays.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "First.", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Second.", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+    });
+    arm.mockClear();
+    mockAudible = playingAtEnd;
+    mockCtxTime = 1.7;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    act(() => {
+      rafCallback?.(0);
+    });
+
+    if (playingAtEnd) {
+      // 0.7 s past the previous end: the second sentence.
+      expect(result.current.lastCaption).toBe("Second.");
+      expect(arm).not.toHaveBeenCalled();
+    } else {
+      expect(result.current.lastCaption).toBeNull();
+      expect(arm).toHaveBeenCalledWith(false);
+    }
+  });
+
+  /**
+   * Inworld does not always send the empty chunk that ends a response's last
+   * sentence. Without it the sentence never reached the timeline, and the one
+   * before it stayed on screen through the rest of the audio.
+   */
+  it("shows the last sentence on time when its end-of-sentence chunk never arrives", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "First.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Last.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onResponseDone?.({ status: "completed" });
+      mockCtxTime = 0.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("First.");
+
+    act(() => {
+      mockCtxTime = 1.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Last.");
+  });
+
+  /**
+   * The flush on `response.done` ends whatever sentence is being collected. A
+   * late `done` for an earlier response must not end the current one's: that
+   * would split a sentence and push every later one off its timing.
+   */
+  it("ignores a late response.done from an earlier response mid-sentence", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_2" });
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello ", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onResponseDone?.({ status: "completed", responseId: "resp_1" });
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "world.", s: 0.5, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.8;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Hello world.");
+  });
+
+  /** Two one-second sentences, "First." then "Second.", playing from ctxTime 0. */
+  async function renderPlayingTwoSentences() {
+    mockConnectionWithRemoteTrack();
+    const rendered = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_1" });
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "First.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Second.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.5;
+      rafCallback?.(0);
+    });
+    expect(rendered.result.current.lastCaption).toBe("First.");
+    return rendered;
+  }
+
+  /**
+   * Captions show what is audible. Audio already on its way still plays after
+   * a barge-in, so the caption keeps following it — and goes once the audio
+   * has really stopped, rather than carrying on through sentences that
+   * alignment describes but nobody will hear.
+   */
+  it("follows the draining audio after a cut, then clears once silence is confirmed", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      eventLoopCallbacks.onOutputInterrupted?.("click-reaction");
+      mockCtxTime = 1.2;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Second.");
+    expect(result.current.agentSpeaking).toBe(true);
+
+    act(() => {
+      mockOnArmed?.();
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBeNull();
+    expect(result.current.agentSpeaking).toBe(false);
+  });
+
+  /**
+   * A cancel without a buffer clear stops generation, not playback: the audio
+   * already synthesised plays out, and its alignment describes exactly that.
+   */
+  it("keeps following the audio after a cancelled response.done alone", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      eventLoopCallbacks.onResponseDone?.({ status: "cancelled", responseId: "resp_1" });
+      mockCtxTime = 1.2;
+      rafCallback?.(0);
+      mockOnArmed?.();
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Second.");
+  });
+
+  it("clears the caption on mute and keeps it clear as the clock runs on", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      result.current.setAgentOutputMuted(true);
+      mockCtxTime = 1.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBeNull();
+  });
+
+  /** The visitor gets to think about how the answer ended. */
+  it("keeps the last sentence up when a cut's silence comes after the answer ended", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      mockCtxTime = 1.9;
+      eventLoopCallbacks.onOutputInterrupted?.("speech-started");
+      mockCtxTime = 3;
+      rafCallback?.(0);
+      mockOnArmed?.();
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Second.");
+  });
+
+  /**
+   * After a confirmed cut there is no alignment for whatever sounds next until
+   * a response starts — anchoring to it would caption nothing and leave the
+   * agent "speaking" with no end in sight.
+   */
+  it("anchors the next response's captions, not a stray onset after a cut", async () => {
+    const { result } = await renderPlayingTwoSentences();
+
+    act(() => {
+      eventLoopCallbacks.onOutputInterrupted?.("speech-started");
+      mockOnArmed?.();
+      mockCtxTime = 3;
+      mockOnAudioStart?.(performance.now(), 3);
+      rafCallback?.(0);
+    });
+    expect(result.current.agentSpeaking).toBe(false);
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_2" });
+      mockCtxTime = 5;
+      mockOnAudioStart?.(performance.now(), 5);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Next.", s: 0, e: 1 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 5.5;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Next.");
+    expect(result.current.agentSpeaking).toBe(true);
+  });
+
+  /**
+   * With server VAD every visitor utterance reports a cut. Once the agent has
+   * finished speaking there is nothing to cut, and the next response must
+   * still reset straight away rather than wait out the silence detector.
+   */
+  it("resets straight away on the next response when the cut came after the audio ended", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_1" });
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello.", s: 0, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 1;
+      rafCallback?.(0);
+    });
+    expect(result.current.lastCaption).toBe("Hello.");
+
+    act(() => {
+      eventLoopCallbacks.onOutputInterrupted?.("speech-started");
+      eventLoopCallbacks.onResponseStarted?.({ responseId: "resp_2" });
+    });
+    expect(result.current.lastCaption).toBeNull();
+  });
+
+  /**
+   * The RMS silence detector is approximate, so it is only used when audio may
+   * still be draining. On an ordinary turn the playback clock already knows the
+   * previous response finished, and the reset must happen immediately —
+   * otherwise the old caption lingers into the next response.
+   */
+  it("resets immediately when the previous response's audio already finished", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    // Play a 0.5s sentence and let the clock run past its end.
+    act(() => {
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello", s: 0.1, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 1;
+      rafCallback?.(0);
+    });
+    await waitFor(() => {
+      expect(result.current.lastCaption).toBe("Hello");
+    });
+
+    // Next response starts. No confirmed-silence signal is delivered — the
+    // caption must clear anyway, on the playback clock alone.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    expect(result.current.lastCaption).toBeNull();
+  });
+
+  /**
+   * A cancelled response stops emitting alignment data at the cut, so the
+   * playback clock under-reports its duration and can claim the audio finished
+   * while it is still draining. Resetting on that would anchor the next
+   * response's subtitle clock to a word of the old, still-audible audio.
+   */
+  // Whether the interrupt happened is transition state, so it must hold
+  // regardless of whether this session exposes `agentSpeaking`.
+  it.each([true, false])("waits for confirmed silence after a cancelled response even if the clock says finished (trackAgentSpeaking=%s)", async (trackAgentSpeaking) => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, trackAgentSpeaking }),
+    );
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    // Clock runs past the (under-reported) end of the alignment data.
+    act(() => {
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello", s: 0.1, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 1;
+      rafCallback?.(0);
+    });
+    await waitFor(() => {
+      expect(result.current.lastCaption).toBe("Hello");
+    });
+
+    // The response was cut short rather than completing.
+    act(() => {
+      eventLoopCallbacks.onResponseDone?.({ status: "cancelled" });
+    });
+
+    // Next response starts: audio may still be draining, so the caption must
+    // stay until silence is confirmed, despite the clock saying otherwise.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+    expect(result.current.lastCaption).toBe("Hello");
+
+    act(() => {
+      mockOnArmed?.();
+    });
+    expect(result.current.lastCaption).toBeNull();
+  });
+
+  /**
+   * The truncation offset says how much of the assistant's audio the visitor
+   * actually heard. It is only meaningful while the anchor and subtitle track
+   * describe the same response the event loop is about to truncate.
+   */
+  it("sends a truncation offset once the playback timeline has settled", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockOnArmed?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello", s: 0.1, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.1;
+    });
+
+    act(() => {
+      result.current.interruptAndRespond("(reaction)", "click-reaction");
+    });
+
+    expect(eventLoopMocks.interruptAndRespond).toHaveBeenCalledWith(
+      "(reaction)",
+      expect.objectContaining({ audioElapsedMs: 100 }),
+    );
+  });
+
+  /**
+   * ErrorBot is read by people. A cancel that raced the end of a response is
+   * routine and costs the visitor nothing; a turn the loop had to rescue is a
+   * near-miss worth watching.
+   */
+  it.each([
+    { handling: "ignored" as const, reported: false },
+    { handling: "recovered" as const, reported: true },
+  ])("reports an absorbed $handling error to ErrorBot: $reported", async ({ handling, reported }) => {
+    renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(eventLoopCallbacks.onNonFatalError).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onNonFatalError?.({
+        message: "no active response",
+        code: "response_cancel_not_active",
+        handling,
+      });
+    });
+
+    expect(reportRealtimeIssue).toHaveBeenCalledTimes(reported ? 1 : 0);
+  });
+
+  /**
+   * The offset is an estimate: the playback clock includes lead-in before
+   * audio flowed, alignment can describe speech TTS never synthesised, and the
+   * cancel sent alongside is what decides the real duration. Near the tail a
+   * clamped estimate still lands past the end (observed: 762 ms against 599 ms
+   * of audio), and truncating there buys nothing anyway.
+   */
+  it("omits the truncation offset near the end of the audio", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockOnArmed?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello", s: 0.1, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      // Inside the alignment's 0.5s, but well within the safety margin of it.
+      mockCtxTime = 0.45;
+    });
+
+    // The response is still open — this is the barge-in case, not the
+    // already-finished one handled above.
+    eventLoopMocks.isResponseActive.mockReturnValue(true);
+    act(() => {
+      result.current.interruptAndRespond("(reaction)", "click-reaction");
+    });
+    eventLoopMocks.isResponseActive.mockReturnValue(false);
+
+    expect(eventLoopMocks.interruptAndRespond).toHaveBeenCalledWith(
+      "(reaction)",
+      expect.objectContaining({ audioElapsedMs: undefined }),
+    );
+  });
+
+  /**
+   * With no alignment there is nothing to bound the playback clock against, so
+   * the offset would be an unchecked guess — this used to send it unclamped.
+   */
+  it("omits the truncation offset when no alignment data has arrived", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockOnArmed?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      mockCtxTime = 0.762;
+    });
+
+    act(() => {
+      result.current.interruptAndRespond("(reaction)", "click-reaction");
+    });
+
+    expect(eventLoopMocks.interruptAndRespond).toHaveBeenCalledWith(
+      "(reaction)",
+      expect.objectContaining({ audioElapsedMs: undefined }),
+    );
+  });
+
+  /**
+   * Between response.created and the confirmed-silence reset, the anchor and
+   * subtitle track still describe the previous response while the event loop
+   * has already advanced to the new one — an offset from that timeline would
+   * truncate the wrong response at a meaningless point.
+   */
+  it("omits the truncation offset while a response transition is pending", async () => {
+    mockConnectionWithRemoteTrack();
+
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => {
+      expect(mockOnAudioStart).toBeTypeOf("function");
+    });
+
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+      mockOnArmed?.();
+      mockCtxTime = 0;
+      mockOnAudioStart?.(performance.now(), 0);
+      eventLoopCallbacks.onWordAlignment?.(1, [{ w: "Hello", s: 0.1, e: 0.5 }]);
+      eventLoopCallbacks.onWordAlignment?.(1, []);
+      mockCtxTime = 0.1;
+    });
+
+    // Next response starts; confirmed silence has not arrived yet.
+    act(() => {
+      eventLoopCallbacks.onResponseStarted?.();
+    });
+
+    act(() => {
+      result.current.interruptAndRespond("(reaction)", "click-reaction");
+    });
+
+    expect(eventLoopMocks.interruptAndRespond).toHaveBeenCalledWith(
+      "(reaction)",
+      expect.objectContaining({ audioElapsedMs: undefined }),
+    );
   });
 
   it("does not set inworld agentSpeaking on response.created alone", async () => {
@@ -317,6 +983,387 @@ describe("useRealtimeVoiceSession", () => {
     expect(result.current.micStream).toBeNull();
   });
 
+  /** The talk button is the turn: opening starts it, closing sends it or throws it out. */
+  it("turns the talk button's open and close into the visitor's turn", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(result.current.connectionState).toBe("ready"));
+    eventLoopMocks.beginUserTurn.mockClear();
+    eventLoopMocks.endUserTurn.mockClear();
+
+    act(() => result.current.setMicEnabled(true));
+    act(() => result.current.setMicEnabled(true));
+    act(() => result.current.setMicEnabled(false));
+    act(() => result.current.setMicEnabled(false));
+    act(() => result.current.setMicEnabled(true));
+    act(() => result.current.setMicEnabled(false, { discard: true }));
+
+    expect(eventLoopMocks.beginUserTurn).toHaveBeenCalledTimes(2);
+    expect(eventLoopMocks.endUserTurn.mock.calls).toEqual([[{ respond: true }], [{ respond: false }]]);
+  });
+
+  it("cuts the agent off when the talk button opens during a reply", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(result.current.connectionState).toBe("ready"));
+    eventLoopMocks.isResponseActive.mockReturnValue(true);
+
+    act(() => result.current.setMicEnabled(true));
+
+    expect(eventLoopMocks.beginUserTurn).toHaveBeenLastCalledWith({ interrupt: expect.any(Object) });
+    eventLoopMocks.isResponseActive.mockReturnValue(false);
+  });
+
+  it("connects without asking for the microphone when deferMic is set", async () => {
+    const getUserMedia = vi.fn();
+    vi.stubGlobal("navigator", { ...navigator, mediaDevices: { getUserMedia } });
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, deferMic: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    // No getUserMedia means no permission prompt — the whole point of deferring.
+    expect(getUserMedia).not.toHaveBeenCalled();
+    expect(result.current.micStream).toBeNull();
+  });
+
+  it("attaches and releases the microphone on a live deferred session", async () => {
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, deferMic: true })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    let attached: boolean | undefined;
+    await act(async () => {
+      attached = await result.current.attachMic();
+    });
+
+    expect(attached).toBe(true);
+    expect(result.current.micStream).not.toBeNull();
+    // Still the same session — attaching a mic must not reconnect.
+    expect(mockCreateRealtimeConnection).toHaveBeenCalledTimes(1);
+    expect(result.current.connectionState).toBe("ready");
+
+    act(() => {
+      result.current.detachMic();
+    });
+
+    expect(result.current.micStream).toBeNull();
+    expect(result.current.connectionState).toBe("ready");
+  });
+
+  it("reports an unavailable microphone without killing the session", async () => {
+    const onUnavailable = vi.fn();
+    const onFatalError = vi.fn();
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({ ...defaultParams, deferMic: true, onUnavailable, onFatalError })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    mockClassifyRealtimeError.mockReturnValue("unavailable");
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      mediaDevices: {
+        getUserMedia: vi
+          .fn()
+          .mockRejectedValue(new MockMicrophoneUnavailableError("permission_denied", "blocked")),
+      },
+    });
+
+    let attached: boolean | undefined;
+    await act(async () => {
+      attached = await result.current.attachMic();
+    });
+
+    expect(attached).toBe(false);
+    expect(onUnavailable).toHaveBeenCalledWith(
+      expect.objectContaining({ reason: "permission_denied" })
+    );
+    expect(onFatalError).not.toHaveBeenCalled();
+    // The agent keeps talking; only listening is off the table.
+    expect(result.current.connectionState).toBe("ready");
+  });
+
+  it("retries instead of going quiet when the connect times out", async () => {
+    // Regression: a timeout surfaces as an AbortError from fetch. Treating that
+    // as our own cancellation left the session stuck on "connecting" forever.
+    mockFetchRealtimeBootstrap.mockRejectedValueOnce(
+      Object.assign(new Error("Realtime request timed out after 15000ms"), {
+        name: "RealtimeTimeoutError",
+      })
+    );
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: false },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
+  });
+
+  /**
+   * The first request after a laptop wakes often dies on a connection the
+   * browser kept from before it slept. The retry works a second later and the
+   * visitor sees a spinner, not a fault — nothing for a person to act on.
+   */
+  it("sends nothing to ErrorBot when a failed start works on the retry", async () => {
+    mockFetchRealtimeBootstrap.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: Infinity, giveUpSilently: false },
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("ready");
+    });
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledTimes(2);
+    expect(reportRealtimeIssue).not.toHaveBeenCalled();
+  });
+
+  /**
+   * A network that blocks WebRTC still completes the SDP exchange — ICE fails
+   * ~20s later. Counting that as a working session reset the retry budget every
+   * time round, so the visitor reconnected forever into a silent agent.
+   */
+  describe("a session whose media never starts", () => {
+    /** Connection mock that never opens its data channel, and hands back its onClose. */
+    function connectionThatNeverOpens() {
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onClose }: { onClose: (reason: string) => void }) => {
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "connecting", send: vi.fn() },
+          };
+        },
+      );
+      return () => closeConnection;
+    }
+
+    it("stays connecting until the data channel opens", async () => {
+      let openChannel: (() => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
+        openChannel = onOpen;
+        return {
+          close: vi.fn(),
+          micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+          dc: { readyState: "connecting", send: vi.fn() },
+        };
+      });
+
+      const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+
+      await waitFor(() => expect(openChannel).toBeDefined());
+      expect(result.current.connectionState).toBe("connecting");
+
+      act(() => openChannel?.());
+      expect(result.current.connectionState).toBe("ready");
+    });
+
+    it("spends the retry budget and switches off instead of reconnecting forever", async () => {
+      const getClose = connectionThatNeverOpens();
+      const onExhausted = vi.fn();
+
+      const { result } = renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+          onExhausted,
+        })
+      );
+
+      for (let i = 0; i < 4; i++) {
+        await waitFor(() => expect(getClose()).toBeDefined());
+        const close = getClose()!;
+        mockCreateRealtimeConnection.mockClear();
+        act(() => close("pc_failed"));
+        if (i < 3) await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+      }
+
+      await waitFor(() => expect(onExhausted).toHaveBeenCalledOnce());
+      expect(result.current.connectionState).toBe("idle");
+      // One report for the whole episode: the attempts are summarised by the
+      // giving-up report rather than each sending its own warning.
+      expect(reportRealtimeIssue).toHaveBeenCalledOnce();
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "retry-exhausted" })
+      );
+    });
+
+    it("keeps its heartbeat when retries are unlimited, since no summary is coming", async () => {
+      const getClose = connectionThatNeverOpens();
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: Infinity, giveUpSilently: false },
+        })
+      );
+
+      for (let i = 0; i < 3; i++) {
+        await waitFor(() => expect(getClose()).toBeDefined());
+        const close = getClose()!;
+        mockCreateRealtimeConnection.mockClear();
+        act(() => close("pc_failed"));
+        if (i < 2) await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+      }
+
+      expect(reportRealtimeIssue).toHaveBeenCalledOnce();
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "still-down", code: "pc_failed" })
+      );
+    });
+
+    it("keeps reconnecting past the budget once a session has really worked", async () => {
+      // The mock in beforeEach opens the channel, so every attempt counts as a
+      // working session — a mid-session drop must still get a fresh budget.
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onOpen, onClose }: { onOpen: () => void; onClose: (reason: string) => void }) => {
+          onOpen();
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "open", send: vi.fn() },
+          };
+        },
+      );
+      const onExhausted = vi.fn();
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+          onExhausted,
+        })
+      );
+
+      for (let i = 0; i < 5; i++) {
+        await waitFor(() => expect(closeConnection).toBeDefined());
+        const close = closeConnection!;
+        closeConnection = undefined;
+        act(() => close("pc_failed"));
+      }
+
+      await waitFor(() => expect(closeConnection).toBeDefined());
+      expect(onExhausted).not.toHaveBeenCalled();
+      // A session that worked and then dropped is a real visitor losing a live
+      // agent — still worth reporting, on the usual thinning schedule.
+      expect(reportRealtimeIssue).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "recovered", code: "pc_failed" })
+      );
+    });
+
+    /**
+     * A provider that closes the data channel has ended the session: without a
+     * reconnect the agent stays mute while the session still reads as ready.
+     */
+    it("reconnects when the provider closes the data channel", async () => {
+      let closeConnection: ((reason: string) => void) | undefined;
+      mockCreateRealtimeConnection.mockImplementation(
+        async ({ onOpen, onClose }: { onOpen: () => void; onClose: (reason: string) => void }) => {
+          onOpen();
+          closeConnection = onClose;
+          return {
+            close: vi.fn(),
+            micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+            dc: { readyState: "open", send: vi.fn() },
+          };
+        },
+      );
+
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: 3, giveUpSilently: true },
+        })
+      );
+
+      await waitFor(() => expect(closeConnection).toBeDefined());
+      const close = closeConnection!;
+      closeConnection = undefined;
+      act(() => close("dc_close"));
+
+      await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalledTimes(2));
+      await waitFor(() =>
+        expect(reportRealtimeIssue).toHaveBeenCalledWith(
+          expect.objectContaining({ kind: "recovered", code: "dc_close" })
+        )
+      );
+    });
+  });
+
+  it("gives up quietly without retrying when the session is refused", async () => {
+    mockClassifyRealtimeError.mockReturnValue("refused");
+    mockFetchRealtimeBootstrap.mockRejectedValue(
+      Object.assign(new Error("Realtime bootstrap failed (403): "), { name: "RealtimeHttpError" })
+    );
+    const onExhausted = vi.fn();
+    const onFatalError = vi.fn();
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: true },
+        onExhausted,
+        onFatalError,
+      })
+    );
+
+    await waitFor(() => {
+      expect(onExhausted).toHaveBeenCalledOnce();
+    });
+    expect(onFatalError).not.toHaveBeenCalled();
+    expect(mockFetchRealtimeBootstrap).toHaveBeenCalledOnce();
+    expect(result.current.connectionState).toBe("idle");
+    expect(reportRealtimeIssue).toHaveBeenCalledWith(expect.objectContaining({ kind: "refused" }));
+  });
+
+  it("stays connecting while waiting out a capacity refusal", async () => {
+    // The mic button's spinner reads `connectionState`, and a capacity wait is
+    // now minutes rather than seconds — so the session must read as connecting
+    // for the whole wait rather than settling into idle between attempts.
+    mockClassifyRealtimeError.mockReturnValue("capacity");
+    mockCapacityRetryDelay.mockReturnValue(10_000);
+    mockFetchRealtimeBootstrap.mockRejectedValue(
+      Object.assign(new Error("Realtime bootstrap failed (503)"), { name: "RealtimeHttpError" })
+    );
+
+    const { result } = renderHook(() =>
+      useRealtimeVoiceSession({
+        ...defaultParams,
+        retryPolicy: { maxRetries: 3, giveUpSilently: true },
+      })
+    );
+
+    await waitFor(() => {
+      expect(mockFetchRealtimeBootstrap).toHaveBeenCalled();
+    });
+    await waitFor(() => {
+      expect(result.current.connectionState).toBe("connecting");
+    });
+    expect(result.current.error).toBeNull();
+  });
+
   it("forwards onSessionReady from the event loop", async () => {
     const onSessionReady = vi.fn();
     renderHook(() => useRealtimeVoiceSession({ ...defaultParams, onSessionReady }));
@@ -357,6 +1404,62 @@ describe("useRealtimeVoiceSession", () => {
     });
   });
 
+  it("does not hold the greeting when the page became audible before connecting", async () => {
+    // Regression: `audible` is read when the data channel opens, which is long
+    // after any render — the autoplay probe usually answers in between. Syncing
+    // the ref on a dependency froze it at its first-render value, so a page
+    // that became audible during the handshake held its greeting forever: the
+    // release effect had already run against a session that did not exist yet,
+    // and `audible` never changed again to re-fire it.
+    let openChannel: (() => void) | undefined;
+    mockCreateRealtimeConnection.mockImplementation(async ({ onOpen }: { onOpen: () => void }) => {
+      openChannel = onOpen;
+      return {
+        close: vi.fn(),
+        micStream: { getTracks: () => [{ stop: vi.fn() }], getAudioTracks: () => [] },
+        dc: { readyState: "open", send: vi.fn() },
+      };
+    });
+
+    const { rerender } = renderHook(
+      ({ audible }) =>
+        useRealtimeVoiceSession({ ...defaultParams, triggerGreetingOnReady: true, audible }),
+      { initialProps: { audible: false } },
+    );
+
+    await waitFor(() => expect(openChannel).toBeDefined());
+
+    // The probe answers mid-handshake, before there is an event loop to tell.
+    rerender({ audible: true });
+    act(() => openChannel?.());
+
+    expect(eventLoopMocks.configureSession).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({ holdGreeting: false }),
+    );
+  });
+
+  it("holds the greeting until the page becomes audible", async () => {
+    const { rerender } = renderHook(
+      ({ audible }) =>
+        useRealtimeVoiceSession({ ...defaultParams, triggerGreetingOnReady: true, audible }),
+      { initialProps: { audible: false } },
+    );
+
+    await waitFor(() => {
+      expect(eventLoopMocks.configureSession).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({ holdGreeting: true }),
+      );
+    });
+
+    rerender({ audible: true });
+
+    await waitFor(() => {
+      expect(eventLoopMocks.setGreetingHeld).toHaveBeenCalledWith(false);
+    });
+  });
+
   it("reconfigureSession delegates to the event loop with current config", async () => {
     const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
 
@@ -374,5 +1477,76 @@ describe("useRealtimeVoiceSession", () => {
       expect.any(Object),
       { triggerGreetingOnReady: false },
     );
+  });
+});
+
+describe("on a split audio output", () => {
+  function voicesSide() {
+    return { setMuted: vi.fn(), resume: vi.fn(), dispose: vi.fn() };
+  }
+
+  async function connectWithElement() {
+    const el = document.createElement("audio");
+    el.play = vi.fn().mockResolvedValue(undefined);
+    mockConnectionWithRemoteTrack();
+    const hook = renderHook(() => useRealtimeVoiceSession({ ...defaultParams, audioElement: el }));
+    await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+    return { el, ...hook };
+  }
+
+  beforeEach(() => {
+    mockCreateVoicesSideOutput.mockImplementation(voicesSide);
+    setSplitAudioEnabled(true);
+  });
+
+  afterEach(() => {
+    setSplitAudioEnabled(false);
+  });
+
+  it("plays the agent on the voices side, keeping its element playing muted", async () => {
+    const { el } = await connectWithElement();
+
+    await waitFor(() => expect(mockCreateVoicesSideOutput).toHaveBeenCalledTimes(1));
+    expect(el.muted).toBe(true);
+    expect(el.play).toHaveBeenCalled();
+  });
+
+  it("mutes the agent on the voices side", async () => {
+    const { result } = await connectWithElement();
+    await waitFor(() => expect(mockCreateVoicesSideOutput).toHaveBeenCalled());
+    const side = mockCreateVoicesSideOutput.mock.results[0].value;
+
+    act(() => result.current.setAgentOutputMuted(true));
+
+    expect(side.setMuted).toHaveBeenLastCalledWith(true);
+  });
+
+  it("gives the agent back to its element when the split is switched off", async () => {
+    const { el } = await connectWithElement();
+    await waitFor(() => expect(mockCreateVoicesSideOutput).toHaveBeenCalled());
+    const side = mockCreateVoicesSideOutput.mock.results[0].value;
+
+    act(() => setSplitAudioEnabled(false));
+
+    await waitFor(() => expect(side.dispose).toHaveBeenCalled());
+    expect(el.muted).toBe(false);
+  });
+});
+
+describe("retryBudgetFor", () => {
+  const web = getRealtimeRetryPolicy(false);
+  const installation = getRealtimeRetryPolicy(true);
+
+  // Web's three tries are sized for a network blip: on the capacity clock they
+  // would give up inside half a minute, before a busy account has plausibly
+  // freed a slot. An installation retries forever either way.
+  it.each([
+    { label: "web, blip", policy: web, capacity: false, expected: 3 },
+    { label: "web, capacity", policy: web, capacity: true, expected: CAPACITY_MIN_RETRIES },
+    { label: "installation, blip", policy: installation, capacity: false, expected: Infinity },
+    { label: "installation, capacity", policy: installation, capacity: true, expected: Infinity },
+    { label: "no policy", policy: undefined, capacity: true, expected: 0 },
+  ])("$label allows $expected attempts", ({ policy, capacity, expected }) => {
+    expect(retryBudgetFor(policy, capacity)).toBe(expected);
   });
 });

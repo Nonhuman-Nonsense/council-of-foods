@@ -33,15 +33,13 @@
   },
   "human": {
     "placeholder": "Type your question or start recording...",
-    "panelist": "What does {{name}} have to say about this?"
-  },
-  "agentMode": {
-    "alwaysOn": "Always On",
-    "pushToTalk": "Push to Talk"
+    "panelist": "What does {{name}} have to say about this?",
+    "letter": "Add something to {{name}}'s email, or just say no..."
   },
   "ptt": {
     "holdToSpeak": "Push the button to speak",
-    "humanPlaceholder": "Press and hold the button to talk, release to submit"
+    "humanPlaceholder": "Press and hold the button to talk, release to submit",
+    "holdHint": "Hold the button down while you talk"
   },
   "replay": {
     "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
@@ -63,16 +61,20 @@
   "contact": {
     "label": "Contact",
     "credits": "The project is an initiative by art & design collective <nhn>Nonhuman Nonsense</nhn> developed in collaboration with <sos>Studio Other Spaces</sos>, <in4art>In4Art</in4art>, <elliot>Elliot Cost</elliot>, <albin>Albin Karlsson</albin>, Lachlan Kenneally, and others.",
-    "funding": "Council of Foods is part of <hec>The Hungry EcoCities project</hec>, part of the <starts>S+T+ARTS</starts> programme, and has received funding from the European\u00a0Union's <horizon>Horizon Europe research and innovation programme under grant agreement 101069990</horizon>.",
+    "funding": "Council of Foods is part of <hec>The Hungry EcoCities project</hec>, part of the <starts>S+T+ARTS</starts> programme, and has received funding from the European Union's <horizon>Horizon Europe research and innovation programme under grant agreement 101069990</horizon>.",
     "euImageAlt": "Funded by the EU, as part of S+T+ARTS"
   },
   "staff": {
     "title": "STAFF",
     "panels": {
+      "mode": "Mode",
       "installation": "Installation",
-      "agentMode": "Agent mode",
       "details": "Details & hints",
       "logging": "Logging"
+    },
+    "toggle": {
+      "on": "On",
+      "off": "Off"
     },
     "logging": {
       "on": "On",
@@ -89,15 +91,102 @@
         "BUTTON": "Button",
         "META": "Meta agent",
         "AUTOPLAY": "Autoplay",
+        "PRINT": "Printing",
         "SYSTEM": "System",
         "ERROR": "Error detail"
+      },
+      "server": {
+        "failing": "Not sending ({{failure}}) — {{pending}} lines waiting"
       }
     },
     "web": "Web",
     "museum": "Museum",
-    "museumSwitchButton": "Museum switch button",
+    "presenter": "Presenter",
+    "modeSwitchButton": "Mode switch button",
+    "alerts": {
+      "label": "Alert emails",
+      "test": "Send test alert",
+      "status": {
+        "noKey": "No installation key",
+        "chooseVenue": "Choose a venue",
+        "failing": "Failing",
+        "on": "On"
+      },
+      "testResult": {
+        "sending": "Sending…",
+        "sent": "Sent, check the inbox",
+        "failed": "Not sent"
+      }
+    },
+    "venue": {
+      "label": "Venue",
+      "none": "No venue",
+      "unknown": "{{id}} (no longer on the server)",
+      "hint": "Where this installation runs. Tags its AI usage for the footprint meter and room power plugs, and decides who gets printer alert emails."
+    },
+    "installationKey": {
+      "label": "Installation key",
+      "placeholder": "Paste the installation key",
+      "save": "Save",
+      "change": "Change",
+      "cancel": "Cancel",
+      "notSaved": "Not saved",
+      "hint": "The council server's COUNCIL_INSTALLATION_KEY. The bridge keeps it for this server, for printer alert emails; it is never shown again.",
+      "status": {
+        "saved": "Saved",
+        "missing": "Not set",
+        "otherServer": "Saved for {{server}}; enter this server's key",
+        "outdated": "Update the bridge to enter it"
+      }
+    },
+    "splitAudio": {
+      "toggle": "Split audio"
+    },
+    "sidetone": {
+      "label": "Hear yourself",
+      "note": "Visitors hear their own voice while they hold the button. Headphones only: over speakers the mic howls."
+    },
+    "print": {
+      "toggle": "Print summaries",
+      "printerLabel": "Printer",
+      "pendingLabel": "Waiting to print",
+      "attentionLabel": "Needs attention",
+      "since": "since {{time}}",
+      "testPage": "Print test page",
+      "testLetter": {
+        "from": "Tomato",
+        "fromEmail": "tomato@council-of-foods.com",
+        "to": "Minister for Rural Affairs",
+        "toEmail": "registrator@example.org",
+        "organisation": "Ministry of Rural Affairs",
+        "subject": "Who waits for summer?",
+        "body": "Dear Minister,\n\nI am the Tomato, and I spoke at the Council of Foods today. We talked about who decides what is grown, and who pays when the soil is spent. I write to you because the next farm budget is yours to shape.\n\nI grow under glass most of the year, fed by gas and shipped in trucks that never sleep. I would rather grow where I am eaten, in the season I belong to. That needs farmers who can afford to wait for summer, and rules that reward them for it.\n\nWill you meet with the growers near you before the budget is set? Write back to me and tell me what they said.\n\nWith warm regards,\nThe Tomato"
+      },
+      "testReply": {
+        "from": "Alex Morgan",
+        "fromEmail": "alex.morgan@example.org",
+        "subject": "Re: Who waits for summer?",
+        "body": "Dear Tomato,\n\nThank you for your letter. We have received it and passed it on to the team preparing the farm budget.\n\nKind regards,\nAlex Morgan\nMinistry of Rural Affairs"
+      },
+      "testPageResult": {
+        "sending": "Sending…",
+        "queued": "Sent to printer",
+        "rejected": "Bridge refused the page",
+        "unreachable": "Bridge not reachable"
+      },
+      "printer": {
+        "unavailable": "—",
+        "outdated": "Bridge too old — update it",
+        "disabled": "Printing off on bridge",
+        "checking": "Checking…",
+        "noDefault": "No default printer",
+        "idle": "Ready",
+        "printing": "Printing",
+        "stopped": "Stopped",
+        "unknown": "Unknown"
+      }
+    },
     "button": {
-      "title": "Button",
       "bridgeLabel": "Bridge",
       "appLabel": "App",
       "usbLabel": "USB button",
@@ -158,6 +247,19 @@
   "controls": {
     "wait": "wait for your turn to speak"
   },
+  "agent": {
+    "turnOn": "Turn on the guide",
+    "turnOff": "Turn off the guide",
+    "micHold": "Hold to talk to the guide"
+  },
+  "microphone": {
+    "title": "Microphone not available",
+    "blocked": "Allow microphone access for this site in your browser,\nthen press the microphone button again.",
+    "noDevice": "No microphone was found on this device.",
+    "inUse": "The microphone is being used by another application.\nClose it and try again.",
+    "unsupported": "This browser can't give the page a microphone.",
+    "dismiss": "Got it"
+  },
   "queryExtension": {
     "title": "Is that it?",
     "body": "This meeting is starting to get long-winded,\nis it time to come to a conclusion?",
@@ -176,11 +278,28 @@
     "goBack": "Go back",
     "startNew": "Start new meeting"
   },
+  "letterReply": {
+    "optOut": "{{name}} asked to receive no more letters."
+  },
+  "letter": {
+    "from": "From",
+    "to": "To",
+    "subject": "Subject",
+    "sent": "Sent",
+    "message": "Message",
+    "replyFrom": "Reply from",
+    "received": "Received",
+    "unsent": "This letter was written, but not sent."
+  },
   "summary": {
     "download": "Download PDF",
     "banner": {
       "pressToRestart": "Press the button to start a new meeting."
     }
+  },
+  "credits": {
+    "thankYou": "Thank You",
+    "intro": "Council of Foods is an initiative by art & design collective Nonhuman Nonsense."
   },
   "disclaimer": {
     "intro": "This document was created by the Council of Foods, a political arena where the foods themselves discuss the broken food system, through the use of artificial intelligence. While every effort has been made to generate meaningful content, please note the following:",
@@ -197,7 +316,21 @@
     "message": "Something went wrong...\nCouncil cannot continue",
     "audioLoad": "Could not load meeting audio.",
     "connection": "Connection Lost",
+    "busy": "The council is busy",
+    "busyRetrying": "Too many people are talking at once — trying again…",
+    "elsewhere": "This meeting is happening somewhere else",
+    "notFound": "That meeting could not be found",
+    "forbidden": "This meeting is not yours to open",
+    "unauthorized": "This meeting needs a key you don't have",
+    "invalidRequest": "Something about that request was wrong",
+    "meetingComplete": "This meeting has already finished",
+    "invalidAudioId": "Could not load meeting audio.",
+    "realtimeUnavailable": "The council's voice is unavailable right now",
     "reconnecting": "Attempting to reconnect...",
-    "restartUnavailableRetrying": "Server unavailable for restart, retrying…"
+    "restartUnavailableRetrying": "Server unavailable for restart, retrying…",
+    "noInternet": "No internet",
+    "noInternetDetail": "Check the network cable or Wi‑Fi.",
+    "serverUnreachable": "Can't reach the server",
+    "serverUnreachableDetail": "Check the internet connection."
   }
 }

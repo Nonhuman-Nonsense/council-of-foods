@@ -51,6 +51,10 @@ export class HumanInputHandler {
         Logger.info("humanInput", `human input on index ${m.conversation.length - 1} `, { from: manager });
 
         const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type === "awaiting_letter_addition") {
+            await this.resolveLetterAddition(m, payload.text);
+            return;
+        }
         if (lastMessage?.type !== 'awaiting_human_question') {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
             // Server is not in the right state to accept this; discard gracefully.
@@ -68,16 +72,7 @@ export class HumanInputHandler {
             speakerId: humanName,
         });
 
-        const renderedText = humanName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text;
-
-        const msgId = "human-" + uuidv4();
-        const message: HumanMessage = {
-            id: msgId,
-            type: "human",
-            speaker: humanName,
-            text: renderedText,
-            askParticular,
-        };
+        const message: HumanMessage = { ...humanMessage(m, payload.text), askParticular };
 
         m.conversation.push(message);
 
@@ -92,25 +87,24 @@ export class HumanInputHandler {
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
 
+        this.queueHumanAudio(m, message);
+
+        manager.isPaused = false;
+        manager.handRaised = false;
+        manager.startLoop();
+    }
+
+    /** The chair reads a human's words for replay; live, the client skips its own echo. */
+    private queueHumanAudio(m: StoredMeeting, message: HumanMessage): void {
+        const { manager } = this;
         message.sentences = splitSentences(message.text);
-
-        // Assert types for Queue compatibility
-        const queueMsg = {
-            ...message,
-            sentences: message.sentences,
-        } as AudioQueueMessage;
-
         manager.audioSystem.queueAudioGeneration(
-            queueMsg,
+            { ...message, sentences: message.sentences } as AudioQueueMessage,
             m.characters[0],
             m,
             manager.environment,
             manager.serverOptions
         );
-
-        manager.isPaused = false;
-        manager.handRaised = false;
-        manager.startLoop();
     }
 
     /**
@@ -178,6 +172,39 @@ export class HumanInputHandler {
     }
 
     /**
+     * The human's answer to the author's "would you like to add something?" — their words, or
+     * `null` when they skipped or walked away. `awaiting_letter_addition` becomes their words, as
+     * said (a `human` message, so a replay hears what was added; live, nobody reads them back),
+     * and `summary_pending`, in one write with the answer and whether they were there to give it
+     * — only then is the letter printed and sent. The run loop then finishes the letter.
+     */
+    private async resolveLetterAddition(m: StoredMeeting, text: string | null): Promise<void> {
+        const { manager } = this;
+        const said = text !== null ? humanMessage(m, text) : null;
+        m.conversation.splice(m.conversation.length - 1, 1, ...(said ? [said] : []), { type: "summary_pending" });
+        const answer = { present: text !== null, ...(text !== null ? { addition: text } : {}) };
+        if (m.letter) m.letter = { ...m.letter, ...answer };
+        Logger.info("humanInput", text === null ? "letter addition skipped" : "letter addition received", { from: manager });
+
+        await manager.services.meetingsCollection.updateOne(
+            { _id: m._id },
+            {
+                $set: {
+                    conversation: m.conversation,
+                    "letter.present": answer.present,
+                    ...(answer.addition !== undefined ? { "letter.addition": answer.addition } : {}),
+                },
+            },
+        );
+        manager.broadcaster.broadcastConversationUpdate(m.conversation);
+        if (said) this.queueHumanAudio(m, said);
+
+        manager.isPaused = false;
+        manager.handRaised = false;
+        manager.startLoop();
+    }
+
+    /**
      * Skips the visitor's turn when they abandon input (e.g. museum idle timeout).
      * Validates awaiting state, replaces invitation+awaiting with a skipped marker, resumes the loop.
      */
@@ -187,6 +214,10 @@ export class HumanInputHandler {
         if (!m) return;
 
         const lastMessage = m.conversation[m.conversation.length - 1];
+        if (lastMessage?.type === "awaiting_letter_addition") {
+            await this.resolveLetterAddition(m, null);
+            return;
+        }
         if (lastMessage?.type !== "awaiting_human_question" && lastMessage?.type !== "awaiting_human_panelist") {
             // Stale event — socket buffer flushed before attempt_reconnection completed.
             Logger.staleEvent("humanInput", "skip_human_turn", `expected awaiting human input but found '${lastMessage?.type ?? "none"}'`, { lastReconnectionAt: manager.lastReconnectionAt, from: manager });
@@ -229,4 +260,15 @@ export class HumanInputHandler {
         manager.handRaised = false;
         manager.startLoop();
     }
+}
+
+/** A human's words in the conversation, as the chair reads them: "Frank said: …". */
+function humanMessage(m: StoredMeeting, text: string): HumanMessage {
+    const speaker = m.state.humanName || "Human";
+    return {
+        id: "human-" + uuidv4(),
+        type: "human",
+        speaker,
+        text: speaker + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + text,
+    };
 }

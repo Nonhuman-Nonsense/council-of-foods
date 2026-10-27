@@ -23,6 +23,8 @@ export const ChairVoiceProfileSchema = z.object({
 export const ChairRealtimeLanguageConfigSchema = z.object({
     provider: z.enum(["inworld"]),
     llmModel: z.string(),
+    /** Left out, the model's own default applies — for a thinking model, a pause before every reply. */
+    reasoning: ConversationReasoningSchema.optional(),
     ttsModel: z.string().optional(),
     transcriptionModel: z.string(),
     agentVoice: ChairVoiceProfileSchema.nullable().optional(),
@@ -41,6 +43,12 @@ export const HumanInputRealtimeLanguageConfigSchema = z.object({
 
 export const HumanInputRealtimeSchema = z.object({
     languages: z.record(z.string(), HumanInputRealtimeLanguageConfigSchema),
+});
+
+export const VoiceLoudnessSchema = z.object({
+    targetLufs: z.number(),
+    skipBelowDb: z.number().nonnegative(),
+    truePeakDb: z.number().max(0),
 });
 
 export const GlobalOptionsSchema = z.object({
@@ -74,11 +82,56 @@ export const GlobalOptionsSchema = z.object({
     transcribeModel: z.string(),
     transcribePrompt: z.record(z.string(), z.string()),
     audioConcurrency: z.number(),
+    /**
+     * Every newly generated message is brought to one perceived loudness, so no being speaks
+     * louder than another. null switches it off. See `normalizeLoudness` in AudioUtils.
+     */
+    voiceLoudness: VoiceLoudnessSchema.nullable(),
     chairRealtime: ChairRealtimeSchema,
     humanInputRealtime: HumanInputRealtimeSchema,
     speakerClassifierModel: z.string(),
     directedSpeakerRouting: z.boolean(),
     autoplayEarliestMeetingDate: z.string(),
+    /**
+     * How a meeting ends: a protocol read by the chair, or a letter one of the beings sends.
+     * See docs/council-letters.md.
+     */
+    meetingEnding: z.enum(["protocol", "letter"]),
+    /** Public site the letter footer links a meeting from: `<site>/<lang>/meeting/<id>`. */
+    letterSiteUrl: z.string(),
+    /** Most recipients offered to the author at once, mixed across categories (see candidateRecipients). */
+    letterMaxCandidates: z.number().int().positive(),
+    /**
+     * The model the author plans and writes the letter with — a letter goes to a real person, so
+     * it can be a stronger model than the council speaks with. Through the same router.
+     */
+    letterModel: z.string(),
+    letterReasoning: ConversationReasoningSchema,
+    /**
+     * Folds the human's addition into the drafted letter once they have spoken — the only letter
+     * step the human waits for, so a fast model; it only rewrites, with the meeting left out.
+     */
+    letterWeaveModel: z.string(),
+    letterWeaveReasoning: ConversationReasoningSchema,
+    /** Token budgets for the plan and the letter, including any thinking. Prompts are in logic/letters/prompts. */
+    letterPlanLength: z.number(),
+    letterWriteLength: z.number(),
+    /** An author sits out this many letters after writing one, so the letters come from many voices. */
+    letterAuthorCooldown: z.number().int().nonnegative(),
+    /** Letters go out from `<being>@<letterSenderDomain>`, authenticated in Brevo. */
+    letterSenderDomain: z.string(),
+    /**
+     * Replies come back to `<being>.<meetingId>@<letterReplyDomain>`, a different domain
+     * delegated to Brevo's inbound parsing (Brevo will not receive on the sending domain).
+     */
+    letterReplyDomain: z.string(),
+    /** A being's address where it is not simply its id, e.g. `{ "treeharvester": "tree.harvester" }`. */
+    letterSenderAddresses: z.record(z.string(), z.string()),
+    /**
+     * Most letters sent in any 24 hours — a ceiling for a bug, not a pace: far above the
+     * expected handful a day. Reaching it holds the rest in the outbox and alerts.
+     */
+    letterDailyLimit: z.number().int().positive(),
 });
 
 export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;

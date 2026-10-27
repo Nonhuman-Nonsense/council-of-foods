@@ -41,6 +41,11 @@ export const setupTestOptions = () => {
         // Uses default merged options (test-options.json)
     }
 
+    // Tests end meetings in the protocol, whatever the product or its prototype is set to:
+    // test-options.json is how the prototype runs, and a product switching to letters must not
+    // change what the protocol tests exercise. The letter tests switch to "letter" themselves.
+    options.meetingEnding = "protocol";
+
     return options;
 };
 

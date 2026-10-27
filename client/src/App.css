@@ -39,8 +39,8 @@ html,
   z-index: var(--z-navbar);
 }
 
-html.museum-cursor-hidden,
-html.museum-cursor-hidden * {
+html.cursor-hidden,
+html.cursor-hidden * {
   cursor: none !important;
 }
 
@@ -115,6 +115,12 @@ textarea {
 textarea.unfocused:focus {
   border: none;
   outline: none;
+}
+
+/* Staff at an installation may work the page by keyboard alone: show where Tab is. */
+.staff-page :focus-visible {
+  outline: 2px solid white;
+  outline-offset: 3px;
 }
 
 button,
@@ -631,4 +637,24 @@ nav.blur::before {
   overflow: visible;
   pointer-events: none;
   flex-shrink: 0;
+}
+/* A letter's message, on paper and on the summary screen (LetterDocument). */
+.letter-body p,
+.letter-body li {
+  font-size: inherit;
+  line-height: 1.35;
+  letter-spacing: normal;
+  word-spacing: normal;
+  margin: 0 0 1em;
+}
+
+.letter-body p:last-child {
+  margin-bottom: 0;
+}
+
+/* On paper, a blank line between paragraphs, as LETTER design V2 spaces them. */
+.letter-paper .letter-body p,
+.letter-paper .letter-body li {
+  line-height: 1.2;
+  margin-bottom: 1.2em;
 }

@@ -2,7 +2,7 @@
 
 A political arena where AI-driven foods discuss the broken food system. Three parts:
 `client/` (React + Vite + zustand, socket.io client), `server/` (Node + Express + socket.io +
-MongoDB, OpenAI/TTS orchestration), and `button/` (talk-button stack for museum installs).
+MongoDB, conversation/TTS orchestration), and `button/` (talk-button stack for installations).
 `shared/` holds the socket protocol types and prompts used by both sides.
 
 ## Required reading
@@ -20,10 +20,32 @@ MongoDB, OpenAI/TTS orchestration), and `button/` (talk-button stack for museum 
   reconnect/resume logic. New client-driven socket actions must follow this pattern.
 - [README.md](README.md) — project overview and build instructions.
 - [server/README.md](server/README.md) — backend details and test modes (mock/fast/full).
-- [MUSEUM.md](MUSEUM.md) — physical kiosk installs (app mode, button bridge, staff setup).
+- [MUSEUM.md](MUSEUM.md) — physical installations: museum kiosks and presented screenings
+  (app mode, button bridge, staff setup).
 
 The `docs/` folder is for work-in-progress design docs only; durable architecture
 descriptions live in the root docs above.
+
+## App modes
+
+Three: `web` (the visitor's own browser), `museum` (unattended installation), and
+`presenter` (an installation someone presents at a screening). Museum and presenter are
+both *installations* — the app owns the whole screen on hardware the visitor does not own.
+
+**Nothing outside `client/src/settings/capabilities.ts` may branch on the mode.** Every
+behavioural difference is a named capability in that one table, and `capabilitiesFor()` is
+the only place a mode is read. A `mode === "museum"` test anywhere else silently drops every
+other mode into the web branch — which is exactly how presenter mode's first cut broke. Add
+a capability that names the behaviour instead, so each mode has to answer for it.
+
+## Don't drive the app in a browser
+
+Verifying a change by starting a dev server and clicking through the UI is never worth what
+it costs here — the dev ports are usually already taken (by the developer, or a sibling
+project on the same machine), and a meeting needs a live server, Mongo and provider keys
+before anything interesting happens. Verify through the test suites instead. When a change is
+visual, hand the developer a way to look at it themselves — a temporary, clearly-marked flag
+they can switch on beats a screenshot — and say when it is ready to test.
 
 ## Commands
 
@@ -32,3 +54,9 @@ descriptions live in the root docs above.
 - Client: `cd client && npm test` (type-check + all tests); `npm run e2e` (Playwright — needs
   `npm run e2e-server` running in `server/`); `npm run dev` to run.
 - Lint either side with `npm run lint`.
+- Read an installation's stored browser log (stored whenever #staff → Logging is on):
+  `cd server && npm run logs -- --venue <id> --unanswered --since 24h`, then `--setup <id>`.
+  See [MUSEUM.md](MUSEUM.md) → Dev logging.
+- Those read scripts (`logs`, `network`, …) read the database `server/.env` names. For production,
+  `cd server && npm run prod -- <script> …` (SSH tunnel, read-only user; needs
+  `server/.env.production.local`, see [server/README.md](server/README.md) → Reading production data).

@@ -40,6 +40,7 @@ export interface AudioSystemOptions {
     elevenlabsVoiceModel: string;
     defaultAudioSpeed: number;
     subtitleTimingPriorities: GlobalOptions["subtitleTimingPriorities"];
+    voiceLoudness?: GlobalOptions["voiceLoudness"];
     language?: string;
     skipAudio?: boolean;
     skipMatchingSubtitles?: boolean;

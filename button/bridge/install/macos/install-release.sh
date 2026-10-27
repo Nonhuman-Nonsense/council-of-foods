@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Download a prebuilt Council button bridge release and install it.
-# Apple Silicon (arm64) only. Requires Node 20+ and curl.
+# Apple Silicon (arm64) only. Requires Node 24+ and curl.
 set -euo pipefail
 
 REPO="${COUNCIL_BUTTON_BRIDGE_REPO:-Nonhuman-Nonsense/council-of-foods}"
@@ -19,7 +19,7 @@ Environment:
   COUNCIL_BUTTON_BRIDGE_VERSION   Pin version (default: latest button-bridge release)
   COUNCIL_BUTTON_BRIDGE_REPO        GitHub owner/repo (default: ${REPO})
 
-Requires: macOS arm64, Node 20+, curl, python3
+Requires: macOS arm64, Node 24+, curl, python3
 EOF
 }
 
@@ -39,7 +39,7 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js not found. Install Node 20+ from https://nodejs.org before continuing." >&2
+  echo "Node.js not found. Install Node 24+ from https://nodejs.org before continuing." >&2
   exit 1
 fi
 

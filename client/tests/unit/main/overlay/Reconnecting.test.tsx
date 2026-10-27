@@ -1,47 +1,121 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
-import Reconnecting from "@main/overlay/Reconnecting";
+import Reconnecting, { BUSY_NOTICE_DELAY_MS, CONNECTION_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
 import { useErrorStore } from "@main/overlay/errorStore";
+import { capabilitiesFor } from "@/settings/capabilities";
 
 const mockUseCouncilSettings = vi.hoisted(() =>
-  vi.fn(() => ({ isMuseumMode: false })),
+  vi.fn(() => ({ capabilities: capabilitiesFor("web") })),
 );
 
 vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (k: string) => k }),
 }));
-vi.mock("@/utils", () => ({ useMobile: () => false }));
+vi.mock("@/utils", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/utils")>();
+  return { ...actual, useMobile: () => false };
+});
 vi.mock("@/settings/councilSettings", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/settings/councilSettings")>();
   return {
     ...actual,
     useCouncilSettings: () => mockUseCouncilSettings(),
-    getAppMode: () => (mockUseCouncilSettings().isMuseumMode ? "museum" : "web"),
+    getCapabilities: () => mockUseCouncilSettings().capabilities,
   };
 });
 vi.mock("@main/Loading", () => ({
   default: () => <div data-testid="loading-spinner" />,
 }));
 
-/** Museum kiosks: probe /health before hard-restart — keep in sync with Reconnecting.tsx */
+/** Unattended installations: probe /health before hard-restart — keep in sync with Reconnecting.tsx */
 const MUSEUM_RECONNECTING_RESTART_MS = 2 * 60 * 1000;
 
 describe("Reconnecting overlay", () => {
   beforeEach(() => {
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: false });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("web") });
     useErrorStore.getState().resetForTests();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
-  it("renders the connection-error heading, sub-text and spinner", () => {
+  it("explains a busy provider once the wait has gone on, not before", () => {
+    vi.useFakeTimers();
+    render(<Reconnecting />);
+    act(() => {
+      useErrorStore.getState().setConnectionError("setup-agent", true, "busy");
+    });
+
+    // A squeeze that clears on the first retry needs no explaining.
+    expect(screen.getByText("error.connection")).toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(BUSY_NOTICE_DELAY_MS);
+    });
+    expect(screen.getByText("error.busy")).toBeInTheDocument();
+    expect(screen.getByText("error.busyRetrying")).toBeInTheDocument();
+  });
+
+  // The meta agent's overlay only appears when the visitor presses the button,
+  // which can be minutes after the agent went quiet — the wait it describes has
+  // already happened, so the copy must be right on the first paint.
+  it("explains a busy provider immediately when the wait already outlasted the delay", () => {
+    vi.useFakeTimers();
+    act(() => {
+      useErrorStore.getState().setConnectionError("meta-agent", true, "busy");
+      vi.advanceTimersByTime(BUSY_NOTICE_DELAY_MS);
+    });
+
+    render(<Reconnecting />);
+    expect(screen.getByText("error.busy")).toBeInTheDocument();
+  });
+
+  it("keeps the lost-connection copy when something is actually disconnected", () => {
+    vi.useFakeTimers();
+    render(<Reconnecting />);
+    act(() => {
+      useErrorStore.getState().setConnectionError("setup-agent", true, "busy");
+      // A real drop alongside it is the more urgent truth.
+      useErrorStore.getState().setConnectionError("socket", true, "lost");
+      vi.advanceTimersByTime(BUSY_NOTICE_DELAY_MS);
+    });
+
+    expect(screen.getByText("error.connection")).toBeInTheDocument();
+  });
+
+  // Whoever stands at an installation needs to know to go and check the network, but not for
+  // a blip. With no network at all the browser knows at once; otherwise it can't tell a dead
+  // internet from a dead server, so it says it can't reach the council.
+  it.each([
+    { online: true, afterMs: 0, heading: "error.connection", detail: "error.reconnecting" },
+    { online: true, afterMs: CONNECTION_NOTICE_DELAY_MS, heading: "error.serverUnreachable", detail: "error.serverUnreachableDetail" },
+    { online: false, afterMs: 0, heading: "error.noInternet", detail: "error.noInternetDetail" },
+  ])("online=$online after $afterMs ms: $heading", ({ online, afterMs, heading, detail }) => {
+    vi.useFakeTimers();
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(online);
+    render(<Reconnecting />);
+    act(() => {
+      vi.advanceTimersByTime(afterMs);
+    });
+
+    expect(screen.getByText(heading)).toBeInTheDocument();
+    expect(screen.getByText(detail)).toBeInTheDocument();
+    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+  });
+
+  it("switches to the no-network copy when the network goes while it waits", () => {
     render(<Reconnecting />);
     expect(screen.getByText("error.connection")).toBeInTheDocument();
-    expect(screen.getByText("error.reconnecting")).toBeInTheDocument();
-    expect(screen.getByTestId("loading-spinner")).toBeInTheDocument();
+
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    act(() => {
+      window.dispatchEvent(new Event("offline"));
+    });
+
+    expect(screen.getByText("error.noInternet")).toBeInTheDocument();
   });
 
   it("does not start a reload timer in web mode", () => {
@@ -65,7 +139,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: escalates via reloadApp when health is not OK", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 503 })),
@@ -96,7 +170,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: reloads when health probe succeeds after waiting phase", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response("", { status: 200 })),
@@ -128,7 +202,7 @@ describe("Reconnecting overlay", () => {
 
   it("museum: cancels reload timer on unmount", async () => {
     vi.useFakeTimers();
-    mockUseCouncilSettings.mockReturnValue({ isMuseumMode: true });
+    mockUseCouncilSettings.mockReturnValue({ capabilities: capabilitiesFor("museum") });
     vi.stubGlobal(
       "fetch",
       vi.fn(

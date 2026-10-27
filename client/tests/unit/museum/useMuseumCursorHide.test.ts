@@ -1,10 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import {
-  MUSEUM_CURSOR_HIDDEN_CLASS,
-  MUSEUM_CURSOR_IDLE_MS,
-  useMuseumCursorHide,
-} from "@/museum/useMuseumCursorHide";
+import { capabilitiesFor } from "@/settings/capabilities";
+import { CURSOR_HIDDEN_CLASS, CURSOR_IDLE_MS } from "@/cursorAutoHide";
+import { useMuseumCursorHide } from "@/museum/useMuseumCursorHide";
 
 const useCouncilSettings = vi.fn();
 const useLocation = vi.fn();
@@ -18,33 +16,36 @@ vi.mock("react-router", () => ({
 }));
 
 function setMuseumMode(isMuseumMode: boolean, hash = ""): void {
-  useCouncilSettings.mockReturnValue({ isMuseumMode });
+  useCouncilSettings.mockReturnValue({
+    isMuseumMode,
+    capabilities: capabilitiesFor(isMuseumMode ? "museum" : "web"),
+  });
   useLocation.mockReturnValue({ hash });
 }
 
 describe("useMuseumCursorHide", () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    document.documentElement.classList.remove(MUSEUM_CURSOR_HIDDEN_CLASS);
+    document.documentElement.classList.remove(CURSOR_HIDDEN_CLASS);
     setMuseumMode(false);
   });
 
   afterEach(() => {
     vi.useRealTimers();
-    document.documentElement.classList.remove(MUSEUM_CURSOR_HIDDEN_CLASS);
+    document.documentElement.classList.remove(CURSOR_HIDDEN_CLASS);
   });
 
   it("hides the cursor after the idle window in museum mode", () => {
     setMuseumMode(true);
     renderHook(() => useMuseumCursorHide());
 
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
 
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(true);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(true);
   });
 
   it("shows the cursor on pointer movement and hides again after idle", () => {
@@ -52,19 +53,19 @@ describe("useMuseumCursorHide", () => {
     renderHook(() => useMuseumCursorHide());
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(true);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(true);
 
     act(() => {
       document.dispatchEvent(new Event("pointermove"));
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(true);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(true);
   });
 
   it("does nothing in web mode", () => {
@@ -72,12 +73,12 @@ describe("useMuseumCursorHide", () => {
     const { unmount } = renderHook(() => useMuseumCursorHide());
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
 
     unmount();
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
   });
 
   it("pauses hiding while #staff is open", () => {
@@ -85,9 +86,9 @@ describe("useMuseumCursorHide", () => {
     renderHook(() => useMuseumCursorHide());
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
   });
 
   it("cleans up when museum mode is turned off", () => {
@@ -95,14 +96,14 @@ describe("useMuseumCursorHide", () => {
     const { rerender } = renderHook(() => useMuseumCursorHide());
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(true);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(true);
 
     setMuseumMode(false);
     rerender();
 
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
   });
 
   it("starts hiding again when museum mode is turned back on", () => {
@@ -111,15 +112,15 @@ describe("useMuseumCursorHide", () => {
 
     setMuseumMode(false);
     rerender();
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
 
     setMuseumMode(true);
     rerender();
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(true);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(true);
   });
 
   it("removes the hidden class on unmount", () => {
@@ -127,11 +128,11 @@ describe("useMuseumCursorHide", () => {
     const { unmount } = renderHook(() => useMuseumCursorHide());
 
     act(() => {
-      vi.advanceTimersByTime(MUSEUM_CURSOR_IDLE_MS);
+      vi.advanceTimersByTime(CURSOR_IDLE_MS);
     });
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(true);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(true);
 
     unmount();
-    expect(document.documentElement.classList.contains(MUSEUM_CURSOR_HIDDEN_CLASS)).toBe(false);
+    expect(document.documentElement.classList.contains(CURSOR_HIDDEN_CLASS)).toBe(false);
   });
 });

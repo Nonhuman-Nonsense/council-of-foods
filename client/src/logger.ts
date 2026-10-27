@@ -2,23 +2,21 @@ import {
   getDevLogEnabled,
   isDevLogCategoryEnabled,
 } from "@/settings/councilSettings";
+import { hasSignOfLife } from "@/signOfLife";
+import { getLogPageId, isServerLogOn, pushServerLogLine } from "@/logging/serverLogSink";
+import { LOG_CATEGORIES, type LogCategory } from "@shared/ClientLogTypes";
 
-export const DEV_LOG_CATEGORIES = [
-  "API",
-  "SOCKET",
-  "AGENT",
-  "REALTIME",
-  "TURN",
-  "BUTTON",
-  "META",
-  "AUTOPLAY",
-  "SYSTEM",
-  "ERROR",
-] as const;
+/** Shared with the server, which accepts only these categories in a stored log. */
+export const DEV_LOG_CATEGORIES = LOG_CATEGORIES;
 
-export type LogCategory = (typeof DEV_LOG_CATEGORIES)[number];
+export type { LogCategory };
 
 const LOG_STRING_MAX = 240;
+/**
+ * What was said, in full: the visitor's transcript and the agent's answer are the
+ * point of reading a log after the agent went quiet, and they run past 240 chars.
+ */
+const LOG_LONG_TEXT_MAX = 2_000;
 const LOG_ARRAY_MAX = 12;
 const LOG_DEPTH_MAX = 5;
 
@@ -27,6 +25,13 @@ const BLOB_FIELD_NAMES = new Set([
   "audio",
   "sdp",
   "instructions",
+]);
+
+const LONG_TEXT_FIELD_NAMES = new Set([
+  "transcript",
+  "text",
+  "forUserTranscript",
+  "lastUserTranscript",
 ]);
 
 const CATEGORY_STYLE: Record<LogCategory, string> = {
@@ -38,6 +43,7 @@ const CATEGORY_STYLE: Record<LogCategory, string> = {
   BUTTON: "color: #10b981; font-weight: bold;",
   META: "color: #ec4899; font-weight: bold;",
   AUTOPLAY: "color: #f59e0b; font-weight: bold;",
+  PRINT: "color: #64748b; font-weight: bold;",
   SYSTEM: "color: #6b7280; font-weight: bold;",
   ERROR: "color: #ef4444; font-weight: bold;",
 };
@@ -51,6 +57,7 @@ const CATEGORY_ICON: Record<LogCategory, string> = {
   BUTTON: "🔘",
   META: "🪑",
   AUTOPLAY: "🔁",
+  PRINT: "🖨️",
   SYSTEM: "⚙️",
   ERROR: "❌",
 };
@@ -66,6 +73,10 @@ export function summarizeLogPayload(value: unknown, depth = 0): unknown {
   if (typeof value === "string") return truncateString(value);
   if (typeof value === "number" || typeof value === "boolean") return value;
   if (depth >= LOG_DEPTH_MAX) return "[…]";
+  // An Error's fields are not enumerable, so it would otherwise come out as `{}`.
+  if (value instanceof Error) {
+    return { name: value.name, message: truncateString(value.message) };
+  }
   if (Array.isArray(value)) {
     if (value.length === 0) return [];
     const head = value
@@ -85,6 +96,10 @@ export function summarizeLogPayload(value: unknown, depth = 0): unknown {
         nested.length > LOG_STRING_MAX
       ) {
         out[key] = `[${key} ${nested.length} chars]`;
+        continue;
+      }
+      if (LONG_TEXT_FIELD_NAMES.has(key) && typeof nested === "string") {
+        out[key] = truncateString(nested, LOG_LONG_TEXT_MAX);
         continue;
       }
       out[key] = summarizeLogPayload(nested, depth + 1);
@@ -110,6 +125,15 @@ function mirrorErrorToConsole(message: string, data?: unknown): void {
     return;
   }
   console.error(prefix);
+}
+
+/**
+ * Every line the console prints also goes to the server log when staff have it on.
+ * A no-op otherwise; the sink checks its own switch.
+ */
+function sendToServerLog(category: LogCategory, message: string, data?: unknown): void {
+  if (!isServerLogOn()) return;
+  pushServerLogLine(category, message, data === undefined ? undefined : summarizeLogPayload(data));
 }
 
 function emitStructuredLog(category: LogCategory, message: string, data?: unknown): void {
@@ -138,6 +162,7 @@ export function logEvent(category: LogCategory, message: string, data?: unknown)
   if (category === "ERROR") {
     if (shouldLog("ERROR")) {
       emitStructuredLog("ERROR", message, data);
+      sendToServerLog("ERROR", message, data);
     } else if (import.meta.env.DEV) {
       mirrorErrorToConsole(message, data);
     }
@@ -146,6 +171,7 @@ export function logEvent(category: LogCategory, message: string, data?: unknown)
 
   if (!shouldLog(category)) return;
   emitStructuredLog(category, message, data);
+  sendToServerLog(category, message, data);
 }
 
 /** Single-line log for easy copy/paste (no collapsed groups). */
@@ -157,6 +183,7 @@ export function logEventFlat(category: LogCategory, message: string, data?: unkn
       const payload =
         data === undefined ? "" : ` ${JSON.stringify(summarizeLogPayload(data))}`;
       console.error(`%c${icon} [${category}] ${message}${payload}`, style);
+      sendToServerLog(category, message, data);
     } else if (import.meta.env.DEV) {
       mirrorErrorToConsole(message, data);
     }
@@ -169,6 +196,7 @@ export function logEventFlat(category: LogCategory, message: string, data?: unkn
   const icon = CATEGORY_ICON[category] ?? "🔹";
   const payload = data === undefined ? "" : ` ${JSON.stringify(summarizeLogPayload(data))}`;
   console.log(`%c${icon} [${category}] ${message}${payload}`, style);
+  sendToServerLog(category, message, data);
 }
 
 export const log = {
@@ -212,6 +240,9 @@ function postClientReport(
       severity: meta?.severity,
       clientImpact: meta?.clientImpact,
       url: window.location.href,
+      // Lets ErrorBot tell a visitor from a crawler.
+      interacted: hasSignOfLife(),
+      webdriver: navigator.webdriver === true,
       cause: cause === undefined ? undefined : serializeClientCause(cause),
     }),
     keepalive: true,
@@ -236,7 +267,13 @@ if (import.meta.env.DEV && typeof window !== "undefined") {
 // Known-harmless noise injected by host environments, not bugs in our code — e.g. an
 // in-app browser's (Instagram/TikTok/Facebook) native bridge script throwing because its
 // own window.webkit.messageHandlers object isn't present in this context.
-const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [/webkit\.messageHandlers/i];
+const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [
+  /webkit\.messageHandlers/i,
+  // A browser extension's messaging bridge failing inside our page.
+  /No Listener: tabs:/i,
+  // Safari's autoplay policy refusing someone's play() — ours all handle it; never actionable.
+  /play method is not allowed by the user agent/i,
+];
 
 // Caps how many distinct window-level errors get reported per page load, and skips exact
 // repeats — protects against a broken interval/loop flooding the report endpoint, since
@@ -282,4 +319,27 @@ export function installGlobalErrorHandlers(): void {
       clientImpact: "none",
     });
   });
+}
+
+/**
+ * Log what happens to the page itself: loaded, hidden, unfocused, offline. On an installation
+ * these are what stop an agent without anyone noticing — the setup agent winds down when the
+ * window loses focus — so a log read afterwards has to show them. Call once at startup.
+ */
+export function installPageLifecycleLogging(): void {
+  if (typeof window === "undefined") return;
+
+  logEventFlat("SYSTEM", "page loaded", {
+    pageId: getLogPageId(),
+    path: window.location.pathname + window.location.hash,
+    userAgent: navigator.userAgent,
+  });
+  document.addEventListener("visibilitychange", () => {
+    logEventFlat("SYSTEM", `page ${document.visibilityState}`);
+  });
+  window.addEventListener("focus", () => logEventFlat("SYSTEM", "window focused"));
+  window.addEventListener("blur", () => logEventFlat("SYSTEM", "window lost focus"));
+  window.addEventListener("online", () => logEventFlat("SYSTEM", "network online"));
+  window.addEventListener("offline", () => logEventFlat("SYSTEM", "network offline"));
+  window.addEventListener("pagehide", () => logEventFlat("SYSTEM", "page closing"));
 }

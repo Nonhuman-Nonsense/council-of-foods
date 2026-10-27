@@ -2,11 +2,19 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import type { Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
-import VideoPreloader from "@main/VideoPreloader";
+import MediaPreloader from "@main/MediaPreloader";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { characterIconWebpUrl } from "@assets/characters/characterData";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
-import { buildMeetingCharactersPayload, orderSelectedCharactersForMuseum } from "./meetingSetup";
+import {
+  buildMeetingCharactersPayload,
+  MAX_HUMAN_PANELISTS,
+  orderSelectedCharactersForInstallation,
+  selectedFoodNames,
+  selectedPanelistNames,
+  type CouncilRoster,
+  type HumanDetails,
+} from "./meetingSetup";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
@@ -21,13 +29,43 @@ export interface SelectCharactersProps {
   agendaPoints?: string[];
   onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
   loading?: boolean;
+  /**
+   * Selection changes the visitor made by clicking, so the setup agent can
+   * react to them. `selectedNames` is the resulting council (foods only, no
+   * chair or human panelists). `isFull` reflects the total selection (chair,
+   * foods, and human panelists together) against the same cap the UI enforces.
+   * Only fired when the selection actually changed.
+   */
+  onCharacterSelected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
+  onCharacterDeselected?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
+  onCharactersRandomized?: (selectedNames: string[], chairName: string, isFull: boolean) => void;
+  /**
+   * A human panelist joined the council — either a brand-new slot from the
+   * "add human" button (blank name) or an existing panelist toggled back in
+   * (named). The details let the message tell those apart without needing
+   * separate events. Object form, matching the other human-panelist callbacks
+   * below — unlike the character callbacks above, these need `panelistNames`
+   * too, so the council roster the agent hears doesn't omit a panelist in the
+   * same message that just told it one exists.
+   */
+  onHumanSelected?: (details: HumanDetails & CouncilRoster) => void;
+  /**
+   * The visitor is typing a panelist's name or description (debounced) or has
+   * just left the field (a stronger "I'm done" signal, reacted to sooner).
+   */
+  onHumanDetailsTyped?: (details: HumanDetails & CouncilRoster) => void;
+  onHumanDetailsConfirmed?: (details: HumanDetails & CouncilRoster) => void;
+  /**
+   * A panelist was taken out of the council. Their slot and details persist
+   * (they can be toggled back in), so this is a deselection, not a delete.
+   */
+  onHumanDeselected?: (deselectedName: string, roster: CouncilRoster) => void;
 }
 
 function getCharacterImageUrl(id: string): string | undefined {
   return characterIconWebpUrl(id);
 }
 
-const MAXHUMANS = 3;
 
 function isPanelistId(id: string): boolean {
   return id.startsWith("panelist");
@@ -51,6 +89,13 @@ function SelectCharacters({
   agendaPoints,
   onContinueForward,
   loading = false,
+  onCharacterSelected,
+  onCharacterDeselected,
+  onCharactersRandomized,
+  onHumanSelected,
+  onHumanDetailsTyped,
+  onHumanDetailsConfirmed,
+  onHumanDeselected,
 }: SelectCharactersProps): React.ReactElement {
   const {
     selectedCharacters,
@@ -74,7 +119,8 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
-  const { isMuseumMode } = useCouncilSettings();
+  const { capabilities } = useCouncilSettings();
+  const { typedSetup } = capabilities;
   const { t, i18n } = useTranslation();
 
   const characterSetupData = useMemo(() => {
@@ -89,6 +135,60 @@ function SelectCharacters({
     const humanCharacters = humans.slice(0, numberOfHumans);
     return [...baseCharacters, ...humanCharacters];
   }, [baseCharacters, humans, numberOfHumans]);
+
+  const chairName = useMemo(
+    () => baseCharacters.find((character) => character.id === CHAIR_ID)?.name ?? "",
+    [baseCharacters],
+  );
+
+  /**
+   * The council as it stands right now, foods only. Reads the store directly
+   * rather than the rendered `selectedCharacters`, because this runs in the
+   * same tick as the mutation that changed it.
+   */
+  function currentSelectedFoodNames(): string[] {
+    return selectedFoodNames(useMeetingSetupStore.getState().selectedCharacters, characters);
+  }
+
+  /**
+   * Whether another member (food or human) could still be added. `maxCharacters`
+   * caps the total selection, chair included, so this must read the same total
+   * the UI itself gates on rather than food count alone — a council filled with
+   * human panelists is just as full as one filled with foods.
+   */
+  function isCouncilFull(): boolean {
+    return useMeetingSetupStore.getState().selectedCharacters.length >= maxCharacters;
+  }
+
+  /** Mirrors the per-panelist readiness check in the effect above (name
+   *  always required, description required only where one can be typed). */
+  function isHumanComplete(name: string, description: string): boolean {
+    const needsDescription = typedSetup && description.length === 0;
+    return name.length > 0 && !needsDescription;
+  }
+
+  /**
+   * Named human panelists currently *selected* in the council. Same "read
+   * fresh" reasoning as `currentSelectedFoodNames` — this runs right after
+   * `setHumans`, so the component's own `humans` snapshot from the last
+   * render would be stale.
+   */
+  function currentPanelistNames(): string[] {
+    const store = useMeetingSetupStore.getState();
+    return selectedPanelistNames(store.selectedCharacters, store.humans, store.numberOfHumans);
+  }
+
+  function buildHumanDetailsPayload(name: string, description: string): HumanDetails & CouncilRoster {
+    return {
+      humanName: name,
+      humanDescription: description,
+      isComplete: isHumanComplete(name, description),
+      selectedNames: currentSelectedFoodNames(),
+      chairName,
+      isFull: isCouncilFull(),
+      panelistNames: currentPanelistNames(),
+    };
+  }
 
   function atLeastTwoCharacters(): boolean {
     return selectedCharacters.filter((id) => !id.startsWith("panelist")).length >= minCharacters;
@@ -111,7 +211,7 @@ function SelectCharacters({
         formatHumanCount: (count) => t("meeting.characters.humanCount", { count }),
       },
       agendaPoints,
-      isMuseumMode,
+      typedSetup,
     });
     if (built.ok) {
       onContinueForward({ characters: built.characters });
@@ -120,25 +220,50 @@ function SelectCharacters({
 
   function onAddHuman(): void {
     const idx = numberOfHumans;
-    if (idx >= MAXHUMANS) return;
+    if (idx >= MAX_HUMAN_PANELISTS) return;
     if (!humans[idx]) return;
-    setNumberOfHumans((prev) => Math.min(MAXHUMANS, prev + 1));
+    setNumberOfHumans((prev) => Math.min(MAX_HUMAN_PANELISTS, prev + 1));
+    // The reaction is reported by `selectCharacter` itself, which also covers
+    // toggling an existing panelist back in — a path this button never takes,
+    // since `idx` only ever advances to the next never-yet-used slot.
     selectCharacter(humans[idx]);
   }
 
   function selectCharacter(character: Character): void {
     const success = handleSelectCharacterId(character.id);
+    // A rejected pick (council already full) changed nothing to react to.
     if (success) {
       setLastSelected(character.id);
+      if (isPanelistId(character.id)) {
+        // Covers both a fresh slot from the "add human" button (blank name)
+        // and an existing panelist toggled back in (named) — the message
+        // tells them apart from the details, so both share one path.
+        onHumanSelected?.(buildHumanDetailsPayload(character.name, character.description));
+      } else {
+        onCharacterSelected?.(currentSelectedFoodNames(), chairName, isCouncilFull());
+      }
     }
   }
 
   function deselectCharacter(character: Character): void {
     if (isPanelistId(character.id) && lastSelected !== character.id) {
+      // Panelists take focus on first click; nothing is deselected yet.
       setLastSelected(character.id);
     } else {
       handleDeselectCharacterId(character.id);
       setLastSelected(null);
+      if (!isPanelistId(character.id)) {
+        onCharacterDeselected?.(currentSelectedFoodNames(), chairName, isCouncilFull());
+      } else if (character.name.length > 0) {
+        // An unnamed panelist toggled straight back out has nothing worth
+        // reacting to — same as a click-in-click-out with no edit.
+        onHumanDeselected?.(character.name, {
+          selectedNames: currentSelectedFoodNames(),
+          chairName,
+          isFull: isCouncilFull(),
+          panelistNames: currentPanelistNames(),
+        });
+      }
     }
   }
 
@@ -151,6 +276,7 @@ function SelectCharacters({
       .slice(0, amount)
       .map((character) => character.id);
     setSelectedCharacters([characters[0].id, ...randomCharacters]);
+    onCharactersRandomized?.(currentSelectedFoodNames(), chairName, isCouncilFull());
   }
 
   useEffect(() => {
@@ -159,24 +285,79 @@ function SelectCharacters({
     for (const humanId of selectedHumans) {
       const index = panelistIndexFromId(humanId);
       if (index !== null && humans[index]) {
-        const needsDescription = !isMuseumMode && humans[index].description.length === 0;
+        const needsDescription = typedSetup && humans[index].description.length === 0;
         if (humans[index].name.length === 0 || needsDescription) {
           ready = false;
         }
       }
     }
     setHumansReady(ready);
-  }, [recheckHumansReady, selectedCharacters, humans, isMuseumMode]);
+  }, [recheckHumansReady, selectedCharacters, humans, typedSetup]);
 
   useEffect(() => {
-    if (!isMuseumMode) return;
+    if (typedSetup) return;
     if (!selectedCharacters.some(isPanelistId)) return;
 
-    const sorted = orderSelectedCharactersForMuseum(selectedCharacters);
+    const sorted = orderSelectedCharactersForInstallation(selectedCharacters);
     if (sorted.join(",") !== selectedCharacters.join(",")) {
       setSelectedCharacters(sorted);
     }
-  }, [isMuseumMode, selectedCharacters, setSelectedCharacters]);
+  }, [typedSetup, selectedCharacters, setSelectedCharacters]);
+
+  // Read fresh inside the cleanup below rather than closing over `humans`
+  // directly — otherwise it could report whatever the panelist's details
+  // were when editing *started*, not what they'd become by the time the
+  // visitor moved on.
+  const humansRef = useRef(humans);
+  useEffect(() => {
+    humansRef.current = humans;
+  });
+
+  // Distinguishes "moved away from this panelist" from "the whole step went
+  // away". Declared *before* the effect below so React runs this cleanup
+  // first on unmount, leaving the flag already false when that one checks it.
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  /**
+   * "Confirmed" reaction: fires when the visitor moves away from a panelist
+   * they were editing. Keyed on `lastSelected` rather than textarea blur —
+   * `lastSelected` only changes on a real click, whereas blur also fires when
+   * merely *hovering* a different card unmounts the active textarea (see
+   * `infoToShow` below), which would otherwise misfire this on stray mouse
+   * movement while the visitor is still mid-sentence.
+   */
+  useEffect(() => {
+    const editingId = lastSelected;
+    if (!editingId || !isPanelistId(editingId)) return;
+    return () => {
+      // Leaving the step entirely (starting the meeting, or going back to
+      // topic selection) also runs this cleanup — but the visitor didn't
+      // "finish describing" anything, and reacting then would have the agent
+      // discussing panelists during the topic step.
+      if (!isMountedRef.current) return;
+      // The visitor may have deselected this panelist rather than just
+      // clicked elsewhere — that has its own reaction, and a "finished
+      // describing" message for someone no longer in the council would be
+      // wrong. `handleDeselectCharacterId` is a synchronous store update, so
+      // by the time this cleanup runs, a deselection already shows up here.
+      if (!useMeetingSetupStore.getState().selectedCharacters.includes(editingId)) return;
+      const index = panelistIndexFromId(editingId);
+      if (index === null) return;
+      const human = humansRef.current[index];
+      if (!human) return;
+      // Nothing was ever typed — a click-in-click-out with no edit isn't
+      // worth reacting to.
+      if (human.name.length === 0 && human.description.length === 0) return;
+      onHumanDetailsConfirmed?.(buildHumanDetailsPayload(human.name, human.description));
+    };
+    // Deliberately keyed only on lastSelected; see comment above.
+  }, [lastSelected]);
 
   function infoToShow(): React.ReactNode {
     if (hoveredCharacter === "addhuman") {
@@ -205,6 +386,9 @@ function SelectCharacters({
           lastSelected={lastSelected}
           setHumans={setHumans}
           setRecheckHumansReady={setRecheckHumansReady}
+          onDetailsChanged={(name, description) =>
+            onHumanDetailsTyped?.(buildHumanDetailsPayload(name, description))
+          }
         />
       );
     } else {
@@ -311,6 +495,7 @@ function SelectCharacters({
         height: "75%",
         justifyContent: "space-between",
         alignItems: "center",
+        marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "30px",
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -344,7 +529,7 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           ))}
-          {!isMuseumMode && numberOfHumans < MAXHUMANS && (
+          {typedSetup && numberOfHumans < MAX_HUMAN_PANELISTS && (
             <AddHumanButton
               onMouseEnter={() => setHoveredCharacter("addhuman")}
               onMouseLeave={() => setHoveredCharacter(null)}
@@ -354,13 +539,13 @@ function SelectCharacters({
             />
           )}
         </div>
-        {!isMuseumMode ? (
+        {capabilities.browserUi ? (
           <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
             {buttonOrInfo()}
           </div>
         ) : null}
       </div>
-      <VideoPreloader
+      <MediaPreloader
         foodIds={selectedCharacters.filter(
           (id) => !id.startsWith("panelist") && id !== "addhuman" && id !== ""
         )}
@@ -416,6 +601,8 @@ interface HumanInfoProps {
   lastSelected?: string | null;
   unfocus?: boolean;
   setRecheckHumansReady: React.Dispatch<React.SetStateAction<boolean>>;
+  /** Fired (debounced upstream) whenever the name or description changes. */
+  onDetailsChanged?: (name: string, description: string) => void;
 }
 
 function HumanInfo({
@@ -424,6 +611,7 @@ function HumanInfo({
   lastSelected,
   unfocus,
   setRecheckHumansReady,
+  onDetailsChanged,
 }: HumanInfoProps): React.ReactElement | null {
   const isMobile = useMobile();
   const nameArea = useRef<HTMLTextAreaElement>(null);
@@ -467,6 +655,7 @@ function HumanInfo({
       return next;
     });
     setRecheckHumansReady((prev) => !prev);
+    onDetailsChanged?.(nameArea.current?.value ?? "", val);
   }
 
   function nameChanged(_e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -482,6 +671,7 @@ function HumanInfo({
         return next;
       });
       setRecheckHumansReady((prev) => !prev);
+      onDetailsChanged?.(val, descriptionArea.current?.value ?? "");
     }
   }
 

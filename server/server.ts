@@ -9,6 +9,8 @@ import { Logger } from '@utils/Logger.js';
 import { initReporting } from '@utils/errorbot.js';
 import { initDb } from '@services/DbService.js';
 import { initOpenAI } from '@services/OpenAIService.js';
+import { initMail } from '@services/MailService.js';
+import { startLetterOutbox } from '@logic/letters/outboxWorker.js';
 import { SocketManager } from '@logic/SocketManager.js';
 import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages.js';
 import {
@@ -29,13 +31,22 @@ import {
 } from '@utils/httpCache.js';
 import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { registerRealtimeRoutes } from '@api/realtimeSession.js';
+import { registerRealtimeUsageRoutes } from '@api/realtimeUsage.js';
+import { registerMeterPage, registerMeterRoutes, registerMeterSocket } from '@api/meterRoutes.js';
+import { registerRoomPowerRoutes } from '@api/roomPowerRoutes.js';
+import { registerVenueRoutes } from '@api/venueRoutes.js';
 import { registerAudioRoutes } from '@api/audioRoutes.js';
 import { registerDevErrorbotRoutes } from '@api/devErrorbotRoutes.js';
 import { registerClientReportRoutes } from '@api/clientReportRoutes.js';
+import { registerClientLogRoutes } from '@api/clientLogRoutes.js';
+import { registerInstallationRoutes } from '@api/installationRoutes.js';
+import { registerLetterInstallationRoutes, registerLetterWebhookRoutes } from '@api/letterRoutes.js';
 
 const environment: string = config.NODE_ENV;
 
 const app = express();
+// Brevo's webhooks bring their own, larger body limit, so they go before the app's parser.
+registerLetterWebhookRoutes(app);
 app.use(express.json());
 const httpServer = http.createServer(app);
 const io = new Server(httpServer);
@@ -43,8 +54,10 @@ const io = new Server(httpServer);
 // Initialize Services
 try {
   initReporting();
+  initMail();
   await initDb();
   initOpenAI();
+  startLetterOutbox();
 } catch (e) {
   await Logger.error("init", "Startup failed.", { error: e });
   process.exit(1);
@@ -62,9 +75,16 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api', cacheControlPrivateNoStoreApi);
 registerMeetingRoutes(app, environment);
 registerRealtimeRoutes(app);
+registerRealtimeUsageRoutes(app);
+registerMeterRoutes(app);
+registerRoomPowerRoutes(app);
+registerVenueRoutes(app);
 registerAudioRoutes(app);
 registerDevErrorbotRoutes(app, environment);
 registerClientReportRoutes(app);
+registerClientLogRoutes(app);
+registerInstallationRoutes(app);
+registerLetterInstallationRoutes(app);
 
 if (environment === "prototype") {
   app.use(express.static(path.join(process.cwd(), "../prototype/", "public"), {
@@ -95,6 +115,8 @@ if (environment === "prototype") {
   }
 
   app.get("/index.html", (req, res) => sendSpaShell(res, spaShellTemplate, preferredLangFromRequest(req)));
+
+  registerMeterPage(app, clientDistPath);
 
   app.use(express.static(clientDistPath, {
     maxAge: ONE_YEAR_MS,
@@ -127,6 +149,7 @@ if (environment === "prototype") {
 }
 
 // Socket Logic
+registerMeterSocket(io);
 io.on("connection", (socket: Socket) => {
   Logger.info("socket", `[session ${socket.id}] connected`);
   new SocketManager(socket, environment);

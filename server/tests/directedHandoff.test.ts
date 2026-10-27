@@ -60,6 +60,7 @@ describe("annotateDirectedHandoff", () => {
             mode: "participantHandoff",
             text: message.text,
             speakerId: "speaker1",
+            messageIndex: meeting.conversation.length,
         });
         expect(message.askParticular).toBe("speaker2");
     });

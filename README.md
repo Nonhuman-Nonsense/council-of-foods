@@ -29,13 +29,14 @@ Council of Foods is part of [The Hungry EcoCities project](https://starts.eu/hun
 
 # Developer instructions
 
-The app has three parts: the client, the server, and (for museum installs) the talk-button stack in [`button/`](button/).
+The app has three parts: the client, the server, and (for physical installations) the talk-button stack in [`button/`](button/).
 
 The client is built on React, and the server on Node.js. They communicate via a Socket.io websocket.
 
 See [Server Documentation](server/README.md) for detailed backend instructions and testing modes.
 
-For physical museum / kiosk installs, see [MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
+For physical installations — unattended museum kiosks and presented screenings alike — see
+[MUSEUM.md](MUSEUM.md) (app mode, button bridge, staff setup).
 
 For how the live client survives socket drops without lost input, deadlocks, or crashes — and
 the pattern any new client-driven socket action should follow — see
@@ -43,6 +44,22 @@ the pattern any new client-driven socket action should follow — see
 
 For the testing philosophy — what deserves a test, at what level, and what to delete — see
 [TESTING.md](TESTING.md).
+
+### Reading diffs of the prompt files
+
+The prompts in [`shared/prompts/`](shared/prompts/) are JSON, and JSON strings cannot contain
+literal newlines — each prompt is stored as one very long line, so `git diff` shows an edited
+prompt as a single unreadable change. The repo ships a textconv filter that renders these files
+as flattened `path: value` lines with multi-line strings expanded, purely for diffing.
+`.gitattributes` is committed, but the driver itself has to be registered once per clone:
+
+```
+git config diff.jsonprompt.textconv scripts/json-prompt-textconv.py
+```
+
+After that `git diff`, `git show` and `git log -p` on those files are readable. Two caveats:
+`--stat` still counts raw lines, and these diffs are for reading only — `git apply`, `git add -p`
+and merge conflict resolution still operate on the raw JSON.
 
 ### Building
 

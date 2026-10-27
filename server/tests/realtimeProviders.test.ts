@@ -40,6 +40,7 @@ const { realtimeOptions } = vi.hoisted(() => {
                 sv: {
                     provider: "inworld" as const,
                     llmModel: "test/llm",
+                    reasoning: "none" as const,
                     ttsModel: "test/tts-sv",
                     transcriptionModel: CHAIR_STT_MODEL,
                     agentVoice: {
@@ -200,6 +201,25 @@ describe("realtimeProviders", () => {
         });
     });
 
+    it.each([
+        { language: "sv", textGenerationConfig: { reasoning: { effort: "NONE" } } },
+        { language: "en", textGenerationConfig: undefined },
+    ])(
+        "sets the agent's reasoning effort only where configured ($language)",
+        async ({ language, textGenerationConfig }) => {
+            vi.mocked(global.fetch).mockResolvedValue(
+                new Response(JSON.stringify({ ice_servers: [] }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                })
+            );
+
+            const result = await getSetupAgentRealtimeBootstrap(language);
+
+            expect((result.session as Record<string, unknown>).text_generation_config).toEqual(textGenerationConfig);
+        }
+    );
+
     it("passes chair STT and meta-agent TTS settings into Swedish bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(
             new Response(JSON.stringify({ ice_servers: [{ urls: ["stun:meta-sv.example.com"] }] }), {
@@ -326,9 +346,11 @@ describe("getInworldIceServers", () => {
             new Response("forbidden", { status: 403, statusText: "Forbidden" })
         );
 
-        await expect(getInworldIceServers()).rejects.toThrow(
-            /Inworld \/v1\/realtime\/ice-servers failed \(403\)/
-        );
+        // The status travels with the error so the route can answer in kind.
+        await expect(getInworldIceServers()).rejects.toMatchObject({
+            status: 403,
+            message: expect.stringContaining("/v1/realtime/ice-servers"),
+        });
     });
 });
 
@@ -379,7 +401,7 @@ describe("createInworldCall", () => {
             new Response("bad", { status: 400, statusText: "Bad Request" })
         );
 
-        await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toThrow(/calls failed \(400\)/);
+        await expect(createInworldCall({ sdp: SDP_OFFER })).rejects.toMatchObject({ status: 400 });
     });
 
     it("throws when Inworld returns an empty SDP answer", async () => {

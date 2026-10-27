@@ -21,8 +21,9 @@ export async function getMeeting(meetingId: number, bearer?: string): Promise<Me
     if(bearer && bearer !== storedMeeting.liveKey) {
         throw new ForbiddenError();
     }
-    //Always unset the live key for GET requests
-    const { liveKey: _liveKey, ...meeting } = storedMeeting;
+    // Never sent to a client: the live key, and the letter as the server keeps it — it holds the
+    // human's own words as they said them. The letter they see is on the summary message.
+    const { liveKey: _liveKey, letter: _letter, ...meeting } = storedMeeting;
 
     return meeting;
 }

@@ -62,6 +62,7 @@ describe('AudioSystem Inworld Integration', () => {
 
         mockBroadcaster = {
             broadcastAudioUpdate: vi.fn(),
+            broadcastConversationUpdate: vi.fn(),
             broadcastError: vi.fn()
         };
 
@@ -88,6 +89,7 @@ describe('AudioSystem Inworld Integration', () => {
     });
 
     afterEach(() => {
+        vi.useRealTimers();
         vi.resetModules();
         delete process.env.INWORLD_API_KEY;
     });
@@ -277,6 +279,116 @@ describe('AudioSystem Inworld Integration', () => {
                 broadcaster: expect.anything(),
             }),
         );
+    });
+
+    it('should skip the speaker rather than crash when the provider stays over capacity', async () => {
+        vi.useFakeTimers();
+        const message = { id: 'msgBusy', text: 'Hello', sentences: ['Hello'] };
+        const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
+        const storedMeeting = meeting();
+        storedMeeting.conversation = [
+            { id: 'msgBusy', speaker: 'char1', text: 'Hello', sentences: [], type: 'message' },
+        ];
+
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 429,
+            text: async () => 'maximum allowed number of active contexts reached'
+        });
+
+        const generation = audioSystem.generateAudio(
+            message,
+            speaker,
+            'en',
+            serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+            storedMeeting,
+            'production'
+        );
+        await vi.runAllTimersAsync();
+        await generation;
+
+        // Waited the capacity out before giving up, then let the meeting carry on.
+        expect(mockFetch.mock.calls.length).toBeGreaterThan(1);
+        expect(Logger.reportAndCrashClient).not.toHaveBeenCalled();
+        expect(Logger.warn).toHaveBeenCalled();
+        expect(storedMeeting.conversation[0].type).toBe('skipped');
+        expect(mockBroadcaster.broadcastConversationUpdate).toHaveBeenCalledWith(storedMeeting.conversation);
+        expect(mockServices.meetingsCollection.updateOne).toHaveBeenCalledWith(
+            expect.objectContaining({ 'conversation.id': 'msgBusy' }),
+            { $set: { 'conversation.$.type': 'skipped' } },
+        );
+    });
+
+    it('should crash the meeting when a second turn in a row is lost to capacity', async () => {
+        vi.useFakeTimers();
+        const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
+        const storedMeeting = meeting();
+        storedMeeting.conversation = [
+            { id: 'busy1', speaker: 'char1', text: 'Hello', sentences: [], type: 'message' },
+            { id: 'busy2', speaker: 'char1', text: 'Again', sentences: [], type: 'message' },
+        ];
+
+        mockFetch.mockResolvedValue({
+            ok: false,
+            status: 429,
+            text: async () => 'maximum allowed number of active contexts reached'
+        });
+
+        for (const id of ['busy1', 'busy2']) {
+            const generation = audioSystem.generateAudio(
+                { id, text: 'Hello', sentences: ['Hello'] },
+                speaker,
+                'en',
+                serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+                storedMeeting,
+                'production'
+            );
+            await vi.runAllTimersAsync();
+            await generation;
+        }
+
+        // A council of skipped speakers is no council: the second one fails the meeting.
+        expect(Logger.reportAndCrashClient).toHaveBeenCalledTimes(1);
+        expect(storedMeeting.conversation[1].type).toBe('message');
+    });
+
+    it('should forgive an earlier capacity skip once audio comes through again', async () => {
+        vi.useFakeTimers();
+        const speaker = { id: 'char1', voice: 'Dennis', voiceProvider: 'inworld' };
+        const storedMeeting = meeting();
+        storedMeeting.conversation = [
+            { id: 'busy1', speaker: 'char1', text: 'Hello', sentences: [], type: 'message' },
+            { id: 'fine', speaker: 'char1', text: 'Fine', sentences: [], type: 'message' },
+            { id: 'busy2', speaker: 'char1', text: 'Again', sentences: [], type: 'message' },
+        ];
+
+        const overCapacity = {
+            ok: false,
+            status: 429,
+            text: async () => 'maximum allowed number of active contexts reached'
+        };
+        const generated = {
+            ok: true,
+            json: async () => ({ audioContent: Buffer.from('fake-inworld-audio').toString('base64') }),
+            text: async () => ''
+        };
+
+        for (const [id, response] of [['busy1', overCapacity], ['fine', generated], ['busy2', overCapacity]]) {
+            mockFetch.mockResolvedValue(response);
+            const generation = audioSystem.generateAudio(
+                { id, text: 'Hello', sentences: ['Hello'] },
+                speaker,
+                'en',
+                serverOptions({ defaultAudioSpeed: 1.0, inworldVoiceModel: 'inworld-tts-1' }),
+                storedMeeting,
+                'production'
+            );
+            await vi.runAllTimersAsync();
+            await generation;
+        }
+
+        expect(Logger.reportAndCrashClient).not.toHaveBeenCalled();
+        expect(storedMeeting.conversation[2].type).toBe('skipped');
     });
 
     it('should integrate PronunciationUtils to process IPA words', async () => {

@@ -4,9 +4,18 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import HumanInput from '@council/humanInput/HumanInput';
 import { useMobile } from '@/utils';
 import { bootstrapHumanInputRealtimeSession } from '@api/realtimeSession';
-import { createRealtimeConnection } from '@/realtime/realtimeConnection';
+import {
+    acquireMicrophone,
+    createRealtimeConnection,
+    MicrophoneUnavailableError,
+} from '@/realtime/realtimeConnection';
+import {
+    setMicAvailability,
+    useMicAvailabilityStore,
+} from '@realtime/micAvailabilityStore';
 import { BUTTON_BANNER_IDLE_MS } from '@museum/button/useButtonBanner';
-import type { AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor } from '@/settings/capabilities';
 import type { ButtonOwner } from '@museum/button/buttonStore';
 import type { RealtimeConnection } from '@/realtime/realtimeConnection';
 
@@ -16,10 +25,13 @@ const mockCreateRealtimeConnection = vi.mocked(createRealtimeConnection);
 
 const mockClaim = vi.hoisted(() => vi.fn());
 const mockRelease = vi.hoisted(() => vi.fn());
-const mockSetLed = vi.hoisted(() => vi.fn());
-const mockAgentMode = vi.hoisted<{ value: AgentMode }>(() => ({ value: "always-on" }));
+const mockSetArmed = vi.hoisted(() => vi.fn());
+const mockAppMode = vi.hoisted<{ value: AppMode }>(() => ({ value: "web" }));
 
-const mockButtonState = vi.hoisted<{ pressed: boolean; buttonOwner: string | null }>(() => ({
+const mockButtonState = vi.hoisted<{
+    pressed: boolean;
+    buttonOwner: string | null;
+}>(() => ({
     pressed: false,
     buttonOwner: null,
 }));
@@ -51,11 +63,10 @@ vi.mock('@/utils', () => ({
 
 vi.mock('@/settings/councilSettings', () => ({
     useCouncilSettings: () => ({
-        agentMode: mockAgentMode.value,
-        isMuseumMode: false,
-        mode: 'web',
+        mode: mockAppMode.value,
+        lastInstallationMode: "museum",
         setAppMode: vi.fn(),
-        setAgentMode: vi.fn(),
+        capabilities: capabilitiesFor(mockAppMode.value),
     }),
     getDevLogEnabled: () => false,
     isDevLogCategoryEnabled: () => false,
@@ -65,17 +76,38 @@ vi.mock('@api/realtimeSession', () => ({
     bootstrapHumanInputRealtimeSession: vi.fn(),
 }));
 
-vi.mock('@/realtime/realtimeConnection', () => ({
-    createRealtimeConnection: vi.fn(),
-}));
+vi.mock('@/realtime/realtimeConnection', async (importOriginal) => {
+    // The availability store wraps acquireMicrophone and narrows on
+    // MicrophoneUnavailableError, so both have to survive the mock.
+    const actual = await importOriginal<typeof import('@/realtime/realtimeConnection')>();
+    return {
+        ...actual,
+        createRealtimeConnection: vi.fn(),
+        // Handed straight to the (mocked) connection, so it needs no behaviour.
+        acquireMicrophone: vi.fn(async () => ({
+            id: 'acquired-mic',
+            getAudioTracks: () => [],
+            getTracks: () => [],
+        })),
+    };
+});
 
 vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
     LiveAudioVisualizerPair: () => <div data-testid="visualizer" />
 }));
 
 vi.mock('@council/ConversationControlIcon', () => ({
-    default: ({ icon, onClick }: { icon: string; onClick: () => void }) => (
-        <button data-testid={`icon-${icon}`} onClick={onClick}>{icon}</button>
+    default: ({ icon, onClick, hold }: {
+        icon: string;
+        onClick?: () => void;
+        hold?: { onPress: () => void; onRelease: () => void };
+    }) => (
+        <button
+            data-testid={`icon-${icon}`}
+            onClick={onClick}
+            onPointerDown={hold?.onPress}
+            onPointerUp={hold?.onRelease}
+        >{icon}</button>
     )
 }));
 
@@ -96,21 +128,56 @@ vi.mock('@/museum/button/useButton', async () => {
     const React = await import('react');
     return {
         useButton: (owner: ButtonOwner) => {
+            const subscribe = (onStoreChange: () => void) => {
+                mockButtonListeners.add(onStoreChange);
+                return () => mockButtonListeners.delete(onStoreChange);
+            };
+            const isOwner = mockButtonState.buttonOwner === owner;
             const pressed = React.useSyncExternalStore(
-                (onStoreChange) => {
-                    mockButtonListeners.add(onStoreChange);
-                    return () => mockButtonListeners.delete(onStoreChange);
-                },
+                subscribe,
                 () => mockButtonState.buttonOwner === owner && mockButtonState.pressed,
             );
+            // Stable identities, as the real hook's useCallbacks are: the claim
+            // effect depends on them, and a fresh identity each render would
+            // release and re-claim continuously.
+            const claim = React.useCallback(() => {
+                mockClaim();
+                mockButtonState.buttonOwner = owner;
+                notifyMockButtonListeners();
+            }, [owner]);
+            const release = React.useCallback(() => {
+                mockRelease();
+                if (mockButtonState.buttonOwner === owner) {
+                    mockButtonState.buttonOwner = null;
+                    notifyMockButtonListeners();
+                }
+            }, [owner]);
+            const setArmed = React.useCallback((armed: boolean) => {
+                mockSetArmed(armed);
+            }, []);
+            // Mirrors the store: the on-screen button is the same press as space.
+            const pressFromScreen = React.useCallback((down: boolean) => {
+                mockButtonState.pressed = down;
+                notifyMockButtonListeners();
+            }, []);
+            // Mirrors the store: the press ends though it is still held.
+            const endPress = React.useCallback(() => {
+                if (!mockButtonState.pressed) return;
+                mockButtonState.pressed = false;
+                notifyMockButtonListeners();
+            }, []);
+
             return {
-                claim: mockClaim,
-                release: mockRelease,
-                setLed: mockSetLed,
+                claim,
+                release,
+                setArmed,
+                pressFromScreen,
+                endPress,
                 pressed,
-                isOwner: mockButtonState.buttonOwner === owner,
+                isOwner,
             };
         },
+        useHoldHint: () => false,
     };
 });
 
@@ -164,6 +231,9 @@ async function renderAndWaitReady(extraProps = {}) {
     await waitFor(() => {
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
+    // waitFor resolves as soon as the ready commit paints; the passive effects of that
+    // commit can still be pending. Flush them so every caller starts from a settled tree.
+    await act(async () => { });
     return result;
 }
 
@@ -172,6 +242,8 @@ describe('HumanInput Component', () => {
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
+        mockButtonState.pressed = false;
+        useMicAvailabilityStore.getState().resetForTests();
         mockUseMobile.mockReturnValue(false);
         mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
             provider: 'inworld',
@@ -284,6 +356,35 @@ describe('HumanInput Component', () => {
         expect(mockOnSubmit).toHaveBeenCalledWith('Hello World');
     });
 
+    it('should keep text typed while the connection is still coming up', async () => {
+        const pending = deferred<RealtimeConnection>();
+        mockCreateRealtimeConnection.mockReturnValue(pending.promise);
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        const textarea = screen.getByPlaceholderText('human.placeholder') as HTMLTextAreaElement;
+        fireEvent.change(textarea, { target: { value: 'Typed while connecting' } });
+
+        await act(async () => {
+            pending.resolve(mockConnection());
+        });
+
+        // Reaching "ready" must not wipe the input — the transcript is still empty.
+        expect(textarea.value).toBe('Typed while connecting');
+
+        fireEvent.click(screen.getByTestId('icon-send_message'));
+        expect(mockOnSubmit).toHaveBeenCalledWith('Typed while connecting');
+    });
+
     it('should submit text without manual character targeting', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
@@ -315,19 +416,40 @@ describe('HumanInput Component', () => {
 
     // ── Recording flow ─────────────────────────────────────────────────────────
 
-    it('should handle recording flow: ready → recording → stop → ready', async () => {
+    /** A quick press and release of the on-screen mic. */
+    function clickMic(icon: 'record_voice_off' | 'record_voice_on') {
+        // The same element both times: the press re-renders its icon before the release.
+        const mic = screen.getByTestId(`icon-${icon}`);
+        fireEvent.pointerDown(mic);
+        fireEvent.pointerUp(mic);
+    }
+
+    it('switches the mic on with a click, and off with another: ready → recording → ready', async () => {
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
 
-        // Click mic → enable track → recording
-        const micBtn = screen.getByTestId('icon-record_voice_off');
-        fireEvent.click(micBtn);
-
+        // The transcript streams into the field as they talk, so the mic can stay on.
+        clickMic('record_voice_off');
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
         });
 
-        // Click stop → no audio active → goes straight to ready
-        fireEvent.click(screen.getByTestId('icon-record_voice_on'));
+        // No audio active → goes straight to ready
+        clickMic('record_voice_on');
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+    });
+
+    it('records only while the mic is held for longer than a click', async () => {
+        await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
+        const now = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+
+        fireEvent.pointerDown(screen.getByTestId('icon-record_voice_off'));
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        now.mockReturnValue(1_600);
+        fireEvent.pointerUp(screen.getByTestId('icon-record_voice_on'));
+        now.mockRestore();
 
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
@@ -335,11 +457,31 @@ describe('HumanInput Component', () => {
     it('should show the visualizer while recording', async () => {
         await renderAndWaitReady();
 
-        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+        fireEvent.pointerDown(screen.getByTestId('icon-record_voice_off'));
 
         await waitFor(() => {
             expect(screen.getAllByTestId('visualizer').length).toBeGreaterThan(0);
         });
+    });
+
+    it.each([
+        ['the textarea receives focus', () => fireEvent.focus(screen.getByPlaceholderText('human.placeholder'))],
+        ['the window loses focus', () => fireEvent.blur(window)],
+    ])('switches the mic off when %s, and keeps it off', async (_label, endTake) => {
+        // The no-speech path settles recording → finishing → ready inside one
+        // batch; a mic still switched on would re-open the instant it landed.
+        await renderAndWaitReady();
+
+        clickMic('record_voice_off');
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        endTake();
+
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
 
     it('should enable the mic track when recording starts', async () => {
@@ -351,7 +493,7 @@ describe('HumanInput Component', () => {
         // Track disabled after connect
         expect(track.enabled).toBe(false);
 
-        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
+        fireEvent.pointerDown(screen.getByTestId('icon-record_voice_off'));
 
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
@@ -359,20 +501,6 @@ describe('HumanInput Component', () => {
 
         // Track re-enabled when recording
         expect(track.enabled).toBe(true);
-    });
-
-    it('should stop recording when the textarea receives focus', async () => {
-        await renderAndWaitReady();
-
-        fireEvent.click(screen.getByTestId('icon-record_voice_off'));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
-        });
-
-        fireEvent.focus(screen.getByPlaceholderText('human.placeholder'));
-
-        expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
 
     // ── Inworld session.update ─────────────────────────────────────────────────
@@ -422,6 +550,39 @@ describe('HumanInput Component', () => {
         expect(screen.getByTestId('lottie-player')).toBeInTheDocument();
     });
 
+    it('should release the microphone when it closes before the connection takes it', async () => {
+        const stop = vi.fn();
+        vi.mocked(acquireMicrophone).mockResolvedValueOnce({
+            id: 'abandoned-mic',
+            getAudioTracks: () => [],
+            getTracks: () => [{ stop }],
+        } as unknown as MediaStream);
+        const bootstrap = deferred<Awaited<ReturnType<typeof bootstrapHumanInputRealtimeSession>>>();
+        mockBootstrapHumanInputRealtimeSession.mockReturnValueOnce(bootstrap.promise);
+
+        const { unmount } = render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+        await waitFor(() => {
+            expect(bootstrapHumanInputRealtimeSession).toHaveBeenCalled();
+        });
+
+        unmount();
+        bootstrap.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+
+        await waitFor(() => {
+            expect(stop).toHaveBeenCalled();
+        });
+        expect(createRealtimeConnection).not.toHaveBeenCalled();
+    });
+
     it('should surface non-abort startup failures and auto-retry', async () => {
         const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
         mockCreateRealtimeConnection
@@ -451,6 +612,82 @@ describe('HumanInput Component', () => {
         await waitFor(() => {
             expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
         });
+    });
+
+    // ── Blocked microphone ─────────────────────────────────────────────────────
+
+    it('should not connect at all when the microphone is known to be blocked', async () => {
+        // Connecting needs a mic, so a failed attempt lands back on idle and
+        // re-fires the auto-connect effect — an unbounded loop. Typing has to
+        // keep working, so the visitor is simply left alone.
+        setMicAvailability('unavailable', 'permission_denied');
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        // The mic control stays clickable rather than spinning forever.
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
+        expect(createRealtimeConnection).not.toHaveBeenCalled();
+        expect(screen.getByPlaceholderText('human.placeholder')).toBeInTheDocument();
+    });
+
+    it('should explain the block when the visitor clicks the mic, and keep typing usable', async () => {
+        setMicAvailability('unavailable', 'permission_denied');
+        vi.mocked(acquireMicrophone).mockRejectedValueOnce(
+            new MicrophoneUnavailableError('permission_denied', 'blocked'),
+        );
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        fireEvent.pointerDown(await screen.findByTestId('icon-record_voice_off'));
+
+        await waitFor(() => {
+            expect(useMicAvailabilityStore.getState().noticeOpen).toBe(true);
+        });
+        expect(createRealtimeConnection).not.toHaveBeenCalled();
+    });
+
+    it('should connect and record when a blocked microphone is allowed on a press', async () => {
+        setMicAvailability('unavailable', 'permission_denied');
+        mockCreateRealtimeConnection.mockResolvedValue(mockConnection());
+
+        render(
+            <HumanInput
+                phase="active"
+                isPanelist={false}
+                currentSpeakerName=""
+                onSubmitHumanMessage={mockOnSubmit}
+                liveKey="test-key"
+                onAbandonHumanTurn={vi.fn()}
+            />
+        );
+
+        fireEvent.pointerDown(await screen.findByTestId('icon-record_voice_off'));
+
+        // One press, still held: permission, connection, and recording under way.
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+        expect(useMicAvailabilityStore.getState().noticeOpen).toBe(false);
     });
 
     // ── Lifecycle ──────────────────────────────────────────────────────────────
@@ -519,6 +756,26 @@ describe('HumanInput Component', () => {
         unmount();
     });
 
+    // ── Web push-to-talk ───────────────────────────────────────────────────────
+
+    it('records while space is held and stops on release, without auto-submitting', async () => {
+        const onSubmit = vi.fn();
+        await renderAndWaitReady({ onSubmitHumanMessage: onSubmit });
+
+        act(() => setMockPressed(true));
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_on')).toBeInTheDocument();
+        });
+
+        act(() => setMockPressed(false));
+        await waitFor(() => {
+            expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
+        });
+
+        // Web leaves the transcript in the textarea for the visitor to send.
+        expect(onSubmit).not.toHaveBeenCalled();
+    });
+
     // ── Misc ───────────────────────────────────────────────────────────────────
 
     it('should show panelist-specific placeholder when isPanelist is true', async () => {
@@ -534,11 +791,11 @@ describe('HumanInput PTT museum mode', () => {
 
     beforeEach(() => {
         mockOnSubmit = vi.fn();
-        mockAgentMode.value = "ptt";
+        mockAppMode.value = "museum";
         mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
-        mockSetLed.mockClear();
+        mockSetArmed.mockClear();
         mockButtonState.pressed = false;
         setMockPressed(false);
         mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
@@ -551,7 +808,7 @@ describe('HumanInput PTT museum mode', () => {
 
     afterEach(() => {
         vi.clearAllMocks();
-        mockAgentMode.value = "always-on";
+        mockAppMode.value = "web";
         setMockPressed(false);
     });
 
@@ -559,7 +816,6 @@ describe('HumanInput PTT museum mode', () => {
         const result = render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -625,7 +881,6 @@ describe('HumanInput PTT museum mode', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -645,17 +900,17 @@ describe('HumanInput PTT museum mode', () => {
 
     // ── LED management ────────────────────────────────────────────────────────
 
-    it('does not claim the button when agentMode is not ptt', async () => {
-        mockAgentMode.value = "always-on";
+    it('claims the button in web mode too — space drives the mic there now', async () => {
+        mockAppMode.value = "web";
         mockClaim.mockClear();
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
-        expect(mockClaim).not.toHaveBeenCalled();
+        expect(mockClaim).toHaveBeenCalled();
     });
 
-    it('claims human-input and sets pulse LED when active with agentMode ptt', async () => {
+    it('claims and arms human-input when active in museum mode', async () => {
         await renderPttReady();
         expect(mockClaim).toHaveBeenCalled();
-        expect(mockSetLed).toHaveBeenCalledWith('pulse');
+        expect(mockSetArmed).toHaveBeenCalledWith(true);
     });
 
     // ── Press → record, release → finish + auto-submit ────────────────────────
@@ -687,7 +942,6 @@ describe('HumanInput PTT museum mode', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={mockOnSubmit}
@@ -1017,11 +1271,13 @@ describe('HumanInput PTT museum mode', () => {
     // ── Non-PTT mode unchanged ────────────────────────────────────────────────
 
     it('non-PTT mode: shows mic icon (always visible)', async () => {
+        mockAppMode.value = "web";
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(screen.getByAltText('Say something!')).toBeInTheDocument();
     });
 
     it('non-PTT mode: shows mic button', async () => {
+        mockAppMode.value = "web";
         await renderAndWaitReady({ onSubmitHumanMessage: mockOnSubmit });
         expect(screen.getByTestId('icon-record_voice_off')).toBeInTheDocument();
     });
@@ -1035,11 +1291,11 @@ describe('HumanInput PTT abandonment', () => {
     beforeEach(() => {
         vi.useFakeTimers({ shouldAdvanceTime: true });
         mockOnAbandon = vi.fn();
-        mockAgentMode.value = "ptt";
+        mockAppMode.value = "museum";
         mockUseMobile.mockReturnValue(false);
         mockClaim.mockClear();
         mockRelease.mockClear();
-        mockSetLed.mockClear();
+        mockSetArmed.mockClear();
         mockButtonState.pressed = false;
         setMockPressed(false);
         mockBootstrapHumanInputRealtimeSession.mockResolvedValue({
@@ -1053,7 +1309,7 @@ describe('HumanInput PTT abandonment', () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.clearAllMocks();
-        mockAgentMode.value = "always-on";
+        mockAppMode.value = "web";
         setMockPressed(false);
     });
 
@@ -1067,7 +1323,6 @@ describe('HumanInput PTT abandonment', () => {
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={vi.fn()}
@@ -1138,7 +1393,6 @@ describe('HumanInput PTT abandonment', () => {
         render(
             <HumanInput
                 phase="warm"
-                isButtonMuseumMode={true}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={vi.fn()}
@@ -1155,8 +1409,9 @@ describe('HumanInput PTT abandonment', () => {
         expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 
-    it('fires in web PTT mode without isButtonMuseumMode', async () => {
-        await renderAbandonReady({ isButtonMuseumMode: false });
+    it('does not run in presenter mode — the turn is held open on purpose', async () => {
+        mockAppMode.value = "presenter";
+        await renderAbandonReady();
 
         await act(async () => {
             await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
@@ -1165,17 +1420,16 @@ describe('HumanInput PTT abandonment', () => {
             await vi.advanceTimersByTimeAsync(BUTTON_BANNER_IDLE_MS);
         });
 
-        expect(mockOnAbandon).toHaveBeenCalledTimes(1);
+        expect(mockOnAbandon).not.toHaveBeenCalled();
     });
 
-    it('does not run when agent mode is not ptt', async () => {
-        mockAgentMode.value = "always-on";
+    it('does not run in web mode', async () => {
+        mockAppMode.value = "web";
         vi.useRealTimers();
 
         render(
             <HumanInput
                 phase="active"
-                isButtonMuseumMode={false}
                 isPanelist={false}
                 currentSpeakerName=""
                 onSubmitHumanMessage={vi.fn()}

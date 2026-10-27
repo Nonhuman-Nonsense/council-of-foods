@@ -2,9 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import {
     BadRequestError,
+    CapacityError,
+    ConflictError,
     CouncilError,
+    ForbiddenError,
     InternalServerError,
     NotFoundError,
+    UnauthorizedError,
 } from '@models/Errors.js';
 
 const mockConfig = vi.hoisted(() => ({ NODE_ENV: 'test' }));
@@ -30,10 +34,12 @@ describe('CouncilError client payloads', () => {
         expect(CouncilError.fromUnexpected(err).toErrorPayload('ctx')).toEqual({
             message: 'Internal Server Error',
             code: 500,
+            errorKey: 'unexpected',
         });
         mockConfig.NODE_ENV = 'production';
         expect(CouncilError.fromUnexpected(err).toApiBody('ctx')).toEqual({
             message: 'Internal Server Error',
+            errorKey: 'unexpected',
         });
     });
 
@@ -60,6 +66,7 @@ describe('CouncilError client payloads', () => {
         expect(new NotFoundError().toErrorPayload('ctx')).toEqual({
             message: 'Meeting not found',
             code: 404,
+            errorKey: 'notFound',
         });
     });
 
@@ -68,6 +75,23 @@ describe('CouncilError client payloads', () => {
         expect(new InternalServerError().toErrorPayload()).toEqual({
             message: 'Internal Server Error',
             code: 500,
+            errorKey: 'unexpected',
         });
+    });
+});
+
+describe('CouncilError error keys', () => {
+    it.each([
+        { build: () => new BadRequestError(), expected: 'invalidRequest' },
+        { build: () => new BadRequestError('Meeting already complete', { errorKey: 'meetingComplete' }), expected: 'meetingComplete' },
+        { build: () => new ConflictError(), expected: 'elsewhere' },
+        { build: () => new CapacityError(), expected: 'busy' },
+        { build: () => new NotFoundError(), expected: 'notFound' },
+        { build: () => new UnauthorizedError(), expected: 'unauthorized' },
+        { build: () => new ForbiddenError(), expected: 'forbidden' },
+        { build: () => CouncilError.fromUnexpected(new Error('boom')), expected: 'unexpected' },
+        { build: () => CouncilError.fromUnexpected(new Error('boom'), 'Realtime call unavailable', 'realtimeUnavailable'), expected: 'realtimeUnavailable' },
+    ])('carries errorKey $expected', ({ build, expected }) => {
+        expect(build().toErrorPayload('ctx').errorKey).toBe(expected);
     });
 });

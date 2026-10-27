@@ -4,10 +4,11 @@ import {
     getChairRealtimeLanguageConfig,
     getHumanInputRealtimeLanguageConfig,
     normalizeSetupLanguage,
+    type ChairRealtimeLanguageConfig,
     type ChairVoiceProfile,
 } from "@logic/characterSetupBundle.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
-import { withNetworkRetry } from "@utils/NetworkUtils.js";
+import { upstreamHttpError, withNetworkRetry } from "@utils/NetworkUtils.js";
 import type {
     IceServer,
     RealtimeBootstrapResponse,
@@ -19,21 +20,32 @@ import type {
 const opts = getGlobalOptions();
 const INWORLD_BASE = "https://api.inworld.ai";
 
+/**
+ * The agents are push-to-talk everywhere, so the talk button — not Inworld — says when the
+ * visitor's turn ends: the client commits the audio and asks for the reply on release, and
+ * cuts the agent off on press. Turn detection stays on only to transcribe while they speak.
+ *
+ * Inworld's detector can open an empty turn right after one ends (reliably when the mic
+ * closes within ~0.3 s of the last word) and never close it. With replies and interruptions
+ * left to the detector, that empty turn cancelled the reply it had just started and the agent
+ * went silent for good.
+ */
 const SEMANTIC_VAD_TURN_DETECTION = {
     type: "semantic_vad" as const,
     eagerness: "medium" as const,
-    create_response: true,
-    interrupt_response: true,
+    create_response: false,
+    interrupt_response: false,
 };
 
 function buildInworldChairRealtimeSession(params: {
     language: string;
     voice: ChairVoiceProfile;
     llmModel: string;
+    reasoning?: ChairRealtimeLanguageConfig["reasoning"];
     ttsModel: string;
     transcriptionModel: string;
 }): Record<string, unknown> {
-    const { language, voice, llmModel, ttsModel, transcriptionModel } = params;
+    const { language, voice, llmModel, reasoning, ttsModel, transcriptionModel } = params;
     const normalizedLanguage = normalizeSetupLanguage(language);
     const ttsLanguage = voice.voiceLocale?.trim() || (normalizedLanguage !== "en" ? normalizedLanguage : undefined);
 
@@ -56,6 +68,9 @@ function buildInworldChairRealtimeSession(params: {
             },
         },
     };
+    if (reasoning) {
+        session.text_generation_config = { reasoning: { effort: reasoning.toUpperCase() } };
+    }
 
     const ttsProviderData: Record<string, unknown> = {
         timestamp_type: "WORD",
@@ -66,7 +81,14 @@ function buildInworldChairRealtimeSession(params: {
         ttsProviderData.steering_handling = "emit_once";
         ttsProviderData.segmenter_strategy = "sentence";
     }
-    session.providerData = { tts: ttsProviderData };
+    session.providerData = {
+        tts: ttsProviderData,
+        // The client asks for the reply after a tool result itself, once the reply that made
+        // the call has finished. Inworld's own follow-up starts the moment the result lands
+        // and cancels (`superseded`) whatever that reply was still saying — so an agent that
+        // acknowledges out loud while it calls a tool was cut off every time.
+        auto_tool_response: false,
+    };
 
     return session;
 }
@@ -81,6 +103,7 @@ export function buildChairRealtimeSessionFragment(language: string): Record<stri
         language: normalizedLanguage,
         voice,
         llmModel: languageConfig.llmModel,
+        reasoning: languageConfig.reasoning,
         ttsModel,
         transcriptionModel: languageConfig.transcriptionModel,
     });
@@ -115,9 +138,12 @@ async function inworldFetch(path: string, init: RequestInit, context: string): P
             }),
         context
     );
+    // Deliberately outside the retry: a browser is waiting on this request
+    // behind its own 15s timeout, so waiting a busy account out here would
+    // just time the visitor out. The status is carried instead, and the
+    // client's own reconnect loop does the waiting.
     if (!response.ok) {
-        const text = await response.text().catch(() => "");
-        throw new Error(`Inworld ${path} failed (${response.status}): ${text}`);
+        throw await upstreamHttpError(response, `Inworld ${path}`);
     }
     return response;
 }

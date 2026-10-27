@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Summary from '@council/overlays/Summary';
-import type { AppMode, AgentMode } from '@/settings/councilSettings';
+import type { AppMode } from '@/settings/councilSettings';
+import { capabilitiesFor, type Capabilities } from '@/settings/capabilities';
 
 vi.mock('qrcode.react', () => ({
     QRCodeCanvas: () => <div data-testid="qrcode">QRCode</div>
@@ -53,17 +54,13 @@ vi.mock('@/utils', () => ({
 }));
 
 const mockUseCouncilSettings = vi.fn((): {
-    isMuseumMode: boolean;
     mode: AppMode;
     setAppMode: () => void;
-    agentMode: AgentMode;
-    setAgentMode: () => void;
+    capabilities: Capabilities;
 } => ({
-    isMuseumMode: false,
     mode: 'web',
     setAppMode: vi.fn(),
-    agentMode: 'off',
-    setAgentMode: vi.fn(),
+    capabilities: capabilitiesFor('web'),
 }));
 
 vi.mock('@/settings/councilSettings', () => ({
@@ -72,15 +69,18 @@ vi.mock('@/settings/councilSettings', () => ({
 
 const mockClaim = vi.fn();
 const mockRelease = vi.fn();
-const mockSetLed = vi.fn();
+const mockSetArmed = vi.fn();
 let mockPressed = false;
 
 vi.mock('@museum/button/useButton', () => ({
     useButton: () => ({
         claim: mockClaim,
         release: mockRelease,
-        setLed: mockSetLed,
+        setArmed: mockSetArmed,
         get pressed() {
+            return mockPressed;
+        },
+        get wantsMic() {
             return mockPressed;
         },
         isOwner: true,
@@ -146,11 +146,9 @@ describe('Summary Overlay', () => {
         mockAutoplayState.phase = 'off';
         mockAutoplayState.summaryProtocolFinished = false;
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: false,
             mode: 'web',
             setAppMode: vi.fn(),
-            agentMode: 'off',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('web'),
         });
     });
 
@@ -186,6 +184,19 @@ describe('Summary Overlay', () => {
 
         // The hidden PDF template (#printed-style) is present in web mode.
         expect(document.querySelector('#printed-style')).toBeInTheDocument();
+    });
+
+    it('heads a letter like an email, and leaves out the disclaimer it has its own footer for', () => {
+        const letter = {
+            authorId: 'reindeer', authorName: 'Reindeer', authorEmail: 'reindeer@council-of-forest.com',
+            recipientName: 'Skogsstyrelsen', recipientOrganisation: null, recipientEmail: 'skogsstyrelsen@skogsstyrelsen.se',
+            subject: 'Three weeks', body: 'Dear Skogsstyrelsen', humanNote: null, footer: '', present: true, send: true, sendReason: null,
+        };
+        render(<Summary summary={{ text: 'Dear Skogsstyrelsen', letter }} meetingId={mockMeetingId} />);
+
+        expect(screen.getAllByText('Reindeer <reindeer@council-of-forest.com>').length).toBeGreaterThan(0);
+        expect(screen.getAllByText(/Dear Skogsstyrelsen/).length).toBeGreaterThan(0);
+        expect(screen.queryByText(/This document was created by the Council of Foods/)).toBeNull();
     });
 
     it('renders correctly in mobile mode', () => {
@@ -226,11 +237,9 @@ describe('Summary Overlay', () => {
 
     it('hides PDF download and template in museum mode', () => {
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         Object.defineProperty(HTMLElement.prototype, 'clientHeight', {
@@ -251,8 +260,8 @@ describe('Summary Overlay', () => {
         expect(wrapper).toHaveStyle({
             position: 'fixed',
             top: '0px',
-            height: '100vh',
         });
+        expect(wrapper).toHaveProperty('style.height', '100vh');
 
         const teleprompter = screen.getByTestId('summary-teleprompter-content');
         expect(teleprompter).toHaveStyle({ paddingBottom: '140px', paddingTop: '80px' });
@@ -260,17 +269,15 @@ describe('Summary Overlay', () => {
 
     it('claims the button and shows the summary banner in museum PTT mode', () => {
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
 
         expect(mockClaim).toHaveBeenCalled();
-        expect(mockSetLed).toHaveBeenCalledWith('pulse');
+        expect(mockSetArmed).toHaveBeenCalledWith(true);
         expect(mockUseButtonBanner).toHaveBeenCalledWith(
             expect.objectContaining({
                 owner: 'summary',
@@ -283,11 +290,9 @@ describe('Summary Overlay', () => {
 
     it('navigates to landing on button press in museum PTT mode', () => {
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
 
         const { rerender } = render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
@@ -301,11 +306,9 @@ describe('Summary Overlay', () => {
     it('returns to landing 20s after protocol reading when not in autoplay', () => {
         vi.useFakeTimers();
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
         mockAutoplayState.phase = 'off';
         mockAutoplayState.summaryProtocolFinished = true;
@@ -318,14 +321,29 @@ describe('Summary Overlay', () => {
         vi.useRealTimers();
     });
 
+    it('keeps the teleprompter on screen in presenter mode — the summary is the talking point', () => {
+        vi.useFakeTimers();
+        mockUseCouncilSettings.mockReturnValue({
+            mode: 'presenter',
+            setAppMode: vi.fn(),
+            capabilities: capabilitiesFor('presenter'),
+        });
+        mockAutoplayState.phase = 'off';
+        mockAutoplayState.summaryProtocolFinished = true;
+
+        render(<Summary summary={mockSummary} meetingId={mockMeetingId} />);
+
+        vi.advanceTimersByTime(20_000 * 5);
+        expect(mockNavigate).not.toHaveBeenCalled();
+        vi.useRealTimers();
+    });
+
     it('does not auto-return to landing during an active autoplay loop', () => {
         vi.useFakeTimers();
         mockUseCouncilSettings.mockReturnValue({
-            isMuseumMode: true,
             mode: 'museum',
             setAppMode: vi.fn(),
-            agentMode: 'ptt',
-            setAgentMode: vi.fn(),
+            capabilities: capabilitiesFor('museum'),
         });
         mockAutoplayState.phase = 'active';
         mockAutoplayState.summaryProtocolFinished = true;

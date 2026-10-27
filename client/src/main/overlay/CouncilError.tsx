@@ -1,13 +1,12 @@
 import { useTranslation } from "react-i18next";
 import errorIcon from "@assets/error.png?inline";
 import AutoButton from "@/AutoButton";
-import {
-  MUSEUM_HEALTH_RETRY_SECONDS,
-  probeOriginHealth,
-  restartNow,
-} from "@/navigation";
+import { HEALTH_RETRY_SECONDS, probeOriginHealth } from "@/health";
+import { restartNow } from "@/navigation";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { connectionLostCopy, useOnline } from "./connectionCopy";
 import type { UnrecoverableError } from "./errorStore";
+import { errorCopy } from "./errorCopy";
 
 export type { UnrecoverableError, SetUnrecoverableError } from "./errorStore";
 
@@ -27,27 +26,38 @@ const TECHNICAL_SOURCES = new Set(["react-error-boundary"]);
 
 function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
   const { t } = useTranslation();
-  const { isMuseumMode } = useCouncilSettings();
-  const detail = error.message.trim();
-  const showGenericOnly = detail.length === 0 || TECHNICAL_SOURCES.has(error.source);
+  const { capabilities } = useCouncilSettings();
+  const online = useOnline();
+  // A server that stayed out of reach: say what to check rather than that something broke.
+  const lost = error.connectionLost ? connectionLostCopy(online) : null;
+  // Our own words for a named failure; the server's message only when we have
+  // none — and never when the message is internal prose.
+  const detail = errorCopy(t, error.errorKey, error.message).trim();
+  const restart = () => restartNow({ inPlace: error.reloadInPlace });
+  const showGenericOnly =
+    detail.length === 0 || error.technical === true || TECHNICAL_SOURCES.has(error.source);
 
   return (
     <div>
       <img alt="error" src={errorIcon} style={{ height: "80px", opacity: "0.7" }} />
-      <h2>{t("error.title")}</h2>
-      {showGenericOnly ? (
+      <h2>{lost ? t(lost.title) : t("error.title")}</h2>
+      {lost ? (
+        <p role="status" style={{ marginTop: "4px" }}>
+          {t(lost.detail)}
+        </p>
+      ) : showGenericOnly ? (
         <p style={{ whiteSpace: "pre-line" }}>{t("error.message")}</p>
       ) : (
         <p role="status" style={{ marginTop: "4px" }}>
           {detail}
         </p>
       )}
-      {isMuseumMode ? (
+      {capabilities.autoRestart ? (
         <AutoButton
-          timeout={MUSEUM_HEALTH_RETRY_SECONDS}
+          timeout={HEALTH_RETRY_SECONDS}
           guardAction={probeOriginHealth}
           guardRetryMessage={t("error.restartUnavailableRetrying")}
-          action={restartNow}
+          action={restart}
           style={{ marginTop: "10px" }}
         >
           {t("app.restart")}
@@ -56,7 +66,7 @@ function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
         <button
           type="button"
           style={{ marginTop: "10px" }}
-          onClick={restartNow}
+          onClick={restart}
         >
           {t("app.restart")}
         </button>

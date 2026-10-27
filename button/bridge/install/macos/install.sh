@@ -6,7 +6,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/launchd-helpers.sh"
 
 BRIDGE_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
-INSTALL_DIR="/usr/local/lib/council-button-bridge"
 PLIST_SRC="$SCRIPT_DIR/com.council.button-bridge.plist"
 REBUILD=0
 
@@ -18,7 +17,7 @@ Usage:
   ./install.sh              Install prebuilt artifacts (or build if missing)
   ./install.sh --rebuild    Force npm ci + build before install (dev checkout)
 
-The script uses sudo for system paths and launchd. Node 20+ must be installed.
+The script uses sudo for system paths and launchd. Node 24+ must be installed.
 
 From a GitHub release (Apple Silicon, no git required):
   curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/main/button/bridge/install/macos/install-release.sh | sudo bash
@@ -90,7 +89,7 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 fi
 
 if ! NODE_BIN="$(resolve_node_bin)"; then
-  echo "Node.js not found. Install Node 20+ from https://nodejs.org or set NODE_BIN." >&2
+  echo "Node.js not found. Install Node 24+ from https://nodejs.org or set NODE_BIN." >&2
   exit 1
 fi
 
@@ -118,7 +117,7 @@ stop_launchd_service || true
 echo "Installing to $INSTALL_DIR..."
 echo "Using Node: $NODE_BIN"
 sudo mkdir -p "$INSTALL_DIR"
-sudo rm -rf "$INSTALL_DIR"/*
+remove_bridge_code
 sudo cp -R "$BRIDGE_DIR/package.json" "$BRIDGE_DIR/dist" "$INSTALL_DIR/"
 if [[ -d "$BRIDGE_DIR/node_modules" ]]; then
   sudo cp -R "$BRIDGE_DIR/node_modules" "$INSTALL_DIR/"
@@ -131,6 +130,12 @@ fi
 sudo mkdir -p /var/log
 sudo touch /var/log/council-button-bridge.log /var/log/council-button-bridge.err.log
 
+echo "Setting up printing..."
+setup_print_spool
+link_print_spool_on_desktop
+configure_default_printer
+configure_power_button
+
 write_launchd_plist "$PLIST_SRC" "$NODE_BIN" "$INSTALL_DIR"
 
 echo "Loading launchd service..."
@@ -142,6 +147,7 @@ fi
 echo "Waiting for bridge health check..."
 if wait_for_health; then
   echo "Bridge installed and running."
+  echo "Next, on the #staff page: choose the venue and enter the installation key."
 else
   print_launchd_failure
   exit 1

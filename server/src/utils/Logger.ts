@@ -23,6 +23,12 @@ export type LogDetails = {
     clientImpact?: ClientImpact;
     source?: ReportSource;
     broadcaster?: IMeetingBroadcaster;
+    /**
+     * Error to send the client in place of the generic 500. For failures whose
+     * cause is worth naming to the visitor — being over capacity, say — where
+     * "Internal Server Error" would tell them nothing they can act on.
+     */
+    clientError?: CouncilError;
     /** Raw request params/query, for tracing which arguments produced an API failure. */
     requestParams?: RequestParams;
 };
@@ -174,7 +180,7 @@ export class Logger {
         details: LogDetails & { error: unknown },
     ): void {
         const reportMessage = withClientTerminalPrefix(message);
-        const { broadcaster, error } = details;
+        const { broadcaster, error, clientError } = details;
 
         void this.error(context, reportMessage, {
             ...details,
@@ -184,7 +190,7 @@ export class Logger {
         });
 
         if (broadcaster) {
-            broadcaster.broadcastError(CouncilError.fromUnexpected(error), context);
+            broadcaster.broadcastError(clientError ?? CouncilError.fromUnexpected(error), context);
         }
     }
 

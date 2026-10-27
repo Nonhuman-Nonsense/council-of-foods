@@ -1,7 +1,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Logger } from '@utils/Logger.js';
-import { CouncilError } from '@models/Errors.js';
+import { CapacityError, CouncilError } from '@models/Errors.js';
 
 const sendReportMock = vi.fn().mockResolvedValue(undefined);
 
@@ -68,6 +68,24 @@ describe('Logger Reporting', () => {
         expect(mockBroadcaster.broadcastError.mock.calls[0][0].clientMessage).toBe("Internal Server Error");
         expect(mockBroadcaster.broadcastError.mock.calls[0][0].debugCause).toBe(error);
         expect(consoleSpy.error).toHaveBeenCalled();
+    });
+
+    it('should broadcast a supplied clientError instead of the generic 500', () => {
+        const mockBroadcaster = {
+            broadcastError: vi.fn(),
+        };
+
+        // A visitor told "Internal Server Error" learns nothing they can act on;
+        // being over capacity is worth naming, and worth coming back for.
+        Logger.reportAndCrashClient("AudioSystem", "Out of capacity", {
+            error: new Error("Inworld TTS API Error: 429"),
+            broadcaster: mockBroadcaster,
+            clientError: new CapacityError(),
+        });
+
+        expect(mockBroadcaster.broadcastError.mock.calls[0][0].clientMessage).toBe(
+            CapacityError.clientErrorMessage,
+        );
     });
 
     it('should report critical terminal severity to errorbot', () => {
