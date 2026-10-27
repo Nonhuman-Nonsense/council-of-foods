@@ -418,6 +418,14 @@ export function createEventLoop(params: {
    */
   let turnHasWords = false;
   /**
+   * Inworld's turn detection has a turn open: speech started and has not yet
+   * been committed. Closed, everything the visitor said is already in the
+   * conversation — the detector commits a turn itself once the speech stops,
+   * often just before the release, and then our commit holds only silence and
+   * gets no reply of any kind.
+   */
+  let providerTurnOpen = false;
+  /**
    * A tool result went back while the reply that called the tool was still
    * running: the follow-up reply is owed, and asked for once that reply is done.
    * Inworld's own follow-up (`auto_tool_response`) is off — it started the
@@ -674,6 +682,12 @@ export function createEventLoop(params: {
     commitTimer = setTimeout(() => {
       commitTimer = null;
       trySendJson({ type: "input_audio_buffer.commit" });
+      if (turnHasWords && !providerTurnOpen) {
+        // The words are in and nothing is still being said: waiting on our
+        // commit, which only carries silence, would wait out the timeout.
+        finishUserTurn("words-already-committed");
+        return;
+      }
       awaitingTurn = "sent";
       // A transcript that never comes (observed: stt_timeout after ~1 s) must
       // not leave the turn hanging.
@@ -1098,6 +1112,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "input_audio_buffer.committed") {
+      providerTurnOpen = false;
       // The first commit after ours is ours; the provider now names the item.
       if (awaitingTurn === "sent") {
         const itemId = asStr(obj.item_id);
@@ -1218,6 +1233,7 @@ export function createEventLoop(params: {
     }
 
     if (type === "input_audio_buffer.speech_started") {
+      providerTurnOpen = true;
       if (userTurnOpen || commitTimer != null || awaitingTurn != null) turnLog.speechHeard = true;
       if (speechInterruptsResponse) callbacks.onOutputInterrupted?.("speech-started");
       return true;

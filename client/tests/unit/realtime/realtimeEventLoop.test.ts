@@ -1253,6 +1253,8 @@ describe("push-to-talk turns", () => {
         in: { type: "conversation.item.added", item: { id: itemId, type: "message", role } },
     });
     const replyDone: Step = { in: { type: "response.done", response: { id: "r0", status: "completed", output: [{}] } } };
+    /** The provider's turn detection opens a turn. */
+    const speechStarted: Step = { in: { type: "input_audio_buffer.speech_started" } };
     const failed = (itemId: string): Step => ({
         in: { type: "conversation.item.input_audio_transcription.failed", item_id: itemId, error: { code: "stt_timeout" } },
     });
@@ -1300,19 +1302,31 @@ describe("push-to-talk turns", () => {
             sent: DROPPED,
         },
         {
-            // The provider committed the speech itself mid-press; ours finds nothing left.
+            // The provider committed the words itself just before the release; our
+            // commit holds only silence, and the provider sends nothing back for it.
+            name: "words the provider committed before the release are answered without waiting on our commit",
+            steps: [press, speechStarted, committed("v1"), transcript("v1", "Yes."), release, commitWait],
+            sent: ANSWERED,
+        },
+        {
+            name: "a turn the provider still has open at the release waits for its transcript",
+            steps: [press, transcript("v1", "Yes."), speechStarted, release, commitWait],
+            sent: ["input_audio_buffer.clear", "input_audio_buffer.commit"],
+        },
+        {
+            // A long hold: the provider commits the words, then opens an empty turn on the silence.
             name: "words the provider committed during the press still get their answer",
-            steps: [press, committed("v1"), transcript("v1", "Yes."), release, commitWait, committed("u1"), failed("u1")],
+            steps: [press, committed("v1"), transcript("v1", "Yes."), speechStarted, release, commitWait, committed("u1"), failed("u1")],
             sent: ANSWERED,
         },
         {
             name: "an empty commit still answers words heard during the press",
-            steps: [press, transcript("v1", "Yes."), release, commitWait, { in: { type: "error", error: { code: "input_audio_buffer_commit_empty" } } }],
+            steps: [press, transcript("v1", "Yes."), speechStarted, release, commitWait, { in: { type: "error", error: { code: "input_audio_buffer_commit_empty" } } }],
             sent: ANSWERED,
         },
         {
             name: "a transcript that never comes does not leave the turn hanging",
-            steps: [press, transcript("v1", "Yes."), release, commitWait, committed("u1"), { wait: PTT_TRANSCRIPT_TIMEOUT_MS }],
+            steps: [press, transcript("v1", "Yes."), speechStarted, release, commitWait, committed("u1"), { wait: PTT_TRANSCRIPT_TIMEOUT_MS }],
             sent: ANSWERED,
         },
         {
