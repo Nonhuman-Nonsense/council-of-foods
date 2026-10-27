@@ -70,6 +70,12 @@ export type EventLoopCallbacks = {
 const RESUME_AFTER_EMPTY_PRESS_TEXT =
   "(The visitor pressed the talk button, which cut you off, but said nothing. Pick up briefly where you were cut off — do not start over.)";
 
+/**
+ * Sent before a reply asked for while the conversation ends with the agent's own
+ * turn, when that reply does not answer something the visitor just said.
+ */
+const CONTINUE_TEXT = "(Continue.)";
+
 /** Synthetic user turn that kicks off the first assistant reply (Inworld WebRTC quickstart pattern). */
 const DEFAULT_GREETING_USER_TEXT =
   "The session just connected. Give your opening greeting now, following your instructions.";
@@ -177,7 +183,6 @@ function secs(ms: number): string {
  */
 const UNLOGGED_EVENT_TYPES = new Set([
   "session.created",
-  "conversation.item.added",
   "conversation.item.done",
   "conversation.item.truncated",
   "response.output_item.done",
@@ -266,6 +271,23 @@ function isCapacityRealtimeError(errRaw: unknown): boolean {
   return CAPACITY_MESSAGE_PATTERN.test(message);
 }
 
+/**
+ * The model refused to reply because the conversation ends with its own turn.
+ * Claude models do not take assistant prefill: a `response.create` asked for
+ * while the agent's message is the last item fails, after `response.created`
+ * and with no `event_id`, so it never correlates back to the create.
+ */
+const PREFILL_MESSAGE_PATTERN = /assistant message prefill|must end with a user message/i;
+
+function isPrefillRejection(errRaw: unknown): boolean {
+  return PREFILL_MESSAGE_PATTERN.test(asStr(asObj(errRaw)?.message) ?? "");
+}
+
+/** Replies that answer what the visitor just said, rather than carry on from the agent's own turn. */
+function answersVisitor(reason: string): boolean {
+  return reason === "push-to-talk" || reason.startsWith("deferred");
+}
+
 function isBenignRealtimeError(errRaw: unknown): boolean {
   const code = errorCode(errRaw);
   return code != null && BENIGN_ERROR_CODES.has(code);
@@ -337,6 +359,25 @@ export function createEventLoop(params: {
   const MAX_CAPACITY_RETRIES = 2;
   const CAPACITY_RETRY_DELAY_MS = 4_000;
   let capacityRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Whether the conversation, as the provider holds it, ends with the agent's
+   * own turn (its message or a tool call). A reply asked for then is refused by
+   * models without assistant prefill, so a user line goes in first.
+   *
+   * Items are appended in the order the provider takes them, which is not the
+   * order the client asked for them: a reply's message is filed when its
+   * generation starts, so a visitor turn committed in the second or so between
+   * `response.created` and that point lands *above* the reply it came during.
+   * `conversation.item.added` reports the real order; the items this client
+   * sends are counted as they go, since the reply asked for next is processed
+   * after them.
+   */
+  let conversationEndsWithAgent = false;
+  /** Prefill refusals retried for the current user turn. */
+  let prefillRetries = 0;
+  const MAX_PREFILL_RETRIES = 1;
+  /** A refused reply's retry, sent once its failed `response.done` frees the slot. */
+  let prefillRetryOwed: { replyTo: string } | null = null;
   /** Reason the in-flight response was created ("server-auto" if we didn't send it). */
   let currentResponseReason = "server-auto";
   /**
@@ -432,7 +473,15 @@ export function createEventLoop(params: {
     return true;
   };
 
-  const sendResponseCreate = (reason: string): void => {
+  /**
+   * `replyTo` is the reason the reply is for, when that differs from why it is
+   * asked for now (a retry); it decides the user line, if one is needed.
+   */
+  const sendResponseCreate = (reason: string, replyTo = reason): void => {
+    if (conversationEndsWithAgent) {
+      devLog.flat("TURN", "conversation ends with the agent — adding a user line", { reason });
+      sendUserMessage(answersVisitor(replyTo) ? visitorSaidText() : CONTINUE_TEXT);
+    }
     responseCreateEventCounter += 1;
     const eventId = `cof_response_create_${responseCreateEventCounter}`;
     pendingCreateReason = reason;
@@ -463,6 +512,7 @@ export function createEventLoop(params: {
   const cancelActiveResponse = (): void => {
     // Whoever cancels takes over; a follow-up to the cancelled reply is not wanted.
     toolFollowUpOwed = false;
+    prefillRetryOwed = null;
     sendCancelIfPossible("OUT response.cancel");
     callbacks.onCaption(null);
   };
@@ -474,6 +524,7 @@ export function createEventLoop(params: {
   const cutOutput = (reason: string, audioElapsedMs?: number): void => {
     // The interruption replaces any follow-up the cut-off reply had owed.
     toolFollowUpOwed = false;
+    prefillRetryOwed = null;
     const cancelled = sendCancelIfPossible(null);
     let heardMs: number | null = null;
     // Trim the assistant's last-spoken item down to what was actually heard,
@@ -599,11 +650,13 @@ export function createEventLoop(params: {
     };
     // The visitor's turn takes over from any follow-up still owed.
     toolFollowUpOwed = false;
+    prefillRetryOwed = null;
     turnCutAgent = options?.interrupt != null;
     // A new turn from the visitor: the recovery budgets are theirs again.
     emptyResponseRetries = 0;
     createRejectedRetries = 0;
     capacityRetries = 0;
+    prefillRetries = 0;
     if (options?.interrupt) cutOutput("push-to-talk", options.interrupt.audioElapsedMs);
     trySendJson({ type: "input_audio_buffer.clear" });
   };
@@ -645,11 +698,13 @@ export function createEventLoop(params: {
     sessionReady = false;
     pendingDeferredResponse = false;
     toolFollowUpOwed = false;
+    prefillRetryOwed = null;
     cancelInFlight = false;
     pendingCreateEventId = null;
     pendingCreateReason = null;
     createRejectedRetries = 0;
     capacityRetries = 0;
+    prefillRetries = 0;
     const turnDetection = session.audio.input?.turn_detection;
     speechInterruptsResponse = turnDetection != null && turnDetection.interrupt_response !== false;
     if (options?.triggerGreetingOnReady) {
@@ -670,6 +725,7 @@ export function createEventLoop(params: {
   
   const sendUserMessage = (text: string): void => {
     devLog.event("REALTIME", "OUT user message", summarizeLogPayload({ text }));
+    conversationEndsWithAgent = false;
     trySendJson({
       type: "conversation.item.create",
       item: {
@@ -689,12 +745,16 @@ export function createEventLoop(params: {
    * respond, so we echo the visitor's transcript.
    */
   const recoverTurn = (createReason: string): void => {
-    const recoveryText = lastUserTranscript.trim()
-      ? `The visitor said: "${lastUserTranscript.trim()}". Respond now and continue.`
-      : "The visitor responded. Respond now and continue.";
-    sendUserMessage(recoveryText);
+    sendUserMessage(visitorSaidText());
     sendResponseCreate(createReason);
   };
+
+  /** A text user line that restates the visitor's last turn, for the model to answer. */
+  function visitorSaidText(): string {
+    return lastUserTranscript.trim()
+      ? `The visitor said: "${lastUserTranscript.trim()}". Respond now and continue.`
+      : "The visitor responded. Respond now and continue.";
+  }
 
   /**
    * Re-request the turn a capacity refusal killed, after a pause long enough
@@ -739,14 +799,7 @@ export function createEventLoop(params: {
     const userText = pendingOpeningGreeting;
     pendingOpeningGreeting = null;
     if (activeResponses !== 0) return;
-    trySendJson({
-      type: "conversation.item.create",
-      item: {
-        type: "message",
-        role: "user",
-        content: [{ type: "input_text", text: userText }],
-      },
-    });
+    sendUserMessage(userText);
     sendResponseCreate("greeting");
   };
 
@@ -822,6 +875,15 @@ export function createEventLoop(params: {
         usage: rFull?.usage,
         responseId: typeof rFull?.id === "string" ? rFull.id : undefined,
       });
+      if (prefillRetryOwed && activeResponses === 0 && sessionReady) {
+        // The retry is the reply anything else here was waiting to ask for.
+        const { replyTo } = prefillRetryOwed;
+        prefillRetryOwed = null;
+        toolFollowUpOwed = false;
+        pendingDeferredResponse = false;
+        sendResponseCreate("prefill-retry", replyTo);
+        return true;
+      }
       if (toolFollowUpOwed && activeResponses === 0) {
         toolFollowUpOwed = false;
         // A reply cancelled or failed mid-way is not continued: whatever ended
@@ -931,6 +993,7 @@ export function createEventLoop(params: {
       }
       devLog.event("AGENT", `tool ${name} result`, summarizeLogPayload(result));
 
+      conversationEndsWithAgent = false;
       trySendJson({
         type: "conversation.item.create",
         item: {
@@ -988,11 +1051,23 @@ export function createEventLoop(params: {
       return true;
     }
 
+    if (type === "conversation.item.added") {
+      // The provider's own order, which decides whether a user line must precede the next reply.
+      const item = asObj(obj.item);
+      const itemType = asStr(item?.type);
+      const role = asStr(item?.role);
+      if (itemType === "message" && (role === "assistant" || role === "user")) conversationEndsWithAgent = role === "assistant";
+      else if (itemType === "function_call") conversationEndsWithAgent = true;
+      else if (itemType === "function_call_output") conversationEndsWithAgent = false;
+      return true;
+    }
+
     if (type === "conversation.item.input_audio_transcription.completed") {
       // New user turn — reset the turn-recovery retry budgets.
       emptyResponseRetries = 0;
       createRejectedRetries = 0;
       capacityRetries = 0;
+      prefillRetries = 0;
       const transcript = asStr(obj.transcript);
       lastUserTranscript = transcript ?? "";
       const inTurn = userTurnOpen || commitTimer != null || awaitingTurn != null;
@@ -1083,6 +1158,22 @@ export function createEventLoop(params: {
         }
         escalate = false;
         handling = scheduleCapacityRecovery() ? "recovered" : "ignored";
+      } else if (isPrefillRejection(errRaw)) {
+        // The conversation ended with the agent after all — an order this
+        // client did not see. Its failed `response.done` follows; the retry
+        // goes then, behind a user line.
+        conversationEndsWithAgent = true;
+        const replyTo = activeResponses > 0 ? currentResponseReason : pendingCreateReason ?? currentResponseReason;
+        pendingCreateEventId = null;
+        pendingCreateReason = null;
+        if (prefillRetries < MAX_PREFILL_RETRIES) {
+          prefillRetries += 1;
+          devLog.flat("TURN", "reply refused: conversation ended with the agent — retrying behind a user line", { replyTo });
+          escalate = false;
+          handling = "recovered";
+          if (activeResponses > 0) prefillRetryOwed = { replyTo };
+          else if (sessionReady) sendResponseCreate("prefill-retry", replyTo);
+        }
       } else if (pendingCreateEventId != null && isResponseCreateRejection(errRaw, pendingCreateEventId)) {
         const rejectedReason = pendingCreateReason;
         pendingCreateEventId = null;
