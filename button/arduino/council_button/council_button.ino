@@ -1,8 +1,8 @@
 /*
  * Council of Foods — installation button firmware
  *
- * Hardware: one Adafruit seesaw board (e.g. LED Arcade Button QT family) on
- * STEMMA QT / I2C, with up to four buttons on the same chip.
+ * Hardware: Arduino Nano R4, with an Adafruit LED Arcade Button 1x4 STEMMA QT
+ * (seesaw, PID 5296) on its Qwiic connector. Buttons 1-3 of the board are used.
  * Guide: https://learn.adafruit.com/adafruit-led-arcade-button-qt/arduino
  *
  * Serial protocol (115200 baud, newline-terminated):
@@ -42,6 +42,14 @@
 const uint8_t SWITCH_PINS[BUTTON_COUNT] = { SWITCH1, SWITCH2, SWITCH3 };
 const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 
+// The Nano's own LEDs, visible in the installation:
+// - the RGB LED's red (active low) mirrors button 1's LED (one LED can't show
+//   the march across all three);
+// - the orange LED_BUILTIN is on while a button is held, and blinks fast when
+//   the button board can't be used.
+#define MIRROR_BUTTON 0
+#define HALT_BLINK_MS 125
+
 #define LED_BRIGHTNESS 255
 #define DEBOUNCE_MS 50
 #define CONNECTING_ANIM_STEP_MS 1000
@@ -55,7 +63,9 @@ const uint8_t PWM_PINS[BUTTON_COUNT] = { PWM1, PWM2, PWM3 };
 #define LED_MODE_ON 2
 #define LED_MODE_ERROR 3
 
-Adafruit_seesaw ss;
+// The Nano R4's Qwiic / STEMMA QT connector is on the second I2C bus (Wire1);
+// Wire is the A4/A5 header pins.
+Adafruit_seesaw ss(&Wire1);
 
 bool mergedPressed = false;
 bool lastStableMergedPressed = false;
@@ -75,10 +85,21 @@ void sendLine(const __FlashStringHelper *line) {
   Serial.println(line);
 }
 
+void setButtonLed(uint8_t index, uint8_t level) {
+  ss.analogWrite(PWM_PINS[index], level);
+  if (index == MIRROR_BUTTON) {
+    analogWrite(LEDR, 255 - level);
+  }
+}
+
 void applyAllLeds(uint8_t level) {
   for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
-    ss.analogWrite(PWM_PINS[i], level);
+    setButtonLed(i, level);
   }
+}
+
+void showPressed(bool pressed) {
+  digitalWrite(LED_BUILTIN, pressed ? HIGH : LOW);
 }
 
 bool readAnyButtonPressed() {
@@ -95,6 +116,7 @@ void syncButtonBaseline() {
   mergedPressed = reading;
   lastStableMergedPressed = reading;
   lastDebounceTime = millis();
+  showPressed(reading);
 }
 
 float pulseEase(float t) {
@@ -137,7 +159,7 @@ void runMarchAnimation(unsigned long stepMs) {
   if (marchAnimLastStep == 0 || (now - marchAnimLastStep) >= stepMs) {
     applyAllLeds(0);
     if (marchAnimIndex < BUTTON_COUNT) {
-      ss.analogWrite(PWM_PINS[marchAnimIndex], LED_BRIGHTNESS);
+      setButtonLed(marchAnimIndex, LED_BRIGHTNESS);
     }
     marchAnimIndex = (marchAnimIndex + 1) % BUTTON_COUNT;
     marchAnimLastStep = now;
@@ -236,14 +258,31 @@ void handleSerialInput() {
   }
 }
 
+// Native USB: nothing is listening at boot, so keep repeating the error.
+void haltWithError(const __FlashStringHelper *message) {
+  while (1) {
+    sendLine(message);
+    for (uint8_t i = 0; i < 4; i++) {
+      digitalWrite(LED_BUILTIN, HIGH);
+      delay(HALT_BLINK_MS);
+      digitalWrite(LED_BUILTIN, LOW);
+      delay(HALT_BLINK_MS);
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+  const uint8_t rgbPins[] = { LEDR, LEDG, LEDB };
+  for (uint8_t pin : rgbPins) {
+    pinMode(pin, OUTPUT);
+    digitalWrite(pin, HIGH);
+  }
 
   if (!ss.begin(DEFAULT_I2C_ADDR)) {
-    Serial.println(F("ERROR seesaw not found"));
-    while (1) {
-      delay(10);
-    }
+    haltWithError(F("ERROR seesaw not found"));
   }
 
   uint16_t pid;
@@ -251,10 +290,7 @@ void setup() {
   ss.getProdDatecode(&pid, &year, &mon, &day);
 
   if (pid != 5296) {
-    Serial.println(F("ERROR wrong seesaw PID"));
-    while (1) {
-      delay(10);
-    }
+    haltWithError(F("ERROR wrong seesaw PID"));
   }
 
   for (uint8_t i = 0; i < BUTTON_COUNT; i++) {
@@ -293,6 +329,7 @@ void loop() {
   if ((millis() - lastDebounceTime) > DEBOUNCE_MS) {
     if (reading != lastStableMergedPressed) {
       lastStableMergedPressed = reading;
+      showPressed(lastStableMergedPressed);
       if (hostConnected) {
         if (lastStableMergedPressed) {
           sendLine(F("BUTTON_DOWN"));

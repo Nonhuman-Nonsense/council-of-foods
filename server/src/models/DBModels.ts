@@ -3,6 +3,8 @@ import type { UsageEvent } from '@shared/UsageTypes.js';
 import type { Document } from "mongodb";
 import type { LetterForm } from '@logic/letters/prompts/letterPrompts.js';
 import type { HumanHandling } from '@logic/letters/prompts/humanSorting.js';
+import type { ClientLogLine } from "@shared/ClientLogTypes.js";
+import type { NetworkSample } from "@shared/networkSamples.js";
 
 // Re-using local interfaces or defining them here if they need to be shared broadly
 // For now, we import what we can.
@@ -14,6 +16,8 @@ export interface StoredMeeting extends BaseMeeting, Document {
     venueId?: string;
     /** Whether this meeting's letter may go out by email: an installation's yes, the web's no. */
     sendsLetters?: boolean;
+    /** Whether the installation prints this meeting's letter: then it ends on a farewell and credits. */
+    printsLetters?: boolean;
     /** The letter a meeting ending in one is writing, then wrote. See docs/council-letters.md. */
     letter?: MeetingLetter;
 }
@@ -47,7 +51,105 @@ export interface MeetingLetter {
     sendReason?: string | null;
 }
 
+/**
+ * A letter on its way out (docs/council-letters.md → Outbox): one per meeting, so a letter can
+ * never be queued twice. The worker claims it (`sending`) before calling Brevo, so a crash can
+ * lose a letter but never send it twice.
+ */
+export interface OutboxLetter extends Document {
+    /** The meeting the letter ends. */
+    _id: number;
+    status: "queued" | "sending" | "sent" | "failed" | "refused" | "skipped";
+    /** Why a letter was refused (the mechanical check), skipped (its recipient may no longer be written to) or failed. */
+    reason?: string;
+    recipientId: string;
+    recipientKind: "institution" | "person";
+    to: string;
+    from: { name: string; email: string };
+    replyTo: string;
+    /**
+     * Random, in the reply address: only an email to the address this letter gave out is taken
+     * as a reply to it, so nobody can get words printed by writing to a guessed address.
+     */
+    replyToken?: string;
+    subject: string;
+    /** The letter, any words set apart, and the footer. */
+    text: string;
+    venueId?: string;
+    queuedAt: Date;
+    claimedAt?: Date;
+    sentAt?: Date;
+    /** Sends Brevo answered with a temporary error (5xx, 429); the letter goes back in the queue until a few have. */
+    attempts?: number;
+    /** Set once a long-unresolved interrupted send has been reported, so it is reported once. */
+    reportedStuck?: boolean;
+    /** The sending mode it went out in: only `live` letters reached their recipient. */
+    mode?: "test" | "live";
+    brevoMessageId?: string;
+}
+
+/**
+ * An email that came back to a letter's reply address (docs/council-letters.md → Receiving).
+ * Replies and opt-outs are printed at the letter's venue; automatic replies and spam are kept,
+ * never printed.
+ */
+export interface LetterReply extends Document {
+    /** From the email's Message-ID, so Brevo posting it again changes nothing. */
+    _id: string;
+    meetingId: number;
+    recipientId: string;
+    venueId?: string;
+    /** The letter it answers, as it is printed with the reply. */
+    letter: { authorId: string; authorName: string; recipientName: string; subject: string; language: string };
+    /** Who wrote back; name and address are printed with the reply. */
+    from: { address: string; name: string | null };
+    subject: string;
+    /** What they wrote, without the quoted letter, their signature or contact details. */
+    message: string;
+    receivedAt: Date;
+    kind: "reply" | "opt-out" | "automatic" | "spam";
+    reason?: string;
+    printedAt?: Date;
+}
+
+/** A recipient who may not be written to again: they opted out, or their address bounced. */
+export interface BlockedRecipient extends Document {
+    _id: string;
+    reason: "opt-out" | "bounce" | "complaint" | "manual";
+    at: Date;
+    /** The meeting whose letter it answered, when it came from a reply or a bounce. */
+    meetingId?: number;
+    note?: string;
+}
+
 export interface StoredUsageEvent extends UsageEvent, Document {}
+
+/**
+ * One batch of a browser's console log (`POST /api/client-log`), as sent, plus what the
+ * server knows about it. Kept in a capped collection: the oldest batches go first.
+ */
+export interface StoredClientLogBatch extends Document {
+    receivedAt: Date;
+    pageId: string;
+    seq: number;
+    venueId?: string;
+    dropped?: number;
+    /** Every setup and meeting its lines name, so a visit's log can be found by index. */
+    setupIds: string[];
+    meetingIds: number[];
+    lines: ClientLogLine[];
+}
+
+/**
+ * One minute of an installation's network, as its bridge measured it
+ * (`POST /api/installation/network`). Capped: the oldest samples go first.
+ */
+export interface StoredNetworkSample extends Omit<NetworkSample, "t">, Document {
+    venueId: string;
+    host?: string;
+    t: Date;
+    receivedAt: Date;
+}
 
 /** Latest reading of one room power plug at one venue; `_id` is `<venueId>|<plug>`. */
 export interface StoredRoomPower extends Document {
@@ -90,6 +192,8 @@ export interface StoredRoomPowerHour extends Document {
 export type SubtitleTimingType = 'whisper' | 'inworld' | 'elevenlabs' | 'estimated' | undefined;
 export interface StoredAudio extends Audio, Document {
     subtitleTimingType?: SubtitleTimingType;
+    /** Loudness as the provider delivered it and the gain applied to even it out (absent before normalization). */
+    loudness?: { measuredLufs: number | null; gainDb: number };
 }
 
 export interface Counter extends Document {

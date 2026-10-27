@@ -50,6 +50,29 @@ describe("useInactivityNudge", () => {
     expect(requestResponse).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * A long hold of the talk button is the visitor talking: the nudge must not land
+   * mid-sentence, and the countdown starts afresh once they let go.
+   */
+  it("waits while the visitor holds the talk button, and starts over on release", () => {
+    const sendMessage = vi.fn();
+    const { rerender } = renderHook((props) => useInactivityNudge(props), {
+      initialProps: baseParams({ sendMessage, agentSpeaking: true }),
+    });
+    rerender(baseParams({ sendMessage, agentSpeaking: false }));
+    vi.advanceTimersByTime(DELAY_MS / 2);
+
+    rerender(baseParams({ sendMessage, agentSpeaking: false, visitorTalking: true }));
+    vi.advanceTimersByTime(DELAY_MS * 2);
+    expect(sendMessage).not.toHaveBeenCalled();
+
+    rerender(baseParams({ sendMessage, agentSpeaking: false, visitorTalking: false }));
+    vi.advanceTimersByTime(DELAY_MS - 1);
+    expect(sendMessage).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+  });
+
   it("resets the countdown when the visitor speaks", () => {
     const sendMessage = vi.fn();
     const { rerender } = renderHook((props) => useInactivityNudge(props), {

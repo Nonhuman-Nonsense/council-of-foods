@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { startTestBridge, waitForTicks, waitForWrittenLine, type TestBridge } from "./testHarness.js";
+import { BRIDGE_VERSION } from "../src/types.js";
 
 describe("bridge integration", () => {
   let bridge: TestBridge;
@@ -19,7 +20,7 @@ describe("bridge integration", () => {
 
     expect(response.ok).toBe(true);
     expect(body.ok).toBe(true);
-    expect(body.version).toBe("1.1.0");
+    expect(body.version).toBe(BRIDGE_VERSION);
     expect(body.serial).toBe("connected");
     expect(body.path).toBe("mock");
     expect(body.serialDetail).toBe("connected");

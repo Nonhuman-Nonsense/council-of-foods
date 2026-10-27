@@ -35,6 +35,12 @@ export interface CreateMeetingBody {
     setupId?: string;
     /** The app mode's `sendsLetters` capability: whether this meeting's letter may go out. */
     sendsLetters?: boolean;
+    /**
+     * The installation prints this meeting's letter: its `printSummary` capability with staff's
+     * printing switched on. The meeting then ends on the chair's farewell and the credits, and
+     * the letter is read from the paper (docs/council-letters.md).
+     */
+    printsLetters?: boolean;
 }
 
 export interface ResumeMeetingResponse {

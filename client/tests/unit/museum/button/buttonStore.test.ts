@@ -45,9 +45,6 @@ describe("useButtonStore", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     localStorage.clear();
-    // Pin to museum: this suite is about ownership/transport mechanics, not
-    // gesture semantics, and museum's plain hold-only behaviour keeps a quick
-    // synchronous press/release in these tests from being read as a tap.
     localStorage.setItem("councilAppMode", "museum");
     _resetButtonStoreForTests();
     useButtonStore.getState().init();
@@ -355,7 +352,7 @@ describe("useButtonStore", () => {
     });
   });
 
-  describe("tap/hold gesture", () => {
+  describe("press gestures", () => {
     function pressFor(ms: number): void {
       useButtonStore.setState({ keyboardDown: true });
       useButtonStore.getState().syncPressed("keyboard");
@@ -374,196 +371,117 @@ describe("useButtonStore", () => {
       vi.useRealTimers();
     });
 
-    it("museum: a quick press never latches — releasing always closes", () => {
-      pressFor(50);
-      expect(useButtonStore.getState().pressed).toBe(false);
-      expect(useButtonStore.getState().latched).toBe(false);
-    });
-
-    it("web: a tap under the threshold latches on, and stays on after release", () => {
-      localStorage.setItem("councilAppMode", "web");
+    /** Push-to-talk everywhere: however short the press, letting go closes the mic. */
+    it.each(["web", "museum"])("%s: letting go of a quick press closes it", (mode) => {
+      localStorage.setItem("councilAppMode", mode);
 
       pressFor(50);
 
       expect(useButtonStore.getState().pressed).toBe(false);
-      expect(useButtonStore.getState().latched).toBe(true);
+      expect(useButtonStore.getState().ledMode).toBe("pulse");
     });
 
-    it("web: a second tap unlatches", () => {
-      localStorage.setItem("councilAppMode", "web");
+    /** A press too short to have said anything is a click on a button that must be held. */
+    it.each([
+      { ms: 50, short: true },
+      { ms: 400, short: false },
+    ])("a $ms ms press is a click to explain: $short", ({ ms, short }) => {
+      pressFor(ms);
 
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(true);
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(false);
+      expect(useButtonStore.getState().shortPressAt != null).toBe(short);
     });
 
-    it("web: a hold opens the mic while held and closes fully on release", () => {
-      localStorage.setItem("councilAppMode", "web");
+    it("holds the on-screen button like space, and only for its owner", () => {
+      useButtonStore.getState().setButtonScreenDown("summary", true);
+      expect(useButtonStore.getState().pressed).toBe(false);
 
-      useButtonStore.setState({ keyboardDown: true });
-      useButtonStore.getState().syncPressed("keyboard");
-      vi.advanceTimersByTime(300);
+      useButtonStore.getState().setButtonScreenDown("setup-agent", true);
       expect(useButtonStore.getState().pressed).toBe(true);
-      expect(useButtonStore.getState().latched).toBe(false);
 
-      useButtonStore.setState({ keyboardDown: false });
-      useButtonStore.getState().syncPressed("keyboard");
+      useButtonStore.getState().setButtonScreenDown("setup-agent", false);
       expect(useButtonStore.getState().pressed).toBe(false);
-      expect(useButtonStore.getState().latched).toBe(false);
     });
 
-    it("web: holding while latched on forces it closed, as an explicit close gesture", () => {
-      localStorage.setItem("councilAppMode", "web");
+    /**
+     * The on-screen button can be swapped for a spinner under a held pointer, and an
+     * unmounted button reports no release of its own.
+     */
+    it("ends an on-screen hold on a pointer let go anywhere on the page", () => {
+      useButtonStore.getState().setButtonScreenDown("setup-agent", true);
 
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(true);
+      window.dispatchEvent(new Event("pointerup"));
 
-      pressFor(300);
-      expect(useButtonStore.getState().latched).toBe(false);
+      expect(useButtonStore.getState().screenDown).toBe(false);
+      expect(useButtonStore.getState().pressed).toBe(false);
     });
 
-    it("web: an on-screen click toggles the same latch as a tap", () => {
-      localStorage.setItem("councilAppMode", "web");
+    it("counts a press held through the arming that follows", () => {
+      // A mic button that also wakes the agent is pressed before it can listen.
+      useButtonStore.getState().setButtonArmed("setup-agent", false);
+      useButtonStore.getState().setButtonScreenDown("setup-agent", true);
+      expect(useButtonStore.getState().pressed).toBe(false);
 
-      useButtonStore.getState().toggleButtonLatch("setup-agent");
-      expect(useButtonStore.getState().latched).toBe(true);
+      useButtonStore.getState().setButtonArmed("setup-agent", true);
 
-      useButtonStore.getState().toggleButtonLatch("setup-agent");
-      expect(useButtonStore.getState().latched).toBe(false);
-    });
-
-    it("ignores a latch toggle from an owner that does not hold the button", () => {
-      localStorage.setItem("councilAppMode", "web");
-
-      useButtonStore.getState().toggleButtonLatch("summary");
-
-      expect(useButtonStore.getState().latched).toBe(false);
+      expect(useButtonStore.getState().pressed).toBe(true);
     });
 
     it("treats losing window focus as a release", () => {
       // The first web press opens the microphone permission prompt, which can
       // take focus and swallow the keyup — leaving the mic open with nothing
       // holding it.
-      localStorage.setItem("councilAppMode", "museum");
-
       useButtonStore.setState({ keyboardDown: true });
       useButtonStore.getState().syncPressed("keyboard");
+      useButtonStore.getState().setButtonScreenDown("setup-agent", true);
       expect(useButtonStore.getState().pressed).toBe(true);
 
       window.dispatchEvent(new Event("blur"));
 
       expect(useButtonStore.getState().keyboardDown).toBe(false);
+      expect(useButtonStore.getState().screenDown).toBe(false);
       expect(useButtonStore.getState().pressed).toBe(false);
     });
 
-    it("web: losing window focus clears a latched-open mic — a real withdrawal, not a wait", () => {
-      // Unlike a disarm, this must not come back by itself: leaving the mic
-      // open while the visitor is on another tab or app is a privacy
-      // surprise, not a capability they'll regain.
-      localStorage.setItem("councilAppMode", "web");
+    it("lets the owner end a press still held, until it is let go", () => {
+      // The text is full, or the mic cannot be had: the take is over though the
+      // visitor is still holding.
+      useButtonStore.setState({ keyboardDown: true });
+      useButtonStore.getState().syncPressed("keyboard");
 
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(true);
+      useButtonStore.getState().endButtonPress("setup-agent");
+      expect(useButtonStore.getState().pressed).toBe(false);
 
-      window.dispatchEvent(new Event("blur"));
-
-      expect(useButtonStore.getState().latched).toBe(false);
-
-      // And it stays withdrawn through a disarm/re-arm — it is not merely
-      // suspended the way a capability loss would be.
-      useButtonStore.getState().setButtonArmed("setup-agent", false);
-      useButtonStore.getState().setButtonArmed("setup-agent", true);
-      expect(useButtonStore.getState().latched).toBe(false);
-    });
-
-    it("does not clear an unlatched session on blur", () => {
-      localStorage.setItem("councilAppMode", "web");
-
-      window.dispatchEvent(new Event("blur"));
-
-      expect(useButtonStore.getState().latched).toBe(false);
-    });
-
-    it("lets an owner end a latch it did not start", () => {
-      // Human input finishes a take when the visitor turns to the textarea; the
-      // state can settle back to armed in one batch, so the disarm path alone
-      // would never fire and the mic would re-open.
-      localStorage.setItem("councilAppMode", "web");
-
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(true);
-
-      useButtonStore.getState().clearButtonLatch("setup-agent");
-      expect(useButtonStore.getState().latched).toBe(false);
-    });
-
-    it("keeps a latch through a disarm and honours it again on re-arm", () => {
-      // Arming is a capability, not consent: losing it for a moment — a
-      // reconnect, or waiting for the agent to be ready to listen — must not
-      // throw away what the visitor asked for. The mic still closes meanwhile,
-      // because `wantsMic` requires `armed`.
-      localStorage.setItem("councilAppMode", "web");
-
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(true);
-
-      useButtonStore.getState().setButtonArmed("setup-agent", false);
-      expect(useButtonStore.getState().latched).toBe(true);
-      expect(useButtonStore.getState().armed).toBe(false);
-
-      useButtonStore.getState().setButtonArmed("setup-agent", true);
-      expect(useButtonStore.getState().latched).toBe(true);
-      expect(useButtonStore.getState().armed).toBe(true);
-    });
-
-    it("does not read a disarm as a tap when the visitor is mid-press", () => {
-      // The disarm ends the press, but it is not a gesture — measuring it as
-      // one would toggle the latch on the visitor's behalf.
-      localStorage.setItem("councilAppMode", "web");
-
+      useButtonStore.setState({ keyboardDown: false });
+      useButtonStore.getState().syncPressed("keyboard");
       useButtonStore.setState({ keyboardDown: true });
       useButtonStore.getState().syncPressed("keyboard");
       expect(useButtonStore.getState().pressed).toBe(true);
+    });
+
+    it("does not take a disarm mid-press for a click", () => {
+      useButtonStore.setState({ keyboardDown: true });
+      useButtonStore.getState().syncPressed("keyboard");
 
       useButtonStore.getState().setButtonArmed("setup-agent", false);
 
-      expect(useButtonStore.getState().latched).toBe(false);
-    });
-
-    it("owner handoff clears a latch — the next owner starts clean", () => {
-      localStorage.setItem("councilAppMode", "web");
-
-      pressFor(50);
-      expect(useButtonStore.getState().latched).toBe(true);
-
-      useButtonStore.getState().claimButton("staff");
-      useButtonStore.getState().setButtonArmed("staff", true);
-      expect(useButtonStore.getState().buttonOwner).toBe("staff");
-      expect(useButtonStore.getState().latched).toBe(false);
+      expect(useButtonStore.getState().pressed).toBe(false);
+      expect(useButtonStore.getState().shortPressAt).toBeNull();
     });
 
     it.each([
       ["bridge connection drops", () => transport.callbacks?.onStatus?.("disconnected")],
       ["usb serial disconnects", () => transport.callbacks?.onSerialDeviceChange?.(false)],
-    ])(
-      "does not read a %s mid-press as a tap release",
-      (_label, dropConnection) => {
-        // A connection loss ends the physical hold, but it is not a gesture —
-        // measuring it as one would spuriously latch the mic open on the
-        // visitor's behalf and leave the LED reading "on" for no one.
-        localStorage.setItem("councilAppMode", "web");
-        useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: true });
+    ])("does not take a %s mid-press for a click", (_label, dropConnection) => {
+      useButtonStore.setState({ bridgeStatus: "connected", serialDeviceConnected: true });
 
-        transport.callbacks?.onLine?.({ type: "button_down" });
-        expect(useButtonStore.getState().pressed).toBe(true);
+      transport.callbacks?.onLine?.({ type: "button_down" });
+      expect(useButtonStore.getState().pressed).toBe(true);
 
-        dropConnection();
+      dropConnection();
 
-        expect(useButtonStore.getState().pressed).toBe(false);
-        expect(useButtonStore.getState().latched).toBe(false);
-        expect(useButtonStore.getState().ledMode).toBe("pulse");
-      },
-    );
+      expect(useButtonStore.getState().pressed).toBe(false);
+      expect(useButtonStore.getState().shortPressAt).toBeNull();
+      expect(useButtonStore.getState().ledMode).toBe("pulse");
+    });
   });
 });

@@ -20,12 +20,17 @@ type FakeServer = {
   alerts: Array<Record<string, unknown>>;
   keys: string[];
   down: boolean;
+  /** Replies to print, by venue, and the ids the bridge reported printed. */
+  replies: Record<string, Array<Record<string, unknown>>>;
+  printedReplies: string[];
   close: () => Promise<void>;
 };
 
 /** Stands in for the council server's /api/installation/* endpoints. */
 async function startFakeServer(): Promise<FakeServer> {
-  const fake: FakeServer = { url: "", alerts: [], keys: [], down: false, close: async () => {} };
+  const fake: FakeServer = {
+    url: "", alerts: [], keys: [], down: false, replies: {}, printedReplies: [], close: async () => {},
+  };
   const server = http.createServer((req, res) => {
     const key = String(req.headers["x-installation-key"]);
     fake.keys.push(key);
@@ -39,6 +44,20 @@ async function startFakeServer(): Promise<FakeServer> {
     }
     if (req.url === "/api/installation/venues") {
       res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ venues: [VENUE] }));
+      return;
+    }
+    if (req.url?.startsWith("/api/installation/letter-replies?")) {
+      const venueId = new URL(req.url, "http://council").searchParams.get("venueId") ?? "";
+      res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ replies: fake.replies[venueId] ?? [] }));
+      return;
+    }
+    if (req.url === "/api/installation/letter-replies/printed") {
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => {
+        fake.printedReplies.push((JSON.parse(Buffer.concat(chunks).toString("utf8")) as { id: string }).id);
+        res.writeHead(200, { "Content-Type": "application/json" }).end('{"ok":true}');
+      });
       return;
     }
     const chunks: Buffer[] = [];
@@ -72,6 +91,8 @@ function staffPage(bridge: TestBridge, origin?: string) {
     listVenues: () => send("GET", "/v1/installation/venues"),
     chooseVenue: (venueId: string | null) => send("PUT", "/v1/installation/venue", { venueId }),
     sendTest: () => send("POST", "/v1/alerts/test"),
+    letterReplies: () => send("GET", "/v1/installation/letter-replies"),
+    replyPrinted: (id: string) => send("POST", "/v1/installation/letter-replies/printed", { id }),
   };
 }
 
@@ -147,6 +168,42 @@ describe("installation key", () => {
     await bridge.restart();
     expect(await alertsHealth(bridge)).toMatchObject({ server: null });
     expect((await staffPage(bridge).listVenues()).status).toBe(409);
+  });
+});
+
+describe("letter replies", () => {
+  let council: FakeServer;
+  let bridge: TestBridge;
+  let page: ReturnType<typeof staffPage>;
+  const REPLY = { id: "0123456789abcdef01234567", meetingId: 1400, kind: "reply", message: "Tack för brevet." };
+
+  beforeEach(async () => {
+    council = await startFakeServer();
+    council.replies = { "example-museum": [REPLY] };
+    bridge = await startTestBridge({ print: true });
+    page = staffPage(bridge, council.url);
+    await page.saveKey(KEY);
+  });
+
+  afterEach(async () => {
+    await bridge.stop();
+    await council.close();
+  });
+
+  it("hands the page the replies to print for its venue, and tells the server once one is printed", async () => {
+    expect(await (await page.letterReplies()).json()).toMatchObject({ replies: [] }); // no venue chosen yet
+
+    await page.chooseVenue("example-museum");
+    expect(await (await page.letterReplies()).json()).toMatchObject({ replies: [REPLY] });
+
+    expect((await page.replyPrinted(REPLY.id)).status).toBe(200);
+    expect((await page.replyPrinted("../../etc")).status).toBe(400);
+    expect(council.printedReplies).toEqual([REPLY.id]);
+  });
+
+  it("refuses a page from another server", async () => {
+    await page.chooseVenue("example-museum");
+    expect((await staffPage(bridge, "http://localhost:5999").letterReplies()).status).toBe(409);
   });
 });
 

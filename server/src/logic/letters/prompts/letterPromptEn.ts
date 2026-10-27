@@ -35,6 +35,13 @@ export function buildEnLetterPrompts(): LetterPrompts {
     return {
         bridge: ({ authorName }) => `Then, after those words, add one short sentence in your own words saying that before everyone goes, ${authorName} wants to send an email — for example: "But before we go, I think ${authorName} wants to send an email."`,
 
+        farewell: ({ authorName, humanName, recipient, sent }) => {
+            const thanked = humanName ? `${authorName} and ${humanName}, the human taking part,` : `${authorName} and the human taking part`;
+            return sent
+                ? `The letter is written. As chair, say the last words of the meeting, in two or three short sentences in your own words: thank ${thanked}, say that an email has been sent to ${recipient}, and that it is being printed behind them right now — ask them to take it and hang it on the wall next to the others. Example: "Thank you, ${authorName}${humanName ? ` and ${humanName}` : ""}. An email has now been sent to ${recipient}. It is being printed behind you — please put it on the wall next to the others." Do not read out or summarise the letter. Do not continue the debate.`
+                : `The letter is written, but nobody answered when asked to add something, so it was not sent and is not printed. As chair, say the last words of the meeting, in two or three short sentences in your own words: thank ${authorName}, say that the email to ${recipient} was not sent because nobody added anything, and that whoever wants to can press the button to start a new meeting. Example: "Thank you, ${authorName}. But I did not send the email to ${recipient}, because nobody said anything. Press the button if you want to start a new meeting." Do not read out or summarise the letter. Do not continue the debate.`;
+        },
+
         author: ({ candidates }) => `The meeting is over. One member of the council will now write a letter on the council's behalf, to someone outside this room who can act on what was discussed.
 
 Rank every candidate by how much they have to say in such a letter: whose home, body or way of life the decisions fall on, whose concern was left unresolved, who has something concrete to ask for. That is not always the most articulate member — a quiet one with a lot to lose can be the best author. Do not include the chair.
@@ -124,14 +131,14 @@ Subject: <subject line>
         humanApart: (text, humanName) =>
             `${humanName ? `${humanName}, a human who took part in the meeting,` : "A human who took part in the meeting"} asked to add, in their own words:\n“${text}”`,
 
-        footer: ({ beingName, meetingId, meetingUrl, contactEmail, humanContributed }) => [
+        footer: ({ beingName, meetingId, meetingUrl, humanContributed }) => [
             "—",
             `This letter was written by ${beingName}, a voice in Council of Foods — an artwork in which AI-driven foods hold a meeting about the broken food system. It was composed by a language model at the end of meeting #${meetingId}, and sent without being edited by us.`,
             ...(humanContributed
                 ? ["A human taking part in the meeting was asked what they wanted to add, and their words are part of it."]
                 : []),
             `The meeting can be heard and read in full here: ${meetingUrl}`,
-            `Council of Foods is made by Nonhuman Nonsense. To receive no further letters, say so in a reply or write to ${contactEmail}.`,
+            `Council of Foods is made by Nonhuman Nonsense. To receive no further letters, reply and say so.`,
         ].join("\n\n"),
     };
 }

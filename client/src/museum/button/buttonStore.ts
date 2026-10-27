@@ -4,12 +4,14 @@ import {
   isButtonBridgeAvailable,
   type ButtonTransportStatus,
 } from "./buttonBridge";
-import { getCapabilities } from "@/settings/councilSettings";
 import { log } from "@/logger";
 import type { TranslationKey } from "@/i18n";
 
-/** Below this, a press is a tap (toggles the latch); at or above, it's a hold. */
-const TAP_MS = 250;
+/**
+ * A press shorter than this is a click, not a hold: too short to have said anything, so
+ * the visitor most likely does not know the button has to be held. See `shortPressAt`.
+ */
+export const SHORT_PRESS_MS = 300;
 
 export type ButtonLedMode = "off" | "pulse" | "on";
 
@@ -95,16 +97,19 @@ export function resolveActiveButtonBanner(
 type ButtonStore = {
   pressed: boolean;
   /**
-   * A tap latched the mic open (capabilities.latchOnTap only — see
-   * `recomputePressed`). Combined with `pressed` by `useButton`'s `wantsMic`;
-   * `pressed` itself stays purely physical so edge-triggered consumers
-   * (autoplay, summary, replay) are unaffected by latching.
+   * When the last press too short to be a hold was let go (`Date.now()`), so the
+   * on-screen mic can say the button has to be held. Null until one happens.
    */
-  latched: boolean;
-  /** When true, held input is ignored until all keys/buttons release (owner handoff). */
+  shortPressAt: number | null;
+  /**
+   * When true, held input is ignored until all keys/buttons release — an owner handoff,
+   * or an owner ending the press itself (`endPress`).
+   */
   ignoreDownUntilRelease: boolean;
   keyboardDown: boolean;
   hardwareDown: boolean;
+  /** The on-screen mic button is held (web) — the same gesture as space or the hardware button. */
+  screenDown: boolean;
   /** The routed owner has armed the button — the gate every press passes. */
   armed: boolean;
   /** Derived display only; nothing gates on this. See {@link resolveLedMode}. */
@@ -122,15 +127,15 @@ type ButtonStore = {
   keyboardActive: boolean;
   bridgeAvailable: boolean;
 
-  syncPressed: (source?: "keyboard" | "button") => void;
+  syncPressed: (source?: PressSource) => void;
   connect: () => Promise<void>;
   disconnect: () => Promise<void>;
   enableAutoReconnect: () => void;
   claimButton: (owner: ButtonOwner) => void;
   releaseButton: (owner: ButtonOwner) => void;
   setButtonArmed: (owner: ButtonOwner, armed: boolean) => void;
-  toggleButtonLatch: (owner: ButtonOwner) => void;
-  clearButtonLatch: (owner: ButtonOwner) => void;
+  setButtonScreenDown: (owner: ButtonOwner, down: boolean) => void;
+  endButtonPress: (owner: ButtonOwner) => void;
   setButtonBannerVisible: (owner: ButtonOwner, visible: boolean) => void;
   setButtonBannerMessageKey: (owner: ButtonOwner, messageKey: TranslationKey | undefined) => void;
   setButtonBannerContent: (owner: ButtonOwner, content: BannerContent | undefined) => void;
@@ -141,7 +146,10 @@ type ButtonStore = {
 
 let buttonTransport: ButtonTransport | null = null;
 let keyboardInitialized = false;
-/** When the current physical press began; not reactive, so a module var. */
+/** Where a press came from: the space bar, the hardware button, or the on-screen mic. */
+type PressSource = "keyboard" | "button" | "screen";
+
+/** When the current press began; not reactive, so a module var. */
 let pressStartedAt: number | null = null;
 
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -150,40 +158,21 @@ function isTypingTarget(target: EventTarget | null): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || target.isContentEditable;
 }
 
-/**
- * Decides tap vs hold on a genuine press→release cycle (`web`'s
- * `capabilities.latchOnTap` only — museum always takes the hold branch, i.e.
- * releasing simply closes, whatever the duration). A tap toggles `latched`; a
- * hold always clears it, which doubles as an explicit "close" gesture for a
- * mic a previous tap left open. Disarms and owner changes clear `latched`
- * directly (see `recomputeButtonRouting`) and null out `pressStartedAt` first,
- * so this function sees nothing to decide and leaves that forced value alone.
- */
-function resolveLatchOnRelease(currentlyLatched: boolean): boolean {
-  if (pressStartedAt == null) return currentlyLatched;
-  const duration = Date.now() - pressStartedAt;
-  pressStartedAt = null;
-  if (getCapabilities().latchOnTap && duration < TAP_MS) {
-    return !currentlyLatched;
-  }
-  return false;
-}
-
 function recomputePressed(
   set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
   get: () => ButtonStore,
-  source?: "keyboard" | "button",
+  source?: PressSource,
 ): void {
   const {
     armed,
     keyboardDown,
     hardwareDown,
+    screenDown,
     pressed: prevPressed,
-    latched: prevLatched,
     ledMode: prevLedMode,
     ignoreDownUntilRelease,
   } = get();
-  const inputDown = keyboardDown || hardwareDown;
+  const inputDown = keyboardDown || hardwareDown || screenDown;
   const ignore = inputDown ? ignoreDownUntilRelease : false;
   const pressed = !ignore && armed && inputDown;
 
@@ -199,15 +188,17 @@ function recomputePressed(
     updates.keyboardActive = pressed && keyboardDown;
   }
 
-  let latched = prevLatched;
   if (!prevPressed && pressed) {
     pressStartedAt = Date.now();
   } else if (prevPressed && !pressed) {
-    latched = resolveLatchOnRelease(prevLatched);
-    updates.latched = latched;
+    // Only a release the visitor made: a disarm, a handoff or `endPress` is not a click.
+    if (source && pressStartedAt != null && Date.now() - pressStartedAt < SHORT_PRESS_MS) {
+      updates.shortPressAt = Date.now();
+    }
+    pressStartedAt = null;
   }
 
-  const ledMode = resolveLedMode(armed, pressed || latched);
+  const ledMode = resolveLedMode(armed, pressed);
   updates.ledMode = ledMode;
   set(updates);
 
@@ -229,9 +220,7 @@ function getTransport(
         });
 
         if (status === "disconnected" || status === "error") {
-          // A connection drop is not a gesture — see the same guard in
-          // recomputeButtonRouting. Without it, a hold interrupted mid-tap-window
-          // reads as a tap release and spuriously latches the mic open.
+          // A connection drop is not a gesture, and its release is not a click.
           pressStartedAt = null;
           set({ hardwareDown: false });
           recomputePressed(set, get);
@@ -296,25 +285,30 @@ function bindKeyboard(
   // A keyup can be lost while the window is not focused — most sharply on the
   // very first web press, where the microphone permission prompt can take focus
   // mid-hold and the mic would otherwise stay open with nothing holding it.
-  // Treat losing focus as a release; the duration still decides tap vs hold.
+  // Treat losing focus as a release — of the on-screen button too, whose pointer
+  // release can be lost the same way.
   const onBlur = () => {
-    if (get().keyboardDown) {
-      set({ keyboardDown: false });
+    if (get().keyboardDown || get().screenDown) {
+      set({ keyboardDown: false, screenDown: false });
       recomputePressed(set, get, "keyboard");
     }
-    // A latched mic left open while the visitor is elsewhere is a privacy
-    // surprise, not a convenience — unlike a disarm, this is a real
-    // withdrawal, not a capability the owner will get back on its own.
-    // Covers switching tabs, minimising, and switching to another program
-    // (visibilitychange alone would miss that last one).
-    if (get().latched) {
-      setLatch(set, get, get().buttonOwner, false, "blur");
+  };
+
+  // The on-screen button reports its own release, but it can be swapped out from under a
+  // held pointer (for a spinner while the agent connects) and an unmounted button reports
+  // nothing. Any pointer let go anywhere ends its hold.
+  const onPointerUp = () => {
+    if (get().screenDown) {
+      set({ screenDown: false });
+      recomputePressed(set, get, "screen");
     }
   };
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
   window.addEventListener("blur", onBlur);
+  window.addEventListener("pointerup", onPointerUp);
+  window.addEventListener("pointercancel", onPointerUp);
 }
 
 async function pushLedToHardware(
@@ -340,8 +334,8 @@ function recomputeButtonRouting(
   const prevOwner = get().buttonOwner;
   const buttonOwner = mergeButtonOwner(claims);
   const armed = resolveAppliedArmed(armedOwners, buttonOwner);
-  const { keyboardDown, hardwareDown } = get();
-  const inputDown = keyboardDown || hardwareDown;
+  const { keyboardDown, hardwareDown, screenDown } = get();
+  const inputDown = keyboardDown || hardwareDown || screenDown;
   let ignoreDownUntilRelease = get().ignoreDownUntilRelease;
   if (prevOwner !== buttonOwner) {
     log.event("BUTTON", "owner change", { from: prevOwner, to: buttonOwner });
@@ -353,22 +347,10 @@ function recomputeButtonRouting(
     }
   }
 
-  // Neither a disarm nor a handoff is a gesture, so the "release" each one
-  // causes must not be measured as a tap or a hold — otherwise a disarm
-  // landing within the tap window would toggle the latch on its own.
+  // Neither a disarm nor a handoff is a gesture, so the release each one
+  // causes must not be measured as a click.
   if (prevOwner !== buttonOwner || !armed) {
     pressStartedAt = null;
-  }
-
-  // A latch belongs to the owner whose gesture created it, so a handoff clears
-  // it. Disarming deliberately does not: arming is a *capability*, and losing
-  // it for a moment — reconnecting, or waiting for the agent to be ready to
-  // listen — must not throw away what the visitor asked for. `wantsMic`
-  // already requires `armed`, so the mic still closes while disarmed; it
-  // reopens by itself once the button can honour the ask again. Withdrawing
-  // the ask is a separate, explicit act (see `clearButtonLatch`).
-  if (prevOwner !== buttonOwner) {
-    set({ latched: false });
   }
 
   set({ claims, armedOwners, buttonOwner, armed, ignoreDownUntilRelease });
@@ -379,19 +361,6 @@ function recomputeButtonRouting(
       get().bannerVisible,
     ),
   });
-}
-
-function setLatch(
-  set: (partial: Partial<ButtonStore> | ((state: ButtonStore) => Partial<ButtonStore>)) => void,
-  get: () => ButtonStore,
-  owner: ButtonOwner | null,
-  latched: boolean,
-  source: "click" | "owner" | "blur",
-): void {
-  log.event("BUTTON", latched ? "latch on" : "latch off", { owner, source });
-  const ledMode = resolveLedMode(get().armed, get().pressed || latched);
-  set({ latched, ledMode });
-  void pushLedToHardware(set, get, ledMode);
 }
 
 function setBannerContentForOwner(
@@ -444,10 +413,11 @@ function setBannerVisibleForOwner(
 
 export const useButtonStore = create<ButtonStore>((set, get) => ({
   pressed: false,
-  latched: false,
+  shortPressAt: null,
   ignoreDownUntilRelease: false,
   keyboardDown: false,
   hardwareDown: false,
+  screenDown: false,
   armed: false,
   ledMode: "off",
   claims: {},
@@ -528,25 +498,27 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
   },
 
   /**
-   * The same latch a tap toggles, for an on-screen mic button: clicking one is
-   * the same gesture by another input device, so it must not become a second
-   * source of truth. Safe to call while disarmed — arming preserves an existing
-   * latch, so a click that also wakes the agent survives the arming that follows.
+   * The on-screen mic button, held or let go. Only its owner's button is on screen, so a
+   * press from anyone else is ignored. Safe while disarmed — a press held through the
+   * arming that follows (a mic button that also wakes the agent) counts once armed.
    */
-  toggleButtonLatch: (owner) => {
-    if (get().buttonOwner !== owner) return;
-    setLatch(set, get, owner, !get().latched, "click");
+  setButtonScreenDown: (owner, down) => {
+    if (down && get().buttonOwner !== owner) return;
+    if (get().screenDown === down) return;
+    set({ screenDown: down });
+    recomputePressed(set, get, "screen");
   },
 
   /**
-   * End a latched-open mic from the owner's side — the visitor turned to
-   * something else (typing, say) and the take is over. Disarming clears the
-   * latch too, but an owner whose state settles back to "armed" in the same
-   * React batch never renders as disarmed, so it cannot be relied on alone.
+   * End the press from the owner's side — the take is over (the text is full, the mic
+   * cannot be had, the agent was switched off) though the visitor is still holding. The
+   * hold is then ignored until it is let go, as after a handoff.
    */
-  clearButtonLatch: (owner) => {
-    if (get().buttonOwner !== owner || !get().latched) return;
-    setLatch(set, get, owner, false, "owner");
+  endButtonPress: (owner) => {
+    if (get().buttonOwner !== owner || !get().pressed) return;
+    log.event("BUTTON", "press ended by owner", { owner });
+    set({ ignoreDownUntilRelease: true });
+    recomputePressed(set, get);
   },
 
   resyncLed: async () => {
@@ -568,10 +540,11 @@ export const useButtonStore = create<ButtonStore>((set, get) => ({
     pressStartedAt = null;
     set({
       pressed: false,
-      latched: false,
+      shortPressAt: null,
       ignoreDownUntilRelease: false,
       keyboardDown: false,
       hardwareDown: false,
+      screenDown: false,
       armed: false,
       ledMode: "off",
       claims: {},
@@ -593,10 +566,11 @@ export function _resetButtonStoreForTests(): void {
   pressStartedAt = null;
   useButtonStore.setState({
     pressed: false,
-    latched: false,
+    shortPressAt: null,
     ignoreDownUntilRelease: false,
     keyboardDown: false,
     hardwareDown: false,
+    screenDown: false,
     armed: false,
     ledMode: "off",
     claims: {},

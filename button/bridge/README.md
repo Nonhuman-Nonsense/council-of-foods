@@ -143,9 +143,29 @@ The installer also sets up printing:
 - It puts a **Council Print** shortcut to the spool on the logged-in user's Desktop. The
   folder isn't on the Desktop itself, because macOS privacy protection can block the root
   daemon from writing there.
-- It sets `printer-error-policy=retry-job` on the default printer, so CUPS doesn't leave
-  the queue stopped after paper out or a jam. With no default printer it warns, and jobs
-  wait in `pending/` until one is set and the installer is re-run.
+- It makes sure there is a **system-wide** default printer. The daemon runs as root, and
+  choosing a default in System Settings → Printers & Scanners only sets it for the
+  logged-in user (`~/.cups/lpoptions`), so `lp` in the daemon sees none. When only the
+  installing user has a default, the installer makes it the system-wide one with
+  `sudo lpadmin -d <printer>`, and says so.
+- It sets `printer-error-policy=retry-job` on that printer, so CUPS doesn't leave the
+  queue stopped after paper out or a jam. With no default printer at all it warns, and
+  jobs wait in `pending/` until one is set and the installer is re-run (or
+  `sudo lpadmin -d <printer>` is run; `lpstat -e` lists the printers).
+
+The installer also gives a desktop Mac (no battery: Mac mini, Studio, iMac) a power button
+that shuts it down properly, for a Mac with no mouse or keyboard. macOS on its own can only
+sleep, or ask in a dialog nobody can click. The installer stops the button sleeping the Mac
+(`PowerButtonSleepsSystem` off, fully in effect from the next login), and the daemon watches
+the kernel log for the press and runs `shutdown -h now`. A laptop's power button is its
+Touch ID and lock button, so laptops keep macOS's own. To choose yourself, install with
+`COUNCIL_POWER_BUTTON_SHUTDOWN=1` or `=0` (with the release install:
+`curl … | sudo COUNCIL_POWER_BUTTON_SHUTDOWN=0 bash`). Uninstalling gives the button back to
+macOS.
+
+The press is noticed by a kernel log line, not an API, so a macOS update could reword it.
+The button would then show the dialog again instead of shutting down. Press it once after
+every macOS update.
 
 There is nothing else to configure. The council server and its installation key come from
 the `#staff` page (see [Alert emails](#alert-emails)).
@@ -222,6 +242,7 @@ and spool folder, and everything else has a working default. They exist for deve
 | `BRIDGE_PRINT_SPOOL_DIR` | `./.print-spool` | Folder holding `pending/` and `done/` |
 | `BRIDGE_PRINTER` | system default | CUPS queue name to print to |
 | `BRIDGE_MOCK_PRINTER` | _(off)_ | `1` = mock printer; or start it in a mode: `fail`, `paper-out`, `stuck` |
+| `BRIDGE_POWER_BUTTON_SHUTDOWN` | `0` | `1` = shut the Mac down when its power button is pressed (needs root; the installer sets it on desktop Macs) |
 
 ## Printing
 
@@ -256,7 +277,7 @@ comes from `src/printAttention.ts` and is re-checked every 5 s:
 - `stopped`: the print queue is paused.
 - `not-printing`: a protocol has waited 10 minutes, in `pending/` or in the printer's
   queue, whatever the printer says. Many USB printers never report being out of paper.
-- `no-printer`: there's no default printer.
+- `no-printer`: there's no system-wide default printer (see the installer above).
 
 The wording for each reason is in `shared/printerReasons.ts`.
 
@@ -270,7 +291,8 @@ decides **who** and sends the email (see `server/README.md`). Nothing here holds
 
 - `src/printAlerts.ts` holds the rules: 2 min grace, a new email when the reason changes,
   reminders every 4 h (only while the venue is open, plus one at opening), and "resolved"
-  after 2 min fixed. A problem that clears before staff were told sends nothing.
+  after 2 min fixed (the server passes that to errorbot only, not staff). A problem that
+  clears before staff were told sends nothing.
 - `src/alertMonitor.ts` runs them every 30 s and posts to `/api/installation/printer-alerts`
   with `X-Installation-Key`, retrying with backoff (30 s up to 10 min) if the server is
   unreachable. Only the newest undelivered alert is kept. The venue and state are saved in
@@ -291,6 +313,19 @@ decides **who** and sends the email (see `server/README.md`). Nothing here holds
 
 In development it works the same way: open `#staff` on the local client (`http://localhost:5173`,
 which passes `/api` on to the local server) and paste `COUNCIL_INSTALLATION_KEY` from `server/.env`.
+
+### Network samples
+
+`src/networkMonitor.ts` samples the Mac's network every minute, once the installation key and
+venue are set: `route -n get default` for the router and interface, 5 pings each to the
+router and to `BRIDGE_NETWORK_INTERNET_HOST` (default `1.1.1.1`), one timed
+`GET /api/installation/venues`, `netstat -I` error counters (as a difference from the
+previous sample) and the link from `ifconfig`. Samples go to `/api/installation/network`, at
+most 200 per request. While the server can't be reached they are kept in memory, a day at
+most; a restart loses them. Samples the server refuses (4xx) are dropped, not retried.
+
+The server stores them and reports outages to errorbot; see
+[MUSEUM.md](../../MUSEUM.md#network-log).
 
 ### Developing without a printer
 

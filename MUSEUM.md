@@ -62,12 +62,24 @@ Each window, at login:
 1. **Waits for its screen:** the council takes the main screen (the one with the menu
    bar), the meter the other one. Where they sit in Displays → Arrange does not matter.
 2. **Waits for the server** to answer `/health`, so it never opens on Chrome's error page.
+   If it hasn't answered after 15 s, the screen says why, from a page on the Mac
+   (`offline.html`, English): **No network** (no cable or Wi‑Fi), **No internet** (a network,
+   but no internet), or **Server error** (the internet works; nothing to do on site). The
+   council opens by itself as soon as the server answers.
 3. **Opens Chrome in kiosk mode** on that screen, in a Chrome profile of its own (in
    `~/Library/Application Support/council-kiosk/`), starting from a single tab.
 
 When Chrome closes, for whatever reason, it opens again 10 s later. If the meter's
 screen goes away (switched off, unplugged), its window closes, instead of macOS moving
 it on top of the council, and opens again when the screen is back.
+
+The screens may come on in any order. A Mac started with only the meter's screen on makes
+that the main screen, so the council opens there; when the projector comes on, macOS makes
+it the main screen again, and the council moves to it by itself: a window whose screen has
+changed for 10 s closes and opens again on its screen. Chrome can miss full screen on a
+screen that is still settling, so a window that does not fill its screen for a minute opens
+again too. With a projector the Mac has not seen before, check once that it gets the menu
+bar (Displays → Arrange, drag the menu bar onto it); macOS remembers that for the next time.
 
 **Watchdog.** In museum and presenter mode, and always on the meter, the page ticks a
 counter in its title every 10 s (the `kioskHeartbeat` capability; a kiosk never shows
@@ -76,6 +88,12 @@ for the council, 9223 for the meter; this Mac only). A page that ticked and then
 still for 2 minutes has crashed (`Aw, Snap!`), hung, or been replaced by an error page,
 so Chrome restarts. A page that never ticked, like the council in web mode before
 `#staff` is set up, is left alone.
+
+**The pointer** hides once it has stood still for 3 s, on the council in museum and presenter
+mode and always on the meter, and shows again when the mouse moves. macOS only applies that
+while the window's Chrome is the app in front, so the window with the pointer on its screen
+takes the front: at once from the other kiosk window or Finder, and from any other app (a
+mouse's helper app that starts at login, say) once nobody has used the Mac for a minute.
 
 | | |
 |---|---|
@@ -95,6 +113,15 @@ open -na "Google Chrome" --args --user-data-dir="$HOME/Library/Application Suppo
 Quit that Chrome, then `start.sh`. Extra Chrome flags for the council go in
 `--council-flags "..."`.
 
+**Text size.** If subtitles and text read too small from where visitors stand, zoom in
+with Cmd + in that same profile while it is open for setup. Chrome keeps the zoom per
+site in the profile, next to the `#staff` settings, so it lasts through restarts and
+Chrome updates and goes only with the profile (`uninstall.sh --purge`) or a change of
+host in the URL. Nothing on screen shows it, so write the level you chose into the
+venue's setup notes. Keep the page at least 600 px tall after zoom: below that the
+app switches to its small-screen layout, with smaller text. On a 1080p screen that
+means 175% at most.
+
 ### The Mac itself
 
 Once, in System Settings:
@@ -112,12 +139,23 @@ Once, in System Settings:
   Under **Allow in the Background**, leave the kiosk windows on: macOS announces them
   once at install ("can run in the background"), and turned off they never start.
 
+**Shutting down without a mouse or keyboard:** press the power button once. On a Mac mini
+(or any Mac without a battery) the bridge installer sets this up: the Mac shuts down
+properly, and a protocol waiting to print prints after it starts again. Holding the button
+down for 10 seconds still forces it off. A macOS update can break the power button shutdown
+silently (see [button/bridge/README.md](button/bridge/README.md#museum-mac-install-persistent)),
+so press it once after every update.
+
 ---
 
 ## 2. Staff page (`#staff`)
 
 Open `https://<your-origin>/#staff` on the install machine (bookmark it for
 field staff). Settings persist in `localStorage` on that browser profile.
+
+A keyboard reaches it without a mouse: **Cmd+S** (Ctrl+S off the Mac) opens it in every
+mode, **Tab** moves between controls, **Enter** presses one, and **Esc** closes the page.
+Space is not a click here — it stands in for the talk button, so staff can test a press.
 
 ### Installation mode
 
@@ -148,6 +186,10 @@ reconnect overlay, so a hiccup mid-screening recovers without anyone touching a
 keyboard. The error screen offers a plain **Restart** button instead of a
 countdown.
 
+Letters, printing and the credits are the museum's: a letter goes out when the
+presenter answers the turn asking to add to it, and with **Print summaries** on the
+meeting ends on the credits while the letter prints.
+
 `client/src/settings/capabilities.ts` is the full, authoritative answer for what
 each mode does — every difference between the three is one row of that table,
 and nothing in the app branches on the mode itself.
@@ -173,12 +215,28 @@ Install and service the bridge daemon per
 With **Print summaries** on, museum mode prints the protocol of every **live**
 meeting on the Mac's printer as soon as the summary is ready. That includes
 resumed meetings and meetings the visitor walked away from. Replays and
-idle-autoplay never print, and neither do presenter or web mode. Nothing appears
+idle-autoplay never print, and neither does web mode. Presenter mode prints like the
+museum; switch **Print summaries** off on `#staff` for a screening that should not. Nothing appears
 on screen.
 
 The browser sends the PDF to the bridge. The bridge keeps it in a folder queue and
 prints it with macOS's own printing, so a crash, a reboot or a printer that is
 off only delays a protocol, never loses it. Each meeting prints once.
+
+In a meeting that ends in a letter, the letter is what prints — and only if the
+visitor was there to answer when asked to add something. With printing on, the letter is
+not read aloud or shown on screen: the chair thanks the author and the visitor, says the
+email was sent and is printing behind them (or that it was not sent, because nobody
+answered), and every meeting ends on the same **credits** — "Thank You", then a
+60-second roll — while the letter prints, 20 seconds after it is ready
+(`LETTER_PRINT_DELAY_MS` in `SummaryPrintJob.tsx`). The button or a click starts a new
+meeting; otherwise, in museum mode, the start page returns 20 seconds after the credits. Replays skip
+the chair's farewell and the credits and show the letter. **Replies** to the letters
+print here too, as they arrive: the page asks the bridge for new replies to this
+venue's letters once a minute (the bridge asks the council server with the
+installation key, so the key and the venue must be set), prints each once, and
+tells the server. Automatic replies (out of office) are never printed. See
+[docs/council-letters.md](docs/council-letters.md).
 
 The **Bridge** panel on `#staff` shows the printer, how many protocols are
 waiting, and **Needs attention** with the reason when something is wrong: out of
@@ -200,9 +258,13 @@ shortcut on the Desktop:
 - **Printer stuck** after paper out or a jam: fix the printer. The installer sets
   it to retry on its own. If the panel still says **Stopped**, resume it in
   System Settings → Printers & Scanners, or run `sudo cupsenable <printer name>`.
-- Printing goes to the Mac's **default printer**. Set a fixed default in System
-  Settings → Printers & Scanners, not "Last printer used", then re-run the bridge
-  installer so the retry setting is applied to it.
+- Printing goes to the Mac's **system-wide default printer**. Choosing a default in
+  System Settings → Printers & Scanners only sets it for that user, and the bridge
+  runs as root, so it doesn't see it. Choose a fixed default there, not "Last printer
+  used", then re-run the bridge installer: it makes that printer the system-wide
+  default and applies the retry setting. To change it without the installer, run
+  `sudo lpadmin -d <printer name>` (`lpstat -e` lists the names); the bridge picks it
+  up within seconds.
 
 ### Printer alert emails
 
@@ -215,7 +277,9 @@ errorbot on Telegram:
   printer. A different problem sends a new email.
 - **Reminder** every 4 hours while it lasts, only during the venue's opening hours,
   plus one when the venue opens.
-- **Working again** once it has stayed fixed for 2 minutes.
+
+Once it has stayed fixed for 2 minutes, only errorbot hears that it works again; staff
+aren't emailed.
 
 **Who gets them:** the installation's **venue**, chosen on `#staff` (Installation panel →
 Venue). The page hands it to the bridge.
@@ -245,11 +309,39 @@ Holidays and closed weeks aren't modelled. The worst case is a reminder on a clo
 **Nothing is sent if the Mac, the bridge or the internet is down.** Staff notice
 that by the black screens (see section 7).
 
+### Network log
+
+Once the installation key and venue are set (see above), the bridge measures the Mac's
+network every minute and sends it to the council server: 5 pings to the router and to the
+internet (1.1.1.1), how long one request to the council server takes, the network
+interface's error counters and its link speed. While the internet is down the samples wait
+on the Mac (up to a day) and go up together once it is back.
+
+When they show the internet gone for 2 minutes or more, errorbot hears about it afterwards,
+with how long it lasted and whether the router still answered. If it did, the problem is
+the venue's internet connection. If it didn't, it's the local network: cable, switch or
+router.
+
+Read it back from `server/`:
+
+```
+npm run network -- --venue havremagasinet               # the last 24 hours, by the hour
+npm run network -- --venue havremagasinet --since 7d
+npm run network -- --venue havremagasinet --since 2h --minutes
+```
+
+Slow or lossy pings to the **internet** while the router answers well point at the
+connection or a congested line (visitor Wi-Fi sharing it, say). Loss or slow pings to the
+**router** point at the local network. **Interface errors**, or a link that drops from
+1000baseT to 100baseTX or goes `inactive`, point at the cable or the port.
+
 ### Venue and footprint meter
 
 **Venue** (Installation panel) is where this installation runs, chosen from the
 server's `COUNCIL_VENUES`. One choice sets everything that belongs to the place:
-who gets printer alert emails and the tag on the AI usage of meetings run here.
+who gets printer alert emails, the tag on the AI usage of meetings run here, and
+which meetings idle autoplay replays: the ones held at this venue, or any venue's
+until this one has a finished meeting in the current language.
 (Room power plugs are placed at a venue in `COUNCIL_VENUES` itself, not here.) A bridge that already had a venue passes it
 to the page, so existing installations don't need to choose again.
 
@@ -274,7 +366,7 @@ council.
    `--meter-url "https://<host>/meter?venue=<venue-id>"`. The meter finds this screen by
    itself.
 3. **Check:** numbers move during a meeting (or plugs report), the QR code opens the
-   methodology page on a phone, and the pointer is hidden on the meter.
+   methodology page on a phone, and the pointer hides on the meter once it stands still.
 
 The meter looks after itself: when its connection comes back after a network drop
 or a server restart (a deploy included) it reloads the page, so it also runs the new
@@ -331,6 +423,41 @@ restarts from zero after a power cut, and the plug's uptime tells the server so:
 before October 2026 need the current script pasted in again to send it. Each plug's energy is also
 kept per hour, for later questions (from a date, per day, open hours versus night).
 
+### Split audio
+
+Turn on **Split audio** on the staff page to feed two places from the Mac's one audio output.
+The output's two channels become two mono feeds: the **left** carries the scene alone (the
+ambience and the beings' sounds), the **right** the full mix, voices included. A Y-cable from
+the headphone jack (3.5 mm stereo to 2× mono, RCA or 6.35 mm) takes each side to its own amp
+or speaker. The setup and meeting agents speak on the right too, with the council. The switch
+takes effect at once, without a reload; off, the output is the usual stereo mix.
+
+- Each side is mono. A mono plug into a stereo headphone amp plays in one ear only, so give
+  headphones an amp with a mono input, or a mono-to-both-ears adapter.
+- The Mac's volume moves both sides together; set each side's level on its amp.
+- macOS can quietly undo the split: keep System Settings → Accessibility → Audio → **Play
+  stereo audio as mono** off, and the Sound balance slider centred.
+- Leave it off on any screen someone listens to in headphones: they would hear the voices in
+  one ear only.
+- With the split on, the microphone opens without the browser's echo canceller, which coloured
+  the agents' voices. Keep speakers that play voices away from the mic, or the agents may hear
+  themselves. This part follows the switch only when the mic next opens: reload the page.
+
+### Hear yourself
+
+Set **Hear yourself** on the staff page to let a visitor in headphones hear their own voice
+while they hold the talk button, as in a radio studio. They hear it only while the button is
+down, and what they hear is the same cleaned-up signal the agents transcribe, so staff
+listening in hear what the AI hears. The level steps from off to 100 %; set the rest on the
+headphone amp. With **Split audio** on it plays on the right side only, with the voices.
+
+- Headphones only. Over speakers the mic hears itself and howls; leave it off at a screening.
+- Turn off any direct monitoring on the audio interface, or the visitor hears themselves twice.
+- It comes back a little late (a few tens of milliseconds), which can sound like a faint
+  doubling. A lower level makes it less noticeable.
+- After switching it on, check that transcripts still come out right: the browser's echo
+  canceller hears this playback too.
+
 ### Mode switch button (staff escape)
 
 Enable **Mode switch button** on the staff page to show a red-bordered preview
@@ -341,6 +468,28 @@ presenter) without reload.
 ### Dev logging
 
 Optional category toggles on `#staff` for field debugging (`localStorage`-backed).
+
+While logging is on, everything the console prints is also stored on the council server, so
+an installation's log can be read after something went wrong — nobody has to have had
+DevTools open. There is no separate switch; it follows the category toggles: what is stored
+is exactly what is printed. A line under the switch appears only when sending fails. Lines
+are batched every 5 s and kept while the server is unreachable. The server keeps the newest 512 MB (the `client_log` collection is
+capped, so it never needs pruning).
+
+Read it back from `server/` (it reads the database the server's `.env` names):
+
+```
+npm run logs -- --venue havremagasinet --unanswered --since 24h
+npm run logs -- --setup <setupId>
+npm run logs -- --page <pageId>
+npm run logs -- --range
+```
+
+The realtime agents log each visitor turn and each reply as one line (`turn: answered`,
+`reply: completed`, with the transcript, the wait and the tools called), and `[SUBS] AUDIO`
+lines where the agent's audio really starts and pauses — read those against the captions'
+`DISPLAY` lines when captions drift. `--unanswered` lists the turns the agent decided to
+answer that no reply ever followed: where it froze, with the setup id and page id to look up.
 
 ---
 
@@ -365,9 +514,11 @@ During a live meeting, the button also drives human input and the meta-agent
 
 ### Printed protocols
 
-1. Connect the A4 printer and make it the Mac's default printer
+1. Connect the A4 printer and make it the Mac's default printer (System Settings →
+   Printers & Scanners)
 2. Install (or re-install) the bridge. It sets up the print folder, the Desktop
-   shortcut and the printer's retry setting
+   shortcut, makes the printer the system-wide default (the bridge doesn't see a
+   default that's only yours) and sets its retry setting
 3. `#staff` → **Museum** + **Print summaries**. The Bridge panel shows the printer as **Ready**
 4. **Print test page**, and check a page comes out
 5. Installation panel → **Venue** → choose the museum, and paste the **Installation key**
@@ -379,6 +530,8 @@ During a live meeting, the button also drives human input and the meta-agent
 1. Same hardware setup as above  
 2. `#staff` → **Presenter** (+ **Hardware button** if using one)  
 3. Nothing advances on its own — you drive the pace  
+4. Letters are sent and printed as in the museum — answer when asked to add to the letter,
+   or it goes unsent. Switch **Print summaries** off if the printer should stay quiet  
 
 ---
 
@@ -405,6 +558,11 @@ Use the hardware checklist in
 6. Unplug/replug USB → recovers without staff action  
 7. Meter screen upright, full screen, numbers moving; room plugs listed if installed  
 8. Restart the Mac → both windows come back on their screens, untouched  
+9. With **Split audio** on: the left side plays no voices, the right side plays everything  
+10. With **Hear yourself** on: holding the button, the visitor hears their own voice in the
+    headphones; released, nothing; the transcript still comes out right  
+11. Press the Mac's power button once → it shuts down by itself (the bridge log says
+    `power button pressed`); start it again → everything comes back  
 
 Bridge logs: `/var/log/council-button-bridge.log`; kiosk logs:
 `~/Library/Logs/council-kiosk-*.log`
@@ -441,10 +599,12 @@ Open the dev URL at `/#staff`, set **Museum** (or **Presenter**) +
 | Chrome quits, crashes or hangs | The kiosk window: opens Chrome again, once the server answers |
 | Meter screen switched off or unplugged | The kiosk window: closes the meter until the screen is back |
 | Power cut, Mac restart | The Mac: starts after a power failure, logs in, opens the windows |
+| Internet or server down | Nothing on site: the screens say which, and the app comes back by itself when it's back. In a running council the reconnect overlay says **No internet** at once, or **Can't reach the server** after 30 s |
 
 Every reload and reopen waits for `/health` first, so nothing lands on Chrome's error
 page while the server is down; the screens wait, black, instead.
 
 What none of this reaches: a Mac that hangs, a screen that stays black while still
-connected, and the network or server being down for good. Nothing reports those either;
-staff notice them by the black screens, and need a person to fix them.
+connected, and the network or server being down for good. Nothing emails anyone about those;
+staff notice them on the screens (black, or saying the connection is down), and need a
+person to fix them.

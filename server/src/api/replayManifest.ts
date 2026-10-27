@@ -10,6 +10,16 @@ const OWED_BY_A_LIVE_SESSION: ReadonlySet<Message["type"] | undefined> = new Set
     "awaiting_letter_addition",
 ]);
 
+/**
+ * The end of a meeting at an installation that prints its letters: the chair's farewell ("it is
+ * printed behind you") and the credits. Only meaningful in the room, so replay drops them and
+ * goes from the human's words straight to the letter.
+ */
+const LIVE_ONLY: ReadonlySet<Message["type"] | undefined> = new Set([
+    "letter_farewell",
+    "credits",
+]);
+
 function computeCapIndex(meeting: Meeting): number {
     const conv = meeting.conversation ?? [];
     const len = conv.length;
@@ -104,7 +114,7 @@ export function buildResumeConversation(meeting: Meeting): Message[] {
  * Build the public replay manifest from a meeting (complete or in-progress).
  */
 export function buildReplayMeetingManifest(meeting: Meeting): Meeting {
-    let conversation = sliceConversation(meeting);
+    let conversation = sliceConversation(meeting).filter((message) => !LIVE_ONLY.has(message.type));
 
     // Ensure we only include messages that actually have audio available.
     // This prevents the replay client from getting stuck if a live session 

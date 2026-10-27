@@ -53,6 +53,7 @@ fi
 mkdir -p "$APP_DIR" "$AGENTS_DIR" "$LOG_DIR"
 cp "$HERE/kiosk-window.sh" "$APP_DIR/kiosk-window.sh"
 chmod +x "$APP_DIR/kiosk-window.sh"
+cp "$HERE/offline.html" "$APP_DIR/offline.html"
 
 {
   echo "# Written by museum/kiosk/install.sh; run it again to change these."

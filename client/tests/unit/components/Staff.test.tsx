@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Staff from '@main/overlay/Staff';
+import { DEV_LOG_CATEGORIES } from '@/settings/councilSettings';
 import '@testing-library/jest-dom';
 import type { BridgeAlertsHealth, BridgePrintHealth, SerialDetail, UsbPortInfo } from '@museum/button/buttonBridge';
 
@@ -85,10 +86,12 @@ vi.mock('@/museum/print/printClient', () => ({
   sendTestPage: (...args: unknown[]) => mockSendTestPage(...args),
 }));
 
-vi.mock('@council/protocol/ProtocolDocument', () => ({
-  default: ({ ref, summaryText }: { ref: React.Ref<HTMLDivElement>; summaryText: string }) => (
-    <div ref={ref} data-testid="staff-test-page-document">{summaryText}</div>
+vi.mock('@council/protocol/LetterDocument', () => ({
+  default: ({ ref, body, title }: { ref: React.Ref<HTMLDivElement>; body: string; title?: string }) => (
+    <div ref={ref} data-testid={title ? 'staff-test-reply-document' : 'staff-test-page-document'}>{body}</div>
   ),
+  letterFields: () => [],
+  replyFields: () => [],
 }));
 
 const mockFetchVenues = vi.fn();
@@ -392,6 +395,35 @@ describe('Staff overlay', () => {
     expect(screen.getByTestId('staff-button-usb-hint')).toBeInTheDocument();
   });
 
+  describe('keyboard', () => {
+    const firstControl = () => screen.getByTestId('app-mode-web');
+    const lastControl = () => screen.getByTestId(`staff-dev-log-category-${DEV_LOG_CATEGORIES.at(-1)}`);
+
+    it('takes focus when it opens and gives it back when it closes', () => {
+      const outside = document.createElement('button');
+      document.body.appendChild(outside);
+      outside.focus();
+
+      const { unmount } = render(<Staff />);
+      expect(screen.getByText('staff.title').parentElement).toHaveFocus();
+
+      unmount();
+      expect(outside).toHaveFocus();
+      outside.remove();
+    });
+
+    it.each([
+      { from: 'last', shiftKey: false, to: 'first' },
+      { from: 'first', shiftKey: true, to: 'last' },
+    ])('Tab wraps from the $from control to the $to, not into the page behind', ({ from, shiftKey, to }) => {
+      render(<Staff />);
+      const controls = { first: firstControl(), last: lastControl() };
+      controls[from as 'first' | 'last'].focus();
+      fireEvent.keyDown(document.activeElement!, { key: 'Tab', shiftKey });
+      expect(controls[to as 'first' | 'last']).toHaveFocus();
+    });
+  });
+
   describe('printing', () => {
     const readyPrint: BridgePrintHealth = {
       enabled: true,
@@ -509,10 +541,10 @@ describe('Staff overlay', () => {
       expect(lines).toEqual(['Media Empty', 'Printer alerts: media-empty-error', 'Last error: lp: printer is offline']);
     });
 
-    it('prints a test page through the same PDF path and reports the result', async () => {
+    it('prints a sample letter and a reply to it through the same PDF path, and reports the result', async () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
       const blob = new Blob(['%PDF-']);
-      mockCreateProtocolPdf.mockResolvedValue({ output: () => blob });
+      mockCreateProtocolPdf.mockResolvedValue({ output: () => blob, save: vi.fn() });
       mockSendTestPage.mockResolvedValue('queued');
 
       render(<Staff />);
@@ -523,17 +555,28 @@ describe('Staff overlay', () => {
           'staff.print.testPageResult.queued',
         );
       });
-      expect(mockCreateProtocolPdf).toHaveBeenCalledWith(screen.getByTestId('staff-test-page-document'));
-      expect(mockSendTestPage).toHaveBeenCalledWith(blob);
+      expect(mockCreateProtocolPdf.mock.calls.map(([element]) => element)).toEqual([
+        screen.getByTestId('staff-test-page-document'),
+        screen.getByTestId('staff-test-reply-document'),
+      ]);
+      expect(mockSendTestPage.mock.calls).toEqual([[blob], [blob]]);
     });
 
-    it('explains that only museum mode prints', () => {
+    it('downloads both test PDFs even when no printer takes them', async () => {
       localStorage.setItem('councilPrintSummariesEnabled', 'true');
-      render(<Staff />);
-      expect(screen.getByTestId('staff-print-mode-hint')).toBeInTheDocument();
+      const save = vi.fn();
+      mockCreateProtocolPdf.mockResolvedValue({ output: () => new Blob(['%PDF-']), save });
+      mockSendTestPage.mockResolvedValue('unreachable');
 
-      fireEvent.click(screen.getByTestId('app-mode-museum'));
-      expect(screen.queryByTestId('staff-print-mode-hint')).not.toBeInTheDocument();
+      render(<Staff />);
+      fireEvent.click(screen.getByTestId('staff-print-test-page'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('staff-print-test-page-result')).toHaveTextContent(
+          'staff.print.testPageResult.unreachable',
+        );
+      });
+      expect(save.mock.calls).toEqual([['test-letter.pdf'], ['test-reply.pdf']]);
     });
   });
 

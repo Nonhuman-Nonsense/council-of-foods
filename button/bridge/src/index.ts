@@ -4,6 +4,8 @@ import { AlertMonitor } from "./alertMonitor.js";
 import { LED_ERROR } from "../../../shared/buttonProtocol.js";
 import { loadConfig } from "./config.js";
 import { MockSerialManager } from "./mockSerialManager.js";
+import { NetworkMonitor } from "./networkMonitor.js";
+import { PowerButtonShutdown } from "./powerButton.js";
 import { LpPrinter, MockPrinter } from "./printer.js";
 import type { PrintRuntime } from "./printRoutes.js";
 import { PrintSpool } from "./printSpool.js";
@@ -69,6 +71,17 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const serial = createSerialManager(config);
   const print = createPrintRuntime(config);
+  const alerts = print?.alerts;
+  // Rides on the alert setup: the same installation key and venue say where samples go.
+  const network = alerts
+    ? new NetworkMonitor({
+        target: () => alerts.target(),
+        host: os.hostname(),
+        sampleMs: config.networkSampleMs,
+        internetHost: config.networkInternetHost,
+      })
+    : null;
+  const powerButton = config.powerButtonShutdown ? new PowerButtonShutdown() : null;
   const ws = new WsServer(
     config,
     serial,
@@ -101,11 +114,15 @@ async function main(): Promise<void> {
     console.error("[button-bridge/print] spool failed to start — printing unavailable", error);
   });
   await print?.alerts?.start();
+  network?.start();
   serial.start();
   ws.start();
+  powerButton?.start();
 
   const shutdown = async (signal: string): Promise<void> => {
     console.log(`[button-bridge] ${signal} — shutting down`);
+    powerButton?.stop();
+    await network?.stop();
     await serial.stop();
     await print?.alerts?.stop();
     await print?.spool.stop();

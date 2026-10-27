@@ -78,6 +78,24 @@ describe("bridge printing", () => {
     expect(printed(bridge)).toEqual(["council-of-foods.com_7.pdf"]);
   });
 
+  it("prints a reply to a letter once, under its own key beside the meeting's", async () => {
+    const reply = "0123456789abcdef01234567";
+    const postReply = (id: string) =>
+      fetch(`${bridge.printUrl}?replyId=${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/pdf", Origin: FOODS },
+        body: PDF,
+      });
+
+    await postPdf(bridge, "42", { origin: FOODS });
+    expect((await postReply(reply)).status).toBe(202);
+    expect(await (await postReply(reply)).json()).toEqual({ ok: true, status: "duplicate" });
+    expect((await postReply("not-a-reply-id")).status).toBe(400);
+
+    await waitForPrinted(bridge, 2);
+    expect(printed(bridge)).toEqual(["council-of-foods.com_42.pdf", `council-of-foods.com_reply-${reply}.pdf`]);
+  });
+
   it("keeps the same meeting id from different sites apart", async () => {
     await postPdf(bridge, "5", { origin: FOODS });
     await postPdf(bridge, "5", { origin: "https://staging.council-of-foods.com" });

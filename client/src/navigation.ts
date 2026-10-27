@@ -121,7 +121,7 @@ async function guardedReload(targetPath: string): Promise<boolean> {
 
   if (!(await probeOriginHealth())) {
     if (useErrorStore.getState().unrecoverableError == null) {
-      setUnrecoverableError({ message: "Reconnect failed", source: "reload" });
+      setUnrecoverableError({ message: "Reconnect failed", source: "reload", connectionLost: true });
     }
     return false;
   }
@@ -143,8 +143,16 @@ export async function reloadApp(): Promise<boolean> {
  * Navigate to the app root immediately, without a health probe.
  * Use for manual user-initiated restarts where "just reload" is the right
  * behaviour regardless of server state.
+ *
+ * `inPlace` reloads the current page instead — for a page that failed to load
+ * (a meeting link). An installation still resets to the root: the next visitor
+ * starts fresh.
  */
-export function restartNow(): void {
+export function restartNow({ inPlace = false }: { inPlace?: boolean } = {}): void {
+  if (inPlace && !getCapabilities().installationReload) {
+    window.location.reload();
+    return;
+  }
   const targetPath = getCapabilities().installationReload ? APP_ROOT : `${basePath(i18n.language)}/`;
   window.location.href = targetPath;
 }

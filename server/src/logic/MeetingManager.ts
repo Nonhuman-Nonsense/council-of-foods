@@ -441,11 +441,20 @@ export class MeetingManager implements IMeetingManager {
                 return { type: 'IDLE' };
             }
         }
-        // 2. Check Limits
-        if (meeting.conversation.length >= this.serverOptions.meetingVeryMaxLength || meeting.conversation.length >= this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots) {
-            const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
+        // 2. Check Limits. A soft cap (one the visitor can extend past) first lets two beings
+        //    reply to a human who just spoke, so their words are never the last before the
+        //    meeting pauses or ends. The hard cap ends the meeting regardless: a few messages
+        //    over it would crowd ABSOLUTE_MAX_CONVERSATION_LENGTH.
+        const length = meeting.conversation.length;
+        const currentCap = this.serverOptions.conversationMaxLength + meeting.conversationExtraSlots;
+        if (length >= this.serverOptions.meetingVeryMaxLength || length >= currentCap) {
             const hasRoomToExtend = currentCap < this.serverOptions.meetingVeryMaxLength;
-            return { type: hasRoomToExtend ? 'QUERY_EXTENSION' : 'CONCLUDE_MEETING' };
+            const waitForReplies = hasRoomToExtend
+                && length < this.serverOptions.meetingVeryMaxLength
+                && SpeakerSelector.awaitsRepliesToHuman(meeting.conversation, meeting.characters, this.serverOptions.chairId);
+            if (!waitForReplies) {
+                return { type: hasRoomToExtend ? 'QUERY_EXTENSION' : 'CONCLUDE_MEETING' };
+            }
         }
 
         // 2b. Live playback: do not get more than `PLAYBACK_AHEAD_BUFFER` messages ahead of what the client has played (not in prototype)

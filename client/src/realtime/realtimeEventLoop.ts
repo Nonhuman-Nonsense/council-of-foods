@@ -41,9 +41,16 @@ export type EventLoopCallbacks = {
   /** Fired when the server confirms the session config was applied. */
   onSessionReady?: () => void;
   /** Fired when an assistant response begins, before audio is audible. */
-  onResponseStarted?: () => void;
+  onResponseStarted?: (info?: { responseId?: string }) => void;
   /** Fired when an assistant response completes (`response.done`). */
-  onResponseDone?: (info?: { status?: string; usage?: unknown }) => void;
+  onResponseDone?: (info?: { status?: string; usage?: unknown; responseId?: string }) => void;
+  /**
+   * The agent's audio is being cut off: this client cleared the output buffer
+   * for a barge-in, or the visitor started speaking into a session whose
+   * turn detection interrupts the agent. Word alignment runs ahead of the
+   * audio, so whatever it describes past this point will not be heard.
+   */
+  onOutputInterrupted?: (reason: string) => void;
   /** Fired when the data channel reports that the audio content part exists. */
   onAudioPartReady?: () => void;
   /**
@@ -55,6 +62,13 @@ export type EventLoopCallbacks = {
     words: ReadonlyArray<{ w: string; s: number; e: number }>
   ) => void;
 };
+
+/**
+ * Sent when the talk button cut the agent off but the visitor then said nothing:
+ * the agent picks up again instead of waiting in silence for the idle nudge.
+ */
+const RESUME_AFTER_EMPTY_PRESS_TEXT =
+  "(The visitor pressed the talk button, which cut you off, but said nothing. Pick up briefly where you were cut off — do not start over.)";
 
 /** Synthetic user turn that kicks off the first assistant reply (Inworld WebRTC quickstart pattern). */
 const DEFAULT_GREETING_USER_TEXT =
@@ -114,7 +128,31 @@ export type EventLoop = {
     userText: string,
     options?: { reason?: string; audioElapsedMs?: number }
   ) => void;
+  /**
+   * Push-to-talk press: the visitor's turn starts. Discards whatever the input
+   * buffer held from before, and — when `interrupt` is given — cuts the agent
+   * off first, the way a voice barge-in used to. A press that lands within the
+   * commit delay of the last release continues that turn instead.
+   */
+  beginUserTurn: (options?: { interrupt?: { audioElapsedMs?: number } }) => void;
+  /**
+   * Push-to-talk release: the turn is over. After {@link PTT_COMMIT_DELAY_MS},
+   * so the last audio still on its way is in, commits the input buffer and asks
+   * for the reply. `respond: false` throws the turn away instead (the agent was
+   * dismissed, not answered). A no-op when no turn is open.
+   */
+  endUserTurn: (options?: { respond?: boolean }) => void;
 };
+
+/**
+ * How long after the talk button is released the turn is committed. The audio
+ * travels over RTP and the commit over the data channel, so committing at once
+ * would race the last few hundred ms of speech.
+ */
+export const PTT_COMMIT_DELAY_MS = 300;
+
+/** How long a released turn waits for its transcript before deciding without it. */
+export const PTT_TRANSCRIPT_TIMEOUT_MS = 3_000;
 
 type FunctionCallMeta = { name?: string; call_id?: string };
 
@@ -126,6 +164,29 @@ function asObj(v: unknown): Record<string, unknown> | null {
 function asStr(v: unknown): string | null {
   return typeof v === "string" ? v : null;
 }
+
+/** A duration for the log, in seconds: "1.4s". */
+function secs(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+/**
+ * Provider events that only repeat what the turn and reply summaries already say — each
+ * reply's transcript would otherwise be logged half a dozen times. Anything not handled
+ * and not listed here is still logged, once, as it arrives.
+ */
+const UNLOGGED_EVENT_TYPES = new Set([
+  "session.created",
+  "conversation.item.added",
+  "conversation.item.done",
+  "conversation.item.truncated",
+  "response.output_item.done",
+  "response.content_part.done",
+  "response.output_text.done",
+  "response.output_audio.done",
+  "input_audio_buffer.cleared",
+  "input_audio_buffer.turn_suggestion",
+]);
 
 /**
  * Does this `error` event reject the `response.create` we're still waiting on?
@@ -298,17 +359,77 @@ export function createEventLoop(params: {
    * gone. One cancel per response is all the server can act on.
    */
   let cancelInFlight = false;
+  /**
+   * Whether the configured turn detection cuts the agent off when the visitor
+   * starts speaking. The Realtime API defaults `interrupt_response` to true.
+   */
+  let speechInterruptsResponse = false;
+  /** Push-to-talk: the visitor holds the talk button. */
+  let userTurnOpen = false;
+  /** Push-to-talk: a released turn waiting out {@link PTT_COMMIT_DELAY_MS}. */
+  let commitTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Push-to-talk: words were transcribed since the button went down. Only a
+   * turn with words is answered — the model would otherwise reply to an empty
+   * turn every time someone brushes the button. The transcript, not
+   * `speech_started`, is the signal: Inworld can leave a turn open from before
+   * the press, and speech landing in it never announces itself.
+   */
+  let turnHasWords = false;
+  /**
+   * A tool result went back while the reply that called the tool was still
+   * running: the follow-up reply is owed, and asked for once that reply is done.
+   * Inworld's own follow-up (`auto_tool_response`) is off — it started the
+   * moment the result landed and cancelled whatever the reply was still saying.
+   */
+  let toolFollowUpOwed = false;
+  /** Push-to-talk: this turn's press cut the agent off mid-reply. */
+  let turnCutAgent = false;
+  /**
+   * Push-to-talk: the released turn's commit, waiting for its transcript before
+   * deciding whether to answer. `"sent"` until the provider names the item.
+   */
+  let awaitingTurn: "sent" | { itemId: string } | null = null;
+  let awaitingTurnTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Send `response.cancel` unless one is already outstanding. */
-  const sendCancelIfPossible = (logLabel: string, fields: object = {}): void => {
-    if (activeResponses === 0) return;
+  /**
+   * What the visitor's current turn did, for its one-line summary when it is decided.
+   * Times are `Date.now()`; a press that continues the turn keeps its first press.
+   */
+  let turnLog = {
+    pressedAt: 0,
+    releasedAt: 0,
+    speechHeard: false,
+    transcript: null as string | null,
+    transcriptAt: null as number | null,
+    transcriptError: null as string | null,
+  };
+  /** When the last turn was released, for how long the visitor waited on the reply. */
+  let lastTurnReleasedAt: number | null = null;
+  /** When the pending `response.create` was sent; moved onto the reply once it starts. */
+  let pendingAskedAt: number | null = null;
+  /** What the current reply did, for its one-line summary on `response.done`. */
+  let replyLog = {
+    askedAt: null as number | null,
+    firstAudioAt: null as number | null,
+    tools: [] as string[],
+    said: null as string | null,
+  };
+
+  /**
+   * Send `response.cancel` unless one is already outstanding. Returns whether it was sent;
+   * `logLabel` null leaves the logging to the caller.
+   */
+  const sendCancelIfPossible = (logLabel: string | null, fields: object = {}): boolean => {
+    if (activeResponses === 0) return false;
     if (cancelInFlight) {
-      devLog.flat("TURN", "skip response.cancel: already cancelling", fields);
-      return;
+      if (logLabel != null) devLog.flat("TURN", "skip response.cancel: already cancelling", fields);
+      return false;
     }
     cancelInFlight = true;
-    devLog.flat("TURN", logLabel, fields);
+    if (logLabel != null) devLog.flat("TURN", logLabel, fields);
     send({ type: "response.cancel" });
+    return true;
   };
 
   const sendResponseCreate = (reason: string): void => {
@@ -316,7 +437,8 @@ export function createEventLoop(params: {
     const eventId = `cof_response_create_${responseCreateEventCounter}`;
     pendingCreateReason = reason;
     pendingCreateEventId = eventId;
-    devLog.flat("TURN", "OUT response.create", { reason, eventId, lastUserTranscript });
+    pendingAskedAt = Date.now();
+    devLog.flat("TURN", "asked for a reply", { reason });
     send({ type: "response.create", event_id: eventId });
   };
 
@@ -339,21 +461,26 @@ export function createEventLoop(params: {
   };
 
   const cancelActiveResponse = (): void => {
+    // Whoever cancels takes over; a follow-up to the cancelled reply is not wanted.
+    toolFollowUpOwed = false;
     sendCancelIfPossible("OUT response.cancel");
     callbacks.onCaption(null);
   };
 
-  const interruptAndRespond = (
-    userText: string,
-    options?: { reason?: string; audioElapsedMs?: number }
-  ): void => {
-    const reason = options?.reason ?? "interrupt-request";
-    sendCancelIfPossible("OUT response.cancel (interrupt)", { reason });
+  /**
+   * Cut the agent off: cancel any in-flight response, trim its last-spoken
+   * item to what was heard (if known), and clear the audio still buffered.
+   */
+  const cutOutput = (reason: string, audioElapsedMs?: number): void => {
+    // The interruption replaces any follow-up the cut-off reply had owed.
+    toolFollowUpOwed = false;
+    const cancelled = sendCancelIfPossible(null);
+    let heardMs: number | null = null;
     // Trim the assistant's last-spoken item down to what was actually heard,
     // so the model's own transcript doesn't include audio that got cut off —
     // otherwise it may reference things it never actually said out loud.
     if (
-      options?.audioElapsedMs != null &&
+      audioElapsedMs != null &&
       currentAssistantAudioItemId != null &&
       currentAssistantAudioContentIndex != null
     ) {
@@ -362,12 +489,8 @@ export function createEventLoop(params: {
       // (observed: "audio_end_ms 20660 exceeds actual audio duration 20659").
       // The caller is responsible for the larger question of whether the
       // offset is trustworthy at all; a rejection here is absorbed, not fatal.
-      const audioEndMs = Math.max(0, Math.floor(options.audioElapsedMs));
-      devLog.flat("TURN", "OUT conversation.item.truncate (interrupt)", {
-        reason,
-        itemId: currentAssistantAudioItemId,
-        audioEndMs,
-      });
+      const audioEndMs = Math.max(0, Math.floor(audioElapsedMs));
+      heardMs = audioEndMs;
       send({
         type: "conversation.item.truncate",
         item_id: currentAssistantAudioItemId,
@@ -375,8 +498,21 @@ export function createEventLoop(params: {
         audio_end_ms: audioEndMs,
       });
     }
-    devLog.flat("TURN", "OUT output_audio_buffer.clear (interrupt)", { reason });
+    devLog.flat("TURN", "cut the agent off", {
+      reason,
+      heard: heardMs == null ? null : secs(heardMs),
+      stillGenerating: cancelled,
+    });
     send({ type: "output_audio_buffer.clear" });
+    callbacks.onOutputInterrupted?.(reason);
+  };
+
+  const interruptAndRespond = (
+    userText: string,
+    options?: { reason?: string; audioElapsedMs?: number }
+  ): void => {
+    const reason = options?.reason ?? "interrupt-request";
+    cutOutput(reason, options?.audioElapsedMs);
     // Leave the current caption on screen, same as real voice interruption:
     // it's cleared naturally when the new response starts (onResponseStarted).
     sendUserMessage(userText);
@@ -385,6 +521,111 @@ export function createEventLoop(params: {
       return;
     }
     sendResponseCreate(reason);
+  };
+
+  const isAwaitedItem = (itemId: unknown): boolean =>
+    awaitingTurn != null && awaitingTurn !== "sent" && awaitingTurn.itemId === itemId;
+
+  /**
+   * The released turn's transcript is in (or will not come): answer it if the
+   * visitor said anything, otherwise let it go.
+   */
+  /** The visitor's turn in one line, once it is decided. */
+  const logTurn = (outcome: string): void => {
+    const { pressedAt, releasedAt, transcriptAt } = turnLog;
+    devLog.flat("TURN", `turn: ${outcome}`, {
+      held: secs(releasedAt - pressedAt),
+      transcript: turnLog.transcript,
+      // A long hold is transcribed as it goes, so the words can be in before the release.
+      transcriptAfter: transcriptAt == null ? null : transcriptAt < releasedAt ? "before release" : secs(transcriptAt - releasedAt),
+      transcriptError: turnLog.transcriptError,
+      speechHeard: turnLog.speechHeard,
+      cutAgent: turnCutAgent,
+    });
+  };
+
+  const finishUserTurn = (why: string): void => {
+    if (awaitingTurnTimer != null) clearTimeout(awaitingTurnTimer);
+    awaitingTurnTimer = null;
+    awaitingTurn = null;
+    if (!turnHasWords) {
+      logTurn(`not answered (${why})`);
+      trySendJson({ type: "input_audio_buffer.clear" });
+      // The press silenced the agent for nothing: let it carry on.
+      if (turnCutAgent && sessionReady && activeResponses === 0) {
+        sendUserMessage(RESUME_AFTER_EMPTY_PRESS_TEXT);
+        sendResponseCreate("push-to-talk-resume");
+      }
+      return;
+    }
+    if (!sessionReady || activeResponses > 0) {
+      // Answered once the session is configured, or once what is playing ends.
+      logTurn(sessionReady ? "answered after the current reply" : "answered once the session is ready");
+      pendingDeferredResponse = true;
+      return;
+    }
+    logTurn("answered");
+    sendResponseCreate("push-to-talk");
+  };
+
+  const beginUserTurn = (options?: { interrupt?: { audioElapsedMs?: number } }): void => {
+    if (awaitingTurn != null) {
+      // Pressed again while the last turn's transcript was still coming: it all
+      // becomes one turn, answered when this one is released.
+      if (awaitingTurnTimer != null) clearTimeout(awaitingTurnTimer);
+      awaitingTurnTimer = null;
+      awaitingTurn = null;
+      userTurnOpen = true;
+      devLog.flat("TURN", "push-to-talk re-pressed before the reply — same turn");
+      return;
+    }
+    if (commitTimer != null) {
+      // Pressed again before the last release was committed: one turn, not two.
+      clearTimeout(commitTimer);
+      commitTimer = null;
+      userTurnOpen = true;
+      devLog.flat("TURN", "push-to-talk re-pressed before commit — same turn");
+      return;
+    }
+    userTurnOpen = true;
+    turnHasWords = false;
+    turnLog = {
+      pressedAt: Date.now(),
+      releasedAt: Date.now(),
+      speechHeard: false,
+      transcript: null,
+      transcriptAt: null,
+      transcriptError: null,
+    };
+    // The visitor's turn takes over from any follow-up still owed.
+    toolFollowUpOwed = false;
+    turnCutAgent = options?.interrupt != null;
+    // A new turn from the visitor: the recovery budgets are theirs again.
+    emptyResponseRetries = 0;
+    createRejectedRetries = 0;
+    capacityRetries = 0;
+    if (options?.interrupt) cutOutput("push-to-talk", options.interrupt.audioElapsedMs);
+    trySendJson({ type: "input_audio_buffer.clear" });
+  };
+
+  const endUserTurn = (options?: { respond?: boolean }): void => {
+    if (!userTurnOpen) return;
+    userTurnOpen = false;
+    turnLog.releasedAt = Date.now();
+    lastTurnReleasedAt = turnLog.releasedAt;
+    if (options?.respond === false) {
+      logTurn("discarded");
+      trySendJson({ type: "input_audio_buffer.clear" });
+      return;
+    }
+    commitTimer = setTimeout(() => {
+      commitTimer = null;
+      trySendJson({ type: "input_audio_buffer.commit" });
+      awaitingTurn = "sent";
+      // A transcript that never comes (observed: stt_timeout after ~1 s) must
+      // not leave the turn hanging.
+      awaitingTurnTimer = setTimeout(() => finishUserTurn("transcript-timeout"), PTT_TRANSCRIPT_TIMEOUT_MS);
+    }, PTT_COMMIT_DELAY_MS);
   };
 
   const trySendJson = (payload: unknown) => {
@@ -403,11 +644,14 @@ export function createEventLoop(params: {
   ): void => {
     sessionReady = false;
     pendingDeferredResponse = false;
+    toolFollowUpOwed = false;
     cancelInFlight = false;
     pendingCreateEventId = null;
     pendingCreateReason = null;
     createRejectedRetries = 0;
     capacityRetries = 0;
+    const turnDetection = session.audio.input?.turn_detection;
+    speechInterruptsResponse = turnDetection != null && turnDetection.interrupt_response !== false;
     if (options?.triggerGreetingOnReady) {
       pendingOpeningGreeting = options.greetingUserText ?? DEFAULT_GREETING_USER_TEXT;
     } else {
@@ -542,12 +786,9 @@ export function createEventLoop(params: {
       pendingCreateEventId = null;
       currentAssistantAudioItemId = null;
       currentAssistantAudioContentIndex = null;
-      devLog.flat("TURN", "IN response.created", {
-        reason: currentResponseReason,
-        forUserTranscript: lastUserTranscript,
-        activeResponses,
-      });
-      callbacks.onResponseStarted?.();
+      replyLog = { askedAt: pendingAskedAt, firstAudioAt: null, tools: [], said: null };
+      pendingAskedAt = null;
+      callbacks.onResponseStarted?.({ responseId: asStr(asObj(obj.response)?.id) ?? undefined });
       return true;
     }
 
@@ -559,18 +800,37 @@ export function createEventLoop(params: {
         devLog.event("ERROR", "response.failed", r.status_details);
       }
       const rFull = obj.response as
-        | { status?: string; usage?: unknown; output?: unknown[] }
+        | { id?: string; status?: string; usage?: unknown; output?: unknown[] }
         | undefined;
-      devLog.flat("TURN", "IN response.done", {
+      const audioSeconds = asObj(asObj(rFull?.usage)?.tts)?.audio_seconds;
+      const { askedAt, firstAudioAt } = replyLog;
+      // How long the visitor waited, release to first audio — only for the reply to their turn.
+      const answersTurn = currentResponseReason === "push-to-talk" || currentResponseReason.startsWith("deferred");
+      devLog.flat("TURN", `reply: ${r?.status ?? "done"}`, {
         reason: currentResponseReason,
-        status: r?.status,
-        sawOutput: sawOutputThisResponse,
-        forUserTranscript: lastUserTranscript,
-        usage: rFull?.usage ?? null,
-        outputLen: Array.isArray(rFull?.output) ? rFull.output.length : null,
-        activeResponses,
+        firstAudio: askedAt != null && firstAudioAt != null ? secs(firstAudioAt - askedAt) : null,
+        afterRelease: answersTurn && lastTurnReleasedAt != null && firstAudioAt != null
+          ? secs(firstAudioAt - lastTurnReleasedAt)
+          : null,
+        audio: typeof audioSeconds === "number" ? `${audioSeconds.toFixed(1)}s` : null,
+        tools: replyLog.tools,
+        said: replyLog.said,
+        ...(r?.status_details ? { statusDetails: r.status_details } : {}),
       });
-      callbacks.onResponseDone?.({ status: r?.status, usage: rFull?.usage });
+      callbacks.onResponseDone?.({
+        status: r?.status,
+        usage: rFull?.usage,
+        responseId: typeof rFull?.id === "string" ? rFull.id : undefined,
+      });
+      if (toolFollowUpOwed && activeResponses === 0) {
+        toolFollowUpOwed = false;
+        // A reply cancelled or failed mid-way is not continued: whatever ended
+        // it (a press, a mute) has taken over.
+        if (r?.status !== "cancelled" && r?.status !== "failed" && sessionReady) {
+          sendResponseCreate("tool-follow-up");
+          return true;
+        }
+      }
       if (pendingDeferredResponse && sessionReady && activeResponses === 0) {
         pendingDeferredResponse = false;
         sendResponseCreate("deferred-on-response-done");
@@ -640,8 +900,8 @@ export function createEventLoop(params: {
       const meta = functionCallMeta.get(itemId);
       const name = meta?.name;
       const callId = meta?.call_id ?? itemId;
-      devLog.flat("TURN", "tool call emitted", { name, createdBy: currentResponseReason });
       if (!name) return true;
+      replyLog.tools.push(name);
 
       let parsedArgs: unknown;
       try {
@@ -680,13 +940,14 @@ export function createEventLoop(params: {
         },
       });
 
-      // Only ask the model to continue if nothing else is currently producing
-      // a response. With semantic_vad + create_response: true the server may
-      // already be producing one for the next user turn; queueing another one
-      // here is what caused the cancel-cascade in the old hook.
+      // The model continues from the result in a reply of its own — but only
+      // once the reply that made the call has finished, or anything it is still
+      // saying would be cut off. Several calls in one reply get one follow-up.
       if (result.ok && result.suppressContinuation) {
         cancelActiveResponse();
         devLog.flat("TURN", "skip response.create: tool requested suppressContinuation", { name });
+      } else if (activeResponses > 0) {
+        toolFollowUpOwed = true;
       } else {
         requestResponseIfIdle("tool-continuation");
       }
@@ -696,6 +957,7 @@ export function createEventLoop(params: {
 
     if (type === "response.output_audio.delta") {
       sawOutputThisResponse = true;
+      replyLog.firstAudioAt ??= Date.now();
       const contentIndex = (obj as Record<string, unknown>).content_index;
       const timestampInfo = asObj((obj as Record<string, unknown>).timestamp_info);
       const wordAlignment = asObj(timestampInfo?.word_alignment);
@@ -721,6 +983,8 @@ export function createEventLoop(params: {
     }
 
     if (type === "response.output_audio_transcript.done") {
+      // What the agent said, whole — the captions only ever show a sentence of it.
+      replyLog.said = asStr(obj.transcript);
       return true;
     }
 
@@ -731,14 +995,38 @@ export function createEventLoop(params: {
       capacityRetries = 0;
       const transcript = asStr(obj.transcript);
       lastUserTranscript = transcript ?? "";
-      devLog.flat("TURN", "IN transcription.completed", {
-        transcript: transcript ?? "(null)",
-        length: transcript?.length ?? 0,
-        blank: !transcript || transcript.trim().length === 0,
-      });
+      const inTurn = userTurnOpen || commitTimer != null || awaitingTurn != null;
+      if (inTurn && transcript && transcript.trim().length > 0) {
+        turnHasWords = true;
+        turnLog.transcript = transcript;
+        turnLog.transcriptAt = Date.now();
+      }
+      // A turn's transcript goes in its summary; one outside any turn has nowhere else to show.
+      if (!inTurn) devLog.flat("TURN", "transcript outside a turn", { transcript });
       if (transcript && transcript.trim().length > 0) {
         callbacks.onUserTranscript(transcript);
         callbacks.onCaption(null);
+      }
+      if (isAwaitedItem(obj.item_id)) finishUserTurn("transcript");
+      return true;
+    }
+
+    if (type === "conversation.item.input_audio_transcription.failed") {
+      const code = asStr(asObj(obj.error)?.code) ?? asStr(asObj(obj.error)?.message) ?? "unknown";
+      if (isAwaitedItem(obj.item_id)) {
+        turnLog.transcriptError = code;
+        finishUserTurn("transcript-failed");
+      } else {
+        devLog.flat("TURN", "transcription failed", { code });
+      }
+      return true;
+    }
+
+    if (type === "input_audio_buffer.committed") {
+      // The first commit after ours is ours; the provider now names the item.
+      if (awaitingTurn === "sent") {
+        const itemId = asStr(obj.item_id);
+        if (itemId) awaitingTurn = { itemId };
       }
       return true;
     }
@@ -767,6 +1055,11 @@ export function createEventLoop(params: {
       // is a no-op, not a session failure. Take the server's word for it: no
       // response is active, so correct our own count rather than leaving it
       // stuck high, which would make `requestResponseIfIdle` refuse forever.
+      if (errorCode(errRaw) === "input_audio_buffer_commit_empty" && awaitingTurn === "sent") {
+        // Nothing was left to commit — the provider had committed it all itself.
+        finishUserTurn("commit-empty");
+      }
+
       if (isStaleCancelError(errRaw)) {
         cancelInFlight = false;
         activeResponses = 0;
@@ -833,8 +1126,9 @@ export function createEventLoop(params: {
       return true;
     }
 
-    // Speech VAD events: useful for diagnostics but not actionable here.
     if (type === "input_audio_buffer.speech_started") {
+      if (userTurnOpen || commitTimer != null || awaitingTurn != null) turnLog.speechHeard = true;
+      if (speechInterruptsResponse) callbacks.onOutputInterrupted?.("speech-started");
       return true;
     }
 
@@ -847,6 +1141,11 @@ export function createEventLoop(params: {
       return true;
     }
 
+    // Everything else the provider sends is still worth seeing once: a silent agent can turn
+    // out to be an event nobody handles. Streams arrive dozens a second and are left out.
+    if (!type.endsWith(".delta") && !UNLOGGED_EVENT_TYPES.has(type)) {
+      devLog.flat("REALTIME", `IN ${type}`, summarizeLogPayload(obj));
+    }
     return false;
   };
 
@@ -859,5 +1158,7 @@ export function createEventLoop(params: {
     sendUserMessage,
     cancelActiveResponse,
     interruptAndRespond,
+    beginUserTurn,
+    endUserTurn,
   };
 }

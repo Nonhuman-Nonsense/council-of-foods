@@ -200,6 +200,21 @@ describe("MeetingMetaAgent", () => {
 
   // The extension loader spins in front of a room, and a capacity wait now runs
   // to minutes — long enough that silence reads as a broken installation.
+  it.each([
+    { phase: "inactive", agentSpeaking: false, mic: false },
+    { phase: "interruption", agentSpeaking: false, mic: true },
+    { phase: "extension", agentSpeaking: false, mic: false },
+    { phase: "extension", agentSpeaking: true, mic: true },
+  ] as const)(
+    "raises the mic in $phase (agent speaking: $agentSpeaking): $mic",
+    ({ phase, agentSpeaking, mic }) => {
+      const { rerender } = render(<MeetingMetaAgent {...makeProps({ metaAgentPhase: phase })} />);
+      mockMetaAgentState.agentSpeaking = agentSpeaking;
+      rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: phase })} />);
+      expect(screen.queryByTestId("rising-mic") !== null).toBe(mic);
+    },
+  );
+
   it("explains a busy provider once the wait has gone on", () => {
     vi.useFakeTimers();
     mockMetaAgentState.providerBusy = true;
@@ -326,7 +341,7 @@ describe("MeetingMetaAgent", () => {
     expect(setMetaAgentPhase).not.toHaveBeenCalled();
   });
 
-  it("closes mic when metaAgentPhase transitions to inactive", () => {
+  it("puts the mic away without sending the turn when the agent goes inactive", () => {
     const { rerender } = render(
       <MeetingMetaAgent {...makeProps({ metaAgentPhase: "interruption" })} />,
     );
@@ -334,7 +349,7 @@ describe("MeetingMetaAgent", () => {
     mockSetMicEnabled.mockClear();
 
     rerender(<MeetingMetaAgent {...makeProps({ metaAgentPhase: "inactive" })} />);
-    expect(mockSetMicEnabled).toHaveBeenCalledWith(false);
+    expect(mockSetMicEnabled).toHaveBeenCalledWith(false, { discard: true });
   });
 
   it("mic follows pressed state inside active mode", () => {

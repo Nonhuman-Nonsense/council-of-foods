@@ -37,7 +37,7 @@ export default function MeetingSetupShell({
   const navigate = useNavigate();
   const { i18n, t } = useTranslation();
   const { newMeetingPath, meetingPath } = useRouting();
-  const { capabilities } = useCouncilSettings();
+  const { capabilities, printSummariesEnabled } = useCouncilSettings();
 
   const [step, setStep] = useState<"topic" | "characters">(() =>
     topicSelection != null ? "characters" : "topic"
@@ -108,6 +108,7 @@ export default function MeetingSetupShell({
         ...(getVenueId() ? { venueId: getVenueId() } : {}),
         ...(setupSession.get() ? { setupId: setupSession.get() } : {}),
         sendsLetters: capabilities.sendsLetters,
+        printsLetters: capabilities.printSummary && printSummariesEnabled,
       });
       setupSession.clear();
       setMeetingliveKey(liveKey);

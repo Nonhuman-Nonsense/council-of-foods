@@ -7,11 +7,11 @@ import type { Recipient } from "./recipients.js";
 import { z } from "zod";
 import { formatMeetingDate } from "@shared/topicPrompt.js";
 import { requestSpeakerClassifierCompletion } from "@logic/SpeakerClassifierBase.js";
-import { getSender, isMailConfigured } from "@services/MailService.js";
 import { Logger } from "@utils/Logger.js";
 import { buildLetterFooter } from "./footer.js";
 import { LETTER_FORMS, letterPrompts, type LetterForm } from "./prompts/letterPrompts.js";
 import { HUMAN_HANDLINGS, humanSortingPrompt, type HumanHandling } from "./prompts/humanSorting.js";
+import { turnForModel } from "../turnForModel.js";
 
 /**
  * The three steps that turn a finished meeting into a letter (see docs/council-letters.md):
@@ -88,12 +88,7 @@ function spokenMeeting(meeting: StoredMeeting): StoredMeeting {
 
 function transcript(meeting: StoredMeeting): string {
     return spokenTurns(meeting.conversation)
-        .map((message) => {
-            const name = message.type === "human"
-                ? (meeting.state?.humanName || "Visitor")
-                : (meeting.characters.find((character) => character.id === message.speaker)?.name ?? message.speaker);
-            return `${name}: ${message.text}`;
-        })
+        .map((message) => turnForModel(message, meeting))
         .join("\n\n");
 }
 
@@ -485,9 +480,6 @@ export async function sortHumanAddition(ctx: LetterContext, addition: string): P
     return { text, ...parseHumanHandling(raw), raw };
 }
 
-function contactEmail(): string {
-    return isMailConfigured() ? getSender().email : "[CONTACT_EMAIL]";
-}
 
 function recipientDisplayName(recipient: Recipient): string {
     return recipient.organisation ? `${recipient.name}, ${recipient.organisation}` : recipient.name;
@@ -578,7 +570,6 @@ export async function finishLetter(
             meetingId: meeting._id,
             beingName: author.name,
             humanContributed,
-            contactEmail: contactEmail(),
         }),
         human: { ...human, handling },
         humanContributed,

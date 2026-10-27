@@ -36,7 +36,8 @@ export type UseMetaAgentResult = {
    */
   agentSpeaking: boolean;
   /** Open or close the mic track (track.enabled). No-op if not yet connected. */
-  setMicEnabled: (open: boolean) => void;
+  /** The talk button: opening starts a turn, closing sends it — or throws it out with `discard`. */
+  setMicEnabled: (open: boolean, options?: { discard?: boolean }) => void;
   /** Inject a user message into the agent conversation (e.g. state snapshot). */
   sendUserMessage: (text: string) => void;
   /** Ask the model to respond when no response is in flight. */

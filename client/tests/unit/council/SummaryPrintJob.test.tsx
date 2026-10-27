@@ -1,7 +1,7 @@
 import { render } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Message } from "@shared/ModelTypes";
-import SummaryPrintJob from "@council/protocol/SummaryPrintJob";
+import SummaryPrintJob, { LETTER_PRINT_DELAY_MS } from "@council/protocol/SummaryPrintJob";
 
 const mockPrintProtocolOnce = vi.fn();
 const mockCreateProtocolPdf = vi.fn();
@@ -15,8 +15,8 @@ vi.mock("@council/protocol/protocolPdf", () => ({
 }));
 
 vi.mock("@council/protocol/ProtocolDocument", () => ({
-  default: ({ ref, summaryText }: { ref: React.Ref<HTMLDivElement>; summaryText: string }) => (
-    <div ref={ref} data-testid="protocol-document">{summaryText}</div>
+  default: ({ ref, summaryText, disclaimer = true }: { ref: React.Ref<HTMLDivElement>; summaryText: string; disclaimer?: boolean }) => (
+    <div ref={ref} data-testid="protocol-document">{summaryText}{disclaimer && " [disclaimer]"}</div>
   ),
 }));
 
@@ -54,17 +54,40 @@ describe("SummaryPrintJob", () => {
     const [meetingId, createPdf] = mockPrintProtocolOnce.mock.calls[0];
     expect(meetingId).toBe(42);
     await expect(createPdf()).resolves.toBe(blob);
-    expect(mockCreateProtocolPdf).toHaveBeenCalledWith(getByTestId("protocol-document"));
+    expect(mockCreateProtocolPdf).toHaveBeenCalledWith(getByTestId("protocol-document"), expect.anything());
   });
 
-  it("prints a letter as a letter: who it is from and to, what it says, and its footer", () => {
+  it("prints a letter as only the letter: who it is from and to and what it says, without the email's footer", () => {
     const { getByTestId } = render(<SummaryPrintJob meetingId={42} textMessages={[letterSummary(true)]} />);
 
     expect(mockPrintProtocolOnce).toHaveBeenCalledTimes(1);
-    const printed = getByTestId("protocol-document").textContent ?? "";
-    for (const expected of ["Reindeer", "Skogsstyrelsen", "Three weeks", "please wait", "Sent by Council of Forest"]) {
+    const printed = getByTestId("summary-print-job").textContent ?? "";
+    for (const expected of ["Reindeer", "Skogsstyrelsen", "Three weeks", "please wait"]) {
       expect(printed).toContain(expected);
     }
+    expect(printed).not.toContain("Sent by Council of Forest");
+    expect(printed).not.toContain("[disclaimer]");
+  });
+
+  describe("a letter's timing", () => {
+    beforeEach(() => { vi.useFakeTimers(); });
+    afterEach(() => { vi.useRealTimers(); });
+
+    it("lays the letter out at once but hands it to the printer only after the delay, while the farewell plays", async () => {
+      const blob = new Blob(["%PDF-"]);
+      mockCreateProtocolPdf.mockResolvedValue({ output: vi.fn().mockReturnValue(blob) });
+      const { unmount } = render(<SummaryPrintJob meetingId={42} textMessages={[letterSummary(true)]} />);
+
+      let handedOver = false;
+      void mockPrintProtocolOnce.mock.calls[0][1]().then(() => { handedOver = true; });
+      unmount(); // leaving the meeting does not stop the print
+      await vi.advanceTimersByTimeAsync(LETTER_PRINT_DELAY_MS - 1);
+      expect(mockCreateProtocolPdf).toHaveBeenCalledTimes(1);
+      expect(handedOver).toBe(false);
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(handedOver).toBe(true);
+    });
   });
 
   it("does not print a letter when the human was not there to answer", () => {

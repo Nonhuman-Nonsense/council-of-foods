@@ -2,10 +2,12 @@ import type { Topic, Character } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import {
   buildMeetingCharactersPayload,
+  MAX_HUMAN_PANELISTS,
   orderSelectedCharactersForInstallation,
   type MeetingCharactersI18n,
 } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
+import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { getCapabilities } from "@/settings/councilSettings";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
@@ -66,27 +68,47 @@ function participantNames(ctx: SetupAgentToolContext): string[] {
   ].filter((name) => name.length > 0);
 }
 
-function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext): boolean {
-  const names = participantNames(ctx);
+function isDuplicateParticipantName(name: string, ctx: SetupAgentToolContext, except?: string): boolean {
+  const names = participantNames(ctx).filter((existing) => existing !== except);
   names.push(name);
   return new Set(names).size !== names.length;
 }
 
 /**
- * Everyone currently in the council: selected foods (chair included) and
- * already-added human panelists, split the way `current_characters` reports
- * them. Matches exactly what `buildMeetingCharactersPayload` treats as the
- * uniqueness set (selected participants only) — deliberately narrower than
- * `participantNames` above, which also includes every food in the bundle
+ * A character the visitor can put on or take off the council. Not the chair:
+ * the agent speaks as the chair, who runs every meeting — and whoever is first
+ * in the selection gets the chair's prompt, so letting the agent drop it hands
+ * the meeting to another character.
+ */
+function isSelectableCharacter(character: Pick<SetupAgentCharacter, "id">): boolean {
+  return !character.id.startsWith("panelist") && character.id !== "addhuman" && character.id !== CHAIR_ID;
+}
+
+/**
+ * The tools list each character by name, but visitors use everyday names ("biet"
+ * for Humlan) and the model sometimes passes their word on instead. Resolve it
+ * the same way rather than answering "unknown character" for someone on screen.
+ */
+function findCharacter(ctx: SetupAgentToolContext, name: string): SetupAgentCharacter | undefined {
+  const exact = ctx.characters.find((c) => c.name === name);
+  if (exact) return exact;
+  const wanted = name.trim().toLocaleLowerCase();
+  return ctx.characters.find((c) =>
+    [c.name, ...(c.aliases ?? [])].some((candidate) => candidate.toLocaleLowerCase() === wanted),
+  );
+}
+
+const CHAIR_ALWAYS_PRESENT = "is the chair and is always in the meeting; there is nothing to change.";
+
+/**
+ * The characters the visitor chose (not the chair) and already-added human
+ * panelists, split the way `current_characters` reports them. Narrower than
+ * `participantNames` above, which also includes every character in the bundle
  * whether selected or not.
  */
 function currentCouncilParticipants(ctx: SetupAgentToolContext): { characters: string[]; humans: string[] } {
   const store = useMeetingSetupStore.getState();
-  const councilCharIds = new Set(
-    ctx.characters
-      .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
-      .map((c) => c.id),
-  );
+  const councilCharIds = new Set(ctx.characters.filter(isSelectableCharacter).map((c) => c.id));
   const characters = store.selectedCharacters
     .filter((id) => councilCharIds.has(id))
     .map((id) => ctx.characters.find((c) => c.id === id)!.name);
@@ -122,9 +144,7 @@ export function createSetupAgentTools({
   typedSetup?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
-  const characterNames = characters
-    .filter((c) => !c.id.startsWith("panelist") && c.id !== "addhuman")
-    .map((c) => c.name);
+  const characterNames = characters.filter(isSelectableCharacter).map((c) => c.name);
 
   const tools: RealtimeTool[] = [
     {
@@ -234,7 +254,7 @@ export function createSetupAgentTools({
       type: "function",
       name: "human_panelist",
       description:
-        "Add a human panelist to the council (up to 3). Use when the visitor wants to include themselves or another person. Provide their name and a short character description.",
+        `Add a human panelist to the council (at most ${MAX_HUMAN_PANELISTS}). Use when the visitor wants to include themselves or another person. Provide their name and a short character description.`,
       parameters: {
         type: "object",
         additionalProperties: false,
@@ -349,8 +369,9 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       const obj = asObject(raw);
       const name = asString(obj?.name);
       if (!name) return { ok: false, error: "Missing name" };
-      const found = ctx.characters.find((c) => c.name === name);
+      const found = findCharacter(ctx, name);
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
+      if (found.id === CHAIR_ID) return { ok: true, data: { name: found.name, note: `${found.name} ${CHAIR_ALWAYS_PRESENT}` } };
       const success = useMeetingSetupStore.getState().handleSelectCharacterId(found.id);
       if (!success) {
         return { ok: false, error: "Maximum number of characters (6 plus the chair) already selected." };
@@ -365,8 +386,9 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       const obj = asObject(raw);
       const name = asString(obj?.name);
       if (!name) return { ok: false, error: "Missing name" };
-      const found = ctx.characters.find((c) => c.name === name);
+      const found = findCharacter(ctx, name);
       if (!found) return { ok: false, error: `Unknown character: ${name}` };
+      if (found.id === CHAIR_ID) return { ok: false, error: `${found.name} ${CHAIR_ALWAYS_PRESENT}` };
       useMeetingSetupStore.getState().handleDeselectCharacterId(found.id);
       useMeetingSetupStore.getState().setHoveredCharacter(null);
       syncInstallationPanelistOrder();
@@ -385,19 +407,20 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!name) return { ok: false, error: "Missing name" };
       if (!description) return { ok: false, error: "Missing description" };
       const store = useMeetingSetupStore.getState();
-      const maxPanelists = 3;
-      if (store.numberOfHumans >= maxPanelists) {
-        return { ok: false, error: `Maximum of ${maxPanelists} human panelists already added.` };
-      }
       // Same uniqueness constraint the screen enforces — if this name is
       // already in the council (e.g. the visitor just typed it in on screen
-      // themselves), there's nothing to add.
+      // themselves), there's nothing to add. Checked before the limit, which
+      // a re-add of the one panelist would otherwise hit with a less useful error.
       const { characters: existingCharacterNames, humans: existingHumanNames } = currentCouncilParticipants(ctx);
-      if ([...existingCharacterNames, ...existingHumanNames].includes(name)) {
+      const chairName = ctx.characters.find((c) => c.id === CHAIR_ID)?.name;
+      if ([chairName, ...existingCharacterNames, ...existingHumanNames].includes(name)) {
         return {
           ok: false,
           error: `${name} is already part of the council — no need to add them again.`,
         };
+      }
+      if (store.numberOfHumans >= MAX_HUMAN_PANELISTS) {
+        return { ok: false, error: `The council already has the most human panelists allowed (${MAX_HUMAN_PANELISTS}).` };
       }
       const index = store.numberOfHumans;
       store.setHumans((prev) => {
@@ -459,7 +482,13 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       if (!rawName) return { ok: false, error: "Missing name" };
       const name = normalizeVisitorName(rawName);
       if (!name) return { ok: false, error: "Name cannot be empty." };
-      if (isDuplicateParticipantName(name, ctx)) {
+      const installation = !getCapabilities().typedSetup;
+      // At an installation the visitor is panelist 0, so their own name is theirs to repeat or
+      // correct, not a collision.
+      const ownPanelistName = installation && useMeetingSetupStore.getState().numberOfHumans > 0
+        ? useMeetingSetupStore.getState().humans[0]?.name
+        : undefined;
+      if (isDuplicateParticipantName(name, ctx, ownPanelistName)) {
         return {
           ok: false,
           error: "That name is already used by a council participant. Ask for a different name.",
@@ -467,8 +496,19 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       }
       useMeetingSetupStore.getState().setVisitorName(name);
 
-      if (!getCapabilities().typedSetup) {
+      if (installation) {
         const store = useMeetingSetupStore.getState();
+        if (store.numberOfHumans > 0) {
+          // A corrected name renames the visitor's panelist too, or the meeting would address
+          // the visitor by one name while the council seats them under another.
+          store.setHumans((prev) => {
+            const next = [...prev];
+            if (next[0]) {
+              next[0] = { ...next[0], name };
+            }
+            return next;
+          });
+        }
         if (store.numberOfHumans === 0) {
           store.setHumans((prev) => {
             const next = [...prev];

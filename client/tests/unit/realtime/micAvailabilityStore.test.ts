@@ -37,7 +37,7 @@ describe("micAvailabilityStore", () => {
   });
 
   it("records a granted microphone when a request succeeds", async () => {
-    const stream = { id: "mic" };
+    const stream = { id: "mic", getAudioTracks: () => [] };
     stubGetUserMedia(vi.fn().mockResolvedValue(stream));
 
     await expect(requestMicrophone()).resolves.toBe(stream);
@@ -82,7 +82,7 @@ describe("micAvailabilityStore", () => {
   });
 
   it("says nothing when the visitor's request succeeds", async () => {
-    stubGetUserMedia(vi.fn().mockResolvedValue({ id: "mic" }));
+    stubGetUserMedia(vi.fn().mockResolvedValue({ id: "mic", getAudioTracks: () => [] }));
 
     await requestMicrophone({ userInitiated: true });
 

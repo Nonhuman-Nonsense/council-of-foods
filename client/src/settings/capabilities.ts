@@ -74,14 +74,6 @@ export type Capabilities = {
   /** Bottom-centre mic control — needs a pointer, and something to point at. */
   micToggleButton: boolean;
   /**
-   * A tap latches the microphone on; a hold stays momentary. Hold works in
-   * every mode; only latching is gated. On an unattended installation a latched-open
-   * mic has no keyboard to clear it and no on-screen button to reveal it, so
-   * the visitor's only exit is a gesture nobody taught them — and at a
-   * screening it would keep hearing the presenter narrate.
-   */
-  latchOnTap: boolean;
-  /**
    * Setup runs as a voice conversation with the agent presented installation-style:
    * mic row, council-width subtitles, button banner, and a prompt that explains
    * the talk button.
@@ -113,9 +105,9 @@ export type Capabilities = {
   installationReload: boolean;
   /**
    * Print each live meeting's protocol on the installation's printer, through
-   * the local bridge, once staff have switched printing on. A museum visitor
-   * takes the protocol home on paper; at a screening the audience is shown it,
-   * and nobody wants the printer going mid-talk.
+   * the local bridge, once staff have switched printing on. A visitor takes the
+   * protocol home on paper. Staff leave printing off at a screening that should
+   * not have the printer going mid-talk.
    */
   printSummary: boolean;
   /**
@@ -126,11 +118,18 @@ export type Capabilities = {
   kioskHeartbeat: boolean;
   /**
    * A meeting that ends in a letter may send it by email (docs/council-letters.md), when the
-   * human was there to answer. Only the museum: on the web anyone could write to real people
-   * from their sofa, and a screening's letters are a demonstration. Elsewhere the letter is
-   * still written and shown, marked unsent.
+   * human was there to answer. Only the installations: on the web anyone could write to real
+   * people from their sofa. There the letter is still written and shown, marked unsent.
    */
   sendsLetters: boolean;
+  /**
+   * Always load the full-size media (character videos, stage background), even when the
+   * viewport is short enough to count as a phone. Installation staff zoom the page in to
+   * fit the screen, which shrinks the viewport in CSS pixels without changing how many
+   * real pixels the stage covers — the small set then gets stretched across a big
+   * screen. A visitor's phone keeps the small set: it saves the download and the decode.
+   */
+  fullResolutionMedia: boolean;
 };
 
 const WEB: Capabilities = {
@@ -147,7 +146,6 @@ const WEB: Capabilities = {
   cursorHide: false,
   micUpFront: false,
   micToggleButton: true,
-  latchOnTap: true,
   voiceSetupAgent: false,
   agentWaitsForVisitor: true,
   typedSetup: true,
@@ -155,6 +153,7 @@ const WEB: Capabilities = {
   printSummary: false,
   kioskHeartbeat: false,
   sendsLetters: false,
+  fullResolutionMedia: false,
 };
 
 const MUSEUM: Capabilities = {
@@ -171,7 +170,6 @@ const MUSEUM: Capabilities = {
   cursorHide: true,
   micUpFront: true,
   micToggleButton: false,
-  latchOnTap: false,
   voiceSetupAgent: true,
   agentWaitsForVisitor: false,
   typedSetup: false,
@@ -179,6 +177,7 @@ const MUSEUM: Capabilities = {
   printSummary: true,
   kioskHeartbeat: true,
   sendsLetters: true,
+  fullResolutionMedia: true,
 };
 
 /**
@@ -187,11 +186,9 @@ const MUSEUM: Capabilities = {
  * must wait for them. Chrome, teleprompter, meta agent, push-to-talk and
  * self-healing are the museum's.
  *
- * It doesn't print protocols either: a screening shows the protocol to the
- * room, and a printer starting up mid-talk only interrupts.
- *
- * Nor does it send letters: a screening's letter is a demonstration, not one
- * written with a visitor.
+ * It prints and sends letters like the museum, so a screening ends the same way:
+ * the letter goes out, prints, and the credits roll. Staff's Print summaries
+ * switch still decides whether this installation prints.
  *
  * Adding human panelists is the exception: a presenter has a keyboard, and
  * putting people on the council by hand is part of showing the piece off. The
@@ -205,8 +202,6 @@ const PRESENTER: Capabilities = {
   autoReturnToLanding: false,
   autoplay: false,
   typedSetup: true,
-  printSummary: false,
-  sendsLetters: false,
 };
 
 const CAPABILITIES: Record<AppMode, Capabilities> = {

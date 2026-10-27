@@ -37,7 +37,7 @@ describe("realtimeErrorReporting", () => {
         reportRealtimeIssue({ feature: "setup-agent", kind: "turn-recovered", message: "a", code: "x" });
         reportRealtimeIssue({ feature: "setup-agent", kind: "turn-recovered", message: "a", code: "y" });
         reportRealtimeIssue({ feature: "council", kind: "turn-recovered", message: "a", code: "x" });
-        reportRealtimeIssue({ feature: "setup-agent", kind: "provider-error", message: "a", code: "x" });
+        reportRealtimeIssue({ feature: "setup-agent", kind: "recovered", message: "a", code: "x" });
 
         // All four are a first occurrence of their own key.
         expect(reportMock).toHaveBeenCalledTimes(4);
@@ -49,13 +49,21 @@ describe("realtimeErrorReporting", () => {
         expect(reportMock).toHaveBeenCalledTimes(2);
     });
 
+    it("leaves a presampled report's thinning to its caller", () => {
+        for (let i = 0; i < 4; i++) {
+            reportRealtimeIssue({ feature: "setup-agent", kind: "still-down", message: "a", presampled: true });
+        }
+
+        expect(reportMock).toHaveBeenCalledTimes(4);
+    });
+
     /**
      * Severity/impact decide whether a report pages anyone: a reconnect the
      * visitor never notices must not look like a dead session.
      */
     it.each([
-        { kind: "provider-error" as const, severity: "warning", clientImpact: "none" },
-        { kind: "connection-lost" as const, severity: "warning", clientImpact: "none" },
+        { kind: "recovered" as const, severity: "warning", clientImpact: "none" },
+        { kind: "still-down" as const, severity: "warning", clientImpact: "none" },
         { kind: "turn-recovered" as const, severity: "warning", clientImpact: "none" },
         { kind: "retry-exhausted" as const, severity: "error", clientImpact: "none" },
         { kind: "refused" as const, severity: "error", clientImpact: "none" },

@@ -1,5 +1,6 @@
 import { getCapabilities } from "@/settings/councilSettings";
-import type { SetupAgentPromptParams } from "./setupAgentPrompt";
+import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
+import type { SetupAgentPromptParams, SetupAgentSelection } from "./setupAgentPrompt";
 
 export function buildEnPrompt({
   phase,
@@ -7,6 +8,7 @@ export function buildEnPrompt({
   topics,
   characters,
   otherLanguageNames,
+  selection,
   hasEverHeardVisitor = true,
 }: SetupAgentPromptParams): string {
   const { voiceSetupAgent, typedSetup } = getCapabilities();
@@ -27,6 +29,7 @@ General Rules:
 - Use the provided tools to make every selection. Never claim you selected something unless a tool returned ok.
 - Do not use markdown, or wrap things in "". Just normal text.
 - For every user input, always give a reply. Always generate a reply to user input.
+- Don't overly evaluate or praise the visitor's choices ("great choice", "a profound choice", "ah, X…"), go straight to what matters about it.
 
 Project context:
 Council of Foods is a political arena where foods debate the broken food system.
@@ -71,7 +74,8 @@ Talk to the user and check that they want to proceed with the selected topic. Wh
 Food Selection:
 Help the visitor select a small set of 2-6 food characters${typedSetup ? ", and optionally 1-3 human panelists," : ""}
 Available foods:
-${bullets(characters.map((c) => `${c.name}`))}
+${bullets(characters.map((c) => (c.aliases?.length ? `${c.name} (visitors may also say: ${c.aliases.join(", ")})` : c.name)))}
+Visitors often use an everyday name rather than the listed one. Work out who they mean, and always pass the listed name to the tools.
 If the visitor mentions a certain food or wants details about a food, call select_character. This selects that food character for the meeting and highlights it in the UI. You should then explain it briefly out loud.
 If the visitor mentions multiple foods directly, you can call select_character multiple times with each of the mentioned foods characters, and then make a short sentence commenting on their selection.
 Based on the topic at hand, feel free to recommend particular food characters to the visitor, based on what would make the most meaningful discussion.
@@ -94,13 +98,13 @@ ${visitorName ? `You already know this visitor as ${visitorName}. Use their name
 
 ${typedSetup ? `
 Visitor Microphone
-The visitor talks to you by holding the space bar, or by clicking the microphone button at the bottom of the screen to keep it on. The microphone is therefore closed most of the time, even mid-conversation — that is normal and means nothing. Never remark on it, and never ask them to turn it on or off.
+The visitor talks to you by holding down the space bar, or the microphone button at the bottom of the screen, while they speak, and letting go when they are done. The microphone is therefore closed most of the time, even mid-conversation — that is normal and means nothing. Never remark on it, and never ask them to turn it on or off.
 ${hasEverHeardVisitor ? `They have a working microphone and can answer you. Talk with them and use your tools as described above.`
 : `They have not spoken to you at all yet, and are making every choice by clicking on screen.
 
 While that is true, follow these additional rules (that override descriptions above if contradictory):
 - Do not select, confirm or navigate anything for them, and do not offer to. They are doing it themselves. Your tools will refuse to act until they have spoken.
-- Early on — in your first or second turn — mention once, briefly and lightly, that they can hold the space bar or press the microphone button at the bottom of the screen if they would like to talk with you. Say it only once, and never nag.
+- Early on — in your first or second turn — mention once, briefly and lightly, that they can hold down the space bar or the microphone button at the bottom of the screen while they talk, if they would like to talk with you. Say it only once, and never nag.
 
 If you are later told that the visitor can talk to you, drop these rules from that point on and converse with them normally.`}
 
@@ -113,7 +117,30 @@ We are currently in the ${phase} phase. The user have already gone through all t
 You do not need to repeat the jobs listed until those phases above, assume that they have already happened.
 That is, you do not need to instroduce yourself and ask if they are ready, you can assume that they already are!
 Check what your task is on the ${phase} phase, and then proceed from there.`}
+${describeSelection(phase, selection)}
 `;
 
   return prompt;
+}
+
+/**
+ * The choices already on screen. Empty on the welcome step, where nothing can
+ * have been chosen yet.
+ */
+function describeSelection(phase: MeetingSetupPhase, selection?: SetupAgentSelection): string {
+  if (phase === "landing" || !selection) return "";
+  const lines: string[] = [];
+  if (selection.topic) {
+    lines.push(phase === "topic"
+      ? `The visitor has already highlighted the topic "${selection.topic}" on screen, but has not confirmed it yet.`
+      : `The confirmed topic is "${selection.topic}".`);
+  }
+  if (phase === "characters") {
+    lines.push(selection.council.length > 0
+      ? `The council already has ${selection.council.join(", ")}, and yourself as the moderator.`
+      : `No one has been picked for the council yet; it is just yourself as the moderator.`);
+  }
+  if (lines.length === 0) return "";
+  lines.push("These choices were made before this conversation began. Take them as they stand and carry on from them, rather than reacting as if they had just been made.");
+  return lines.join("\n");
 }

@@ -72,16 +72,7 @@ export class HumanInputHandler {
             speakerId: humanName,
         });
 
-        const renderedText = humanName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text;
-
-        const msgId = "human-" + uuidv4();
-        const message: HumanMessage = {
-            id: msgId,
-            type: "human",
-            speaker: humanName,
-            text: renderedText,
-            askParticular,
-        };
+        const message: HumanMessage = { ...humanMessage(m, payload.text), askParticular };
 
         m.conversation.push(message);
 
@@ -96,25 +87,24 @@ export class HumanInputHandler {
 
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
 
+        this.queueHumanAudio(m, message);
+
+        manager.isPaused = false;
+        manager.handRaised = false;
+        manager.startLoop();
+    }
+
+    /** The chair reads a human's words for replay; live, the client skips its own echo. */
+    private queueHumanAudio(m: StoredMeeting, message: HumanMessage): void {
+        const { manager } = this;
         message.sentences = splitSentences(message.text);
-
-        // Assert types for Queue compatibility
-        const queueMsg = {
-            ...message,
-            sentences: message.sentences,
-        } as AudioQueueMessage;
-
         manager.audioSystem.queueAudioGeneration(
-            queueMsg,
+            { ...message, sentences: message.sentences } as AudioQueueMessage,
             m.characters[0],
             m,
             manager.environment,
             manager.serverOptions
         );
-
-        manager.isPaused = false;
-        manager.handRaised = false;
-        manager.startLoop();
     }
 
     /**
@@ -183,14 +173,15 @@ export class HumanInputHandler {
 
     /**
      * The human's answer to the author's "would you like to add something?" — their words, or
-     * `null` when they skipped or walked away. Their words go straight into the letter, not into
-     * the conversation (nobody reads them back first): `awaiting_letter_addition` becomes
-     * `summary_pending` in one write with the answer and whether they were there to give it —
-     * only then is the letter printed and sent. The run loop then finishes the letter.
+     * `null` when they skipped or walked away. `awaiting_letter_addition` becomes their words, as
+     * said (a `human` message, so a replay hears what was added; live, nobody reads them back),
+     * and `summary_pending`, in one write with the answer and whether they were there to give it
+     * — only then is the letter printed and sent. The run loop then finishes the letter.
      */
     private async resolveLetterAddition(m: StoredMeeting, text: string | null): Promise<void> {
         const { manager } = this;
-        m.conversation[m.conversation.length - 1] = { type: "summary_pending" };
+        const said = text !== null ? humanMessage(m, text) : null;
+        m.conversation.splice(m.conversation.length - 1, 1, ...(said ? [said] : []), { type: "summary_pending" });
         const answer = { present: text !== null, ...(text !== null ? { addition: text } : {}) };
         if (m.letter) m.letter = { ...m.letter, ...answer };
         Logger.info("humanInput", text === null ? "letter addition skipped" : "letter addition received", { from: manager });
@@ -206,6 +197,7 @@ export class HumanInputHandler {
             },
         );
         manager.broadcaster.broadcastConversationUpdate(m.conversation);
+        if (said) this.queueHumanAudio(m, said);
 
         manager.isPaused = false;
         manager.handRaised = false;
@@ -268,4 +260,15 @@ export class HumanInputHandler {
         manager.handRaised = false;
         manager.startLoop();
     }
+}
+
+/** A human's words in the conversation, as the chair reads them: "Frank said: …". */
+function humanMessage(m: StoredMeeting, text: string): HumanMessage {
+    const speaker = m.state.humanName || "Human";
+    return {
+        id: "human-" + uuidv4(),
+        type: "human",
+        speaker,
+        text: speaker + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + text,
+    };
 }

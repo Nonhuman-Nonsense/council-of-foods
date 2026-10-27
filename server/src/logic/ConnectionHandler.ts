@@ -94,8 +94,10 @@ export class ConnectionHandler {
 
                 Logger.info("connection", `(async) generating missing audio for ${audioMsg.speaker}`, { from: manager });
                 audioMsg.sentences = splitSentences(audioMsg.text as string);
-                // Ensure speaker is found
-                const speaker = existingMeeting.characters.find(c => c.id === audioMsg.speaker);
+                // Ensure speaker is found. A human's words are read by the chair.
+                const speaker = audioMsg.type === 'human'
+                    ? existingMeeting.characters[0]
+                    : existingMeeting.characters.find(c => c.id === audioMsg.speaker);
                 if (speaker) {
                     manager.audioSystem.queueAudioGeneration(
                         { ...audioMsg, id: audioMsg.id!, text: audioMsg.text!, sentences: audioMsg.sentences! },

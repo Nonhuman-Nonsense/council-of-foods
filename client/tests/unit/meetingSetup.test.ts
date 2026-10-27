@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
-import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK } from "@shared/agendaPointInjection";
+import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK, SINGLE_AGENDA_POINT_PLACEHOLDER } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
 import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
 
@@ -9,13 +9,14 @@ vi.mock("@newMeeting/CharacterSetup", () => ({
   CHAIR_ID: "chair",
   getCharacterSetupBundle: () => ({
     panelWithHumans: " [HUMANS] ",
+    singleAgendaPoint: " Stay on the one point.",
     characters: [
       {
         id: "chair",
         name: "Chair",
         description: "Moderator",
         voice: "alloy",
-        prompt: `Welcome [CHARACTERS].[HUMANS] Agenda: ${RANDOM_AGENDA_POINT_PLACEHOLDER}`,
+        prompt: `Welcome [CHARACTERS].[HUMANS] Agenda: ${RANDOM_AGENDA_POINT_PLACEHOLDER}.${SINGLE_AGENDA_POINT_PLACEHOLDER}`,
       },
       {
         id: "food-a",
@@ -495,6 +496,32 @@ describe("buildTopicFromSelection", () => {
     expect(topic.prompt).toContain("Only context.");
     expect(topic.prompt).not.toContain(AGENDA_POINTS_PLACEHOLDER);
   });
+
+  it("makes a custom topic's question its only agenda point", () => {
+    const topic = buildTopicFromSelection({
+      topicsBundle,
+      selectedTopicId: "customtopic",
+      customTopic: "  Who owns the wind?  ",
+    });
+
+    expect(topic.agendaPoints).toEqual(["Who owns the wind?"]);
+    expect(topic.prompt).toContain("1. Who owns the wind?");
+  });
+
+  it("opens a custom-topic meeting on the visitor's question, not the no-agenda fallback", () => {
+    const topic = buildTopicFromSelection({
+      topicsBundle,
+      selectedTopicId: "customtopic",
+      customTopic: "Who owns the wind?",
+    });
+    const result = buildCharactersPayload(topic.agendaPoints);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const chair = result.characters[0] as Character;
+    expect(chair.prompt).toContain("Agenda: 1");
+    expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_FALLBACK);
+  });
 });
 
 describe("buildMeetingCharactersPayload", () => {
@@ -558,6 +585,40 @@ describe("buildMeetingCharactersPayload", () => {
     const chair = result.characters[0] as Character;
     expect(chair.prompt).toContain(RANDOM_AGENDA_POINT_FALLBACK);
     expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_PLACEHOLDER);
+  });
+
+  it.each([
+    { case: "a single agenda point", agendaPoints: ["Who owns the wind?"], staysOnPoint: true },
+    { case: "several agenda points", agendaPoints: ["One", "Two"], staysOnPoint: false },
+    { case: "no agenda points", agendaPoints: undefined, staysOnPoint: false },
+  ])("gives the chair the stay-on-the-point rule only for $case", ({ agendaPoints, staysOnPoint }) => {
+    const result = buildCharactersPayload(agendaPoints);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const chair = result.characters[0] as Character;
+    expect(chair.prompt.includes("Stay on the one point.")).toBe(staysOnPoint);
+    expect(chair.prompt).not.toContain(SINGLE_AGENDA_POINT_PLACEHOLDER);
+  });
+
+  it.each([
+    { case: "the chair is missing", selectedCharacters: ["food-a", "food-b"] },
+    { case: "the chair was re-added last", selectedCharacters: ["food-a", "food-b", "chair"] },
+    { case: "the chair is in the middle", selectedCharacters: ["food-a", "chair", "food-b"] },
+  ])("still gives the meeting to the chair when $case", ({ selectedCharacters }) => {
+    const result = buildMeetingCharactersPayload({
+      language: "en",
+      selectedCharacters,
+      humans: [],
+      numberOfHumans: 0,
+      labels: { formatHumanCount: (count) => `${count} humans: ` },
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.characters.map((character) => character.id)).toEqual(["chair", "food-a", "food-b"]);
+    expect(result.characters[0].prompt).toContain("Welcome");
+    expect(result.characters[1].prompt).toBe("Speak as Food A.");
   });
 
   it("allows museum panelists without descriptions", () => {

@@ -6,7 +6,9 @@ import { MockFactory } from './factories/MockFactory.ts';
 /**
  * The letter ending (docs/council-letters.md → "The meeting ending"): the chair's closing line
  * hands over to an author, the author announces the letter, the human is asked to add something,
- * and the letter becomes the summary, read by its author. Each step ends in a durable marker, so a
+ * and the letter becomes the summary, read by its author — or, where the installation prints its
+ * letters, the chair says farewell and the meeting ends on the credits, with the letter after
+ * them for replay. Each step ends in a durable marker, so a
  * reconnect at any of them resumes there (RESILIENCE.md). The letter steps themselves are mocked:
  * these tests are about the flow, not the writing.
  */
@@ -38,21 +40,23 @@ const fill = (n) => Array.from({ length: n }, (_, i) => ({ id: `m${i}`, type: 'm
 const types = (manager) => manager.meeting.conversation.map((m) => m.type);
 const tail = (manager) => manager.meeting.conversation.at(-1);
 
-function letterManager({ sendsLetters = true } = {}) {
+function letterManager({ sendsLetters = true, printsLetters = false } = {}) {
     const { manager } = createTestManager('test');
     manager.serverOptions.meetingEnding = 'letter';
     manager.serverOptions.conversationMaxLength = 3;
     manager.serverOptions.meetingVeryMaxLength = 3; // no room to extend → the loop concludes
     manager.meeting.conversationExtraSlots = 0;
     manager.meeting.sendsLetters = sendsLetters;
+    manager.meeting.printsLetters = printsLetters;
     manager.meeting.topic = { ...manager.meeting.topic, id: 'customtopic' };
     manager.meeting.conversation = fill(3);
     const author = manager.meeting.characters[1];
 
-    const chair = vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockResolvedValue({
+    let chairLines = 0;
+    const chair = vi.spyOn(manager.dialogGenerator, 'chairInterjection').mockImplementation(async () => ({
         response: 'This concludes the meeting. But before we go, I think the author wants to send an email.',
-        id: 'close1', sentences: ['Closing.'], trimmed: false, pretrimmed: false,
-    });
+        id: `chair${++chairLines}`, sentences: ['Closing.'], trimmed: false, pretrimmed: false,
+    }));
     const protocol = vi.spyOn(manager.dialogGenerator, 'generateDocument');
     vi.spyOn(manager.services.meetingsCollection, 'updateOne').mockResolvedValue({});
     vi.spyOn(manager.services.meetingsCollection, 'findOne').mockResolvedValue(null);
@@ -131,28 +135,59 @@ describe('letter ending', () => {
         expect(manager.meeting.letter).toMatchObject({ finishedAt: expect.any(String), ...expected });
     });
 
-    it('takes the human\'s words straight into the letter: no message of theirs is read out first', async () => {
-        const { manager, author } = letterManager();
+    it('keeps the human\'s words in the conversation, read by the chair for replay, written with the marker', async () => {
+        const { manager } = letterManager();
         await manager.runLoop();
         const before = types(manager).slice(0, -1);
+        const writes = manager.services.meetingsCollection.updateOne;
+        writes.mockClear();
 
         await manager.humanInputHandler.handleSubmitHumanMessage({ text: 'Please listen to us.' });
 
-        expect(types(manager)).toEqual([...before, 'summary_pending']);
+        expect(types(manager)).toEqual([...before, 'human', 'summary_pending']);
+        const said = manager.meeting.conversation.at(-2);
+        expect(said).toMatchObject({ speaker: 'Frank', text: expect.stringContaining('Please listen to us.') });
+        expect(writes.mock.calls[0][1].$set.conversation.map((m) => m.type)).toEqual([...before, 'human', 'summary_pending']);
         await vi.waitFor(() => expect(tail(manager).type).toBe('summary'));
-        expect(types(manager)).toEqual([...before, 'summary']);
+        expect(types(manager)).toEqual([...before, 'human', 'summary']);
+        expect(spokenBy(manager.audioSystem.generateAudio, said.id)).toBe(manager.meeting.characters[0].id);
         expect(letterSteps.sortHumanAddition).toHaveBeenCalledWith(expect.anything(), 'Please listen to us.');
-        expect(tail(manager).speaker).toBe(author.id);
     });
 
-    it('only gives the author the human\'s words when they answered', async () => {
+    it('leaves nothing of the human in the conversation or the letter when they walked away', async () => {
         const { manager } = letterManager();
         await manager.runLoop();
+        const before = types(manager).slice(0, -1);
         await manager.humanInputHandler.handleSkipHumanTurn();
         await vi.waitFor(() => expect(tail(manager).type).toBe('summary'));
 
+        expect(types(manager)).toEqual([...before, 'summary']);
         expect(letterSteps.sortHumanAddition).not.toHaveBeenCalled();
         expect(letterSteps.finishLetter.mock.calls[0][3]).toMatchObject({ text: '', handling: 'none' });
+    });
+
+    it.each([
+        ['printing on, the human answers: farewell, credits, then the letter, sent', true, 'submit', ['human', 'letter_farewell', 'credits', 'summary'], { present: true, send: true }],
+        ['printing on, the human walks away: farewell, credits, then the letter, unsent', true, 'skip', ['letter_farewell', 'credits', 'summary'], { present: false, send: false }],
+        ['printing off: the letter alone, read by its author', false, 'submit', ['human', 'summary'], { present: true, send: true }],
+    ])('%s', async (_label, printsLetters, answer, ending, expected) => {
+        const { manager, author, audio } = letterManager({ printsLetters });
+        await manager.runLoop();
+        const before = types(manager).slice(0, -1);
+
+        if (answer === 'submit') {
+            await manager.humanInputHandler.handleSubmitHumanMessage({ text: 'Please listen to us.' });
+        } else {
+            await manager.humanInputHandler.handleSkipHumanTurn();
+        }
+        await vi.waitFor(() => expect(tail(manager).type).toBe('summary'));
+
+        expect(types(manager)).toEqual([...before, ...ending]);
+        expect(tail(manager).letter).toMatchObject(expected);
+        expect(spokenBy(audio, tail(manager).id)).toBe(author.id); // recorded for replay either way
+        expect(manager.meeting.maximumPlayedIndex).toBe(manager.meeting.conversation.length - 1);
+        const farewell = manager.meeting.conversation.find((m) => m.type === 'letter_farewell');
+        if (farewell) expect(spokenBy(audio, farewell.id)).toBe(manager.meeting.characters[0].id);
     });
 
     it('writes the letter while the human thinks: the answer does not wait for a draft', async () => {
@@ -245,5 +280,26 @@ describe('letter ending', () => {
 
         expect(buildResumeConversation(structuredClone(meeting)).at(-1).type).toBe(marker);
         expect(buildReplayMeetingManifest(structuredClone(meeting)).conversation.at(-1).type).toBe('meeting_incomplete');
+    });
+
+    it('replay drops the farewell and credits and goes from the human\'s words to the letter; resume keeps them', () => {
+        const meeting = MockFactory.createStoredMeeting({
+            _id: 952,
+            conversation: [
+                { id: 'a1', type: 'message', speaker: 'water', text: 'I will write. Would you like to add something?' },
+                { id: 'h1', type: 'human', speaker: 'Frank', text: 'Frank said: listen' },
+                { id: 'f1', type: 'letter_farewell', speaker: 'chair', text: 'Thank you. It is printed behind you.' },
+                { type: 'credits' },
+                { id: 'l1', type: 'summary', speaker: 'water', text: 'Dear …' },
+            ],
+            audio: ['a1', 'h1', 'f1', 'l1'],
+            maximumPlayedIndex: 4,
+        });
+
+        const replay = buildReplayMeetingManifest(structuredClone(meeting));
+        expect(replay.conversation.map((m) => m.type)).toEqual(['message', 'human', 'summary']);
+        expect(replay.audio).toEqual(['a1', 'h1', 'l1']);
+        expect(buildResumeConversation(structuredClone(meeting)).map((m) => m.type))
+            .toEqual(['message', 'human', 'letter_farewell', 'credits', 'summary']);
     });
 });

@@ -134,6 +134,7 @@ echo "Setting up printing..."
 setup_print_spool
 link_print_spool_on_desktop
 configure_default_printer
+configure_power_button
 
 write_launchd_plist "$PLIST_SRC" "$NODE_BIN" "$INSTALL_DIR"
 

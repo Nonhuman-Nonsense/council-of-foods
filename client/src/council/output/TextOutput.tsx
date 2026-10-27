@@ -107,6 +107,10 @@ function TextOutput({
     } else {
       // CASE B: PLAYING
 
+      // A resume can restart the clock earlier in the message (back to the start
+      // of an interrupted sentence), so search from the top once per (re)start.
+      searchCursorRef.current = 0;
+
       // -- THE ANIMATION FRAME FUNCTION --
       // This runs ~60 times per second while playing
       const animate = () => {

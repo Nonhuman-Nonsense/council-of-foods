@@ -23,6 +23,8 @@ export const ChairVoiceProfileSchema = z.object({
 export const ChairRealtimeLanguageConfigSchema = z.object({
     provider: z.enum(["inworld"]),
     llmModel: z.string(),
+    /** Left out, the model's own default applies — for a thinking model, a pause before every reply. */
+    reasoning: ConversationReasoningSchema.optional(),
     ttsModel: z.string().optional(),
     transcriptionModel: z.string(),
     agentVoice: ChairVoiceProfileSchema.nullable().optional(),
@@ -41,6 +43,12 @@ export const HumanInputRealtimeLanguageConfigSchema = z.object({
 
 export const HumanInputRealtimeSchema = z.object({
     languages: z.record(z.string(), HumanInputRealtimeLanguageConfigSchema),
+});
+
+export const VoiceLoudnessSchema = z.object({
+    targetLufs: z.number(),
+    skipBelowDb: z.number().nonnegative(),
+    truePeakDb: z.number().max(0),
 });
 
 export const GlobalOptionsSchema = z.object({
@@ -74,6 +82,11 @@ export const GlobalOptionsSchema = z.object({
     transcribeModel: z.string(),
     transcribePrompt: z.record(z.string(), z.string()),
     audioConcurrency: z.number(),
+    /**
+     * Every newly generated message is brought to one perceived loudness, so no being speaks
+     * louder than another. null switches it off. See `normalizeLoudness` in AudioUtils.
+     */
+    voiceLoudness: VoiceLoudnessSchema.nullable(),
     chairRealtime: ChairRealtimeSchema,
     humanInputRealtime: HumanInputRealtimeSchema,
     speakerClassifierModel: z.string(),
@@ -105,6 +118,20 @@ export const GlobalOptionsSchema = z.object({
     letterWriteLength: z.number(),
     /** An author sits out this many letters after writing one, so the letters come from many voices. */
     letterAuthorCooldown: z.number().int().nonnegative(),
+    /** Letters go out from `<being>@<letterSenderDomain>`, authenticated in Brevo. */
+    letterSenderDomain: z.string(),
+    /**
+     * Replies come back to `<being>.<meetingId>@<letterReplyDomain>`, a different domain
+     * delegated to Brevo's inbound parsing (Brevo will not receive on the sending domain).
+     */
+    letterReplyDomain: z.string(),
+    /** A being's address where it is not simply its id, e.g. `{ "treeharvester": "tree.harvester" }`. */
+    letterSenderAddresses: z.record(z.string(), z.string()),
+    /**
+     * Most letters sent in any 24 hours — a ceiling for a bug, not a pace: far above the
+     * expected handful a day. Reaching it holds the rest in the outbox and alerts.
+     */
+    letterDailyLimit: z.number().int().positive(),
 });
 
 export type GlobalOptions = z.infer<typeof GlobalOptionsSchema>;

@@ -1,5 +1,6 @@
 import { getButtonBridgeWsUrl } from "@/museum/button/buttonBridge";
 import { log } from "@/logger";
+import type { PrintableLetterReply } from "@shared/ModelTypes";
 
 /**
  * Sends meeting protocols to the local bridge, which spools and prints them.
@@ -39,7 +40,25 @@ export async function sendProtocolToPrinter(
   pdf: Blob,
   retry: PrintRetryOptions = DEFAULT_RETRY,
 ): Promise<PrintOutcome> {
-  const url = `${getBridgeHttpBase()}/v1/print?meetingId=${meetingId}`;
+  return sendPdfToBridge(`meetingId=${meetingId}`, { meetingId }, pdf, retry);
+}
+
+/** A reply to one of the letters: printed once, under a key of its own (see the bridge). */
+export async function sendReplyToPrinter(
+  replyId: string,
+  pdf: Blob,
+  retry: PrintRetryOptions = DEFAULT_RETRY,
+): Promise<PrintOutcome> {
+  return sendPdfToBridge(`replyId=${encodeURIComponent(replyId)}`, { replyId }, pdf, retry);
+}
+
+async function sendPdfToBridge(
+  query: string,
+  context: Record<string, unknown>,
+  pdf: Blob,
+  retry: PrintRetryOptions,
+): Promise<PrintOutcome> {
+  const url = `${getBridgeHttpBase()}/v1/print?${query}`;
   const deadline = Date.now() + retry.giveUpAfterMs;
 
   for (let attempt = 1; ; attempt += 1) {
@@ -53,12 +72,12 @@ export async function sendProtocolToPrinter(
       });
       if (response.status === 202 || response.status === 200) {
         const outcome = response.status === 202 ? "queued" : "duplicate";
-        log.event("PRINT", `protocol ${outcome}`, { meetingId, attempt });
+        log.event("PRINT", `print job ${outcome}`, { ...context, attempt });
         return outcome;
       }
       if (response.status < 500) {
         // The bridge judged the job itself bad; sending it again changes nothing.
-        log.event("PRINT", "protocol rejected by bridge", { meetingId, status: response.status });
+        log.event("PRINT", "print job rejected by bridge", { ...context, status: response.status });
         return "rejected";
       }
       failure = `HTTP ${response.status}`;
@@ -68,10 +87,10 @@ export async function sendProtocolToPrinter(
 
     const delay = Math.min(retry.retryBaseMs * 2 ** (attempt - 1), retry.retryMaxMs);
     if (Date.now() + delay > deadline) {
-      log.event("PRINT", "gave up sending protocol to bridge", { meetingId, attempt, failure });
+      log.event("PRINT", "gave up sending print job to bridge", { ...context, attempt, failure });
       return "gave_up";
     }
-    log.event("PRINT", "bridge unreachable, retrying", { meetingId, attempt, failure, delay });
+    log.event("PRINT", "bridge unreachable, retrying", { ...context, attempt, failure, delay });
     await new Promise((resolve) => setTimeout(resolve, delay));
   }
 }
@@ -95,6 +114,37 @@ export async function sendTestPage(pdf: Blob): Promise<TestPageOutcome> {
       error: error instanceof Error ? error.message : String(error),
     });
     return "unreachable";
+  }
+}
+
+/**
+ * Replies to the venue's letters still to print, from the bridge (which asks the council server
+ * with the installation key). Empty when the bridge cannot say — the next poll asks again.
+ */
+export async function fetchRepliesToPrint(): Promise<PrintableLetterReply[]> {
+  try {
+    const response = await fetch(`${getBridgeHttpBase()}/v1/installation/letter-replies`, {
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) return [];
+    return ((await response.json()) as { replies?: PrintableLetterReply[] }).replies ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Tells the council server, through the bridge, that a reply is printed. */
+export async function markReplyPrinted(replyId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${getBridgeHttpBase()}/v1/installation/letter-replies/printed`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: replyId }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    return response.ok;
+  } catch {
+    return false;
   }
 }
 

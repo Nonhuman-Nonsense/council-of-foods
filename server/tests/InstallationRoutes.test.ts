@@ -135,6 +135,13 @@ describe('installation endpoints', () => {
         expect(report).toMatchObject({ severity: 'warning', context: 'printer example-museum' });
     });
 
+    it('tells only errorbot when the printer works again', async () => {
+        expect((await call('/api/installation/printer-alerts', { body: { ...paperOut, kind: 'resolved' } })).status).toBe(200);
+
+        expect(sentTo('https://api.brevo.com')).toEqual([]);
+        expect(sentTo('http://errorbot.test/ingest')).toHaveLength(1);
+    });
+
     it.each([
         ['an unknown venue', { ...paperOut, venueId: 'somewhere-else' }, 400],
         ['an unknown kind', { ...paperOut, kind: 'panic' }, 400],

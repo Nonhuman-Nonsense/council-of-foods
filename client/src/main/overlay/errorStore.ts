@@ -29,6 +29,13 @@ export type UnrecoverableError = {
    * show the visitor the generic apology instead.
    */
   technical?: boolean;
+  /** The server stayed out of reach: the overlay says what to check, not that something broke. */
+  connectionLost?: boolean;
+  /**
+   * The failure belongs to this page and loading it again can recover (a meeting link that
+   * could not be fetched), so restarting reloads it rather than leaving for the landing page.
+   */
+  reloadInPlace?: boolean;
   source: string;
   cause?: unknown;
   meetingId?: number;

@@ -35,7 +35,10 @@ interface RangeEnd {
     gpus: number;
 }
 
-/** What a model does at the council. */
+/**
+ * What a model does at the council, as far as counting goes: which of the meter's tallies its
+ * usage adds to. The word visitors see can differ (client/src/meter/modelInfo.ts).
+ */
 export type ModelRole = "writing" | "speaking" | "listening";
 
 /**

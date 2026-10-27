@@ -278,6 +278,45 @@ describe('HTTP meetings API (integration)', () => {
         expect(manifest.conversation.at(-1)?.type).toBe('summary');
     });
 
+    it('GET /api/autoplay with a venue replays that venue\'s meetings, else any venue\'s', async () => {
+        async function completedMeetingAt(venueId) {
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...validCreateBody(), venueId }),
+            });
+            const { meetingId } = await createRes.json();
+            await meetingsCollection.updateOne(
+                { _id: Number(meetingId) },
+                {
+                    $set: {
+                        conversation: [
+                            { id: 'v-m1', type: 'message', speaker: 'speaker1', text: 'Hello' },
+                            { id: 'v-sum', type: 'summary', speaker: 'speaker1', text: 'Summary' },
+                        ],
+                        audio: ['v-m1', 'v-sum'],
+                        maximumPlayedIndex: 1,
+                        meetingComplete: true,
+                    },
+                },
+            );
+            return Number(meetingId);
+        }
+        const atA = await completedMeetingAt('venue-a');
+        const atB = await completedMeetingAt('venue-b');
+
+        // Sampling is random: a few tries would catch venue B slipping through.
+        for (let i = 0; i < 10; i++) {
+            const res = await fetch(`${base()}/api/autoplay?language=en&venue=venue-a`);
+            expect(res.status).toBe(200);
+            expect((await res.json()).meetingId).toBe(atA);
+        }
+
+        const elsewhere = await fetch(`${base()}/api/autoplay?language=en&venue=venue-c`);
+        expect(elsewhere.status).toBe(200);
+        expect([atA, atB]).toContain((await elsewhere.json()).meetingId);
+    });
+
     it('GET /api/autoplay returns 400 on invalid language', async () => {
         const res = await fetch(`${base()}/api/autoplay?language=english`);
         expect(res.status).toBe(400);

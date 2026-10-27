@@ -2,13 +2,17 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "@/App";
 import { applyZIndexCssVariables } from "@/zIndexLayers";
-import { installGlobalErrorHandlers } from "@/logger";
+import { installGlobalErrorHandlers, installPageLifecycleLogging } from "@/logger";
+import { installServerLogSink } from "@/logging/serverLogSink";
 import { installSignOfLife } from "@/signOfLife";
 import { startKioskHeartbeat } from "@/kioskHeartbeat";
 import { getCapabilities } from "@/settings/councilSettings";
 
 applyZIndexCssVariables();
 installGlobalErrorHandlers();
+// Lifecycle first: its "page closing" line must be queued before the sink's last flush.
+installPageLifecycleLogging();
+installServerLogSink();
 installSignOfLife();
 startKioskHeartbeat(() => getCapabilities().kioskHeartbeat);
 

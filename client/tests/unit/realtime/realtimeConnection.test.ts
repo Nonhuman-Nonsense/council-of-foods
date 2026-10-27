@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
+import { setSplitAudioEnabled } from "@/settings/councilSettings";
 import {
   acquireMicrophone,
   createRealtimeConnection,
@@ -474,6 +475,28 @@ describe("realtimeConnection", () => {
     connection.close();
   });
 
+  it("releases a microphone handed to a session that has closed", async () => {
+    stubRtcGlobals();
+    stubGetUserMedia(vi.fn());
+    stubCallAnswer();
+
+    const connection = await createRealtimeConnection({
+      session: { type: "realtime" },
+      iceServers: [],
+      callPath: "/api/realtime/call",
+      deferMic: true,
+      onEvent: vi.fn(),
+      onRemoteTrack: vi.fn(),
+    });
+    connection.close();
+
+    const micTrack = new MockTrack("audio");
+    await connection.attachMic(new MockMediaStream([micTrack]) as unknown as MediaStream);
+
+    expect(micTrack.stop).toHaveBeenCalled();
+    expect(connection.micStream).toBeNull();
+  });
+
   it("releases the microphone on detachMic but keeps the session open", async () => {
     stubRtcGlobals();
     stubGetUserMedia(vi.fn());
@@ -752,8 +775,34 @@ describe("acquireMicrophone", () => {
     }
   });
 
+  it.each([
+    { split: false, echoCancellation: true },
+    { split: true, echoCancellation: false },
+  ])("split audio $split: opens the mic with echo cancellation $echoCancellation", async ({ split, echoCancellation }) => {
+    setSplitAudioEnabled(split);
+    const getUserMedia = stubGetUserMedia(
+      vi.fn().mockResolvedValue({ id: "mic", getAudioTracks: () => [] }),
+    );
+
+    await acquireMicrophone();
+
+    expect(getUserMedia.mock.calls[0][0].audio).toMatchObject({ echoCancellation });
+    setSplitAudioEnabled(false);
+  });
+
+  it("hands the microphone out closed, so nothing is sent or heard until it is opened", async () => {
+    const track = { enabled: true };
+    stubGetUserMedia(
+      vi.fn().mockResolvedValue({ id: "mic", getAudioTracks: () => [track] }),
+    );
+
+    await acquireMicrophone();
+
+    expect(track.enabled).toBe(false);
+  });
+
   it("resolves with the stream on success", async () => {
-    const stream = { id: "mic" } as unknown as MediaStream;
+    const stream = { id: "mic", getAudioTracks: () => [] } as unknown as MediaStream;
     stubGetUserMedia(vi.fn().mockResolvedValue(stream));
     await expect(acquireMicrophone()).resolves.toBe(stream);
   });

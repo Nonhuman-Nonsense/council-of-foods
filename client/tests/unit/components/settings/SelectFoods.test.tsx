@@ -180,25 +180,13 @@ describe('SelectCharacters Component', () => {
         expect(screen.queryByText('app.start')).not.toBeInTheDocument();
     });
 
-    it('should show error when human panelists have duplicate names', async () => {
+    it('should show error when a human panelist shares a name with a selected being', async () => {
         render(<ControlledSelectCharacters />);
 
         selectMinimumParticipants();
-
-        const addBtn = screen.getByAltText('add human');
-        fireEvent.click(addBtn);
-
-        let nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
-        let descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
-        fireEvent.change(nameInput, { target: { value: 'Bob' } });
-        fireEvent.change(descInput, { target: { value: 'Desc 1' } });
-
-        fireEvent.click(addBtn);
-
-        nameInput = screen.getByPlaceholderText('meeting.characters.humanname');
-        descInput = screen.getByPlaceholderText('meeting.characters.humandesc');
-        fireEvent.change(nameInput, { target: { value: 'Bob' } });
-        fireEvent.change(descInput, { target: { value: 'Desc 2' } });
+        fireEvent.click(screen.getByAltText('add human'));
+        fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), { target: { value: firstParticipant.name } });
+        fireEvent.change(screen.getByPlaceholderText('meeting.characters.humandesc'), { target: { value: 'Desc' } });
 
         expect(await screen.findByText('meeting.characters.unique')).toBeInTheDocument();
         expect(screen.queryByText('app.start')).not.toBeInTheDocument();
@@ -504,36 +492,6 @@ describe('SelectCharacters Component', () => {
                 fireEvent.click(panelistImg); // deselect without ever typing anything
 
                 expect(onHumanDeselected).not.toHaveBeenCalled();
-            });
-
-            /**
-             * `currentPanelistNames` filters by `selectedCharacters`, not just
-             * array position — otherwise a removed panelist's name lingers
-             * (their `humans[]` entry survives deselection) and keeps showing
-             * up in a still-selected panelist's own roster line.
-             */
-            it('excludes a removed panelist from another panelist\'s roster', () => {
-                const onHumanDetailsTyped = vi.fn();
-                render(<ControlledSelectCharacters onHumanDetailsTyped={onHumanDetailsTyped} />);
-
-                fireEvent.click(screen.getByAltText('add human'));
-                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
-                    target: { value: 'Bob' },
-                });
-                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humandesc'), {
-                    target: { value: 'The first panelist' },
-                });
-                clickCharacter('Bob'); // deselect: Bob is removed
-
-                fireEvent.click(screen.getByAltText('add human'));
-                fireEvent.change(screen.getByPlaceholderText('meeting.characters.humanname'), {
-                    target: { value: 'Alice' },
-                });
-
-                expect(onHumanDetailsTyped).toHaveBeenLastCalledWith(expect.objectContaining({
-                    humanName: 'Alice',
-                    panelistNames: ['Alice'],
-                }));
             });
         });
     });

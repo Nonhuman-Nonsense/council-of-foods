@@ -40,6 +40,7 @@ const { realtimeOptions } = vi.hoisted(() => {
                 sv: {
                     provider: "inworld" as const,
                     llmModel: "test/llm",
+                    reasoning: "none" as const,
                     ttsModel: "test/tts-sv",
                     transcriptionModel: CHAIR_STT_MODEL,
                     agentVoice: {
@@ -199,6 +200,25 @@ describe("realtimeProviders", () => {
             },
         });
     });
+
+    it.each([
+        { language: "sv", textGenerationConfig: { reasoning: { effort: "NONE" } } },
+        { language: "en", textGenerationConfig: undefined },
+    ])(
+        "sets the agent's reasoning effort only where configured ($language)",
+        async ({ language, textGenerationConfig }) => {
+            vi.mocked(global.fetch).mockResolvedValue(
+                new Response(JSON.stringify({ ice_servers: [] }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                })
+            );
+
+            const result = await getSetupAgentRealtimeBootstrap(language);
+
+            expect((result.session as Record<string, unknown>).text_generation_config).toEqual(textGenerationConfig);
+        }
+    );
 
     it("passes chair STT and meta-agent TTS settings into Swedish bootstrap", async () => {
         vi.mocked(global.fetch).mockResolvedValue(

@@ -24,7 +24,6 @@ describe("capabilitiesFor", () => {
         cursorHide: false,
         micUpFront: false,
         micToggleButton: true,
-        latchOnTap: true,
         voiceSetupAgent: false,
         agentWaitsForVisitor: true,
         typedSetup: true,
@@ -32,6 +31,7 @@ describe("capabilitiesFor", () => {
         printSummary: false,
         kioskHeartbeat: false,
         sendsLetters: false,
+        fullResolutionMedia: false,
       },
     },
     {
@@ -50,7 +50,6 @@ describe("capabilitiesFor", () => {
         cursorHide: true,
         micUpFront: true,
         micToggleButton: false,
-        latchOnTap: false,
         voiceSetupAgent: true,
         agentWaitsForVisitor: false,
         typedSetup: false,
@@ -58,6 +57,7 @@ describe("capabilitiesFor", () => {
         printSummary: true,
         kioskHeartbeat: true,
         sendsLetters: true,
+        fullResolutionMedia: true,
       },
     },
     {
@@ -76,14 +76,14 @@ describe("capabilitiesFor", () => {
         cursorHide: true,
         micUpFront: true,
         micToggleButton: false,
-        latchOnTap: false,
         voiceSetupAgent: true,
         agentWaitsForVisitor: false,
         typedSetup: true,
         installationReload: true,
-        printSummary: false,
+        printSummary: true,
         kioskHeartbeat: true,
-        sendsLetters: false,
+        sendsLetters: true,
+        fullResolutionMedia: true,
       },
     },
   ];
@@ -110,11 +110,11 @@ describe("capabilitiesFor", () => {
   });
 
   /**
-   * Presenter departs from museum in exactly three ways: nothing advances on a
-   * timer, setup can be driven by hand, and nothing prints. Everything else is museum, and this
+   * Presenter departs from museum in exactly two ways: nothing advances on a
+   * timer, and setup can be driven by hand. Everything else is museum, and this
    * pins that so the two cannot drift apart one flag at a time.
    */
-  it("differs from museum only in its timers, its typed setup, printing and sending letters", () => {
+  it("differs from museum only in its timers and its typed setup", () => {
     const museum = capabilitiesFor("museum");
     const presenter = capabilitiesFor("presenter");
     const differing = Object.keys(museum).filter(
@@ -126,8 +126,6 @@ describe("capabilitiesFor", () => {
       "autoReturnToLanding",
       "idleAnswersForVisitor",
       "idleNudge",
-      "printSummary",
-      "sendsLetters",
       "typedSetup",
     ].sort());
   });

@@ -120,6 +120,7 @@ export const MockFactory = {
             transcribeModel: "whisper-1",
             transcribePrompt: { en: "Transcribe" },
             audioConcurrency: 2,
+            voiceLoudness: { targetLufs: -18, skipBelowDb: 1.5, truePeakDb: -1.5 },
             chairRealtime: {
                 strategy: "unified",
                 languages: {
@@ -165,6 +166,10 @@ export const MockFactory = {
             letterPlanLength: 50,
             letterWriteLength: 50,
             letterAuthorCooldown: 3,
+            letterSenderDomain: "example.org",
+            letterReplyDomain: "reply.example.org",
+            letterSenderAddresses: { treeharvester: "tree.harvester" },
+            letterDailyLimit: 5,
             ...overrides,
         }) as GlobalOptions,
 

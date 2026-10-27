@@ -21,7 +21,10 @@ import {
     type SortedAddition,
 } from "./LetterWriter.js";
 import { candidateRecipients, loadRecipients, loadTopicIds, type Recipient } from "./recipients.js";
+import { letterSender } from "./outbox.js";
+import { letterPrompts } from "./prompts/letterPrompts.js";
 import { loadLetterHistory, type LetterHistory } from "./history.js";
+import { letterBlocklistCollection, lettersCollection } from "@services/DbService.js";
 
 /**
  * The letter ending of a meeting (docs/council-letters.md → "The meeting ending"), on top of
@@ -32,6 +35,8 @@ import { loadLetterHistory, type LetterHistory } from "./history.js";
  *   announcement, `awaiting_letter_addition`          ← {@link announce}, a run-loop turn
  *   the human's words or a skip, `summary_pending`    ← HumanInputHandler
  *   `summary` carrying the letter                     ← {@link writeSummary}, a run-loop turn
+ *     where the installation prints its letters, preceded by the chair's `letter_farewell` and
+ *     `credits` (live only; replay drops both and shows the letter)
  *
  * The slow steps start early and run while something else plays: the plan while the chair
  * closes, the draft while the author announces and the human thinks. That work lives in this
@@ -51,6 +56,8 @@ export interface LetterSummary {
     reader: Character;
     spoken: string;
     letter: MeetingLetter;
+    /** Where the installation prints its letters: the chair's farewell, which goes before the credits. */
+    farewell?: { message: Message; chair: Character };
 }
 
 const NO_ADDITION: SortedAddition = { text: "", handling: "none", reason: "", raw: "" };
@@ -67,7 +74,11 @@ export class LetterEnding {
 
     private async recipientsAndHistory(meeting: StoredMeeting): Promise<{ recipients: Recipient[]; history: LetterHistory }> {
         const recipients = await loadRecipients(await loadTopicIds());
-        const history = await loadLetterHistory(this.manager.services.meetingsCollection, recipients, {
+        const history = await loadLetterHistory({
+            meetings: this.manager.services.meetingsCollection,
+            letters: lettersCollection,
+            blocklist: letterBlocklistCollection,
+        }, recipients, {
             now: new Date(),
             excludeMeetingId: meeting._id,
         });
@@ -217,22 +228,29 @@ export class LetterEnding {
         if (!recipient) throw new Error(`letter recipient ${letter.recipientId} is no longer on the list`);
 
         const ctx = this.context(meeting);
+        const author = meeting.characters.find((character) => character.id === letter.authorId)!;
+        const present = letter.present === true;
+        // Written while the letter is finished: it needs only who wrote, to whom, and whether it goes.
+        const farewell = meeting.printsLetters ? this.farewell(meeting, author, recipient, present) : null;
+        farewell?.catch(() => { /* awaited below */ });
         const draft = await this.draft(meeting, letter, recipient);
         const human = letter.present && letter.addition ? await sortHumanAddition(ctx, letter.addition) : NO_ADDITION;
         const finished = await finishLetter(ctx, draft, recipient, human);
 
-        const author = meeting.characters.find((character) => character.id === letter.authorId)!;
-        const present = letter.present === true;
         const sendsLetters = meeting.sendsLetters === true;
         const send = present && sendsLetters;
         const sendReason = send ? null : !present ? "the human did not answer" : "this app mode does not send letters";
         const spoken = [finished.body, finished.humanNote].filter(Boolean).join("\n\n");
+        const finishedAt = new Date().toISOString();
 
         const view: LetterView = {
             authorId: author.id,
             authorName: author.name,
+            authorEmail: letterSender(ctx.options, author.id, author.name).email,
             recipientName: recipient.name,
             recipientOrganisation: recipient.organisation ?? null,
+            recipientEmail: recipient.email,
+            sentAt: finishedAt,
             subject: finished.subject,
             body: finished.body,
             humanNote: finished.humanNote,
@@ -245,10 +263,11 @@ export class LetterEnding {
             summary: { id: `letter-${uuidv4()}`, type: "summary", speaker: author.id, text: spoken, sentences: [], letter: view },
             reader: author,
             spoken,
+            ...(farewell ? { farewell: await farewell } : {}),
             letter: {
                 ...letter,
                 draft: { subject: draft.subject, body: draft.body },
-                finishedAt: new Date().toISOString(),
+                finishedAt,
                 subject: finished.subject,
                 body: finished.body,
                 humanNote: finished.humanNote,
@@ -258,6 +277,40 @@ export class LetterEnding {
                 send,
                 sendReason,
             },
+        };
+    }
+
+    /**
+     * The chair's last words where the installation prints its letters: thanks, and that the
+     * letter is sent and printed behind them — or not sent, because nobody answered.
+     */
+    private async farewell(meeting: StoredMeeting, author: Character, recipient: Recipient, sent: boolean): Promise<{ message: Message; chair: Character }> {
+        const chair = meeting.characters[0];
+        const prompt = letterPrompts(meeting.language).farewell({
+            authorName: author.name,
+            humanName: meeting.state.humanName || null,
+            recipient: recipient.organisation ? `${recipient.name} (${recipient.organisation})` : recipient.name,
+            sent,
+        });
+        const index = meeting.conversation.findIndex((message) => message.type === "summary_pending");
+        const { id, response, sentences, trimmed, pretrimmed } = await this.manager.dialogGenerator.chairInterjection(
+            prompt,
+            index === -1 ? meeting.conversation.length : index,
+            this.manager.serverOptions.concludeMeetingLength,
+            meeting,
+            this.manager.broadcaster,
+        );
+        return {
+            message: {
+                id: id || `letter-farewell-${uuidv4()}`,
+                type: "letter_farewell",
+                speaker: chair.id,
+                text: response,
+                sentences: sentences || splitSentences(response),
+                trimmed,
+                pretrimmed,
+            },
+            chair,
         };
     }
 }

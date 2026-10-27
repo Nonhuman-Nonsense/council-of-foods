@@ -1,7 +1,7 @@
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import ConversationControlIcon from "../ConversationControlIcon";
 import TextareaAutosize from 'react-textarea-autosize';
-import { useMobile, dvh } from "@/utils";
+import { useMobile } from "@/utils";
 import { z } from "@/zIndexLayers";
 import { useTranslation } from "react-i18next";
 import { LiveAudioVisualizerPair } from "./LiveAudioVisualizer";
@@ -17,7 +17,7 @@ import {
 import { requestMicrophone, useMicAvailabilityStore } from "@realtime/micAvailabilityStore";
 import type { RealtimeProvider } from "@shared/RealtimeSessionTypes";
 import React from 'react';
-import micIcon from "@assets/mic.avif";
+import RisingMic from "./RisingMic";
 import type { ParticipationPhase } from "./participationPhase";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
@@ -29,6 +29,8 @@ const FINISHING_NO_EVENTS_TIMEOUT_MS = 4500;
 const FINISHING_HARD_TIMEOUT_MS = 12000;
 /** PTT auto-submit requires at least this many words (accidental short utterances). */
 const MIN_PTT_SUBMIT_WORDS = 3;
+/** Below this, a press of the on-screen mic is a click: it switches the mic on or off. */
+const MIC_CLICK_MS = 250;
 
 export function countTranscriptWords(text: string): number {
   const trimmed = text.trim();
@@ -322,13 +324,24 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
    * working regardless, so the visitor is left alone until they ask for the mic.
    */
   const micUnavailable = useMicAvailabilityStore((s) => s.availability === "unavailable");
-  /** Set when a mic click had to acquire permission first — record once ready. */
-  const pendingRecordRef = useRef(false);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
 
   const button = useButton("human-input");
+
+  /**
+   * The on-screen mic button: a quick click switches the mic on or off, a longer press
+   * records only while held — and, as a deliberate gesture, leaves it switched off. Unlike
+   * the agents, nothing here waits on the release: the transcript streams into the text
+   * field as the visitor talks, so leaving the mic on is fine. Space and the hardware
+   * button stay plain holds through `button`.
+   */
+  const [micSwitchedOn, setMicSwitchedOn] = useState(false);
+  const [screenHeld, setScreenHeld] = useState(false);
+  /** The on-screen press in progress: when it started, and whether the mic was on then. */
+  const screenPressRef = useRef<{ at: number; wasOn: boolean } | null>(null);
+  const wantsMic = button.pressed || screenHeld || micSwitchedOn;
 
   // Finishing: waiting for final transcript — cannot start another take.
   // Connecting: not ready to record yet. Empty/no-speech releases skip finishing
@@ -373,17 +386,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
 
   }, [connectionState, micUnavailable]);
 
-  // A mic click that had to ask for permission first: start recording as soon
-  // as the connection it triggered is live, so it behaves like any other click.
-  useEffect(() => {
-    if (connectionState !== "ready" || !pendingRecordRef.current) return;
-    pendingRecordRef.current = false;
-    // Arriving from idle/connecting, where the button was disarmed and the
-    // latch therefore cleared — so toggling can only turn it on.
-    button.toggleLatch();
-
-  }, [connectionState]);
-
   // Full cleanup on unmount — aborts any in-flight handshake and closes connection.
   useEffect(() => {
     return () => {
@@ -399,28 +401,28 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
 
   // ── PTT input ───────────────────────────────────────────────────────────────
 
-  // Gesture opens the mic — a hold, a tap that latched, or the on-screen button,
-  // which routes through the same latch so this stays the only path in.
-  // (Also covers a button held through the pre-warm.) Deliberately excludes
+  // Gesture opens the mic — space, the hardware button or the on-screen button, all
+  // held, so this stays the only path in. (Also covers a press held through the
+  // pre-warm, or through the connect a press on an unavailable mic sets off.) Deliberately excludes
   // inputValue: it updates on every transcription delta while already
   // recording, which doesn't change whether a start attempt should fire —
   // startRecording() reads the current inputValue from the closure whenever
   // this effect does run for one of the deps below.
   useEffect(() => {
     if (phase !== "active") return;
-    if (!button.wantsMic) return;
+    if (!wantsMic) return;
     startRecording();
-  }, [button.wantsMic, phase, connectionState]);
+  }, [wantsMic, phase, connectionState]);
 
   // Gesture closed → finish the session. Only queue an auto-submit where
   // releasing is meant to send; web leaves the transcript to edit and send.
   useEffect(() => {
-    if (!button.wantsMic && connectionState === "recording") {
+    if (!wantsMic && connectionState === "recording") {
       pendingPttAutoSubmitRef.current = capabilities.autoSubmitHumanInput;
       finishRealtimeSession();
     }
    
-  }, [button.wantsMic, capabilities.autoSubmitHumanInput, connectionState]);
+  }, [wantsMic, capabilities.autoSubmitHumanInput, connectionState]);
 
   // PTT auto-submit: attempt on every release once ready, and again when the
   // transcript catches up (segments can update after connectionState is "ready").
@@ -462,17 +464,17 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
   useButtonBanner({
     owner: "human-input",
     sessionActive: pttSessionActive,
-    micOpen: button.wantsMic,
+    micOpen: wantsMic,
     isConnecting: connectionState === "connecting" || connectionState === "finishing",
     activityDeps: [inputValue, transcriptSegments],
     onIdleTerminal: onAbandonHumanTurn,
     canIdleTerminal: () =>
       capabilities.idleAnswersForVisitor &&
       pttSessionActive &&
-      !button.wantsMic &&
+      !wantsMic &&
       connectionState !== "recording" &&
       connectionState !== "finishing",
-    terminalDeps: [connectionState, button.wantsMic],
+    terminalDeps: [connectionState, wantsMic],
   });
 
   function transcriptionDeltaMergeMode(): TranscriptionDeltaMergeMode {
@@ -566,10 +568,16 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     setConnectionState("connecting");
     hiLog("connect-start", { language: i18n.language, phase });
 
+    // Owned here until the connection takes it; a connect abandoned before then (aborted by
+    // an unmount — StrictMode does one on every mount in dev — or failed) releases it, or the
+    // mic stays live with nothing left to close it.
+    let micStreamForCall: MediaStream | null = preAcquiredMic ?? null;
+    let micHandedOver = false;
+
     try {
       // Every mic request goes through the store so it knows what the browser
       // did; a caller that already holds one passes it straight in.
-      const micStreamForCall = preAcquiredMic ?? (await requestMicrophone());
+      micStreamForCall ??= await requestMicrophone();
 
       const bootstrap = await bootstrapHumanInputRealtimeSession(
         { feature: "human-input", language: i18n.language },
@@ -643,6 +651,9 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
         },
       });
 
+      // From here the connection owns the mic, and closing it stops the mic.
+      micHandedOver = true;
+
       if (controller.signal.aborted) {
         hiLog("connect-aborted", { language: i18n.language });
         connection.close();
@@ -684,6 +695,7 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
       console.error("Failed to start realtime human input session", err);
       setConnectionState("idle");
     } finally {
+      if (!micHandedOver) micStreamForCall?.getTracks().forEach((t) => t.stop());
       if (startAbortRef.current === controller) {
         startAbortRef.current = null;
       }
@@ -701,7 +713,7 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
         reason: connectionState !== "ready" ? "not-ready" : "no-connection",
         connectionState,
         hasConnection: Boolean(connectionRef.current),
-        buttonPressed: button.pressed,
+        buttonPressed: wantsMic,
         phase,
       });
       return;
@@ -742,10 +754,10 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
    * returning to "ready". The connection stays open for a potential re-record.
    *
    * Called from one place only — the effect that watches the gesture close —
-   * so the flow stays one-directional: gesture → `wantsMic` → session. Anything
-   * else that should end a take says so by clearing the gesture (`clearLatch`)
-   * and lets that effect do this; calling it directly would leave a latch on,
-   * and the take would restart the moment the state landed back on "ready".
+   * so the flow stays one-directional: gesture → `pressed` → session. Anything
+   * else that should end a take says so by ending the press (`endPress`) and lets
+   * that effect do this; calling it directly would leave the press on, and the
+   * take would restart the moment the state landed back on "ready".
    */
   function finishRealtimeSession() {
     if (!connectionRef.current) {
@@ -820,33 +832,77 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     }, FINISHING_QUIET_MS);
   }
 
-  function handleStartStopRecording() {
-    if (connectionState === "ready") {
-      if (inputValue.length >= maxInputLength) {
-        setCanContinue(true);
-        return;
-      }
-      // Same gesture as a tap, by another input device — never a second source
-      // of truth. The effects above do the recording.
-      button.toggleLatch();
-    } else if (connectionState === "recording") {
-      button.toggleLatch();
-    } else if (connectionState === "idle" && micUnavailable) {
+  /** The on-screen mic button went down (true) or was let go. See `micSwitchedOn`. */
+  function handleMicPress(down: boolean) {
+    if (!down) {
+      const press = screenPressRef.current;
+      if (!press) return;
+      screenPressRef.current = null;
+      setScreenHeld(false);
+      setMicSwitchedOn(Date.now() - press.at < MIC_CLICK_MS ? !press.wasOn : false);
+      return;
+    }
+    if (connectionState === "ready" && inputValue.length >= maxInputLength) {
+      setCanContinue(true);
+      return;
+    }
+    screenPressRef.current = { at: Date.now(), wasOn: micSwitchedOn };
+    setScreenHeld(true);
+    if (connectionState === "idle" && micUnavailable) {
       // The visitor is asking for the mic we skipped pre-warming. Try again —
       // the block may have been lifted since — and let requestMicrophone
-      // explain it if not. Typing is unaffected either way.
+      // explain it if not. Typing is unaffected either way. Once the connection
+      // is ready, the mic opens like any other press.
       void (async () => {
         try {
           const stream = await requestMicrophone({ userInitiated: true });
-          pendingRecordRef.current = true;
           await connect(stream);
         } catch {
           // Already surfaced by requestMicrophone; stay on the text input.
+          stopMic();
         }
       })();
     }
-    // connecting / finishing: no-op — loading UI is shown instead of the button
   }
+
+  // The page-wide release below is registered once per phase; it must reach the
+  // handler from the latest render, which knows the current state.
+  const handleMicPressRef = useRef(handleMicPress);
+  useEffect(() => {
+    handleMicPressRef.current = handleMicPress;
+  });
+
+  /**
+   * End the take from here: whatever is asking for the mic — the switch, an on-screen
+   * press, a held space — stops asking. The release effect then finishes the take.
+   */
+  function stopMic() {
+    screenPressRef.current = null;
+    setScreenHeld(false);
+    setMicSwitchedOn(false);
+    button.endPress();
+  }
+
+  // A mic left on while the visitor is in another tab or program is a privacy surprise,
+  // and a release lost there (or under a button swapped for a spinner) would hold it open.
+  // Leaving the human-input phase ends it too.
+  useEffect(() => {
+    if (phase !== "active") {
+      stopMic();
+      return;
+    }
+    const onBlur = () => stopMic();
+    const onPointerUp = () => handleMicPressRef.current(false);
+    window.addEventListener("blur", onBlur);
+    window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener("pointercancel", onPointerUp);
+    };
+  // stopMic only touches setters, refs and the stable button.endPress
+  }, [phase]);
 
   const transcriptText = formatTranscriptInputValue({
     previousTranscript,
@@ -865,19 +921,18 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     if (connectionStateRef.current === "recording" && transcriptText.length >= maxInputLength) {
       setPreviousTranscript(transcriptText);
       setTranscriptSegments([]);
-      // Out of room for more speech, so the visitor is no longer asking to
-      // talk. Ending the take is left to the release effect, as always.
-      button.clearLatch();
+      // Out of room for more speech: the mic stops asking here, even if still
+      // held. Ending the take is left to the release effect, as always.
+      stopMic();
     }
-  // button.clearLatch is stable (useCallback), safe to omit
+  // stopMic only touches setters, refs and the stable button.endPress
 
   }, [transcriptText, maxInputLength]);
 
+
   function inputFocused(_e: React.FocusEvent) {
-    // Turning to the textarea is the visitor withdrawing the ask, not a request
-    // to close a session — so it clears the gesture and the take follows.
-    button.clearLatch();
-    // Don't interrupt connecting/ready — user just wants to type
+    // Turning to the textarea is the visitor switching to typing: the take ends.
+    stopMic();
   }
 
   function updateCanContinue(value: string) {
@@ -924,16 +979,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
     alignItems: "center",
   };
 
-  const micStyle: React.CSSProperties = {
-    position: "absolute",
-    bottom: `-${2}${dvh}`,
-    height: `${45}${dvh}`,
-    minHeight: "135px",
-    zIndex: z.councilMic,
-    animation: "4s micAppearing",
-    animationFillMode: "both",
-  };
-
   const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
@@ -978,14 +1023,14 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
 
   return (<>
     <div style={wrapperStyle}>
-      <img alt="Say something!" src={micIcon} style={micStyle} />
+      <RisingMic />
       <div style={{ zIndex: z.humanInputField, position: "relative", pointerEvents: "auto" }}>
         <TextareaAutosize
           ref={inputArea}
           style={textStyle}
           onChange={inputChanged}
-          onKeyDown={checkEnter}
           onFocus={inputFocused}
+          onKeyDown={checkEnter}
           className="unfocused"
           minRows={1}
           maxRows={6}
@@ -1007,7 +1052,7 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
           {!isWaitingForRealtime && !pttTurn &&
             <ConversationControlIcon
               icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
-              onClick={handleStartStopRecording}
+              hold={{ onPress: () => handleMicPress(true), onRelease: () => handleMicPress(false) }}
             />
           }
           {pttTurn && connectionState === 'recording' &&

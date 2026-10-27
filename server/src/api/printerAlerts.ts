@@ -13,7 +13,8 @@ export const PrinterAlertBody = z.object({
     venueId: z.string().min(1).max(100),
     /**
      * `problem`: newly needs attention (or the reason changed). `reminder`: still
-     * unresolved. `resolved`: working again. `test`: sent by staff to check the chain.
+     * unresolved. `resolved`: working again, for the team only; staff aren't emailed.
+     * `test`: sent by staff to check the chain.
      */
     kind: z.enum(["problem", "reminder", "resolved", "test"]),
     /** Normalised CUPS reason (`media-empty`), or `not-printing` / `no-printer` / `stopped`. */
@@ -29,6 +30,9 @@ export const PrinterAlertBody = z.object({
 
 export type PrinterAlert = z.infer<typeof PrinterAlertBody>;
 
+/** The alerts staff are emailed about. */
+export type EmailedPrinterAlert = Omit<PrinterAlert, "kind"> & { kind: Exclude<PrinterAlert["kind"], "resolved"> };
+
 function formatWhen(iso: string, timeZone: string): string {
     return new Intl.DateTimeFormat("en-GB", {
         timeZone,
@@ -40,21 +44,17 @@ function formatWhen(iso: string, timeZone: string): string {
     }).format(new Date(iso));
 }
 
-export function buildPrinterAlertEmail(product: string, venue: Venue, alert: PrinterAlert): Email {
+export function buildPrinterAlertEmail(product: string, venue: Venue, alert: EmailedPrinterAlert): Email {
     const what = describePrinterReason(alert.reason);
     const printerName = `${product} printer at ${venue.name}`;
 
     const details: string[] = [];
-    if (alert.kind !== "resolved" && alert.kind !== "test") {
+    if (alert.kind !== "test") {
         details.push(`Problem: ${what}${alert.since ? ` (since ${formatWhen(alert.since, venue.timezone)})` : ""}`);
     }
     if (alert.printer) details.push(`Printer: ${alert.printer}`);
     if (alert.waiting !== undefined && alert.kind !== "test") {
-        details.push(
-            alert.kind === "resolved"
-                ? `Protocols waiting: ${alert.waiting}. They are printing now.`
-                : `Protocols waiting: ${alert.waiting}. They print by themselves once the printer is fixed.`,
-        );
+        details.push(`Protocols waiting: ${alert.waiting}. They print by themselves once the printer is fixed.`);
     }
     if (alert.host) details.push(`Mac: ${alert.host}`);
 
@@ -68,10 +68,6 @@ export function buildPrinterAlertEmail(product: string, venue: Venue, alert: Pri
         case "reminder":
             subject = `Reminder: ${printerName}: ${what}`;
             lead = `The ${printerName} still needs attention.`;
-            break;
-        case "resolved":
-            subject = `${printerName} is working again`;
-            lead = `The ${printerName} is working again. No action needed.`;
             break;
         case "test":
             subject = `${printerName}: test alert`;

@@ -7,6 +7,7 @@ const mockIsDevLogCategoryEnabled = vi.fn((_category?: string) => true);
 vi.mock("@/settings/councilSettings", () => ({
   getDevLogEnabled: () => mockGetDevLogEnabled(),
   isDevLogCategoryEnabled: (category: string) => mockIsDevLogCategoryEnabled(category),
+  getVenueId: () => "",
 }));
 
 describe("logger", () => {
@@ -34,6 +35,20 @@ describe("summarizeLogPayload", () => {
     expect(summary.id).toBe("clip-1");
     expect(summary.note).toBe("hello");
     expect(summary.audioBase64).toBe("[audioBase64 400 chars]");
+  });
+
+  it("keeps what was said in full, up to a much longer limit", () => {
+    const said = "word ".repeat(100);
+    const summary = summarizeLogPayload({ transcript: said, note: said }) as Record<string, string>;
+
+    expect(summary.transcript).toBe(said);
+    expect(summary.note.length).toBeLessThan(said.length);
+  });
+
+  it("describes an Error by its name and message", () => {
+    expect(summarizeLogPayload({ error: new TypeError("Failed to fetch") })).toEqual({
+      error: { name: "TypeError", message: "Failed to fetch" },
+    });
   });
 });
 
@@ -101,6 +116,41 @@ describe("logEvent", () => {
     expect(line).toContain("[REALTIME]");
     expect(line).toContain("human-input | connect-ready");
   });
+});
+
+describe("server log", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.resetModules();
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "groupCollapsed").mockImplementation(() => undefined);
+    vi.spyOn(console, "groupEnd").mockImplementation(() => undefined);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  /** The stored log is exactly what the console prints: whenever logging is on, nothing else. */
+  it.each([
+    { master: true, category: true, sent: true },
+    { master: false, category: true, sent: false },
+    { master: true, category: false, sent: false },
+  ])(
+    "queues a line for the server: $sent (logging $master, category $category)",
+    async ({ master, category, sent }) => {
+      mockGetDevLogEnabled.mockReturnValue(master);
+      mockIsDevLogCategoryEnabled.mockReturnValue(category);
+      const { log: freshLog } = await import("../../src/logger");
+      const { getServerLogStatus } = await import("../../src/logging/serverLogSink");
+
+      freshLog.flat("TURN", "IN response.created", { reason: "greeting" });
+      freshLog.event("REALTIME", "connection closed", { reason: "dc_close" });
+
+      expect(getServerLogStatus().pending).toBe(sent ? 2 : 0);
+    },
+  );
 });
 
 describe("reportTerminalError", () => {

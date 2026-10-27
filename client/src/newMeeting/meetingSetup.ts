@@ -1,5 +1,5 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import { injectRandomAgendaPoint } from "@shared/agendaPointInjection";
+import { injectRandomAgendaPoint, injectSingleAgendaPointRule } from "@shared/agendaPointInjection";
 import { buildMeetingSystemPrompt, VISITOR_INPUT_PLACEHOLDER } from "@shared/topicPrompt";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
@@ -10,6 +10,14 @@ export type MeetingCharactersI18n = {
 };
 
 export type MeetingSetupPhase = "landing" | "topic" | "characters";
+
+/**
+ * How many human panelists a council can have. A product choice, not a
+ * technical limit: we have only ever used one, and one keeps the speaking order
+ * simple to reason about. The server routes any number (they come due in lineup
+ * order, see server/src/logic/SpeakerSelector.ts), so this can be raised again.
+ */
+export const MAX_HUMAN_PANELISTS = 1;
 
 function isPanelistId(id: string): boolean {
   return id.startsWith("panelist");
@@ -147,6 +155,23 @@ export function selectedFoodNames(
     .filter((id) => id !== CHAIR_ID && !id.startsWith("panelist"))
     .map((id) => characters.find((character) => character.id === id)?.name)
     .filter((name): name is string => Boolean(name));
+}
+
+/**
+ * Named human panelists in the council. Filtered by the selection, not just
+ * by slot: taking a panelist out only drops their id from the selection, and
+ * their slot keeps the name.
+ */
+export function selectedPanelistNames(
+  selectedIds: readonly string[],
+  humans: ReadonlyArray<{ name: string }>,
+  numberOfHumans: number,
+): string[] {
+  return humans
+    .slice(0, numberOfHumans)
+    .filter((_human, index) => selectedIds.includes(`panelist${index}`))
+    .map((human) => human.name)
+    .filter((name) => name.length > 0);
 }
 
 /** Diffs the council against what the agent was last told, in click order. */
@@ -345,7 +370,9 @@ export function buildTopicFromSelection(params: {
   if (built.id === topicsBundle.custom_topic.id) {
     built.prompt = (built.prompt || "").replace(VISITOR_INPUT_PLACEHOLDER, customTopic.trim());
     built.description = customTopic;
-    built.agendaPoints = undefined;
+    // The visitor's question is the whole agenda: the chair opens on it the same
+    // way it opens on a listed topic's agenda point, in either language.
+    built.agendaPoints = [customTopic.trim()];
   }
   built.prompt = buildMeetingSystemPrompt(
     topicsBundle.system,
@@ -358,7 +385,7 @@ export function buildTopicFromSelection(params: {
 
 /**
  * Validates character-selection state and builds the meeting `characters` payload,
- * including chair `[CHARACTERS]`, `[HUMANS]`, and `[RANDOM_AGENDA_POINT]` prompt injection.
+ * including chair `[CHARACTERS]`, `[HUMANS]`, `[RANDOM_AGENDA_POINT]` and `[SINGLE_AGENDA_POINT]` prompt injection.
  */
 export function buildMeetingCharactersPayload(params: {
   language: string;
@@ -372,11 +399,15 @@ export function buildMeetingCharactersPayload(params: {
 }): { ok: true; characters: Character[] } | { ok: false; error: string } {
   const { language, humans, numberOfHumans, labels, agendaPoints, typedSetup = false } = params;
   let { selectedCharacters } = params;
+  const characterSetupData = getCharacterSetupBundle(language);
+  // The chair prompt goes to whoever is first, so the chair always is — whatever
+  // order the selection was built in, or if the chair was dropped from it.
+  const chairId = characterSetupData.characters[0].id;
+  selectedCharacters = [chairId, ...selectedCharacters.filter((id) => id !== chairId)];
 
   if (!typedSetup) {
     selectedCharacters = orderSelectedCharactersForInstallation(selectedCharacters);
   }
-  const characterSetupData = getCharacterSetupBundle(language);
   const baseCharacters = characterSetupData.characters;
   const characters = [...baseCharacters, ...humans.slice(0, numberOfHumans)];
 
@@ -466,6 +497,11 @@ export function buildMeetingCharactersPayload(params: {
   if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
     replacedCharacters[0].prompt = replacedCharacters[0].prompt.replace("[HUMANS]", humanPresentation);
     replacedCharacters[0].prompt = injectRandomAgendaPoint(replacedCharacters[0].prompt, agendaPoints);
+    replacedCharacters[0].prompt = injectSingleAgendaPointRule(
+      replacedCharacters[0].prompt,
+      agendaPoints,
+      characterSetupData.singleAgendaPoint,
+    );
   }
 
   return { ok: true, characters: replacedCharacters };

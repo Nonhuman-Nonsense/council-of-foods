@@ -112,7 +112,7 @@ describe("RealtimeCaptionOverlay", () => {
         lastCaption={null}
         lastUserTranscript={null}
         micActive={false}
-        micButton={{ state: "off", onClick: vi.fn() }}
+        micButton={{ state: "off", onPress: vi.fn(), onRelease: vi.fn() }}
       />,
     );
 
@@ -120,13 +120,12 @@ describe("RealtimeCaptionOverlay", () => {
     expect(screen.getByTestId("realtime-mic-button")).toHaveAttribute("data-mic-state", "off");
   });
 
-  it("ignores clicks while the session is still connecting", () => {
-    const onClick = vi.fn();
+  it("ignores presses while the session is still connecting", () => {
     render(
       <RealtimeCaptionOverlay
         lastCaption={null}
         lastUserTranscript={null}
-        micButton={{ state: "connecting", onClick }}
+        micButton={{ state: "connecting", onPress: vi.fn(), onRelease: vi.fn() }}
       />,
     );
 
@@ -135,19 +134,37 @@ describe("RealtimeCaptionOverlay", () => {
     expect(within(slot).queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("toggles the mic from the centre button", () => {
-    const onClick = vi.fn();
+  it("holds the mic from the centre button: pressed going down, released letting go", () => {
+    const onPress = vi.fn();
+    const onRelease = vi.fn();
     render(
       <RealtimeCaptionOverlay
         lastCaption={null}
         lastUserTranscript={null}
         micActive
-        micButton={{ state: "on", onClick }}
+        micButton={{ state: "on", onPress, onRelease }}
+      />,
+    );
+    const button = within(screen.getByTestId("realtime-mic-button")).getByRole("button");
+
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1 });
+    expect(onPress).toHaveBeenCalledOnce();
+    expect(onRelease).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(button, { button: 0, pointerId: 1 });
+    expect(onRelease).toHaveBeenCalledOnce();
+  });
+
+  it("explains that the button is held when given a hint", () => {
+    render(
+      <RealtimeCaptionOverlay
+        lastCaption="Welcome."
+        lastUserTranscript={null}
+        micButton={{ state: "off", onPress: vi.fn(), onRelease: vi.fn(), hint: "Hold the button down while you talk" }}
       />,
     );
 
-    fireEvent.click(within(screen.getByTestId("realtime-mic-button")).getByRole("button"));
-    expect(onClick).toHaveBeenCalledOnce();
+    expect(screen.getByTestId("agent-hold-hint")).toHaveTextContent("Hold the button down while you talk");
   });
 
   it("leaves the centre slot inert when no mic button is given", () => {

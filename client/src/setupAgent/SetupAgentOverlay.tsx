@@ -22,12 +22,9 @@ type SetupAgentOverlayProps = {
   subtitleLayout?: RealtimeSubtitleLayout;
   micStream?: MediaStream | null;
   /**
-   * The visitor has asked for the mic (gesture), whether or not audio is
-   * flowing yet. Drives the toggle label (a click cancels the request either
-   * way), museum's visualiser row (raw press — the mic is already attached
-   * there, so there is no gap to hide), and web's "connecting" state; web
-   * additionally waits for `micStream` before showing "on", since on a first
-   * press the track can lag the gesture by however long getUserMedia takes.
+   * The visitor is holding the talk button, whether or not audio is flowing yet.
+   * Drives the mic button's "on" and museum's visualiser row (raw press — the mic is
+   * already attached there, so there is no gap to hide).
    */
   micRequested?: boolean;
   /**
@@ -37,7 +34,10 @@ type SetupAgentOverlayProps = {
    * showing real work happening either way.
    */
   micAttaching?: boolean;
-  onToggleMic?: () => void;
+  /** The on-screen mic button held (true) or let go. */
+  onMicPress?: (down: boolean) => void;
+  /** Show "hold the button down" — the visitor just clicked it instead. */
+  showHoldHint?: boolean;
   onStart: () => void;
   onStop: () => void;
 };
@@ -60,7 +60,8 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     micStream = null,
     micRequested = false,
     micAttaching = false,
-    onToggleMic,
+    onMicPress,
+    showHoldHint = false,
     onStart,
     onStop,
   } = props;
@@ -73,19 +74,15 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
   // for the visualiser.
   const micLive = micStream != null;
 
-  // Three separate waits, all shown as "connecting": the whole session still
-  // settling (same signal the museum spinner uses, ready-but-silent included —
-  // stops early once the page turns out not to be audible, since nothing more
-  // is coming until the visitor gives the gesture this button exists to
-  // collect); a real attach call outstanding (`micAttaching` — true through
-  // the permission prompt regardless of whether the ask survives it); and the
-  // brief gap on an already-attached track between the ask and `micStream`
-  // catching up, one render behind since the enable itself runs in an effect.
+  // Two real waits are shown as "connecting": the whole session still settling, and
+  // an attach call outstanding (`micAttaching` — true through the permission prompt).
+  // Not the one render between a press and `micStream` catching up: the button is held
+  // down at that moment, and swapping it for a spinner would take it from under the finger.
   const micButtonState: MicButtonState = muted
     ? "off"
-    : isConnecting || micAttaching || (micRequested && !micLive)
+    : isConnecting || micAttaching
       ? "connecting"
-      : micLive
+      : micRequested
         ? "on"
         : "off";
 
@@ -120,13 +117,13 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         // second of speech into an untethered track.
         micActive={browserUi ? micLive : micRequested}
         micButton={
-          browserUi && onToggleMic
+          browserUi && onMicPress
             ? {
                 state: micButtonState,
-                onClick: onToggleMic,
-                // Tracks the request, not the live state: a click cancels the
-                // ask whether or not the track has started sending yet.
-                label: micRequested ? t("agent.micStop") : t("agent.micStart"),
+                onPress: () => onMicPress(true),
+                onRelease: () => onMicPress(false),
+                label: t("agent.micHold"),
+                hint: showHoldHint ? t("ptt.holdHint") : null,
               }
             : undefined
         }

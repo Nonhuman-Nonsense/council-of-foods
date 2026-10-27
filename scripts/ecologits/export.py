@@ -97,7 +97,8 @@ MODELS = {
         "basis": "ecologits",
         "assumptions": ["Routed through Inworld to Google AI Studio; EcoLogits' Google data-centre profile applies."],
     },
-    # The letters (server/src/logic/letters): Opus plans and drafts, Sonnet weaves in the human's words.
+    # Opus wrote the letters until October 2026, so older meetings still count it. Sonnet now
+    # writes them (server/src/logic/letters) and speaks for the realtime agents.
     "inworld|anthropic/claude-opus-5-5": {
         "ecologits": ("anthropic", "claude-opus-5-5"),
         "role": "writing",

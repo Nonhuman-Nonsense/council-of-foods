@@ -54,8 +54,8 @@ export type UseSetupAgentParams = {
    */
   micUpFront?: boolean;
   /**
-   * The visitor wants the mic open right now — held, or latched by a tap or the
-   * on-screen button. Single source: the button store owns the gesture, so this
+   * The visitor is holding the talk button — space, the hardware button or the
+   * on-screen one. Single source: the button store owns the gesture, so this
    * hook never keeps a competing copy.
    */
   micOpen?: boolean;
@@ -122,7 +122,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   const [muted, setMuted] = useState(initialMuted);
   /**
    * The mic opened because the visitor just asked, rather than because a
-   * reconnect found the latch still on. Only a request they made should explain
+   * reconnect found the button still held. Only a request they made should explain
    * itself with the blocked-microphone overlay.
    */
   const micRequestedByUserRef = useRef(false);
@@ -241,7 +241,7 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   onMicUnavailableRef.current = onMicUnavailable;
   // getUserMedia can take seconds (the permission prompt included) and
   // nothing can cancel it once asked — so the ask can change while it is in
-  // flight (a blur clearing the latch, say). Read at resolution time rather
+  // flight (the button let go, say). Read at resolution time rather
   // than closed over, so the track ends up matching what is wanted *then*,
   // not what was wanted when the attach started.
   const micOpenRef = useRef(micOpen);
@@ -254,8 +254,8 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
   }, [isReady]);
 
   /**
-   * Every route to an open mic is a gesture the visitor just made — space, a
-   * tap, or the on-screen button — so it counts as their own request. Only a
+   * Every route to an open mic is a gesture the visitor just made — space, the
+   * hardware button or the on-screen one — so it counts as their own request. Only a
    * reconnect re-opens the mic on its own, and that leaves `micOpen` unchanged
    * so this does not fire. Declared before the attach effect on purpose —
    * effects run in order, and the attach reads this ref synchronously.
@@ -267,12 +267,10 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
 
   /**
    * A real `getUserMedia`/`attachMic` call is outstanding — as opposed to
-   * "the visitor is asking", which the latch already covers and which a blur
-   * can legitimately clear while this is still running (the permission prompt
-   * itself blurs the window). The two used to be the same signal by
-   * coincidence, back when nothing cleared the latch mid-flight; now that one
-   * can end before the other, the spinner needs its own truth rather than
-   * inferring "still working" from an ask that may already be gone.
+   * "the visitor is asking", which the press already covers and which a release
+   * or a blur can end while this is still running (the permission prompt itself
+   * blurs the window). The spinner needs its own truth rather than inferring
+   * "still working" from an ask that may already be gone.
    */
   const [micAttaching, setMicAttaching] = useState(false);
 

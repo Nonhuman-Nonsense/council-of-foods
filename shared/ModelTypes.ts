@@ -61,6 +61,11 @@ export interface Character {
     name: string;
     voice: VoiceOption | string;
     description: string;
+    /**
+     * Everyday names visitors use for this character instead of `name` — "biet"
+     * for Humlan. Only the setup agent reads them, to recognise who is meant.
+     */
+    aliases?: string[];
     prompt: string;
     voiceProvider?: 'openai' | 'inworld' | 'elevenlabs';
     voiceLocale?: string;
@@ -80,6 +85,8 @@ export interface CharacterSetupData {
         last_updated: string;
     };
     panelWithHumans: string;
+    /** Chair rule injected at `[SINGLE_AGENDA_POINT]` only when the agenda has exactly one point. */
+    singleAgendaPoint?: string;
     addHuman: {
         id: string;
         name: string;
@@ -89,8 +96,8 @@ export interface CharacterSetupData {
 }
 
 // For Zod validation
-export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection"] as const;
-export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending", "letter_pending", "awaiting_letter_addition"] as const;
+export const MessageTypeValues = ["message", "human", "panelist", "summary", "response", "invitation", "interjection", "letter_farewell"] as const;
+export const SyntheticMessageTypeValues = ["skipped", "awaiting_human_question", "awaiting_human_panelist", "meeting_incomplete", "query_extension", "summary_pending", "letter_pending", "awaiting_letter_addition", "credits"] as const;
 
 // Derive the types from the arrays
 export type MessageType = (typeof MessageTypeValues)[number];
@@ -129,7 +136,13 @@ type GeneratedTurnType =
     | "summary"
     | "invitation"
     | "interjection"
-    | "skipped";
+    | "skipped"
+    /**
+     * The chair's last words when an installation prints its letters (docs/council-letters.md):
+     * thanks to the author and the human, and where the letter went — or why it was not sent.
+     * Live only: replay drops it, with the `credits` after it, and shows the letter instead.
+     */
+    | "letter_farewell";
 
 export interface GeneratedTurnMessage
     extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields, GeneratedDebugFields {
@@ -147,8 +160,13 @@ export interface GeneratedTurnMessage
 export interface LetterView {
     authorId: string;
     authorName: string;
+    /** The being's own address, the letter's From. Missing on letters written before it was shown. */
+    authorEmail?: string;
     recipientName: string;
     recipientOrganisation: string | null;
+    recipientEmail?: string | null;
+    /** When the letter was finished, shown as when it was sent: the outbox sends it moments later. */
+    sentAt?: string;
     subject: string;
     body: string;
     /** The human's own words, set apart after the signature; null when none were. */
@@ -254,13 +272,29 @@ export interface LetterPendingMessage extends BaseMessage {
 
 /**
  * The human taking part is asked to add something to the letter. Resolved by
- * `submit_human_message` or `skip_human_turn`, which push the human's words (or a skip) and
- * `summary_pending`; the letter then becomes the meeting's summary.
+ * `submit_human_message` or `skip_human_turn`: the human's words (a `human` message, when they
+ * answered) and `summary_pending` take its place; the letter then becomes the meeting's summary.
  */
 export interface AwaitingLetterAdditionMessage extends BaseMessage, SpeakerFields, TextFields {
     type: "awaiting_letter_addition";
     id?: never;
     sentences?: never;
+    askParticular?: never;
+    trimmed?: never;
+    pretrimmed?: never;
+}
+
+/**
+ * The credits, after the chair's `letter_farewell`: an installation that prints its letters
+ * ends every meeting on them, and the letter is read from the paper instead of the screen.
+ * Live only, like the farewell; the letter `summary` follows it for replay.
+ */
+export interface CreditsMessage extends BaseMessage {
+    type: "credits";
+    id?: never;
+    text?: never;
+    sentences?: never;
+    speaker?: never;
     askParticular?: never;
     trimmed?: never;
     pretrimmed?: never;
@@ -282,7 +316,8 @@ export type SyntheticMessage =
     | QueryExtensionMessage
     | SummaryPendingMessage
     | LetterPendingMessage
-    | AwaitingLetterAdditionMessage;
+    | AwaitingLetterAdditionMessage
+    | CreditsMessage;
 
 export type Message =
     | GeneratedTurnMessage
@@ -294,10 +329,28 @@ export type Message =
     | QueryExtensionMessage
     | SummaryPendingMessage
     | LetterPendingMessage
-    | AwaitingLetterAdditionMessage;
+    | AwaitingLetterAdditionMessage
+    | CreditsMessage;
 
 export function isSpeakerMessage(message: Message): message is SpeakerMessage {
     return "speaker" in message;
+}
+
+/**
+ * A reply to one of the letters, as an installation prints it (docs/council-letters.md →
+ * Receiving): who wrote back by name — never their address — and the letter it answers.
+ */
+export interface PrintableLetterReply {
+    id: string;
+    meetingId: number;
+    kind: "reply" | "opt-out";
+    fromName: string | null;
+    fromAddress: string;
+    subject: string;
+    /** Markdown, as Brevo extracts it, without the quoted letter, signature or contact details. */
+    message: string;
+    receivedAt: string;
+    letter: { authorId: string; authorName: string; recipientName: string; subject: string; language: string };
 }
 
 export interface Audio {

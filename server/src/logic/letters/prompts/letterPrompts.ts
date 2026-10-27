@@ -64,9 +64,18 @@ export interface FooterParams {
     beingName: string;
     meetingId: number;
     meetingUrl: string;
-    contactEmail: string;
     /** Whether a human's words are part of the letter. */
     humanContributed: boolean;
+}
+
+export interface FarewellPromptParams {
+    authorName: string;
+    /** The human taking part, by first name, when they gave one. */
+    humanName: string | null;
+    /** As it is said aloud: the person, or the organisation they write to. */
+    recipient: string;
+    /** The human answered, so the letter is sent and printed; otherwise it is neither. */
+    sent: boolean;
 }
 
 export interface LetterPrompts {
@@ -75,6 +84,12 @@ export interface LetterPrompts {
      * over to the author, who will announce the letter next.
      */
     bridge(params: { authorName: string }): string;
+    /**
+     * The chair's farewell where an installation prints its letters, spoken after the human has
+     * answered: thanks, where the letter went and that it is printed behind them — or that it was
+     * not sent because nobody answered. The credits follow it.
+     */
+    farewell(params: FarewellPromptParams): string;
     /** System prompt for the classifier that ranks the possible authors; the transcript follows it. */
     author(params: AuthorPromptParams): string;
     /** Appended after the meeting, in the author's own context. Must ask for JSON. */

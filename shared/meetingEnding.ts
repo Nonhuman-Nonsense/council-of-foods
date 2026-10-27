@@ -9,6 +9,8 @@ const CONCLUDING_TYPES: ReadonlySet<Message["type"]> = new Set([
     "letter_pending",
     "awaiting_letter_addition",
     "summary_pending",
+    "letter_farewell",
+    "credits",
     "summary",
 ]);
 

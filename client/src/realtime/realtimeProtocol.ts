@@ -59,13 +59,15 @@ export type RealtimeSessionConfig = {
       speed?: number;
     };
   };
+  /** LLM generation settings, e.g. `{ reasoning: { effort: "NONE" } }`. */
+  text_generation_config?: Record<string, unknown>;
   providerData?: Record<string, unknown>;
 };
 
 /** Subset built on the server from realtime bootstrap defaults. */
 export type RealtimeSessionServerDefaults = Pick<
   RealtimeSessionConfig,
-  "type" | "model" | "output_modalities" | "audio" | "providerData"
+  "type" | "model" | "output_modalities" | "audio" | "text_generation_config" | "providerData"
 >;
 
 export function mergeRealtimeSessionWithClientConfig(

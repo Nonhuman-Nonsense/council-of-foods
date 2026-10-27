@@ -24,9 +24,15 @@ import type { MetaAgentPhase } from "@museum/metaAgent/useMetaAgent";
 import { isConcluding } from "@shared/meetingEnding";
 import { awaitingTypeFor, councilStateForHumanTurn, humanTurnModeOf, type HumanTurnMode } from "./humanTurn";
 import { useDocumentVisibility } from "@/utils";
+import { setLogContext } from "@/logging/serverLogSink";
 
 /** Keep the loading UI visible this long on first paint so the Loading animation can run. */
 const MIN_INITIAL_LOADING_DISPLAY_MS = import.meta.env.VITEST ? 0 : 2000;
+
+/** The pause between two messages. */
+const MESSAGE_PAUSE_MS = 1000;
+/** The pause after the chair's farewell, before the credits: the farewell settles first. */
+export const CREDITS_PAUSE_MS = 3000;
 
 export interface UseCouncilMachineProps {
     currentMeetingId: number;
@@ -96,11 +102,19 @@ function resolveVisibleCouncilOverlay(params: {
     return null;
 }
 
+/**
+ * What the summary overlay shows: the summary, or the credits that an installation printing its
+ * letters ends on instead (docs/council-letters.md). The letter after the credits is for replay.
+ */
+function isMeetingEnd(message: Message | undefined): boolean {
+    return message?.type === "summary" || message?.type === "credits";
+}
+
 function playIndexBeforeOverlayState(
     messages: Message[],
     overlayState: OverlayCouncilState,
 ): number {
-    const markerIndex = messages.findIndex((m) => m.type === overlayState);
+    const markerIndex = messages.findIndex((m) => overlayState === "summary" ? isMeetingEnd(m) : m.type === overlayState);
     if (overlayState === "summary") {
         return Math.max(0, markerIndex > 0 ? markerIndex - 1 : messages.length - 2);
     }
@@ -137,6 +151,8 @@ export function useCouncilMachine({
     // when shared scene logic is split into app-specific leaf components.
     const [councilState, setCouncilState] = useState<CouncilState>("loading");
     const [playingNowIndex, setPlayingNowIndex] = useState(-1);
+    // Output holds the playing message while the meta agent has the floor (see Council).
+    const metaAgentHolding = metaAgentPhase !== "inactive";
     const [playNextIndex, setPlayNextIndex] = useState(0);
 
     const [textMessages, setTextMessages] = useState<Message[]>([]); // State to store conversation updates
@@ -152,6 +168,13 @@ export function useCouncilMachine({
     // Belt-and-suspenders: intents are also tagged with meetingId so a stale intent
     // can never apply to a different meeting even if this cleanup is somehow missed.
     useEffect(() => () => clearAllPendingIntents(), []);
+
+    // Lines logged while this meeting is open belong to it in the stored log.
+    useEffect(() => {
+        if (!(currentMeetingId > 0)) return;
+        setLogContext({ meetingId: currentMeetingId });
+        return () => setLogContext({ meetingId: undefined });
+    }, [currentMeetingId]);
 
     /** True from socket reconnect until the server sends conversation state again. */
     const [attemptingReconnect, setAttemptingReconnect] = useState(false);
@@ -174,6 +197,12 @@ export function useCouncilMachine({
 
     // Refs
     const waitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    /**
+     * Index where the server will write the "<name> said: …" message for the human input
+     * just submitted. Playback steps over it once, so the visitor hears the reply next rather
+     * than their own words read back; navigating back to it later plays it as usual.
+     */
+    const submittedEchoIndex = useRef<number | null>(null);
 
     /** After mount / meeting change, blocks leaving `loading` until this is true (first ~2s only). */
     const [initialLoadingMinElapsed, setInitialLoadingMinElapsed] = useState(false);
@@ -398,6 +427,16 @@ export function useCouncilMachine({
             return;
         }
 
+        // The human input just submitted has arrived: don't read it back, go on to the reply.
+        if (submittedEchoIndex.current === playNextIndex && textMessages[playNextIndex]) {
+            submittedEchoIndex.current = null;
+            const type = textMessages[playNextIndex].type;
+            if (type === 'human' || type === 'panelist') {
+                setPlayNextIndex(playNextIndex + 1);
+                return;
+            }
+        }
+
         // Action A — skip a stale invitation replay when we already have a
         // human-draft intent queued for the awaiting_* sentinel right after it.
         // Only reachable on the reconnect self-heal path: the invitation was
@@ -423,7 +462,9 @@ export function useCouncilMachine({
         }
 
         // This will be triggered directly when text is set
-        if (councilState !== 'summary' && textMessages[playNextIndex]?.type === 'summary') {
+        // Except that the pause before the credits runs out first (see 'waiting').
+        const pausingBeforeCredits = councilState === 'waiting' && textMessages[playNextIndex]?.type === 'credits';
+        if (councilState !== 'summary' && isMeetingEnd(textMessages[playNextIndex]) && !pausingBeforeCredits) {
             setCouncilState("summary");
             return;
         }
@@ -483,10 +524,10 @@ export function useCouncilMachine({
             case 'human_input':
                 break;
             case 'summary':
-                if (summary === null && textMessages[playNextIndex]?.type === 'summary') {
+                if (summary === null && isMeetingEnd(textMessages[playNextIndex])) {
                     setSummary(textMessages[playNextIndex]);
                 }
-                if (textMessages[playNextIndex]?.type !== 'summary') {
+                if (!isMeetingEnd(textMessages[playNextIndex])) {
                     rewindOverlayCouncilState(councilState);
                     return;
                 }
@@ -498,11 +539,12 @@ export function useCouncilMachine({
                 }
                 break;
             case 'waiting':
-                //Wait one second, and then proceed
-                if (waitTimer.current == null) {//Unless we are already waiting
+                //Pause, and then proceed — but not behind the meta agent's back
+                if (waitTimer.current == null && !metaAgentHolding) {//Unless we are already waiting
+                    const pause = textMessages[playNextIndex]?.type === 'credits' ? CREDITS_PAUSE_MS : MESSAGE_PAUSE_MS;
                     waitTimer.current = setTimeout(() => {
                         setCouncilState('playing');
-                    }, 1000);
+                    }, pause);
                 }
                 break;
             case 'query_extension':
@@ -517,7 +559,7 @@ export function useCouncilMachine({
             default:
                 break;
         }
-    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId]);
+    }, [councilState, textMessages, audioMessages, playingNowIndex, playNextIndex, liveKey, summary, initialLoadingMinElapsed, hasMetaAgent, setMetaAgentPhase, pendingIntent, currentMeetingId, metaAgentHolding]);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Actions                                    */
@@ -540,6 +582,7 @@ export function useCouncilMachine({
     }
 
     function handleOnSkipBackward() {
+        submittedEchoIndex.current = null;
         let skipLength = 1;
         while (textMessages[playingNowIndex - skipLength]?.type === 'skipped') {
             skipLength++;
@@ -575,10 +618,12 @@ export function useCouncilMachine({
         // Slice target intentionally differs by mode (matches pre-existing,
         // pre-intent behavior): panelist truncates to `next`, question to `now`. A letter
         // addition keeps the author's announcement and drops only the marker: the server
-        // writes summary_pending in its place, then the letter.
+        // writes the human's words and summary_pending in its place, then the letter.
         setTextMessages((prevMessages) => prevMessages.slice(0, mode === "question" ? now : next));
         setPlayingNowIndex(now);
         setPlayNextIndex(next);
+        // The server writes the answer at `next` — a letter addition too, before summary_pending.
+        submittedEchoIndex.current = next;
         if (mode === "question") {
             setIsRaisedHand(false);
             clearPendingIntent("raise-hand");
@@ -1123,6 +1168,15 @@ export function useCouncilMachine({
             }
         }
     }, [isPaused]);
+
+    // The meta agent interrupting in the pause between messages holds the meeting
+    // there; the main machine restarts the wait once the agent hands back.
+    useEffect(() => {
+        if (metaAgentHolding && waitTimer.current) {
+            clearTimeout(waitTimer.current);
+            waitTimer.current = null;
+        }
+    }, [metaAgentHolding]);
 
 
     // Mute Logic

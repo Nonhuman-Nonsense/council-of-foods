@@ -4,6 +4,7 @@ import Council from '@council/Council';
 import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
 import { useErrorStore } from '@main/overlay/errorStore';
+import { HttpStatusError } from '@api/http';
 import { notifyAutoplay, useAutoplayStore } from '@/autoplay/autoplayStore';
 import type { Message } from '@shared/ModelTypes';
 import type { AppMode } from '@/settings/councilSettings';
@@ -63,7 +64,7 @@ vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{
 vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
 vi.mock('@council/output/Output', () => ({
-    default: () => <div data-testid="output">Output</div>,
+    default: ({ held }: { held?: boolean }) => <div data-testid="output" data-held={String(!!held)}>Output</div>,
 }));
 vi.mock('@council/humanInput/HumanInput', () => ({ default: () => <div>Human Input</div> }));
 vi.mock('@council/FoodsCouncilScene', () => ({ default: () => <div data-testid="foods-scene">Foods Scene</div> }));
@@ -215,11 +216,34 @@ describe('Council Component', () => {
         expect(mockNavigate).not.toHaveBeenCalledWith('/');
     });
 
+    // How a meeting that would not load is reported: a link that got no answer at all (the
+    // visitor's network) is a warning they can retry in place; a server error stays critical.
+    it.each([
+        { name: 'no response', error: new TypeError('Failed to fetch'), connectionLost: true, severity: 'warning' },
+        { name: 'a stale link (404)', error: new HttpStatusError(404, 'Not found'), connectionLost: false, severity: 'warning' },
+        { name: 'a server error (500)', error: new HttpStatusError(500, 'Boom'), connectionLost: false, severity: undefined },
+    ])('reports a meeting load that fails with $name', async ({ error, connectionLost, severity }) => {
+        vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        mockGetMeeting.mockRejectedValueOnce(error);
+
+        render(<Council {...defaultProps} />);
+
+        await vi.waitFor(() => {
+            expect(useErrorStore.getState().unrecoverableError).not.toBeNull();
+        });
+        expect(useErrorStore.getState().unrecoverableError).toMatchObject({
+            source: 'Council.loadMeeting',
+            connectionLost,
+            reloadInPlace: connectionLost,
+            severity,
+        });
+    });
+
     it.each([
         { name: 'a live museum meeting with printing on', mode: 'museum', enabled: true, liveKey: 'live', prints: true },
         { name: 'a museum replay', mode: 'museum', enabled: true, liveKey: null, prints: false },
         { name: 'museum with printing switched off', mode: 'museum', enabled: false, liveKey: 'live', prints: false },
-        { name: 'a presenter screening', mode: 'presenter', enabled: true, liveKey: 'live', prints: false },
+        { name: 'a live presenter screening with printing on', mode: 'presenter', enabled: true, liveKey: 'live', prints: true },
         { name: 'the web app', mode: 'web', enabled: true, liveKey: 'live', prints: false },
     ] as const)('prints the protocol only for $name → $prints', ({ mode, enabled, liveKey, prints }) => {
         mockUseCouncilSettings.mockReturnValue({
@@ -311,7 +335,7 @@ describe('Council Component', () => {
         expect(screen.getByText('Human Input')).toBeInTheDocument();
     });
 
-    it('unmounts meeting output when meta agent is active', async () => {
+    it('holds meeting output, rather than unmounting it, while the meta agent is active', async () => {
         mockMetaAgentActivate = true;
         mockUseCouncilSettings.mockReturnValue({
           isMuseumMode: true,
@@ -323,8 +347,22 @@ describe('Council Component', () => {
         render(<Council {...defaultProps} />);
 
         await waitFor(() => {
-            expect(screen.queryByTestId('output')).not.toBeInTheDocument();
+            expect(screen.getByTestId('output')).toHaveAttribute('data-held', 'true');
         });
+    });
+
+    it.each([
+        ['the credits, after the farewell', [{ id: 'f1', type: 'letter_farewell', speaker: 'river', text: 'Thank you.' }, { type: 'credits' }], ''],
+        ['the summary being read', [{ id: 's1', type: 'summary', speaker: 'reindeer', text: 'Dear …' }], 'reindeer'],
+    ] as [string, Message[], string][])('gives the summary page the right speaker on %s', (_label, messages, speaker) => {
+        const setCurrentSpeakerId = vi.fn();
+        mockCouncilStateMachine.state.councilState = 'summary';
+        mockCouncilStateMachine.state.textMessages = messages;
+        mockCouncilStateMachine.state.playingNowIndex = 0;
+
+        render(<Council {...defaultProps} setCurrentSpeakerId={setCurrentSpeakerId} />);
+
+        expect(setCurrentSpeakerId).toHaveBeenLastCalledWith(speaker);
     });
 
     it('clears lifted meeting runtime and autoplay council flags on unmount', () => {

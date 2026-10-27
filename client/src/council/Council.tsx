@@ -10,10 +10,10 @@ import ConversationControls from "./ConversationControls";
 import HumanInput from "./humanInput/HumanInput";
 import { getParticipationPhase } from "./humanInput/participationPhase";
 import { useTranslation } from "react-i18next";
-import { summaryDocument } from "@council/protocol/summaryDocument";
+import { summaryDocument, summaryLetter } from "@council/protocol/summaryDocument";
 import { useCouncilMachine } from "./hooks/useCouncilMachine";
 import { getMeeting } from "@api/getMeeting.js";
-import { HttpStatusError } from "@api/http";
+import { HttpStatusError, isNetworkError } from "@api/http";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { z } from "@/zIndexLayers";
 import CouncilReplaySession from "./CouncilReplaySession";
@@ -100,14 +100,19 @@ function Council({
         const msg =
           error instanceof Error && error.message.trim().length > 0 ? error.message : t("error.message");
         const isNotFound = error instanceof HttpStatusError && error.status === 404;
+        // No response even after councilFetch's retries: the visitor's network (or ours) is
+        // down, not a bug. Say what to check, and let restarting try this same link again.
+        const unreachable = isNetworkError(error);
         setUnrecoverableError({
           message: msg,
           errorKey: error instanceof HttpStatusError ? error.errorKey : undefined,
           source: "Council.loadMeeting",
           cause: error,
           meetingId: currentMeetingId,
+          connectionLost: unreachable,
+          reloadInPlace: unreachable,
           // Temporarily 'warning' (not 'info') to watch stale meeting link volume for a while.
-          severity: isNotFound ? "warning" : undefined,
+          severity: isNotFound || unreachable ? "warning" : undefined,
         });
       }
     })();
@@ -182,6 +187,9 @@ function Council({
       return pendingMessage?.type === 'awaiting_human_panelist' ? pendingMessage.speaker : "";
     }
     const activeMessage = textMessages[playingNowIndex];
+    // On the summary page only the summary's reader speaks: on the credits, the chair's farewell
+    // before them has finished, and nobody's sound should keep playing under them.
+    if (councilState === 'summary' && activeMessage?.type !== 'summary') return "";
     if (activeMessage && isSpeakerMessage(activeMessage)) return activeMessage.speaker;
     return "";
   }, [metaAgentPhase, agentSpeaking, councilState, playingNowIndex, textMessages, playNextIndex, humanName]);
@@ -327,7 +335,7 @@ function Council({
               onConcludeMeeting={handleOnConcludeMeeting}
               proceedWithHumanName={handleHumanNameEntered}
               onDismiss={declineOverlay}
-              summary={{ text: summaryDocument(summary, t) }}
+              summary={{ text: summaryDocument(summary, t), letter: summaryLetter(summary), credits: summary?.type === "credits" }}
               meetingId={currentMeetingId}
               participants={participants}
               audioContext={audioContext}
@@ -338,21 +346,22 @@ function Council({
 
         {/* Footer — Output, controls, and banner in the bottom flex column. */}
         <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
-          {metaAgentPhase === "inactive" && (
-            <Output
-              textMessages={textMessages}
-              audioMessages={audioMessages}
-              playingNowIndex={playingNowIndex}
-              councilState={councilState}
-              isMuted={isMuted}
-              isPaused={isPaused}
-              currentSnippetIndex={currentSnippetIndex}
-              setCurrentSnippetIndex={setCurrentSnippetIndex}
-              audioContext={audioContext}
-              handleOnFinishedPlaying={handleOnFinishedPlaying}
-              onSummaryPlaybackChange={setSummaryPlayback}
-            />
-          )}
+          {/* Stays mounted while the meta agent has the floor: unmounting would
+              discard the interrupted message's place, so it is held instead. */}
+          <Output
+            textMessages={textMessages}
+            audioMessages={audioMessages}
+            playingNowIndex={playingNowIndex}
+            councilState={councilState}
+            isMuted={isMuted}
+            isPaused={isPaused}
+            currentSnippetIndex={currentSnippetIndex}
+            setCurrentSnippetIndex={setCurrentSnippetIndex}
+            audioContext={audioContext}
+            handleOnFinishedPlaying={handleOnFinishedPlaying}
+            onSummaryPlaybackChange={setSummaryPlayback}
+            held={metaAgentPhase !== "inactive"}
+          />
           {controlsVisible && metaAgentPhase === "inactive" && (
             <ConversationControls
               hidden={!capabilities.browserUi}

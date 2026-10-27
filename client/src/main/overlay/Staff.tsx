@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import type { LetterView, PrintableLetterReply } from "@shared/ModelTypes";
 import {
   APP_MODES,
   DEV_LOG_CATEGORIES,
@@ -22,11 +24,15 @@ import type {
 } from "@/museum/button/buttonBridge";
 import { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { modeSwitchButtonToggleStyle } from "@/museum/ModeSwitchButton";
-import ProtocolDocument from "@council/protocol/ProtocolDocument";
+import LetterDocument, { letterFields, replyFields } from "@council/protocol/LetterDocument";
+import { letterBody } from "@council/protocol/summaryDocument";
+import { useRouting } from "@/navigation";
 import { createProtocolPdf } from "@council/protocol/protocolPdf";
 import { sendTestPage, type TestPageOutcome } from "@/museum/print/printClient";
 import { describePrinterReason } from "@shared/printerReasons";
 import { fetchVenues, type Venue } from "@api/venues";
+import { getServerLogStatus } from "@/logging/serverLogSink";
+import { useFocusTrap } from "./useFocusTrap";
 import {
   chooseAlertVenue,
   saveInstallationKey,
@@ -246,6 +252,43 @@ function getStaffAlertDetailLines(alerts: BridgeAlertsHealth): string[] {
   return lines;
 }
 
+/** The test print is a sample letter and a reply to it, so staff see exactly what visitors' prints look like. */
+const TEST_LETTER_MEETING_ID = 1400;
+
+function testLetter(t: TFunction): LetterView {
+  return {
+    authorId: "test",
+    authorName: t("staff.print.testLetter.from"),
+    authorEmail: t("staff.print.testLetter.fromEmail"),
+    recipientName: t("staff.print.testLetter.to"),
+    recipientOrganisation: t("staff.print.testLetter.organisation"),
+    recipientEmail: t("staff.print.testLetter.toEmail"),
+    sentAt: new Date().toISOString(),
+    subject: t("staff.print.testLetter.subject"),
+    body: t("staff.print.testLetter.body"),
+    humanNote: null,
+    footer: "",
+    present: true,
+    send: true,
+    sendReason: null,
+  };
+}
+
+function testReply(t: TFunction, language: string): PrintableLetterReply {
+  const letter = testLetter(t);
+  return {
+    id: "test",
+    meetingId: TEST_LETTER_MEETING_ID,
+    kind: "reply",
+    fromName: t("staff.print.testReply.from"),
+    fromAddress: t("staff.print.testReply.fromEmail"),
+    subject: t("staff.print.testReply.subject"),
+    message: t("staff.print.testReply.body"),
+    receivedAt: new Date().toISOString(),
+    letter: { authorId: letter.authorId, authorName: letter.authorName, recipientName: letter.recipientName, subject: letter.subject, language },
+  };
+}
+
 function getStaffBridgeLogHint(): string {
   return "/var/log/council-button-bridge.log";
 }
@@ -280,7 +323,6 @@ const staffFieldStyle: CSSProperties = {
   border: "1.5px solid rgba(255, 255, 255, 0.55)",
   borderRadius: 19,
   padding: "2px 14px",
-  outline: "none",
 };
 
 const staffSelectStyle: CSSProperties = {
@@ -298,6 +340,9 @@ const staffSelectStyle: CSSProperties = {
 const staffOptionStyle: CSSProperties = { color: "black" };
 
 const STAFF_ROW_LABEL_WIDTH = 130;
+
+/** "Hear yourself" steps; the visitor's headphone amp does the fine adjustment. */
+const SIDETONE_LEVELS = [0, 0.25, 0.5, 0.75, 1];
 const STAFF_ROW_GAP = 12;
 
 const staffLabelStyle: CSSProperties = { opacity: 0.75, whiteSpace: "nowrap" };
@@ -491,6 +536,23 @@ function StaffDivider(): ReactElement {
 }
 
 /** On/off for a feature, lit like the other staff toggles while on. */
+/** Says so when the log is not reaching the server; silent while it is. */
+function ServerLogFailureNote(): ReactElement | null {
+  const { t } = useTranslation();
+  const [status, setStatus] = useState(getServerLogStatus);
+  useEffect(() => {
+    const id = window.setInterval(() => setStatus(getServerLogStatus()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  if (!status.failure) return null;
+  return (
+    <StaffRowNote testId="staff-server-log-status" tone="error" indent={false}>
+      {t("staff.logging.server.failing", { failure: status.failure, pending: status.pending })}
+    </StaffRowNote>
+  );
+}
+
 function StaffToggle(props: { on: boolean; onChange: (on: boolean) => void; testId: string }): ReactElement {
   const { t } = useTranslation();
   return (
@@ -552,7 +614,7 @@ function StaffCollapsible(props: {
  * Staff-only global council options at #staff.
  */
 function Staff(): ReactElement {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     mode: appMode,
     setAppMode,
@@ -560,7 +622,10 @@ function Staff(): ReactElement {
     setPttHardwareEnabled,
     printSummariesEnabled,
     setPrintSummariesEnabled,
-    capabilities,
+    splitAudioEnabled,
+    setSplitAudioEnabled,
+    sidetoneLevel,
+    setSidetoneLevel,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled,
     devLogEnabled,
@@ -582,14 +647,30 @@ function Staff(): ReactElement {
   const [venueId, setVenueIdState] = useState(getVenueId);
 
   const testPageRef = useRef<HTMLDivElement>(null);
+  const testReplyRef = useRef<HTMLDivElement>(null);
+  const { meetingPath } = useRouting();
   const [testPage, setTestPage] = useState<"idle" | "sending" | TestPageOutcome>("idle");
 
+  /**
+   * A letter, then a reply: two sheets, each its own job, reporting the first that did not queue.
+   * Both are downloaded too, so the layout can be checked on a computer with no printer.
+   */
   const printTestPage = async (): Promise<void> => {
-    if (!testPageRef.current) return;
+    const pages = [testPageRef.current, testReplyRef.current];
+    if (pages.some((page) => !page)) return;
     setTestPage("sending");
     try {
-      const pdf = await createProtocolPdf(testPageRef.current);
-      setTestPage(await sendTestPage(pdf.output("blob")));
+      const letter = await createProtocolPdf(pages[0]!, { magnetMark: true });
+      const reply = await createProtocolPdf(pages[1]!, { magnetMark: true });
+      letter.save("test-letter.pdf");
+      reply.save("test-reply.pdf");
+      const pdfs = [letter, reply];
+      let outcome: TestPageOutcome = "queued";
+      for (const pdf of pdfs) {
+        outcome = await sendTestPage(pdf.output("blob"));
+        if (outcome !== "queued") break;
+      }
+      setTestPage(outcome);
     } catch {
       setTestPage("rejected");
     }
@@ -624,6 +705,10 @@ function Staff(): ReactElement {
     (keyStatus === "missing" || keyStatus === "otherServer" || keySave.state === "failed" || keyEditing);
 
   const button = useButton("staff");
+
+  // Staff at an installation may have a keyboard and no mouse.
+  const pageRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(pageRef);
 
   useEffect(() => {
     button.claim();
@@ -724,7 +809,11 @@ function Staff(): ReactElement {
 
   return (
     <div
+      ref={pageRef}
+      tabIndex={-1}
+      className="staff-page"
       style={{
+        outline: "none",
         width: "min(96vw, 880px)",
         display: "flex",
         flexDirection: "column",
@@ -1006,15 +1095,51 @@ function Staff(): ReactElement {
               </>
             ) : null}
           </StaffRow>
-          {printSummariesEnabled && !capabilities.printSummary ? (
-            <StaffRowNote testId="staff-print-mode-hint">{t("staff.print.modeHint")}</StaffRowNote>
-          ) : null}
           {printSummariesEnabled ? (
-            /* The test page is a real protocol, so it exercises the same PDF path. */
+            /* The test print is a sample letter and reply, printed through the same PDF path as real ones. */
             <div style={{ position: "absolute", top: 0, display: "none" }}>
-              <ProtocolDocument ref={testPageRef} summaryText={t("staff.print.testPageText")} meetingId="TEST" />
+              <LetterDocument
+                ref={testPageRef}
+                groups={letterFields(testLetter(t), t, i18n.language)}
+                body={letterBody(testLetter(t), t, false)}
+                meetingId={TEST_LETTER_MEETING_ID}
+                qrUrl={new URL(meetingPath(TEST_LETTER_MEETING_ID), window.location.origin).toString()}
+              />
+              <LetterDocument
+                ref={testReplyRef}
+                title="REPLY"
+                groups={replyFields(testReply(t, i18n.language), t)}
+                body={t("staff.print.testReply.body")}
+                meetingId={TEST_LETTER_MEETING_ID}
+                qrUrl={new URL(meetingPath(TEST_LETTER_MEETING_ID), window.location.origin).toString()}
+              />
             </div>
           ) : null}
+
+          <StaffRow label={t("staff.splitAudio.toggle")}>
+            <StaffToggle
+              on={splitAudioEnabled}
+              onChange={setSplitAudioEnabled}
+              testId="staff-split-audio-toggle"
+            />
+          </StaffRow>
+
+          <StaffRow label={t("staff.sidetone.label")}>
+            <select
+              data-testid="staff-sidetone-level"
+              value={String(sidetoneLevel)}
+              onChange={(event) => setSidetoneLevel(Number(event.target.value))}
+              style={{ ...staffSelectStyle, flex: "0 1 auto" }}
+            >
+              {/* A level staff left between the steps (by hand, in storage) still shows. */}
+              {[...new Set([...SIDETONE_LEVELS, sidetoneLevel])].sort((a, b) => a - b).map((level) => (
+                <option key={level} value={String(level)} style={staffOptionStyle}>
+                  {level > 0 ? `${Math.round(level * 100)} %` : t("staff.toggle.off")}
+                </option>
+              ))}
+            </select>
+          </StaffRow>
+          <StaffRowNote>{t("staff.sidetone.note")}</StaffRowNote>
 
           {printSummariesEnabled && alertsHealth && alertsStatus ? (
             <>
@@ -1097,31 +1222,34 @@ function Staff(): ReactElement {
           ) : null}
         </StaffPanel>
 
-        <StaffPanel title={t("staff.panels.logging")} testId="staff-logging-panel">
-            <StaffSegmented testId="staff-logging-master">
-              <button
-                type="button"
-                data-testid="staff-dev-log-on"
-                className={devLogEnabled ? "selected" : ""}
-                aria-pressed={devLogEnabled}
-                onClick={() => setDevLogEnabled(true)}
-                style={staffSegmentButton}
-              >
-                {t("staff.logging.on")}
-              </button>
-              <button
-                type="button"
-                data-testid="staff-dev-log-off"
-                className={!devLogEnabled ? "selected" : ""}
-                aria-pressed={!devLogEnabled}
-                onClick={() => setDevLogEnabled(false)}
-                style={staffSegmentButton}
-              >
-                {t("staff.logging.off")}
-              </button>
-            </StaffSegmented>
-
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <StaffPanel title={t("staff.panels.logging")} fullWidth compact testId="staff-logging-panel">
+          {/* One row of switches, the categories under it. */}
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+            <div style={{ flex: "0 1 220px" }}>
+              <StaffSegmented testId="staff-logging-master">
+                <button
+                  type="button"
+                  data-testid="staff-dev-log-on"
+                  className={devLogEnabled ? "selected" : ""}
+                  aria-pressed={devLogEnabled}
+                  onClick={() => setDevLogEnabled(true)}
+                  style={staffSegmentButton}
+                >
+                  {t("staff.logging.on")}
+                </button>
+                <button
+                  type="button"
+                  data-testid="staff-dev-log-off"
+                  className={!devLogEnabled ? "selected" : ""}
+                  aria-pressed={!devLogEnabled}
+                  onClick={() => setDevLogEnabled(false)}
+                  style={staffSegmentButton}
+                >
+                  {t("staff.logging.off")}
+                </button>
+              </StaffSegmented>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
               <button
                 type="button"
                 data-testid="staff-dev-log-all"
@@ -1147,36 +1275,37 @@ function Staff(): ReactElement {
                 {t("staff.logging.none")}
               </button>
             </div>
-
-            <div
-              role="group"
-              aria-label={t("staff.logging.categoriesLabel")}
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-              }}
-            >
-              {DEV_LOG_CATEGORIES.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  data-testid={`staff-dev-log-category-${category}`}
-                  aria-pressed={devLogCategories[category]}
-                  disabled={!devLogEnabled}
-                  onClick={() =>
-                    setDevLogCategoryEnabled(category, !devLogCategories[category])
-                  }
-                  style={logCategoryPillStyle(
-                    category,
-                    devLogCategories[category],
-                    devLogEnabled,
-                  )}
-                >
-                  {t(`staff.logging.categories.${category}`)}
-                </button>
-              ))}
-            </div>
+          </div>
+          {devLogEnabled ? <ServerLogFailureNote /> : null}
+          <div
+            role="group"
+            aria-label={t("staff.logging.categoriesLabel")}
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 6,
+            }}
+          >
+            {DEV_LOG_CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                data-testid={`staff-dev-log-category-${category}`}
+                aria-pressed={devLogCategories[category]}
+                disabled={!devLogEnabled}
+                onClick={() =>
+                  setDevLogCategoryEnabled(category, !devLogCategories[category])
+                }
+                style={logCategoryPillStyle(
+                  category,
+                  devLogCategories[category],
+                  devLogEnabled,
+                )}
+              >
+                {t(`staff.logging.categories.${category}`)}
+              </button>
+            ))}
+          </div>
           </StaffPanel>
       </div>
     </div>

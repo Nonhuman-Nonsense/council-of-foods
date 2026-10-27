@@ -267,19 +267,39 @@ describe('MeetingManager - Speaker Selection', () => {
             });
         });
 
-        describe('Directed speaker routing chair cadence', () => {
-            it('should force the chair after every other participant has spoken since chair last spoke', () => {
-                const chairId = manager.meeting.characters[0].id;
-                manager.meeting.conversation = [
-                    { speaker: chairId, type: 'message' },
-                    { speaker: manager.meeting.characters[1].id, type: 'message' },
-                    { speaker: manager.meeting.characters[2].id, type: 'message', askParticular: manager.meeting.characters[1].id }
-                ];
+        describe('Directed speaker routing priority', () => {
+            // River chairs; Ada (a human panelist) sits after three beings, so she is due after 3 turns.
+            // The chair is due once the 6 others have had a turn since it last spoke.
+            const characters = ['river', 'f1', 'f2', 'f3', 'panelist0', 'f4', 'f5'].map((id) =>
+                MockFactory.createCharacter({ id, name: id })
+            );
+            const say = (speaker, askParticular) => ({ speaker, type: 'message', ...(askParticular && { askParticular }) });
+            const answer = (speaker, askParticular) => ({ speaker, type: 'response', ...(askParticular && { askParticular }) });
+            const ada = (askParticular) => ({ speaker: 'panelist0', type: 'panelist', ...(askParticular && { askParticular }) });
+            const roundOne = [say('river'), say('f1'), say('f2'), say('f3'), ada(), say('f4'), say('f5')];
 
-                expect(SpeakerSelector.calculateNextSpeaker(manager.meeting.conversation, manager.meeting.characters, {
+            it.each([
+                { behavior: 'the human waits for the beings ahead of them in the lineup', conversation: [say('river'), say('f1'), say('f2')], expected: 'f3' },
+                { behavior: 'the human comes in once their place in the lineup has passed', conversation: [say('river'), say('f1'), say('f2'), say('f3')], expected: 'panelist0' },
+                { behavior: 'an answer can ask back while no cadence is due', conversation: [say('river', 'f2'), answer('f2', 'f1'), answer('f1', 'f2')], expected: 'f2' },
+                { behavior: 'a due human beats a question asked inside an answer', conversation: [say('river', 'f2'), answer('f2', 'f1'), answer('f1', 'f2'), answer('f2', 'f3')], expected: 'panelist0' },
+                { behavior: 'a first question is answered even when the human is due', conversation: [say('river'), say('f1'), say('f2'), say('f3', 'f1')], expected: 'f1' },
+                { behavior: 'a being can ask the human before their place in the lineup', conversation: [say('river'), say('f1', 'panelist0')], expected: 'panelist0' },
+                { behavior: 'the chair can ask the human straight away', conversation: [say('river', 'panelist0')], expected: 'panelist0' },
+                { behavior: 'a skipped human turn counts as their turn', conversation: [say('river'), say('f1'), say('f2'), say('f3'), { speaker: 'panelist0', type: 'skipped' }], expected: 'f4' },
+                { behavior: 'the chair returns once two beings have replied to the human', conversation: roundOne, expected: 'river' },
+                { behavior: 'the chair waits for two beings to reply to the human even when due', conversation: [say('river'), say('f1'), say('f2'), say('f3'), say('f4'), say('f5'), ada(), say('f1')], expected: 'f2' },
+                { behavior: 'no wait for the chair after a human skipped their turn', conversation: [say('river'), say('f1'), say('f2'), say('f3'), { speaker: 'panelist0', type: 'skipped' }, say('f4'), say('f5')], expected: 'river' },
+                { behavior: 'a first question beats a due chair', conversation: [...roundOne.slice(0, -1), say('f5', 'f1')], expected: 'f1' },
+                { behavior: 'a due chair beats a question asked inside an answer', conversation: [...roundOne.slice(0, -1), answer('f5', 'f1')], expected: 'river' },
+                { behavior: 'a human and a being asking each other back and forth give way to the chair', conversation: [...roundOne.slice(0, 4), ada('f4'), answer('f4', 'panelist0'), ada('f4'), answer('f4', 'panelist0')], expected: 'river' },
+                { behavior: 'a hand-raised question also makes the chair wait for two replies', conversation: [...roundOne.slice(0, 6), { speaker: 'Frank', type: 'human', askParticular: 'f5' }, answer('f5')], expected: 'f1' },
+            ])('$behavior', ({ conversation, expected }) => {
+                const next = SpeakerSelector.calculateNextSpeaker(conversation, characters, {
                     directedSpeakerRouting: true,
-                    chairId,
-                })).toBe(0);
+                    chairId: 'river',
+                });
+                expect(characters[next].id).toBe(expected);
             });
 
             it('should not force the chair when directed routing is disabled', () => {

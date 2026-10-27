@@ -67,6 +67,7 @@ EOF
     -e "s|__RUN_SCRIPT__|$run_script|g" \
     -e "s|__INSTALL_DIR__|$install_dir|g" \
     -e "s|__PRINT_SPOOL_DIR__|$PRINT_SPOOL_DIR|g" \
+    -e "s|__POWER_BUTTON_SHUTDOWN__|${POWER_BUTTON_SHUTDOWN:-0}|g" \
     "$plist_src" >"$tmp_plist"
 
   if ! plutil -lint "$tmp_plist" >/dev/null; then
@@ -177,19 +178,84 @@ remove_print_spool_links() {
   done
 }
 
-# CUPS stops a printer's whole queue on an error (paper out, printer off) and leaves it
-# stopped after the problem is fixed. retry-job keeps the queue running instead.
+# The default printer `lpstat -d` reports, or nothing. Arguments are put in front of it,
+# to run it as someone else.
+default_printer() {
+  { "$@" env LANG=C LC_ALL=C lpstat -d 2>/dev/null || true; } | sed -n 's/^system default destination: *//p'
+}
+
+# The default printer as the daemon sees it: as root, with root's home. Choosing a default
+# in System Settings → Printers & Scanners only sets it for that user (~/.cups/lpoptions),
+# and sudo keeps the user's HOME, so a plain `sudo lpstat -d` would still see it.
+daemon_default_printer() {
+  default_printer sudo env -u LPDEST -u PRINTER HOME=/var/root
+}
+
+# Makes sure the daemon has a default printer: a default only the installing user has is
+# made the system-wide one. CUPS stops a printer's whole queue on an error (paper out,
+# printer off) and leaves it stopped after the problem is fixed; retry-job keeps the queue
+# running instead.
 configure_default_printer() {
   local printer
-  printer="$(LANG=C LC_ALL=C lpstat -d 2>/dev/null | sed -n 's/^system default destination: *//p')"
+  printer="$(daemon_default_printer)"
   if [[ -z "$printer" ]]; then
-    echo "Warning: no default printer. Protocols will wait in $PRINT_SPOOL_DIR/pending until one is set" >&2
-    echo "  (System Settings → Printers & Scanners), then re-run this installer." >&2
-    return 0
+    printer="$(default_printer)"
+    if [[ -z "$printer" ]]; then
+      echo "Warning: no default printer. Protocols will wait in $PRINT_SPOOL_DIR/pending until one is set" >&2
+      echo "  (System Settings → Printers & Scanners), then re-run this installer." >&2
+      echo "  Or set it yourself: sudo lpadmin -d <printer> (lpstat -e lists the printers)." >&2
+      return 0
+    fi
+    if ! sudo lpadmin -d "$printer"; then
+      echo "Warning: $printer is only this user's default printer, which the bridge doesn't see," >&2
+      echo "  and making it the system-wide default failed. Run: sudo lpadmin -d $printer" >&2
+      return 0
+    fi
+    echo "Made $printer the system-wide default printer (it was only this user's default)."
   fi
   if sudo lpadmin -p "$printer" -o printer-error-policy=retry-job; then
     echo "Printer: $printer (retries jobs after errors)"
   else
     echo "Warning: could not set retry-job policy on $printer." >&2
   fi
+}
+
+# --- power button ---
+
+# A Mac's power button sleeps it, or asks in a dialog whether to shut down; neither shuts
+# down a Mac nobody has a mouse or keyboard for. On a desktop Mac the bridge shuts it down
+# when the button is pressed (src/powerButton.ts). A laptop's power button is its Touch ID
+# and lock button, so it is left alone there. COUNCIL_POWER_BUTTON_SHUTDOWN=1 or 0
+# overrides the choice. Sets POWER_BUTTON_SHUTDOWN for write_launchd_plist.
+POWER_BUTTON_SHUTDOWN=0
+LOGINWINDOW_PREFS="/Library/Preferences/com.apple.loginwindow"
+
+mac_has_battery() {
+  pmset -g batt 2>/dev/null | grep -q InternalBattery
+}
+
+configure_power_button() {
+  local wanted="${COUNCIL_POWER_BUTTON_SHUTDOWN:-}"
+  if [[ -z "$wanted" ]]; then
+    if mac_has_battery; then wanted=0; else wanted=1; fi
+  fi
+  if [[ "$wanted" != "1" ]]; then
+    POWER_BUTTON_SHUTDOWN=0
+    restore_power_button
+    echo "Power button: left to macOS (set COUNCIL_POWER_BUTTON_SHUTDOWN=1 to have it shut the Mac down)."
+    return 0
+  fi
+  POWER_BUTTON_SHUTDOWN=1
+  # A press that sleeps the Mac would race the shutdown; the dialog doesn't.
+  if sudo defaults write "$LOGINWINDOW_PREFS" PowerButtonSleepsSystem -bool false; then
+    echo "Power button: shuts the Mac down (fully from the next login or restart)."
+  else
+    echo "Warning: could not stop the power button sleeping the Mac; a press may sleep it" >&2
+    echo "  before the bridge shuts it down." >&2
+  fi
+}
+
+# Back to macOS's own power button: a press sleeps the Mac.
+restore_power_button() {
+  sudo defaults delete "$LOGINWINDOW_PREFS" PowerButtonSleepsSystem 2>/dev/null || true
 }

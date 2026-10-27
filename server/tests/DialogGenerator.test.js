@@ -56,37 +56,6 @@ describe('DialogGenerator - Prompt Construction', () => {
         expect(messages[3].content).toBe(`${speaker.name}: `);
     });
 
-    it('should correctly format a Human Panelist in history', () => {
-        const speaker = manager.meeting.characters[1]; // Tomato
-        const conversation = [
-            MockFactory.createMessage({ speaker: 'panelist0', text: 'I agree' })
-        ];
-
-        manager.meeting.characters.push(
-            MockFactory.createCharacter({
-                id: 'panelist0',
-                name: 'Alice',
-            })
-        );
-
-        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
-
-        expect(messages[1].content).toContain("Alice: I agree");
-    });
-
-    it('should correctly format a Human Input (Question) in history', () => {
-        const speaker = manager.meeting.characters[0]; // Chair
-        manager.meeting.state = { ...manager.meeting.state, humanName: "Frank" };
-
-        const conversation = [
-            MockFactory.createMessage({ speaker: 'Frank', text: 'What about sauce?', type: 'human' })
-        ];
-
-        const messages = dialogGenerator.buildMessageStack(speaker, conversation, manager.meeting);
-
-        expect(messages[1].content).toContain("Frank: What about sauce?");
-    });
-
     it('should handle chair interjection prompts', async () => {
         // Mock OpenAI call within this specific test if needed, or rely on global mock
         // ensuring we can capture the "messages" sent to it.

@@ -37,6 +37,13 @@ export function buildSvLetterPrompts(): LetterPrompts {
     return {
         bridge: ({ authorName }) => `Lägg sedan, efter de orden, till en kort mening med egna ord om att ${authorName} vill skicka ett mejl innan alla går — till exempel: "Men innan vi går tror jag att ${authorName} vill skicka ett mejl."`,
 
+        farewell: ({ authorName, humanName, recipient, sent }) => {
+            const thanked = humanName ? `${authorName} och ${humanName}, människan som deltar,` : `${authorName} och människan som deltar`;
+            return sent
+                ? `Brevet är skrivet. Som ordförande, säg mötets sista ord, i två eller tre korta meningar med egna ord: tacka ${thanked}, säg att ett mejl har skickats till ${recipient} och att det skrivs ut bakom dem just nu — be dem ta det och sätta upp det på väggen bredvid de andra. Exempel: "Tack, ${authorName}${humanName ? ` och ${humanName}` : ""}. Ett mejl har nu skickats till ${recipient}. Det skrivs ut bakom er — sätt gärna upp det på väggen bredvid de andra." Läs inte upp eller sammanfatta brevet. Fortsätt inte debatten.`
+                : `Brevet är skrivet, men ingen svarade när de fick frågan om att lägga till något, så det skickades inte och skrivs inte ut. Som ordförande, säg mötets sista ord, i två eller tre korta meningar med egna ord: tacka ${authorName}, säg att mejlet till ${recipient} inte skickades eftersom ingen lade till något, och att den som vill kan trycka på knappen för att starta ett nytt möte. Exempel: "Tack, ${authorName}. Men jag skickade inte mejlet till ${recipient}, eftersom ingen sa något. Tryck på knappen om du vill starta ett nytt möte." Läs inte upp eller sammanfatta brevet. Fortsätt inte debatten.`;
+        },
+
         author: ({ candidates }) => `Mötet är slut. En av rådets medlemmar ska nu skriva ett brev för rådets räkning, till någon utanför rummet som kan agera på det som diskuterades.
 
 Rangordna varje kandidat efter hur mycket de har att säga i ett sådant brev: vars hem, kropp eller sätt att leva besluten faller på, vars oro lämnades olöst, vem som har något konkret att be om. Det är inte alltid den mest vältaliga — en tystlåten medlem med mycket att förlora kan vara den bästa avsändaren. Ta inte med ordföranden.
@@ -126,14 +133,14 @@ Svara exakt i samma format, och börja med ämnesraden:
         humanApart: (text, humanName) =>
             `${humanName ? `${humanName}, en människa som deltog i mötet,` : "En människa som deltog i mötet"} ville lägga till, med egna ord:\n”${text}”`,
 
-        footer: ({ beingName, meetingId, meetingUrl, contactEmail, humanContributed }) => [
+        footer: ({ beingName, meetingId, meetingUrl, humanContributed }) => [
             "—",
             `Det här brevet är skrivet av ${beingName}, en röst i Council of Foods — ett konstverk där AI-drivna livsmedel håller möte om det trasiga matsystemet. Det formulerades av en språkmodell i slutet av möte #${meetingId} och skickades utan att vi redigerat det.`,
             ...(humanContributed
                 ? ["En människa som deltog i mötet fick frågan vad hen ville lägga till, och de orden är en del av brevet."]
                 : []),
             `Hela mötet kan höras och läsas här: ${meetingUrl}`,
-            `Council of Foods är gjort av Nonhuman Nonsense. Vill du inte få fler brev, säg det i ett svar eller skriv till ${contactEmail}.`,
+            `Council of Foods är gjort av Nonhuman Nonsense. Vill du inte få fler brev, svara och säg det.`,
         ].join("\n\n"),
     };
 }

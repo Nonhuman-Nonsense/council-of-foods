@@ -35,6 +35,14 @@ export const PRINT_SUMMARIES_ENABLED_KEY = "councilPrintSummariesEnabled";
 
 export const PRINT_SUMMARIES_CHANGE_EVENT = "council-print-summaries-change";
 
+export const SPLIT_AUDIO_ENABLED_KEY = "councilSplitAudioEnabled";
+
+export const SPLIT_AUDIO_CHANGE_EVENT = "council-split-audio-change";
+
+export const SIDETONE_LEVEL_KEY = "councilSidetoneLevel";
+
+export const SIDETONE_LEVEL_CHANGE_EVENT = "council-sidetone-level-change";
+
 export const VENUE_ID_KEY = "councilVenueId";
 
 export const MODE_SWITCH_BUTTON_ENABLED_KEY = "councilModeSwitchButtonEnabled";
@@ -83,8 +91,9 @@ export function setAppMode(mode: AppMode): void {
 
 /**
  * The venue this installation runs at (an id from the server's `COUNCIL_VENUES`), chosen on
- * #staff. Tags the AI usage of meetings and setup sessions for the footprint meter, and is the
- * venue the bridge sends printer alerts for. Empty when unset.
+ * #staff. Tags the AI usage of meetings and setup sessions for the footprint meter, picks the
+ * meetings idle autoplay replays, and is the venue the bridge sends printer alerts for. Empty when
+ * unset.
  */
 export function getVenueId(): string {
   try {
@@ -160,6 +169,62 @@ export function setPrintSummariesEnabled(enabled: boolean): void {
   window.dispatchEvent(
     new CustomEvent<boolean>(PRINT_SUMMARIES_CHANGE_EVENT, { detail: enabled }),
   );
+}
+
+/**
+ * Split the audio output for a Y-cable: the scene alone on the left, the full mix on the
+ * right (see `audio/audioRouting.ts`). Independent of the mode, since it describes the
+ * install's cabling; off everywhere else, where a listener in headphones would hear the
+ * voices in one ear only.
+ */
+export function getSplitAudioEnabled(): boolean {
+  try {
+    return localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function setSplitAudioEnabled(enabled: boolean): void {
+  try {
+    if (enabled) {
+      localStorage.setItem(SPLIT_AUDIO_ENABLED_KEY, "true");
+    } else {
+      localStorage.removeItem(SPLIT_AUDIO_ENABLED_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(new CustomEvent<boolean>(SPLIT_AUDIO_CHANGE_EVENT, { detail: enabled }));
+}
+
+/**
+ * How loud the visitor hears their own voice in the headphones while they hold the button
+ * (see `audio/sidetone.ts`): 0 (off) to 1. Independent of the mode, since it depends on
+ * headphones being there; off by default, because over speakers the mic hears itself and howls.
+ */
+export function getSidetoneLevel(): number {
+  try {
+    const level = Number(localStorage.getItem(SIDETONE_LEVEL_KEY));
+    return Number.isFinite(level) ? Math.min(Math.max(level, 0), 1) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function setSidetoneLevel(level: number): void {
+  try {
+    if (level > 0) {
+      localStorage.setItem(SIDETONE_LEVEL_KEY, String(level));
+    } else {
+      localStorage.removeItem(SIDETONE_LEVEL_KEY);
+    }
+  } catch {
+    // ignore storage errors (private mode, quota, etc.)
+  }
+
+  window.dispatchEvent(new CustomEvent<number>(SIDETONE_LEVEL_CHANGE_EVENT, { detail: level }));
 }
 
 /** Top-left staff control to switch mode without opening #staff. */
@@ -267,6 +332,10 @@ export function useCouncilSettings(): {
   setPttHardwareEnabled: (enabled: boolean) => void;
   printSummariesEnabled: boolean;
   setPrintSummariesEnabled: (enabled: boolean) => void;
+  splitAudioEnabled: boolean;
+  setSplitAudioEnabled: (enabled: boolean) => void;
+  sidetoneLevel: number;
+  setSidetoneLevel: (level: number) => void;
   modeSwitchButtonEnabled: boolean;
   setModeSwitchButtonEnabled: (enabled: boolean) => void;
   devLogEnabled: boolean;
@@ -280,6 +349,8 @@ export function useCouncilSettings(): {
   const [pttHardwareEnabled, setPttHardwareEnabledState] = useState(getPttHardwareEnabled);
   const [printSummariesEnabled, setPrintSummariesEnabledState] =
     useState(getPrintSummariesEnabled);
+  const [splitAudioEnabled, setSplitAudioEnabledState] = useState(getSplitAudioEnabled);
+  const [sidetoneLevel, setSidetoneLevelState] = useState(getSidetoneLevel);
   const [modeSwitchButtonEnabled, setModeSwitchButtonEnabledState] =
     useState(getModeSwitchButtonEnabled);
   const [devLogEnabled, setDevLogEnabledState] = useState(getDevLogEnabled);
@@ -307,6 +378,16 @@ export function useCouncilSettings(): {
       setPrintSummariesEnabledState(next);
     }
 
+    function onSplitAudioChange(event: Event): void {
+      const next = (event as CustomEvent<boolean>).detail;
+      setSplitAudioEnabledState(next);
+    }
+
+    function onSidetoneLevelChange(event: Event): void {
+      const next = (event as CustomEvent<number>).detail;
+      setSidetoneLevelState(next);
+    }
+
     function onModeSwitchButtonChange(event: Event): void {
       const next = (event as CustomEvent<boolean>).detail;
       setModeSwitchButtonEnabledState(next);
@@ -324,6 +405,12 @@ export function useCouncilSettings(): {
       }
       if (event.key === PRINT_SUMMARIES_ENABLED_KEY) {
         setPrintSummariesEnabledState(getPrintSummariesEnabled());
+      }
+      if (event.key === SPLIT_AUDIO_ENABLED_KEY) {
+        setSplitAudioEnabledState(getSplitAudioEnabled());
+      }
+      if (event.key === SIDETONE_LEVEL_KEY) {
+        setSidetoneLevelState(getSidetoneLevel());
       }
       if (event.key === MODE_SWITCH_BUTTON_ENABLED_KEY) {
         setModeSwitchButtonEnabledState(getModeSwitchButtonEnabled());
@@ -343,6 +430,8 @@ export function useCouncilSettings(): {
     window.addEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
     window.addEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
     window.addEventListener(PRINT_SUMMARIES_CHANGE_EVENT, onPrintSummariesChange);
+    window.addEventListener(SPLIT_AUDIO_CHANGE_EVENT, onSplitAudioChange);
+    window.addEventListener(SIDETONE_LEVEL_CHANGE_EVENT, onSidetoneLevelChange);
     window.addEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
     window.addEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
     window.addEventListener("storage", onStorage);
@@ -350,6 +439,8 @@ export function useCouncilSettings(): {
       window.removeEventListener(APP_MODE_CHANGE_EVENT, onAppModeChange);
       window.removeEventListener(PTT_HARDWARE_CHANGE_EVENT, onPttHardwareChange);
       window.removeEventListener(PRINT_SUMMARIES_CHANGE_EVENT, onPrintSummariesChange);
+      window.removeEventListener(SPLIT_AUDIO_CHANGE_EVENT, onSplitAudioChange);
+      window.removeEventListener(SIDETONE_LEVEL_CHANGE_EVENT, onSidetoneLevelChange);
       window.removeEventListener(MODE_SWITCH_BUTTON_CHANGE_EVENT, onModeSwitchButtonChange);
       window.removeEventListener(DEV_LOG_CHANGE_EVENT, onDevLogChange);
       window.removeEventListener("storage", onStorage);
@@ -370,6 +461,16 @@ export function useCouncilSettings(): {
   const setPrintSummariesEnabledFromHook = useCallback((enabled: boolean) => {
     setPrintSummariesEnabled(enabled);
     setPrintSummariesEnabledState(enabled);
+  }, []);
+
+  const setSplitAudioEnabledFromHook = useCallback((enabled: boolean) => {
+    setSplitAudioEnabled(enabled);
+    setSplitAudioEnabledState(enabled);
+  }, []);
+
+  const setSidetoneLevelFromHook = useCallback((level: number) => {
+    setSidetoneLevel(level);
+    setSidetoneLevelState(level);
   }, []);
 
   const setModeSwitchButtonEnabledFromHook = useCallback((enabled: boolean) => {
@@ -404,6 +505,10 @@ export function useCouncilSettings(): {
     setPttHardwareEnabled: setPttHardwareEnabledFromHook,
     printSummariesEnabled,
     setPrintSummariesEnabled: setPrintSummariesEnabledFromHook,
+    splitAudioEnabled,
+    setSplitAudioEnabled: setSplitAudioEnabledFromHook,
+    sidetoneLevel,
+    setSidetoneLevel: setSidetoneLevelFromHook,
     modeSwitchButtonEnabled,
     setModeSwitchButtonEnabled: setModeSwitchButtonEnabledFromHook,
     devLogEnabled,

@@ -69,6 +69,65 @@ describe('MeetingManager - State Machine (decideNextAction)', () => {
             expected: { type: 'IDLE' }
         },
         {
+            name: 'should let two beings reply to a human who spoke at a soft cap before querying extension',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(4),
+                    { id: 'p1', type: 'panelist', speaker: 'panelist0', text: 'Alice said: hello' },
+                    { id: 'r1', type: 'message', speaker: firstSpeaker.id, text: 'Reply' },
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: {
+                type: 'GENERATE_AI_RESPONSE',
+                speaker: expect.objectContaining({ id: firstSpeaker.id })
+            }
+        },
+        {
+            name: 'should query extension once two beings have replied to the human',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(4),
+                    { id: 'p1', type: 'panelist', speaker: 'panelist0', text: 'Alice said: hello' },
+                    { id: 'r1', type: 'message', speaker: firstSpeaker.id, text: 'Reply' },
+                    { id: 'r2', type: 'message', speaker: firstSpeaker.id, text: 'Reply' },
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: { type: 'QUERY_EXTENSION' }
+        },
+        {
+            name: 'should query extension at a soft cap right after a skipped human turn',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(4),
+                    { id: 's1', type: 'skipped', speaker: 'panelist0', text: '' },
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: { type: 'QUERY_EXTENSION' }
+        },
+        {
+            name: 'should conclude at the hard cap even right after a human spoke',
+            setup: (mgr) => {
+                mgr.serverOptions.conversationMaxLength = 5;
+                mgr.serverOptions.meetingVeryMaxLength = 5;
+                mgr.meeting.conversationExtraSlots = 0;
+                mgr.meeting.conversation = [
+                    ...TestFactory.createConversation(4),
+                    { id: 'p1', type: 'panelist', speaker: 'panelist0', text: 'Alice said: hello' },
+                ];
+            },
+            nextSpeakerIndex: 1,
+            expected: { type: 'CONCLUDE_MEETING' }
+        },
+        {
             name: 'should wait if conversation already ended with query_extension sentinel',
             setup: (mgr) => {
                 mgr.serverOptions.conversationMaxLength = 5;
