@@ -14,7 +14,7 @@
  * --since takes 30m, 2h, 3d; it defaults to 24h unless a setup, meeting or page is named.
  */
 
-import { blue, bold, cyan, gray, green, magenta, red, yellow } from "colorette";
+import { blue, bold, cyan, gray, green, magenta, red, yellow } from "@utils/colors.js";
 import type { Filter } from "mongodb";
 import type { ClientLogLine, LogCategory } from "@shared/ClientLogTypes.js";
 import type { StoredClientLogBatch } from "@models/DBModels.js";

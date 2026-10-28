@@ -14,7 +14,7 @@
  * Interface errors, or a link that drops below 1000baseT, point at the cable.
  */
 
-import { bold, gray, red, yellow } from "colorette";
+import { bold, gray, red, yellow } from "@utils/colors.js";
 import type { Filter } from "mongodb";
 import type { StoredNetworkSample } from "@models/DBModels.js";
 import { closeDb, initDb, networkSamplesCollection } from "@services/DbService.js";

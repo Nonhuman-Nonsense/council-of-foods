@@ -1,5 +1,5 @@
 import { config } from '@root/src/config.js';
-import { cyan, yellow, red } from "colorette";
+import { cyan, yellow, red } from "./colors.js";
 
 // Avoid circular dependency by not importing Logger here.
 // Instead, we use console directly for internal logging of the errorbot itself.
