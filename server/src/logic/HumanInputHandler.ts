@@ -5,7 +5,7 @@ import type { Message as AudioQueueMessage } from "@logic/audio/AudioTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import type { UpdateFilter } from "mongodb";
 import { Logger } from "@utils/Logger.js";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { splitSentences } from "@shared/textUtils.js";
 import { annotateDirectedHandoff } from "@logic/directedHandoff.js";
 
@@ -130,7 +130,7 @@ export class HumanInputHandler {
 
         const charName = m.characters.find(c => c.id === payload.speaker)?.name || "Unknown";
         const message: PanelistMessage = {
-            id: payload.speaker + uuidv4(),
+            id: payload.speaker + randomUUID(),
             type: "panelist",
             speaker: payload.speaker,
             text: charName + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + payload.text,
@@ -234,7 +234,7 @@ export class HumanInputHandler {
         await this.popInvitationIfPresent(m);
 
         const skipped: Message = {
-            id: `skipped-${uuidv4()}`,
+            id: `skipped-${randomUUID()}`,
             type: "skipped",
             speaker,
             text: "",
@@ -266,7 +266,7 @@ export class HumanInputHandler {
 function humanMessage(m: StoredMeeting, text: string): HumanMessage {
     const speaker = m.state.humanName || "Human";
     return {
-        id: "human-" + uuidv4(),
+        id: "human-" + randomUUID(),
         type: "human",
         speaker,
         text: speaker + (m.language === 'en' ? " said:\xa0" : " sa:\xa0") + text,

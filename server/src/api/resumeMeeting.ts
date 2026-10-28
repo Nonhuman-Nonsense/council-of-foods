@@ -6,7 +6,7 @@ import { getGlobalOptions } from "@logic/GlobalOptions.js";
 import { Logger } from "@utils/Logger.js";
 import { getMeeting } from "./getMeeting.js";
 import { buildResumeConversation, orderedAudioIdsForConversation } from "./replayManifest.js";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 
 /**
  * Re-open a half-finished meeting for a new creator.
@@ -72,7 +72,7 @@ export async function resumeMeeting(meetingId: number): Promise<ResumeMeetingRes
         }
     }
 
-    const newliveKey = uuidv4();
+    const newliveKey = randomUUID();
 
     // Optimistic filter: if conclude finished since replay GET (race), abort.
     const updateResult = await meetingsCollection.updateOne(

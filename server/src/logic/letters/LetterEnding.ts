@@ -4,7 +4,7 @@ import type { MeetingLetter, StoredMeeting } from "@models/DBModels.js";
 import type { Message as AudioMessage } from "@logic/AudioSystem.js";
 import type { LetterForm } from "./prompts/letterPrompts.js";
 
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { splitSentences } from "@shared/textUtils.js";
 import { Logger } from "@utils/Logger.js";
 import {
@@ -139,7 +139,7 @@ export class LetterEnding {
 
         const author = meeting.characters.find((character) => character.id === authorId)!;
         const announcement: Message = {
-            id: `letter-announcement-${uuidv4()}`,
+            id: `letter-announcement-${randomUUID()}`,
             type: "message",
             speaker: authorId,
             text: planned.plan.spokenText,
@@ -260,7 +260,7 @@ export class LetterEnding {
             sendReason,
         };
         return {
-            summary: { id: `letter-${uuidv4()}`, type: "summary", speaker: author.id, text: spoken, sentences: [], letter: view },
+            summary: { id: `letter-${randomUUID()}`, type: "summary", speaker: author.id, text: spoken, sentences: [], letter: view },
             reader: author,
             spoken,
             ...(farewell ? { farewell: await farewell } : {}),
@@ -302,7 +302,7 @@ export class LetterEnding {
         );
         return {
             message: {
-                id: id || `letter-farewell-${uuidv4()}`,
+                id: id || `letter-farewell-${randomUUID()}`,
                 type: "letter_farewell",
                 speaker: chair.id,
                 text: response,

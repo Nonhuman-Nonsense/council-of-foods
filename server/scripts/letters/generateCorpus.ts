@@ -24,7 +24,7 @@ import { closeDb, initDb, insertMeeting, meetingsCollection } from "@services/Db
 import { initOpenAI } from "@services/OpenAIService.js";
 import { MeetingManager } from "@logic/MeetingManager.js";
 import { getGlobalOptions } from "@logic/GlobalOptions.js";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { HUMAN_QUESTIONS, type HumanLine } from "./humanLines.js";
 
 const PROMPTS_DIR = path.join(process.cwd(), "../shared/prompts");
@@ -151,7 +151,7 @@ function buildMeetingDoc(plan: PlannedMeeting, topics: TopicsBundle, beings: Bei
         language: plan.language,
         audio: [],
         conversation: [],
-        liveKey: uuidv4(),
+        liveKey: randomUUID(),
         date: new Date().toISOString(),
         state: { alreadyInvited: false, humanName: plan.humanName },
         maximumPlayedIndex: 0,

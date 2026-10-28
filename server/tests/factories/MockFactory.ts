@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import type { Character, Message, Topic, Audio, Meeting } from "@shared/ModelTypes.js";
 import type { StoredMeeting } from "@models/DBModels.js";
 import { CHAIR_ID, defaultCharacterSetupBundle } from "@logic/characterSetupBundle.js";
@@ -52,7 +52,7 @@ export const MockFactory = {
 
     createMessage: (overrides: Partial<Message> = {}): Message =>
         ({
-            id: uuidv4(),
+            id: randomUUID(),
             speaker: "speaker1",
             text: "Hello from speaker1.",
             type: "message",
@@ -204,7 +204,7 @@ export const MockFactory = {
     },
 
     createAudio: (overrides: Partial<Audio> = {}): Audio => ({
-        _id: uuidv4(),
+        _id: randomUUID(),
         meeting_id: 123,
         date: new Date().toISOString(),
         audio: Buffer.from([]),
