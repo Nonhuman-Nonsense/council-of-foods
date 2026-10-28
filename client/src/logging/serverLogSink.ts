@@ -15,6 +15,7 @@ import {
   type ClientLogLine,
   type LogCategory,
 } from "@shared/ClientLogTypes";
+import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from "@shared/ownClient";
 import { getDevLogEnabled, getVenueId } from "@/settings/councilSettings";
 
 export const CLIENT_LOG_PATH = "/api/client-log";
@@ -202,7 +203,7 @@ export async function flushServerLog(): Promise<void> {
   try {
     const response = await fetch(CLIENT_LOG_PATH, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", [OWN_CLIENT_HEADER]: OWN_CLIENT_VALUE },
       body: JSON.stringify(batch),
       // Lets the last batch out as the page closes.
       keepalive: true,

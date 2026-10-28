@@ -5,6 +5,7 @@ import { registerMeetingRoutes } from '@api/meetingRoutes.js';
 import { meetingsCollection } from '@services/DbService.js';
 import { cacheControlPrivateNoStoreApi } from '@utils/httpCache.js';
 import { Logger } from '@utils/Logger.js';
+import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from '@shared/ownClient.js';
 
 function validCreateBody() {
     return {
@@ -107,23 +108,32 @@ describe('HTTP meetings API (integration)', () => {
         expect(res.status).toBe(400);
     });
 
-    it('GET /api/meetings/:id returns 400 on invalid meeting id', async () => {
+    // A rejected request is reported (Logger.warn → ErrorBot) only when our own client sent it.
+    // Anything else — a scanner requesting `/api/meetings/${e}` straight out of the bundle — is
+    // answered the same way and stays in the console.
+    it.each([
+        { name: 'reports an invalid meeting id our own client sent', path: 'invalid-id', status: 400, ownClient: true, reported: true },
+        { name: 'keeps an invalid meeting id from anyone else in the console', path: '${e}', status: 400, ownClient: false, reported: false },
+        { name: 'keeps an unknown meeting id from anyone else in the console', path: '999999999', status: 404, ownClient: false, reported: false },
+    ])('GET /api/meetings/:id $name', async ({ path, status, ownClient, reported }) => {
         const warnSpy = vi.spyOn(Logger, 'warn');
-        const res = await fetch(`${base()}/api/meetings/invalid-id`);
-        expect(res.status).toBe(400);
+        const infoSpy = vi.spyOn(Logger, 'info');
+        const res = await fetch(`${base()}/api/meetings/${encodeURIComponent(path)}`, {
+            headers: ownClient ? { [OWN_CLIENT_HEADER]: OWN_CLIENT_VALUE } : {},
+        });
+        expect(res.status).toBe(status);
 
         // The failure log should show the real URL and raw param, not just the route pattern —
         // this is what lets you trace which request actually failed (see meetingRoutes.ts).
-        expect(warnSpy).toHaveBeenCalledWith(
-            'api',
-            expect.stringContaining('/api/meetings/invalid-id'),
-            expect.objectContaining({
-                from: { meetingId: undefined },
-                requestParams: expect.objectContaining({
-                    params: { meetingId: 'invalid-id' },
-                }),
-            }),
-        );
+        const logged = expect.objectContaining({
+            requestParams: expect.objectContaining({ params: { meetingId: path } }),
+        });
+        if (reported) {
+            expect(warnSpy).toHaveBeenCalledWith('api', expect.stringContaining('/api/meetings/'), logged);
+        } else {
+            expect(warnSpy).not.toHaveBeenCalled();
+            expect(infoSpy).toHaveBeenCalledWith('api', expect.stringContaining('not our client'), logged);
+        }
     });
 
     it('GET /api/meetings/:id on a freshly created meeting logs a warning with the meeting id', async () => {
