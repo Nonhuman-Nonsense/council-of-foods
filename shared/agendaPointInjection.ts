@@ -15,8 +15,13 @@ export function pickAgendaPoint(count: number): number {
 /**
  * Replaces `[RANDOM_AGENDA_POINT]` in the chair prompt when present.
  * If the placeholder is absent, returns the prompt unchanged.
+ * `pinnedPoint` (1-based) replaces the random pick when it names a point on the agenda.
  */
-export function injectRandomAgendaPoint(chairPrompt: string, agendaPoints?: string[]): string {
+export function injectRandomAgendaPoint(
+  chairPrompt: string,
+  agendaPoints?: string[],
+  pinnedPoint?: number,
+): string {
   if (!chairPrompt.includes(RANDOM_AGENDA_POINT_PLACEHOLDER)) {
     return chairPrompt;
   }
@@ -24,7 +29,11 @@ export function injectRandomAgendaPoint(chairPrompt: string, agendaPoints?: stri
   const agendaPointCount = agendaPointCountFromAgendaPoints(agendaPoints);
   const replacement =
     agendaPointCount != null
-      ? String(pickAgendaPoint(agendaPointCount))
+      ? String(
+          pinnedPoint != null && pinnedPoint >= 1 && pinnedPoint <= agendaPointCount
+            ? pinnedPoint
+            : pickAgendaPoint(agendaPointCount),
+        )
       : RANDOM_AGENDA_POINT_FALLBACK;
 
   return chairPrompt.replaceAll(RANDOM_AGENDA_POINT_PLACEHOLDER, replacement);

@@ -25,7 +25,7 @@ export type MeetingSetupOutletContext = {
   topicSelection: Topic | null;
   setTopicSelection: (topic: Topic) => void;
   creating: boolean;
-  onStartMeeting: (characters: Character[]) => Promise<void>;
+  onStartMeeting: (characters: Character[], openingAgendaPoint?: string) => Promise<void>;
 };
 
 export default function MeetingSetupShell({
@@ -93,7 +93,7 @@ export default function MeetingSetupShell({
     setStep("characters");
   }
 
-  async function handleStartMeeting(characters: Character[]) {
+  async function handleStartMeeting(characters: Character[], openingAgendaPoint?: string) {
     if (!topicSelection) {
       console.error("MeetingSetupShell: missing topic when creating meeting");
       return;
@@ -109,6 +109,7 @@ export default function MeetingSetupShell({
         ...(setupSession.get() ? { setupId: setupSession.get() } : {}),
         sendsLetters: capabilities.sendsLetters,
         printsLetters: capabilities.printSummary && printSummariesEnabled,
+        ...(openingAgendaPoint ? { openingAgendaPoint } : {}),
       });
       setupSession.clear();
       setMeetingliveKey(liveKey);

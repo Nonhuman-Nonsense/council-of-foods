@@ -62,6 +62,7 @@ export const CreateMeetingSchema: z.ZodType<CreateMeetingBody> = z.object({
     setupId: z.string().max(100).optional(),
     sendsLetters: z.boolean().optional(),
     printsLetters: z.boolean().optional(),
+    openingAgendaPoint: z.string().max(500).optional(),
 });
 
 // 1. start_conversation — serverOptions is only applied when socket environment is prototype (see SocketManager / MeetingLifecycleHandler)

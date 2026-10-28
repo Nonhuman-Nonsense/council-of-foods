@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import Council from '@council/Council';
 import '@testing-library/jest-dom';
 import { MockFactory } from '../factories/MockFactory';
@@ -9,6 +9,7 @@ import { notifyAutoplay, useAutoplayStore } from '@/autoplay/autoplayStore';
 import type { Message } from '@shared/ModelTypes';
 import type { AppMode } from '@/settings/councilSettings';
 import { capabilitiesFor, type Capabilities } from '@/settings/capabilities';
+import { useLocation } from 'react-router';
 
 // --- Mocks ---
 
@@ -55,6 +56,8 @@ const mockGetMeeting = vi.fn().mockResolvedValue({
 vi.mock('@/utils', () => ({
     useDocumentVisibility: vi.fn().mockReturnValue(true),
     useMobile: vi.fn().mockReturnValue(false),
+    useMobileXs: vi.fn().mockReturnValue(false),
+    usePortrait: vi.fn().mockReturnValue(false),
     mapFoodIndex: vi.fn((total, index) => index) // Simple pass-through
 }));
 
@@ -62,7 +65,13 @@ vi.mock('@/utils', () => ({
 vi.mock('@council/FoodItem', () => ({ default: () => <div data-testid="food-item">Food Item</div> }));
 vi.mock('@main/overlay/Overlay', () => ({ default: ({ children }: any) => <div>{children}</div> }));
 vi.mock('@council/overlays/CouncilOverlays', () => ({ default: () => <div>Council Overlays</div> }));
+vi.mock('@council/overlays/ReplayIntro', () => ({
+    default: ({ kind, onWatch }: { kind: string; onWatch: () => void }) => (
+        <button data-testid="replay-intro" data-kind={kind} onClick={onWatch}>Watch</button>
+    ),
+}));
 vi.mock('@main/Loading', () => ({ default: () => <div>Loading...</div> }));
+vi.mock('@/museum/button/ButtonBanner', () => ({ default: () => null }));
 vi.mock('@council/output/Output', () => ({
     default: ({ held }: { held?: boolean }) => <div data-testid="output" data-held={String(!!held)}>Output</div>,
 }));
@@ -261,6 +270,55 @@ describe('Council Component', () => {
         } else {
             expect(screen.queryByTestId('summary-print-job')).not.toBeInTheDocument();
         }
+    });
+
+    describe('replay intro', () => {
+        function at(hash: string, mode: AppMode) {
+            vi.mocked(useLocation).mockReturnValue({ hash, pathname: '/en/meeting/123', state: null, search: '', key: 'k' });
+            mockUseCouncilSettings.mockReturnValue({
+                isMuseumMode: mode === 'museum',
+                mode,
+                setAppMode: vi.fn(),
+                capabilities: capabilitiesFor(mode),
+            });
+        }
+
+        afterEach(() => {
+            vi.mocked(useLocation).mockReturnValue({ hash: '', pathname: '/en/meeting/123', state: null, search: '', key: 'k' });
+        });
+
+        it('shows over a replay opened from a letter and plays the meeting once dismissed', async () => {
+            at('#email', 'web');
+            const setPaused = vi.fn();
+            const { rerender } = render(<Council {...defaultProps} liveKey={null} setPaused={setPaused} />);
+
+            const intro = await screen.findByTestId('replay-intro');
+            expect(intro).toHaveAttribute('data-kind', 'email');
+            expect(screen.queryByTestId('conversation-controls')).not.toBeInTheDocument();
+
+            fireEvent.click(intro);
+            expect(mockNavigate).toHaveBeenCalledWith({ hash: '' }, { replace: true });
+            // Not while the hash is still there: it would only pause the meeting again.
+            expect(setPaused).not.toHaveBeenCalledWith(false);
+
+            at('', 'web');
+            rerender(<Council {...defaultProps} liveKey={null} setPaused={setPaused} />);
+            expect(setPaused).toHaveBeenCalledWith(false);
+            expect(screen.queryByTestId('replay-intro')).not.toBeInTheDocument();
+        });
+
+        it.each([
+            { name: 'a live meeting', mode: 'web', liveKey: 'live' },
+            { name: 'a museum replay', mode: 'museum', liveKey: null },
+            { name: 'a presenter replay', mode: 'presenter', liveKey: null },
+        ] as const)('never shows over $name, and clears its hash', async ({ mode, liveKey }) => {
+            at('#replay', mode);
+            render(<Council {...defaultProps} liveKey={liveKey} />);
+
+            await vi.waitFor(() => expect(mockGetMeeting).toHaveBeenCalled());
+            expect(screen.queryByTestId('replay-intro')).not.toBeInTheDocument();
+            expect(mockNavigate).toHaveBeenCalledWith({ hash: '' }, { replace: true });
+        });
     });
 
     it('passes isMuted state correctly to ConversationControls', () => {

@@ -130,6 +130,13 @@ export type Capabilities = {
    * screen. A visitor's phone keeps the small set: it saves the download and the decode.
    */
   fullResolutionMedia: boolean;
+  /**
+   * A replay the page was opened on starts on a screen saying what it is — someone following a
+   * link (the one in every letter, or a shared one) lands in the middle of a meeting with no idea
+   * what they are looking at. An installation only ever reaches a replay from inside the app, and
+   * nobody would be there to dismiss it.
+   */
+  replayIntro: boolean;
 };
 
 const WEB: Capabilities = {
@@ -154,6 +161,7 @@ const WEB: Capabilities = {
   kioskHeartbeat: false,
   sendsLetters: false,
   fullResolutionMedia: false,
+  replayIntro: true,
 };
 
 const MUSEUM: Capabilities = {
@@ -178,6 +186,7 @@ const MUSEUM: Capabilities = {
   kioskHeartbeat: true,
   sendsLetters: true,
   fullResolutionMedia: true,
+  replayIntro: false,
 };
 
 /**
