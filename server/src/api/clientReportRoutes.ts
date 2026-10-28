@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import { z } from "zod";
 import { sendReport, type ErrorReport } from "@utils/errorbot.js";
+import { hasOwnClientMarker } from "@shared/ownClient.js";
 
 export const ClientReportBody = z.object({
     message: z.string().min(1).max(2000),
@@ -57,9 +58,17 @@ export function buildClientErrorReport(input: ClientReportInput, userAgent?: str
 /**
  * Ingest for client-side terminal failures (ErrorBoundary crashes, fatal socket/API
  * errors, window.onerror/unhandledrejection) — relays them to the errorbot.
+ *
+ * Only from our own client: anything else would put its own text into the team's
+ * alert chat. The marker is easy to copy, so it keeps out scanners and stray posts,
+ * not someone set on it.
  */
 export function registerClientReportRoutes(app: Express): void {
     app.post('/api/client-report', async (req: Request, res: Response) => {
+        if (!hasOwnClientMarker(req.headers)) {
+            res.status(403).json({ message: 'Not accepted' });
+            return;
+        }
         const parsed = ClientReportBody.safeParse(req.body);
         if (!parsed.success) {
             res.status(400).json({ message: 'Invalid client report' });

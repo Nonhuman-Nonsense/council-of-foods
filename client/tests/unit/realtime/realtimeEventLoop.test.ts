@@ -607,6 +607,62 @@ describe("realtimeEventLoop", () => {
     });
 
     /**
+     * Claude models refuse to reply to a conversation that ends with their own
+     * turn. The refusal arrives after `response.created`, without our event_id,
+     * and is followed by a failed `response.done` (observed against Inworld).
+     */
+    describe("a reply refused for ending on the agent's turn", () => {
+        const prefillError = {
+            type: "error",
+            error: {
+                type: "invalid_request_error",
+                code: "invalid_request",
+                event_id: null,
+                message: "All 1 model(s) failed:\n- anthropic/claude-sonnet-5-5: rpc error: code = InvalidArgument desc = HTTP 400: Bad Request - type: invalid_request_error This model does not support assistant message prefill. The conversation must end with a user message.",
+            },
+        };
+        const failedDone = { type: "response.done", response: { id: "r1", status: "failed", output: [] } };
+
+        async function refusedGreeting() {
+            const send = vi.fn();
+            const onError = vi.fn();
+            const onNonFatalError = vi.fn();
+            const loop = createEventLoop({
+                send,
+                getCtx: () => ({ toolHandlers: {} }),
+                callbacks: { onCaption: vi.fn(), onUserTranscript: vi.fn(), onError, onNonFatalError },
+            });
+            loop.configureSession(makeSession(), { triggerGreetingOnReady: true });
+            await loop.handleEvent({ type: "session.updated" });
+            await loop.handleEvent({ type: "response.created", response: { id: "r1" } });
+            await loop.handleEvent(prefillError);
+            return { send, onError, onNonFatalError, loop };
+        }
+
+        it("is retried behind a user line once the failed reply is done, keeping the session", async () => {
+            const { send, onError, onNonFatalError, loop } = await refusedGreeting();
+            send.mockClear();
+
+            await loop.handleEvent(failedDone);
+
+            const sentTypes = send.mock.calls.map((c) => (c[0] as { type: string }).type);
+            expect(sentTypes).toEqual(["conversation.item.create", "response.create"]);
+            expect(onError).not.toHaveBeenCalled();
+            expect(onNonFatalError).toHaveBeenCalledWith(expect.objectContaining({ handling: "recovered" }));
+        });
+
+        it("lets the session reconnect when the retry is refused too", async () => {
+            const { onError, loop } = await refusedGreeting();
+            await loop.handleEvent(failedDone);
+            await loop.handleEvent({ type: "response.created", response: { id: "r2" } });
+
+            await loop.handleEvent(prefillError);
+
+            expect(onError).toHaveBeenCalledOnce();
+        });
+    });
+
+    /**
      * A capacity refusal is the one provider error a reconnect cannot fix: the
      * session is healthy and every slot is taken, so tearing it down loses the
      * conversation and then queues for a slot that is already gone.
@@ -1192,6 +1248,13 @@ describe("push-to-talk turns", () => {
     const transcript = (itemId: string, text: string): Step => ({
         in: { type: "conversation.item.input_audio_transcription.completed", item_id: itemId, transcript: text },
     });
+    /** The provider files an item at the end of its conversation. */
+    const filed = (itemId: string, role: "user" | "assistant"): Step => ({
+        in: { type: "conversation.item.added", item: { id: itemId, type: "message", role } },
+    });
+    const replyDone: Step = { in: { type: "response.done", response: { id: "r0", status: "completed", output: [{}] } } };
+    /** The provider's turn detection opens a turn. */
+    const speechStarted: Step = { in: { type: "input_audio_buffer.speech_started" } };
     const failed = (itemId: string): Step => ({
         in: { type: "conversation.item.input_audio_transcription.failed", item_id: itemId, error: { code: "stt_timeout" } },
     });
@@ -1239,19 +1302,31 @@ describe("push-to-talk turns", () => {
             sent: DROPPED,
         },
         {
-            // The provider committed the speech itself mid-press; ours finds nothing left.
+            // The provider committed the words itself just before the release; our
+            // commit holds only silence, and the provider sends nothing back for it.
+            name: "words the provider committed before the release are answered without waiting on our commit",
+            steps: [press, speechStarted, committed("v1"), transcript("v1", "Yes."), release, commitWait],
+            sent: ANSWERED,
+        },
+        {
+            name: "a turn the provider still has open at the release waits for its transcript",
+            steps: [press, transcript("v1", "Yes."), speechStarted, release, commitWait],
+            sent: ["input_audio_buffer.clear", "input_audio_buffer.commit"],
+        },
+        {
+            // A long hold: the provider commits the words, then opens an empty turn on the silence.
             name: "words the provider committed during the press still get their answer",
-            steps: [press, committed("v1"), transcript("v1", "Yes."), release, commitWait, committed("u1"), failed("u1")],
+            steps: [press, committed("v1"), transcript("v1", "Yes."), speechStarted, release, commitWait, committed("u1"), failed("u1")],
             sent: ANSWERED,
         },
         {
             name: "an empty commit still answers words heard during the press",
-            steps: [press, transcript("v1", "Yes."), release, commitWait, { in: { type: "error", error: { code: "input_audio_buffer_commit_empty" } } }],
+            steps: [press, transcript("v1", "Yes."), speechStarted, release, commitWait, { in: { type: "error", error: { code: "input_audio_buffer_commit_empty" } } }],
             sent: ANSWERED,
         },
         {
             name: "a transcript that never comes does not leave the turn hanging",
-            steps: [press, transcript("v1", "Yes."), release, commitWait, committed("u1"), { wait: PTT_TRANSCRIPT_TIMEOUT_MS }],
+            steps: [press, transcript("v1", "Yes."), speechStarted, release, commitWait, committed("u1"), { wait: PTT_TRANSCRIPT_TIMEOUT_MS }],
             sent: ANSWERED,
         },
         {
@@ -1292,7 +1367,22 @@ describe("push-to-talk turns", () => {
         {
             name: "a turn finished while a reply is still running is answered after it",
             replying: true,
-            steps: [...spoken("u1"), { in: { type: "response.done", response: { id: "r0", status: "completed", output: [{}] } } }],
+            steps: [...spoken("u1"), replyDone],
+            sent: ANSWERED,
+        },
+        {
+            // Committed while the reply was still being generated: the provider
+            // files the reply's message after the turn, and a model without
+            // assistant prefill refuses to answer a conversation that ends there.
+            name: "a turn filed above the reply it came during gets a user line before its answer",
+            replying: true,
+            steps: [press, release, commitWait, committed("u1"), filed("u1", "user"), filed("a1", "assistant"), transcript("u1", "Yes."), replyDone],
+            sent: [...ANSWERED.slice(0, 2), "conversation.item.create", "response.create"],
+        },
+        {
+            name: "a turn filed below the reply it came during is answered as it is",
+            replying: true,
+            steps: [filed("a1", "assistant"), press, release, commitWait, committed("u1"), filed("u1", "user"), transcript("u1", "Yes."), replyDone],
             sent: ANSWERED,
         },
     ])("$name", async ({ steps, sent, replying }) => {
@@ -1314,6 +1404,7 @@ describe("tool follow-up", () => {
         { in: { type: "response.output_item.added", item: { type: "function_call", id: itemId, call_id: `c-${itemId}`, name } } },
         { in: { type: "response.function_call_arguments.done", item_id: itemId, arguments: "{}" } },
     ];
+    const agentSpeaksAfterTheResult: Step = { in: { type: "conversation.item.added", item: { id: "a1", type: "message", role: "assistant" } } };
 
     async function run(steps: Step[]): Promise<string[]> {
         const send = vi.fn();
@@ -1349,6 +1440,11 @@ describe("tool follow-up", () => {
             name: "asks for the follow-up once that reply is done",
             steps: [created, ...toolCall("i1"), done()],
             sent: ["function_call_output", "response.create"],
+        },
+        {
+            name: "puts a user line before the follow-up when the reply's message was filed after the result",
+            steps: [created, ...toolCall("i1"), agentSpeaksAfterTheResult, done()],
+            sent: ["function_call_output", "conversation.item.create", "response.create"],
         },
         {
             name: "gives several calls in one reply one follow-up",

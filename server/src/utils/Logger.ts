@@ -1,4 +1,4 @@
-import { cyan, yellow, red, gray } from "colorette";
+import { cyan, yellow, red, gray } from "./colors.js";
 import { CouncilError } from "@models/Errors.js";
 import type { IMeetingBroadcaster } from "@interfaces/MeetingInterfaces.js";
 import type { ProvidesReportContext, ReportContext } from "@interfaces/ReportContext.js";

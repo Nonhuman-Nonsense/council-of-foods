@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import {
   CAPACITY_MIN_RETRIES,
+  CONNECT_DEADLINES_MS,
   getRealtimeRetryPolicy,
   retryBudgetFor,
   useRealtimeVoiceSession,
@@ -1206,6 +1207,28 @@ describe("useRealtimeVoiceSession", () => {
       expect(reportRealtimeIssue).toHaveBeenCalledWith(
         expect.objectContaining({ kind: "retry-exhausted" })
       );
+    });
+
+    it("gives each attempt in a row a longer connect deadline, then the browser's own", async () => {
+      const getClose = connectionThatNeverOpens();
+      renderHook(() =>
+        useRealtimeVoiceSession({
+          ...defaultParams,
+          retryPolicy: { maxRetries: Infinity, giveUpSilently: false },
+        })
+      );
+
+      const deadlines: Array<number | undefined> = [];
+      for (let i = 0; i < 3; i++) {
+        await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalled());
+        await waitFor(() => expect(getClose()).toBeDefined());
+        deadlines.push(mockCreateRealtimeConnection.mock.calls[0][0].connectTimeoutMs);
+        const close = getClose()!;
+        mockCreateRealtimeConnection.mockClear();
+        act(() => close("connect_timeout"));
+      }
+
+      expect(deadlines).toEqual([...CONNECT_DEADLINES_MS, undefined]);
     });
 
     it("keeps its heartbeat when retries are unlimited, since no summary is coming", async () => {
