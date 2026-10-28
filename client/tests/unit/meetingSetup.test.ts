@@ -566,15 +566,16 @@ describe("buildMeetingCharactersPayload", () => {
         expect(chair.prompt).toContain("Alice (A thoughtful human)");
     });
 
-    it("injects a numeric random agenda point when agenda points are provided", () => {
+    it("injects a numeric random agenda point, and names the same point for the meeting to keep", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const result = buildCharactersPayload(["One", "Two", "Three", "Four"]);
+    const result = buildCharactersPayload(["One\nBriefing", "Two\nBriefing", "Three\nBriefing", "Four\nBriefing"]);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
     const chair = result.characters[0] as Character;
     expect(chair.prompt).toContain("Agenda: 3");
     expect(chair.prompt).not.toContain(RANDOM_AGENDA_POINT_PLACEHOLDER);
+    expect(result.openingAgendaPoint).toBe("Three");
   });
 
   it("injects the random-order fallback when agenda points are absent", () => {

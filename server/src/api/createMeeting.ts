@@ -40,6 +40,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         sendsLetters: setup.sendsLetters ?? false,
         printsLetters: setup.printsLetters ?? false,
         ...(venueId ? { venueId } : {}),
+        ...(setup.openingAgendaPoint ? { openingAgendaPoint: setup.openingAgendaPoint } : {}),
     };
 
     const result = await insertMeeting(meeting);

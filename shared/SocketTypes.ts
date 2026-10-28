@@ -41,6 +41,8 @@ export interface CreateMeetingBody {
      * the letter is read from the paper (docs/council-letters.md).
      */
     printsLetters?: boolean;
+    /** Title of the agenda point the chair opens the meeting on, for the replay intro. */
+    openingAgendaPoint?: string;
 }
 
 export interface ResumeMeetingResponse {

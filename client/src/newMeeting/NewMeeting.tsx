@@ -108,7 +108,7 @@ export default function NewMeeting() {
         <SelectCharacters
           topicTitle={topicSelection?.title ?? ""}
           agendaPoints={topicSelection?.agendaPoints}
-          onContinueForward={({ characters }) => onStartMeeting(characters)}
+          onContinueForward={({ characters, openingAgendaPoint }) => onStartMeeting(characters, openingAgendaPoint)}
           loading={creating}
           onCharacterSelected={handleCharacterSelected}
           onCharacterDeselected={handleCharacterDeselected}

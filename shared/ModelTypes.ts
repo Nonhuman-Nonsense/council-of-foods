@@ -40,11 +40,15 @@ export interface BaseMeeting {
     conversationExtraSlots: number;
     /** True once conclude audio barrier finished and replay is autoplay-eligible. */
     meetingComplete: boolean;
+    /** Title of the agenda point the chair opened on; missing before it was kept. */
+    openingAgendaPoint?: string;
 }
 
 export interface Meeting extends BaseMeeting {
     /** This property must NOT exist on a public Meeting object */
     liveKey?: never; 
+    /** Name of the venue the meeting ran at, when it ran at a configured one. */
+    venueName?: string;
 }
 
 export interface PlaybackState {

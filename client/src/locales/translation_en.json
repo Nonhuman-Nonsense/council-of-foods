@@ -44,7 +44,22 @@
   "replay": {
     "preamble": "This is a replay of the meeting #{{meetingId}}: {{meetingTitle}} on {{meetingDate}}. ",
     "click": "Click here to start a new meeting.",
-    "pressButton": "Press the button to start a new meeting."
+    "pressButton": "Press the button to start a new meeting.",
+    "intro": {
+      "meeting": "Meeting #{{meetingId}}",
+      "email": "You have received an email from {{author}}, who took part in this meeting on {{topic}}, held on {{date}}.",
+      "emailAtVenue": "You have received an email from {{author}}, who took part in this meeting on {{topic}}, held on {{date}} at {{venue}}.",
+      "someBeing": "one of the foods",
+      "customTopic": "a visitor's own question",
+      "replay": "This is a replay of a meeting on {{topic}}, held on {{date}}.",
+      "replayAtVenue": "This is a replay of a meeting on {{topic}}, held on {{date}} at {{venue}}.",
+      "topicLabel": "Topic:",
+      "agendaLabel": "First Agenda Point:",
+      "participantsLabel": "Participants:",
+      "human": "{{name}} (human)",
+      "emailWatch": "This is a replay of that meeting. Watch it to see how the email came about.",
+      "emailReply": "Please reply to the email, and we will make sure your answer reaches them!"
+    }
   },
   "autoplay": {
     "stillThere": {
