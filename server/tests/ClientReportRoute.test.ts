@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ClientReportBody, buildClientErrorReport } from '@api/clientReportRoutes.js';
+import type { Express } from 'express';
+import { ClientReportBody, buildClientErrorReport, registerClientReportRoutes } from '@api/clientReportRoutes.js';
 import { sendReport } from '@utils/errorbot.js';
+import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from '@shared/ownClient.js';
 
 const fetchMock = vi.fn().mockResolvedValue({ ok: true });
 
@@ -133,5 +135,32 @@ describe('client-report → errorbot relay', () => {
         // A recoverable report must not read as a dead client at a glance.
         expect(body.message).toContain('[CLIENT]');
         expect(body.message).not.toContain('[CLIENT TERMINAL]');
+    });
+});
+
+/**
+ * The route relays straight into the team's alert chat, so only our own client may
+ * use it — not a scanner or anyone else posting JSON at it.
+ */
+describe('POST /api/client-report', () => {
+    beforeEach(() => {
+        vi.stubGlobal('fetch', fetchMock);
+        fetchMock.mockClear();
+    });
+
+    async function post(headers: Record<string, string>) {
+        let handler: ((req: unknown, res: unknown) => Promise<void>) | undefined;
+        registerClientReportRoutes({ post: (_path: string, h: typeof handler) => { handler = h; } } as unknown as Express);
+        const res = { statusCode: 0, status(code: number) { this.statusCode = code; return this; }, json() { return this; }, end() { return this; } };
+        await handler!({ headers, body: { message: 'boom', source: 'window.onerror' }, get: () => undefined }, res);
+        return res.statusCode;
+    }
+
+    it.each([
+        { name: 'relays a report from our own client', headers: { [OWN_CLIENT_HEADER.toLowerCase()]: OWN_CLIENT_VALUE }, status: 204, relayed: true },
+        { name: 'refuses a report from anyone else', headers: {}, status: 403, relayed: false },
+    ])('$name', async ({ headers, status, relayed }) => {
+        expect(await post(headers)).toBe(status);
+        expect(fetchMock).toHaveBeenCalledTimes(relayed ? 1 : 0);
     });
 });

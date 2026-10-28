@@ -1,7 +1,7 @@
 import { CreateMeetingSchema } from "@models/ValidationSchemas.js";
 import { insertMeeting } from "@services/DbService.js";
 import type { StoredMeeting } from "@models/DBModels.js";
-import { v4 as uuidv4 } from "uuid";
+import { randomUUID } from "node:crypto";
 import { InternalServerError } from "@models/Errors.js";
 import { Logger } from "@utils/Logger.js";
 import { resolveVenueId } from "@utils/venues.js";
@@ -28,7 +28,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         language: setup.language,
         audio: [],
         conversation: [],
-        liveKey: uuidv4(),
+        liveKey: randomUUID(),
         date: new Date().toISOString(),
         state: {
             alreadyInvited: false,

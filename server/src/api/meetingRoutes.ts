@@ -8,6 +8,7 @@ import { resumeMeeting } from "./resumeMeeting.js";
 import { getAutoplayMeeting, parseAutoplayLanguageQuery } from "./getAutoplayMeeting.js";
 import { BadRequestError, CouncilError } from "@models/Errors.js";
 import { resolveVenueId } from "@utils/venues.js";
+import { hasOwnClientMarker } from "@shared/ownClient.js";
 
 const BEARER = /^Bearer\s+(.+)$/i;
 
@@ -42,16 +43,23 @@ async function apiRouteWithErrorHandling(
         from: { meetingId },
         requestParams: { params: req.params, query: req.query as Record<string, unknown> },
     };
+    // A rejected request is only news when our own client sent it; anyone else's (a
+    // scanner trying URLs from the bundle, say) is answered and left in the console.
+    const fromOwnClient = hasOwnClientMarker(req.headers);
     try {
         await handler(req, res);
     } catch (e: unknown) {
         if (e instanceof ZodError) {
-            await Logger.warn("api", `${method} ${req.originalUrl} failed, validation error`, { ...logDetails, error: e });
+            const message = `${method} ${req.originalUrl} failed, validation error`;
+            if (fromOwnClient) await Logger.warn("api", message, { ...logDetails, error: e });
+            else Logger.info("api", `${message} (not our client)`, logDetails);
             res.status(400).json(CouncilError.fromZod(e).toApiBody(context));
             return;
         }
         if (e instanceof CouncilError) {
-            await Logger.logCouncilError("api", `${method} ${req.originalUrl} failed, ${e.name}`, e, logDetails);
+            const message = `${method} ${req.originalUrl} failed, ${e.name}`;
+            if (fromOwnClient || e.statusCode >= 500) await Logger.logCouncilError("api", message, e, logDetails);
+            else Logger.info("api", `${message} (not our client)`, logDetails);
             res.status(e.statusCode).json(e.toApiBody(context));
             return;
         }

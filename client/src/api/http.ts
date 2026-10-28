@@ -1,4 +1,5 @@
 import type { ClientErrorKey } from "@shared/SocketTypes";
+import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from "@shared/ownClient";
 import { log, summarizeLogPayload } from "@/logger";
 import {
   getDevLogEnabled,
@@ -106,6 +107,21 @@ function waitBeforeRetry(ms: number, signal: AbortSignal | null | undefined): Pr
   });
 }
 
+/**
+ * `headers` with the own-client marker added, in whatever form they came — so the
+ * server can tell a request it rejects from our client (a bug) from one a scanner
+ * sent (see {@link OWN_CLIENT_HEADER}).
+ */
+export function withOwnClientMarker(headers?: HeadersInit): HeadersInit {
+  if (headers instanceof Headers) {
+    const marked = new Headers(headers);
+    marked.set(OWN_CLIENT_HEADER, OWN_CLIENT_VALUE);
+    return marked;
+  }
+  if (Array.isArray(headers)) return [...headers, [OWN_CLIENT_HEADER, OWN_CLIENT_VALUE]];
+  return { ...headers, [OWN_CLIENT_HEADER]: OWN_CLIENT_VALUE };
+}
+
 export type CouncilFetchOptions = {
   /**
    * Retry when no response came back. Defaults to on for GET/HEAD and off otherwise: a POST that
@@ -141,7 +157,7 @@ export async function councilFetch(
     );
 
     try {
-      const res = await fetch(input, init);
+      const res = await fetch(input, { ...init, headers: withOwnClientMarker(init?.headers) });
       const body = await summarizeResponseBody(res.clone());
       log.event("API", `IN ${method} ${path} ${res.status}`, {
         ok: res.ok,

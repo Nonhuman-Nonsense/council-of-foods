@@ -40,7 +40,7 @@ describe("resumeMeeting", () => {
             "/api/meetings/42",
             expect.objectContaining({
                 method: "PUT",
-                headers: { "Content-Type": "application/json" },
+                headers: expect.objectContaining({ "Content-Type": "application/json" }),
             }),
         );
         expect(res.liveKey).toBe("new-key");

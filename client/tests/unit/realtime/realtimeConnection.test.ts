@@ -15,6 +15,10 @@ import {
   REALTIME_RETRY_MAX_MS,
   REALTIME_CAPACITY_RETRY_BASE_MS,
   REALTIME_CAPACITY_RETRY_MAX_MS,
+  RELAY_GRACE_MS,
+  RELAY_WAIT_CAP_MS,
+  ICE_GATHER_TIMEOUT_MS,
+  countSdpCandidates,
 } from "@realtime/realtimeConnection";
 
 class MockTrack {
@@ -75,6 +79,8 @@ function makeSender(track: MockTrack | null): MockSender {
 class MockPeerConnection {
   static instances: MockPeerConnection[] = [];
   static nextIceGatheringState: "new" | "gathering" | "complete" = "complete";
+  /** False: gathering never completes, as on a machine with an interface that has no route out. */
+  static gatheringCompletes = true;
 
   readonly createdDataChannel = new MockDataChannel();
   readonly senders: MockSender[] = [];
@@ -92,10 +98,11 @@ class MockPeerConnection {
   createOffer = vi.fn(async () => ({ type: "offer" as const, sdp: "offer-sdp" }));
   setLocalDescription = vi.fn(async (offer: { type: "offer"; sdp: string }) => {
     this.localDescription = offer;
-    if (this.iceGatheringState !== "complete") {
+    if (this.iceGatheringState !== "complete" && MockPeerConnection.gatheringCompletes) {
       queueMicrotask(() => this.dispatch("icecandidate", { candidate: null }));
     }
   });
+  getStats = vi.fn(async () => new Map());
   setRemoteDescription = vi.fn(async (desc: { type: "answer"; sdp: string }) => {
     this.remoteDescription = desc;
   });
@@ -664,6 +671,98 @@ describe("realtime request timeouts", () => {
     const err = await pending;
 
     expect(err).toMatchObject({ name: "AbortError" });
+  });
+});
+
+/**
+ * Inworld connects with the candidates in the offer and no later ones, and from
+ * behind a NAT an offer without a relay candidate usually stalls ~15 s and fails.
+ * Gathering "complete" may never come (an interface with no route out), so the
+ * offer goes once a relay is in, and waits longer for a late one.
+ */
+describe("offer and connect timing", () => {
+  const TURN = [{ urls: ["stun:stun.example.com"] }, { urls: ["turn:turn.example.com:3478"], username: "u", credential: "c" }];
+  const STUN_ONLY = [{ urls: ["stun:stun.example.com"] }];
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    MockPeerConnection.instances = [];
+    MockPeerConnection.nextIceGatheringState = "gathering";
+    MockPeerConnection.gatheringCompletes = false;
+    stubRtcGlobals();
+    stubCallAnswer();
+  });
+
+  afterEach(() => {
+    MockPeerConnection.gatheringCompletes = true;
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function connect(overrides: Partial<Parameters<typeof createRealtimeConnection>[0]> = {}) {
+    return createRealtimeConnection({
+      session: { type: "realtime" },
+      iceServers: TURN,
+      callPath: "/api/realtime/call",
+      micStream: new MockMediaStream() as unknown as MediaStream,
+      onEvent: vi.fn(),
+      onRemoteTrack: vi.fn(),
+      ...overrides,
+    });
+  }
+
+  it.each([
+    { name: "sends the offer once a relay candidate is in and its siblings have had a moment", iceServers: TURN, relayAtMs: 500, sentAtMs: 500 + RELAY_GRACE_MS },
+    { name: "waits for a late relay candidate up to its cap", iceServers: TURN, relayAtMs: null, sentAtMs: RELAY_WAIT_CAP_MS },
+    { name: "without TURN there is no relay to wait for", iceServers: STUN_ONLY, relayAtMs: null, sentAtMs: ICE_GATHER_TIMEOUT_MS },
+  ])("$name", async ({ iceServers, relayAtMs, sentAtMs }) => {
+    const pending = connect({ iceServers });
+    await vi.advanceTimersByTimeAsync(0);
+    const pc = MockPeerConnection.instances[0];
+    if (relayAtMs != null) {
+      await vi.advanceTimersByTimeAsync(relayAtMs);
+      pc.dispatch("icecandidate", { candidate: { type: "relay" } });
+    }
+
+    await vi.advanceTimersByTimeAsync(sentAtMs - (relayAtMs ?? 0) - 1);
+    expect(fetch).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fetch).toHaveBeenCalledOnce();
+
+    (await pending).close();
+  });
+
+  it.each([
+    { name: "gives up with connect_timeout when the data channel has not opened by the deadline", opens: false, closedWith: "connect_timeout" },
+    { name: "leaves a connection whose data channel opened in time alone", opens: true, closedWith: null },
+  ])("$name", async ({ opens, closedWith }) => {
+    MockPeerConnection.gatheringCompletes = true;
+    const onClose = vi.fn();
+    const pending = connect({ onClose, connectTimeoutMs: 4_000 });
+    await vi.advanceTimersByTimeAsync(0);
+    const connection = await pending;
+    if (opens) MockPeerConnection.instances[0].createdDataChannel.onopen?.();
+
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(onClose).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    if (closedWith) expect(onClose).toHaveBeenCalledWith(closedWith);
+    else expect(onClose).not.toHaveBeenCalled();
+
+    connection.close();
+  });
+
+  it("counts the candidates an offer carries, by kind", () => {
+    const sdp = [
+      "v=0",
+      "a=candidate:1 1 udp 2122260223 192.168.1.2 50000 typ host generation 0",
+      "a=candidate:2 1 UDP 1686052607 31.208.170.252 50000 typ srflx raddr 0.0.0.0 rport 0",
+      "a=candidate:3 1 udp 41885439 10.41.4.48 53580 typ relay raddr 31.208.170.252 rport 50001",
+      "a=candidate:3 1 udp 41885439 10.41.4.48 53580 typ relay raddr 31.208.170.252 rport 50001",
+      "a=candidate:4 1 tcp 1518280447 192.168.1.2 9 typ host tcptype active",
+    ].join("\r\n");
+    expect(countSdpCandidates(sdp)).toEqual({ "host/udp": 1, "srflx/udp": 1, "relay/udp": 2, "host/tcp": 1 });
   });
 });
 

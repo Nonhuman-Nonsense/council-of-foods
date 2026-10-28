@@ -5,6 +5,7 @@ import {
 import { hasSignOfLife } from "@/signOfLife";
 import { getLogPageId, isServerLogOn, pushServerLogLine } from "@/logging/serverLogSink";
 import { LOG_CATEGORIES, type LogCategory } from "@shared/ClientLogTypes";
+import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from "@shared/ownClient";
 
 /** Shared with the server, which accepts only these categories in a stored log. */
 export const DEV_LOG_CATEGORIES = LOG_CATEGORIES;
@@ -232,7 +233,8 @@ function postClientReport(
 
   void fetch("/api/client-report", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    // Plain fetch, not councilFetch: that logs through this module.
+    headers: { "Content-Type": "application/json", [OWN_CLIENT_HEADER]: OWN_CLIENT_VALUE },
     body: JSON.stringify({
       message,
       source,

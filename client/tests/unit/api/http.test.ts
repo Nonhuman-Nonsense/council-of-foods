@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { councilFetch, NETWORK_RETRY_DELAYS_MS } from "@api/http";
 import { log } from "@/logger";
 import * as councilSettings from "@/settings/councilSettings";
+import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from "@shared/ownClient";
 
 describe("councilFetch", () => {
   beforeEach(() => {
@@ -26,6 +27,23 @@ describe("councilFetch", () => {
       "/api/meetings",
       expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  // The server reports a request it rejects only when our own client sent it.
+  it.each([
+    { name: "no headers", headers: undefined },
+    { name: "a plain object", headers: { Authorization: "Bearer k" } },
+    { name: "a Headers instance", headers: new Headers({ Authorization: "Bearer k" }) },
+    { name: "header pairs", headers: [["Authorization", "Bearer k"]] as [string, string][] },
+  ])("marks the request as our own client's, with $name", async ({ headers }) => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await councilFetch("/api/meetings/1", { headers });
+
+    const sent = new Headers(fetchMock.mock.calls[0][1].headers);
+    expect(sent.get(OWN_CLIENT_HEADER)).toBe(OWN_CLIENT_VALUE);
+    if (headers) expect(sent.get("Authorization")).toBe("Bearer k");
   });
 
   it("logs request and response bodies", async () => {

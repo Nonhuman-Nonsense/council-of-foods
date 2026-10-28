@@ -103,6 +103,16 @@ export type RealtimeRetryPolicy = {
  */
 export const CAPACITY_MIN_RETRIES = 6;
 
+/**
+ * How long each attempt in a row waits for its data channel before trying again.
+ *
+ * A healthy connection opens within a second of the SDP exchange (the slowest of
+ * 118 at Havremagasinet: 0.8 s); one whose ICE is stuck otherwise waits ~15 s
+ * for the browser to give up. Later attempts get no deadline of their own, so a
+ * network that is slow but works still gets through.
+ */
+export const CONNECT_DEADLINES_MS: readonly number[] = [4_000, 8_000];
+
 export function getRealtimeRetryPolicy(critical: boolean): RealtimeRetryPolicy {
   return critical
     ? { maxRetries: Infinity, giveUpSilently: false }
@@ -1037,6 +1047,7 @@ export function useRealtimeVoiceSession(
         callBodyExtras: { feature, provider, language },
         micStream: micStreamValue ?? undefined,
         deferMic,
+        connectTimeoutMs: CONNECT_DEADLINES_MS[retryAttemptsRef.current],
         log: realtimeDebugLog,
         signal: controller.signal,
         onRemoteTrack: (track) => {
@@ -1112,7 +1123,7 @@ export function useRealtimeVoiceSession(
           // Before this reconnected, a provider close left the agent mute while the
           // session still read as ready.
           const providerClosed = reason === "dc_close" && !pageUnloading;
-          if (reason === "pc_failed" || reason === "dc_error" || providerClosed) {
+          if (reason === "pc_failed" || reason === "connect_timeout" || reason === "dc_error" || providerClosed) {
             log.event("ERROR", "realtime connection lost", { feature, reason });
             // A session that really worked gets a fresh retry budget; one that
             // never carried media spends the budget it started with, so a

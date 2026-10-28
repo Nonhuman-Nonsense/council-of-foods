@@ -36,7 +36,7 @@ describe("createMeeting", () => {
             "/api/meetings",
             expect.objectContaining({
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: expect.objectContaining({ "Content-Type": "application/json" }),
                 body: JSON.stringify(body),
             }),
         );
