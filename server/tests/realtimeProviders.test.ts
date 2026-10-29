@@ -292,6 +292,25 @@ describe("realtimeProviders", () => {
         });
     });
 
+    it.each([
+        { agent: "setup agent", language: "en", bootstrap: getSetupAgentRealtimeBootstrap },
+        { agent: "setup agent", language: "sv", bootstrap: getSetupAgentRealtimeBootstrap },
+        { agent: "meta-agent", language: "en", bootstrap: getMetaAgentRealtimeBootstrap },
+        { agent: "meta-agent", language: "sv", bootstrap: getMetaAgentRealtimeBootstrap },
+    ])("opts the $agent ($language) into caching its prompt, tools and conversation", async ({ language, bootstrap }) => {
+        vi.mocked(global.fetch).mockResolvedValue(
+            new Response(JSON.stringify({ ice_servers: [] }), { status: 200, headers: { "Content-Type": "application/json" } })
+        );
+
+        const result = await bootstrap(language);
+
+        expect(result.session).toMatchObject({
+            providerData: {
+                caching: { enabled: true, cache_instructions: true, cache_tools: true, cache_transcript: true },
+            },
+        });
+    });
+
 });
 
 describe("getInworldIceServers", () => {

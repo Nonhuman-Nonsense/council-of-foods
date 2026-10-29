@@ -17,6 +17,12 @@ export interface ConversationCompletionParams {
     temperature: number;
     stop?: string[];
     reasoning: ConversationReasoning;
+    /**
+     * Names a conversation that will be sent again soon with more on the end — a meeting's next
+     * turn, a letter's draft after its plan — so its prompt is cached and read back cheaply
+     * then. See {@link cacheRequestFields}. Leave it out for a one-off.
+     */
+    cacheKey?: string;
 }
 
 export interface ConversationCompletionResult {
@@ -148,6 +154,41 @@ export function buildInworldReasoningExtraBody(reasoning: ConversationReasoning)
     };
 }
 
+/**
+ * Asks the provider to cache the prompt. Each provider wants it differently, and without it the
+ * whole conversation is billed at the full input price on every turn:
+ *
+ * - Mistral (and OpenAI) cache only requests that carry a `prompt_cache_key`. Probed through
+ *   the Inworld router (October 2026): none of a repeated prompt cached without one, nearly
+ *   all of it with one.
+ * - Anthropic caches only up to a `cache_control` breakpoint. It goes on the last message
+ *   before the final one, which is the one-off instruction or reply cue: the next request
+ *   reads everything up to there from the cache, even when its own ending differs.
+ *
+ * Google models cache on their own; the extra field does them no harm.
+ */
+export function cacheRequestFields(
+    model: string,
+    messages: ChatCompletionMessageParam[],
+    cacheKey: string | undefined,
+): { messages: ChatCompletionMessageParam[]; prompt_cache_key?: string } {
+    if (!cacheKey) return { messages };
+    if (!model.startsWith("anthropic/") || messages.length < 2) return { messages, prompt_cache_key: cacheKey };
+
+    // Our messages are plain strings; anything else is sent as it is.
+    const index = messages.length - 2;
+    const content = messages[index].content;
+    if (typeof content !== "string" || content.length === 0) return { messages, prompt_cache_key: cacheKey };
+
+    const marked = [...messages];
+    // `cache_control` is Anthropic's, so the OpenAI types do not know it.
+    marked[index] = {
+        ...messages[index],
+        content: [{ type: "text", text: content, cache_control: { type: "ephemeral" } }],
+    } as unknown as ChatCompletionMessageParam;
+    return { messages: marked, prompt_cache_key: cacheKey };
+}
+
 async function requestChatCompletion(
     client: ChatCompletionClient,
     params: ConversationCompletionParams,
@@ -156,7 +197,7 @@ async function requestChatCompletion(
 ): Promise<ConversationCompletionResult> {
     const requestParams: Parameters<ChatCompletionClient["chat"]["completions"]["create"]>[0] = {
         model,
-        messages: params.messages,
+        ...cacheRequestFields(model, params.messages, params.cacheKey),
         max_completion_tokens: params.maxCompletionTokens,
         temperature: params.temperature,
         stop: params.stop,

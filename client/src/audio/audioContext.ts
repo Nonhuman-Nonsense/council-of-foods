@@ -13,21 +13,18 @@ export function createAudioContext(): AudioContext {
   return new AudioContextCtor();
 }
 
-/** Suspend or resume the shared audio bus (user pause / tab blur / overlays). */
+/**
+ * Suspend or resume the shared audio bus (user pause / tab blur / overlays).
+ *
+ * Asks for the wanted state every time rather than reading `ctx.state` first: `state` only
+ * changes once a pending `resume()` or `suspend()` has finished, so a pause arriving just after a
+ * resume (still "suspended") was skipped and the sound played on under a paused meeting. The
+ * context applies the calls in order, so the last one asked for is where it ends up.
+ */
 export function setAudioSuspended(audioContext: AudioContextRef, suspended: boolean): void {
   const ctx = audioContext.current;
-  if (!ctx) return;
-
-  if (suspended) {
-    if (ctx.state !== "suspended") {
-      void ctx.suspend();
-    }
-    return;
-  }
-
-  if (ctx.state === "suspended") {
-    void ctx.resume();
-  }
+  if (!ctx || ctx.state === "closed") return;
+  void (suspended ? ctx.suspend() : ctx.resume()).catch(() => {});
 }
 
 /** Keeps the shared audio bus suspended while `suspended` is true (Main-owned). */

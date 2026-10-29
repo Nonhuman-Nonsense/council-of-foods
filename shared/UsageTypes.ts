@@ -11,6 +11,8 @@ export const USAGE_MEASURES = [
     "input_tokens",
     "output_tokens",
     "cached_input_tokens",
+    /** Input written to a prompt cache, billed above the plain input price (Anthropic). */
+    "cache_write_tokens",
     "reasoning_tokens",
     "input_audio_tokens",
     "output_audio_tokens",

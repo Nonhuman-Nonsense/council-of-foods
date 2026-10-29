@@ -2,7 +2,7 @@
 # docker build -t nonhumannonsense/council-of-foods:proto -f prototype/Dockerfile . --platform linux/amd64
 
 # Stage 1: Build the Node server
-FROM node:lts-alpine AS server-builder
+FROM node:26-alpine AS server-builder
 
 WORKDIR /usr/src/server
 COPY server/package*.json ./
@@ -13,7 +13,7 @@ COPY shared/ ../shared/
 RUN npm run build
 
 # Stage 2: Production Runner
-FROM node:lts-alpine
+FROM node:26-alpine
 
 WORKDIR /usr/src/server
 COPY server/package*.json ./

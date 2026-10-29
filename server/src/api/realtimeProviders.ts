@@ -37,6 +37,25 @@ const SEMANTIC_VAD_TURN_DETECTION = {
     interrupt_response: false,
 };
 
+/**
+ * Every response resends the tools, the instructions and the whole conversation, and Claude
+ * caches none of it unless asked — so without this the agents paid full input price for all of
+ * it on every turn. Inworld marks those blocks with Anthropic `cache_control` breakpoints; each
+ * turn then reads what the previous one sent at a fraction of the price and writes only the new
+ * lines. Providers that cache implicitly ignore it.
+ *
+ * Instructions are set once per connection (later changes reach the agent as messages), so the
+ * cache holds for the whole visit. The provider's default five minutes is enough: a hit renews
+ * it, turns are seconds apart, and an idle session is torn down sooner. A longer TTL costs more
+ * per write and would rarely be read, since the instructions differ from one visit to the next.
+ */
+const PROMPT_CACHING = {
+    enabled: true,
+    cache_instructions: true,
+    cache_tools: true,
+    cache_transcript: true,
+};
+
 function buildInworldChairRealtimeSession(params: {
     language: string;
     voice: ChairVoiceProfile;
@@ -88,6 +107,7 @@ function buildInworldChairRealtimeSession(params: {
         // and cancels (`superseded`) whatever that reply was still saying — so an agent that
         // acknowledges out loud while it calls a tool was cut off every time.
         auto_tool_response: false,
+        caching: PROMPT_CACHING,
     };
 
     return session;
