@@ -101,13 +101,13 @@ Flavors: `latest`, `test`, `proto`, `asilomar`, `logiqs`. On Apple Silicon, buil
 
 The server uses MongoDB to store council meetings, this needs to be running locally for development.
 
-Run MongoDB locally for development, on the same image tag production uses (`mongo:8` in the server compose file):
+Run MongoDB locally for development, on the same image tag production uses (`mongo:9.0` in the server compose file):
 
 ```
-docker run -d --name council-mongo --restart unless-stopped -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=secret -p 127.0.0.1:27017:27017 -v council-mongo-data:/data/db mongo:8
+docker run -d --name council-mongo --restart unless-stopped -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=secret -p 127.0.0.1:27017:27017 -v council-mongo-data:/data/db mongo:9.0
 ```
 
-The named volume `council-mongo-data` keeps the data when the container is recreated. Run `docker pull mongo:8` and recreate the container when production is updated. Don't use the untagged `mongo` image: it pulls the newest major version, so local drifts ahead of production (it was on 9.x while production ran 8.3).
+The named volume `council-mongo-data` keeps the data when the container is recreated. When production moves to a new tag, pull it and recreate the container with the command above, on that tag. Don't use the untagged `mongo` image: it pulls the newest major version, so local drifts ahead of production.
 
 ## Converting transparent videos
 
