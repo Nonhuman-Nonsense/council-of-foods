@@ -151,17 +151,18 @@ describe("parseChatCompletionUsage", () => {
             expected: { input_tokens: 9, output_tokens: 12 },
         },
         {
-            name: "cached, reasoning and audio details",
+            name: "cache, reasoning and audio details",
             usage: {
                 prompt_tokens: 50,
                 completion_tokens: 30,
-                prompt_tokens_details: { cached_tokens: 20, audio_tokens: 5 },
+                prompt_tokens_details: { cached_tokens: 20, cache_write_tokens: 15, audio_tokens: 5 },
                 completion_tokens_details: { reasoning_tokens: 10, audio_tokens: 8 },
             },
             expected: {
                 input_tokens: 50,
                 output_tokens: 30,
                 cached_input_tokens: 20,
+                cache_write_tokens: 15,
                 input_audio_tokens: 5,
                 reasoning_tokens: 10,
                 output_audio_tokens: 8,

@@ -118,6 +118,35 @@ describe("ConversationService", () => {
         });
     });
 
+    describe("prompt caching", () => {
+        const stack = [
+            { role: "system" as const, content: "Topic and being" },
+            { role: "user" as const, content: "Earlier turn" },
+            { role: "system" as const, content: "Instruction" },
+        ];
+        const cachedStack = [
+            stack[0],
+            { role: "user", content: [{ type: "text", text: "Earlier turn", cache_control: { type: "ephemeral" } }] },
+            stack[2],
+        ];
+
+        it.each([
+            { name: "Mistral with a key", model: "mistral/mistral-large-3", cacheKey: "meeting-7", key: "meeting-7", messages: stack },
+            { name: "Anthropic with a key", model: "anthropic/claude-sonnet-5-5", cacheKey: "meeting-7", key: "meeting-7", messages: cachedStack },
+            { name: "Mistral without a key", model: "mistral/mistral-large-3", cacheKey: undefined, key: undefined, messages: stack },
+            { name: "Anthropic without a key", model: "anthropic/claude-sonnet-5-5", cacheKey: undefined, key: undefined, messages: stack },
+        ])("asks $name to cache what the next request resends", async ({ model, cacheKey, key, messages }) => {
+            const inworld = createMockClient();
+            const service = createConversationService(() => createMockClient().client as never, () => inworld.client);
+
+            await service.createChatCompletion({ ...createParams(model), messages: stack, cacheKey });
+
+            const sent = inworld.create.mock.calls[0][0];
+            expect(sent.messages).toEqual(messages);
+            expect(sent.prompt_cache_key).toBe(key);
+        });
+    });
+
     it("omits reasoning params when conversation reasoning is none", async () => {
         const direct = createMockClient({ content: "direct-response" });
         const inworld = createMockClient({ id: "inworld-id", content: "inworld-response" });

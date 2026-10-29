@@ -1,6 +1,16 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import { injectRandomAgendaPoint, injectSingleAgendaPointRule } from "@shared/agendaPointInjection";
-import { buildMeetingSystemPrompt, VISITOR_INPUT_PLACEHOLDER } from "@shared/topicPrompt";
+import {
+  injectRandomAgendaPoint,
+  injectSingleAgendaPointRule,
+  pickAgendaPoint,
+  RANDOM_AGENDA_POINT_PLACEHOLDER,
+} from "@shared/agendaPointInjection";
+import {
+  agendaPointCountFromAgendaPoints,
+  agendaPointTitle,
+  buildMeetingSystemPrompt,
+  VISITOR_INPUT_PLACEHOLDER,
+} from "@shared/topicPrompt";
 import { toTitleCase } from "@/utils";
 import type { TopicsData } from "@main/topicsBundle";
 import { CHAIR_ID, getCharacterSetupBundle } from "./CharacterSetup";
@@ -396,7 +406,7 @@ export function buildMeetingCharactersPayload(params: {
   agendaPoints?: string[];
   /** The visitor can type, so each human panelist needs a written description. */
   typedSetup?: boolean;
-}): { ok: true; characters: Character[] } | { ok: false; error: string } {
+}): { ok: true; characters: Character[]; openingAgendaPoint?: string } | { ok: false; error: string } {
   const { language, humans, numberOfHumans, labels, agendaPoints, typedSetup = false } = params;
   let { selectedCharacters } = params;
   const characterSetupData = getCharacterSetupBundle(language);
@@ -494,9 +504,18 @@ export function buildMeetingCharactersPayload(params: {
     humanPresentation = characterSetupData.panelWithHumans.replace("[HUMANS]", humanPresentation);
   }
 
+  // The point the chair opens on, picked here so the meeting can keep its title (the replay intro).
+  let openingAgendaPoint: string | undefined;
   if (replacedCharacters.length > 0 && replacedCharacters[0].prompt) {
     replacedCharacters[0].prompt = replacedCharacters[0].prompt.replace("[HUMANS]", humanPresentation);
-    replacedCharacters[0].prompt = injectRandomAgendaPoint(replacedCharacters[0].prompt, agendaPoints);
+    const agendaPointCount = agendaPointCountFromAgendaPoints(agendaPoints);
+    if (agendaPointCount && replacedCharacters[0].prompt.includes(RANDOM_AGENDA_POINT_PLACEHOLDER)) {
+      const point = pickAgendaPoint(agendaPointCount);
+      openingAgendaPoint = agendaPointTitle(agendaPoints, point);
+      replacedCharacters[0].prompt = injectRandomAgendaPoint(replacedCharacters[0].prompt, agendaPoints, point);
+    } else {
+      replacedCharacters[0].prompt = injectRandomAgendaPoint(replacedCharacters[0].prompt, agendaPoints);
+    }
     replacedCharacters[0].prompt = injectSingleAgendaPointRule(
       replacedCharacters[0].prompt,
       agendaPoints,
@@ -504,7 +523,7 @@ export function buildMeetingCharactersPayload(params: {
     );
   }
 
-  return { ok: true, characters: replacedCharacters };
+  return { ok: true, characters: replacedCharacters, ...(openingAgendaPoint ? { openingAgendaPoint } : {}) };
 }
 
 export type MeetingFoodsI18n = MeetingCharactersI18n;

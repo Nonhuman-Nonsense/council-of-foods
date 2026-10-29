@@ -23,7 +23,7 @@ export type SetupAgentToolContext = {
   goToTopicStep: () => void;
   buildSelectedTopic: () => Topic;
   selectTopic: (topic: Topic) => void;
-  startMeeting: (characters: Character[]) => void | Promise<void>;
+  startMeeting: (characters: Character[], openingAgendaPoint?: string) => void | Promise<void>;
 
   meetingStep: MeetingSetupPhase;
   setupAgentLanguage: string;
@@ -461,7 +461,7 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
         typedSetup: getCapabilities().typedSetup,
       });
       if (!built.ok) return built;
-      await Promise.resolve(ctx.startMeeting(built.characters));
+      await Promise.resolve(ctx.startMeeting(built.characters, built.openingAgendaPoint));
       return { ok: true, data: { started: true, visitorName } };
     },
 

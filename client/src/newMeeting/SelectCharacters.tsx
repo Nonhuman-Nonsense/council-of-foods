@@ -27,7 +27,7 @@ export { getCharacterSetupBundle, createDefaultHumans, createHuman, CHAIR_ID } f
 export interface SelectCharactersProps {
   topicTitle: string;
   agendaPoints?: string[];
-  onContinueForward: (data: { characters: Character[] }) => void | Promise<void>;
+  onContinueForward: (data: { characters: Character[]; openingAgendaPoint?: string }) => void | Promise<void>;
   loading?: boolean;
   /**
    * Selection changes the visitor made by clicking, so the setup agent can
@@ -214,7 +214,7 @@ function SelectCharacters({
       typedSetup,
     });
     if (built.ok) {
-      onContinueForward({ characters: built.characters });
+      onContinueForward({ characters: built.characters, openingAgendaPoint: built.openingAgendaPoint });
     }
   }
 
