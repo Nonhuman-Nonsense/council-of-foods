@@ -628,6 +628,17 @@ nav.blur::before {
   overflow: visible;
 }
 
+/* Replay intro (ReplayIntro): over the whole shell, footer included, dimmed and blurred like
+   Overlay.tsx (the .blur pseudo-element sits under the content in this stacking context). */
+.council-shell__intro {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-councilShellContent);
+  pointer-events: auto;
+  display: flex;
+  background: rgba(0, 0, 0, 0.5);
+}
+
 /* Banner slot inside the council footer flex — below controls, not fixed. */
 .council-shell__banner {
   width: 100%;

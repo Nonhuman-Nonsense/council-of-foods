@@ -74,8 +74,8 @@ describe('useCouncilMachine', () => {
             current: {
                 decodeAudioData: vi.fn(),
                 state: 'running',
-                suspend: vi.fn(),
-                resume: vi.fn()
+                suspend: vi.fn().mockResolvedValue(undefined),
+                resume: vi.fn().mockResolvedValue(undefined)
             }
         };
         defaultProps = {

@@ -73,7 +73,7 @@ export async function linkSetupUsage(setupId: string, meetingId: number): Promis
 interface ChatCompletionUsage {
     prompt_tokens?: number;
     completion_tokens?: number;
-    prompt_tokens_details?: { cached_tokens?: number; audio_tokens?: number } | null;
+    prompt_tokens_details?: { cached_tokens?: number; cache_write_tokens?: number; audio_tokens?: number } | null;
     completion_tokens_details?: { reasoning_tokens?: number; audio_tokens?: number } | null;
 }
 
@@ -90,6 +90,7 @@ export function parseChatCompletionUsage(usage: unknown): UsageMeasures {
         input_tokens: u.prompt_tokens,
         output_tokens: u.completion_tokens,
         cached_input_tokens: u.prompt_tokens_details?.cached_tokens,
+        cache_write_tokens: u.prompt_tokens_details?.cache_write_tokens,
         input_audio_tokens: u.prompt_tokens_details?.audio_tokens,
         reasoning_tokens: u.completion_tokens_details?.reasoning_tokens,
         output_audio_tokens: u.completion_tokens_details?.audio_tokens,
@@ -104,6 +105,7 @@ export const REALTIME_RESPONSE_LIMITS: UsageMeasures = {
     input_tokens: 200_000,
     output_tokens: 20_000,
     cached_input_tokens: 200_000,
+    cache_write_tokens: 200_000,
     reasoning_tokens: 20_000,
     input_audio_tokens: 200_000,
     output_audio_tokens: 50_000,
@@ -147,7 +149,7 @@ export function parseRealtimeUsage(usage: unknown): RealtimeUsagePart[] {
     const u = usage as {
         input_tokens?: number;
         output_tokens?: number;
-        input_token_details?: { cached_tokens?: number; audio_tokens?: number };
+        input_token_details?: { cached_tokens?: number; cache_write_tokens?: number; audio_tokens?: number };
         output_token_details?: { reasoning_tokens?: number; audio_tokens?: number };
         llm?: unknown;
         tts?: { characters?: number; audio_seconds?: number };
@@ -162,6 +164,7 @@ export function parseRealtimeUsage(usage: unknown): RealtimeUsagePart[] {
                 input_tokens: u.input_tokens,
                 output_tokens: u.output_tokens,
                 cached_input_tokens: u.input_token_details?.cached_tokens,
+                cache_write_tokens: u.input_token_details?.cache_write_tokens,
                 input_audio_tokens: u.input_token_details?.audio_tokens,
                 reasoning_tokens: u.output_token_details?.reasoning_tokens,
                 output_audio_tokens: u.output_token_details?.audio_tokens,

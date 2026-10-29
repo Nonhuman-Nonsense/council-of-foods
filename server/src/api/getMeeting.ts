@@ -2,6 +2,7 @@ import type { StoredMeeting } from "@models/DBModels.js";
 import { meetingsCollection } from "@services/DbService.js";
 import type { Meeting } from "@shared/ModelTypes.js";
 import { ForbiddenError, NotFoundError } from "@models/Errors.js";
+import { findVenue } from "@utils/venues.js";
 
 // Keep this private, so that others always strip liveKey
 async function getStoredMeeting(meetingId: number): Promise<StoredMeeting> {
@@ -24,6 +25,8 @@ export async function getMeeting(meetingId: number, bearer?: string): Promise<Me
     // Never sent to a client: the live key, and the letter as the server keeps it — it holds the
     // human's own words as they said them. The letter they see is on the summary message.
     const { liveKey: _liveKey, letter: _letter, ...meeting } = storedMeeting;
+    // The venue by name, for the replay intro: "held … at Havremagasinet".
+    const venueName = storedMeeting.venueId ? findVenue(storedMeeting.venueId)?.name : undefined;
 
-    return meeting;
+    return venueName ? { ...meeting, venueName } : meeting;
 }

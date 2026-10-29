@@ -7,6 +7,17 @@ import { cacheControlPrivateNoStoreApi } from '@utils/httpCache.js';
 import { Logger } from '@utils/Logger.js';
 import { OWN_CLIENT_HEADER, OWN_CLIENT_VALUE } from '@shared/ownClient.js';
 
+const mockConfig = vi.hoisted(() => ({ venues: undefined }));
+
+vi.mock('@root/src/config.js', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        config: new Proxy(actual.config, {
+            get: (target, prop) => (prop === 'COUNCIL_VENUES' ? mockConfig.venues : Reflect.get(target, prop)),
+        }),
+    };
+});
+
 function validCreateBody() {
     return {
         topic: { id: 't-int', title: 'Integration Topic', description: 'D', prompt: 'Prompt' },
@@ -52,6 +63,7 @@ describe('HTTP meetings API (integration)', () => {
 
     afterEach(() => {
         vi.restoreAllMocks();
+        mockConfig.venues = undefined;
     });
 
     const base = () => `http://127.0.0.1:${port}`;
@@ -199,6 +211,40 @@ describe('HTTP meetings API (integration)', () => {
         const full = await authRes.json();
         expect(full.conversation).toEqual(meeting.conversation);
         expect(full.liveKey).toBeUndefined();
+    });
+
+    it('GET /api/meetings/:id gives back the agenda point the meeting opened on', async () => {
+        const createRes = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...validCreateBody(), openingAgendaPoint: 'Soil Scarification' }),
+        });
+        const { meetingId } = await createRes.json();
+        const meeting = await (await fetch(`${base()}/api/meetings/${meetingId}`)).json();
+        expect(meeting.openingAgendaPoint).toBe('Soil Scarification');
+    });
+
+    it('GET /api/meetings/:id names the venue a meeting ran at, and no other', async () => {
+        mockConfig.venues = [{
+            id: 'havremagasinet',
+            name: 'Havremagasinet',
+            alertEmails: ['staff@example.org'],
+            timezone: 'Europe/Stockholm',
+            openingHours: { days: ['wed'], from: '12:00', to: '16:00' },
+        }];
+        async function venueNameOf(venueId) {
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...validCreateBody(), ...(venueId ? { venueId } : {}) }),
+            });
+            const { meetingId } = await createRes.json();
+            const meeting = await (await fetch(`${base()}/api/meetings/${meetingId}`)).json();
+            return meeting.venueName;
+        }
+
+        expect(await venueNameOf('havremagasinet')).toBe('Havremagasinet');
+        expect(await venueNameOf(undefined)).toBeUndefined();
     });
 
     it('GET /api/autoplay returns a random completed meeting id', async () => {

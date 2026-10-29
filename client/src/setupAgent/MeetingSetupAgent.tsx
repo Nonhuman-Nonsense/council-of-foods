@@ -36,7 +36,7 @@ type MeetingSetupAgentProps = {
   onBeginSetup: () => void;
   onGoToTopicStep: () => void;
   onSelectTopic: (topic: Topic) => void;
-  onStartMeeting: (characters: Character[]) => Promise<void> | void;
+  onStartMeeting: (characters: Character[], openingAgendaPoint?: string) => Promise<void> | void;
 };
 
 export default function MeetingSetupAgent({

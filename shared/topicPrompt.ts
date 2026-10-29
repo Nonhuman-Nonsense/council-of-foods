@@ -24,6 +24,11 @@ export function nonEmptyAgendaPoints(agendaPoints?: string[]): string[] {
   return (agendaPoints ?? []).map((point) => point.trim()).filter((point) => point.length > 0);
 }
 
+/** The title of agenda point `point` (1-based, numbered as in the prompt): its first line. */
+export function agendaPointTitle(agendaPoints: string[] | undefined, point: number): string | undefined {
+  return nonEmptyAgendaPoints(agendaPoints)[point - 1]?.split("\n")[0].trim() || undefined;
+}
+
 export function agendaPointCountFromAgendaPoints(agendaPoints?: string[]): number | undefined {
   const count = nonEmptyAgendaPoints(agendaPoints).length;
   return count > 0 ? count : undefined;

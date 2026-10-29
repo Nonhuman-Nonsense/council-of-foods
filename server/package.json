@@ -6,7 +6,7 @@
   "description": "",
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "main": "dist/server.js",
   "scripts": {
@@ -33,6 +33,7 @@
     "voices:loudness": "cross-env NODE_ENV=production tsx scripts/voiceLoudness.ts",
     "logs": "cross-env NODE_ENV=production tsx scripts/clientLogs.ts",
     "network": "cross-env NODE_ENV=production tsx scripts/networkLog.ts",
+    "usage": "cross-env NODE_ENV=production tsx scripts/usageReport.ts",
     "prod": "node scripts/prod.mjs",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix",

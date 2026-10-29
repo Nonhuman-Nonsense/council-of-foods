@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { isMeetingPath, isRootPath } from "@/navigation";
+import { REPLAY_INTRO_HASHES } from "@council/replayIntro";
 
 import OverlayWrapper from './OverlayWrapper';
 import Overlay from "./Overlay";
@@ -26,7 +27,8 @@ interface MainOverlaysProps {
  * MainOverlays Component
  * 
  * Manages the top-level application overlays that are triggered via URL hash.
- * Examples: #about, #contact, #staff, #settings, #reset.
+ * Examples: #about, #contact, #staff, #settings, #reset. (#email and #replay are the replay intro,
+ * which Council shows; they are only let through here.)
  * 
  * Core Logic:
  * - **Hash Routing**: Listens to `location.hash` to determine which overlay to show.
@@ -46,9 +48,9 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
   useEffect(() => {
     const hash = location.hash;
     if (hash) {
-      if (!["#about", "#contact", "#staff", "#reset", "#settings", '#warning'].includes(hash)) {
+      if (![...["#about", "#contact", "#staff", "#reset", "#settings", '#warning'], ...REPLAY_INTRO_HASHES].includes(hash)) {
         cancelOverlay();
-      } else if (!isMeetingPath(location.pathname) && ["#settings"].includes(hash)) {
+      } else if (!isMeetingPath(location.pathname) && ["#settings", ...REPLAY_INTRO_HASHES].includes(hash)) {
         cancelOverlay();
       } else if (isRootPath(location.pathname) && ["#reset", '#warning'].includes(hash)) {
         cancelOverlay();
@@ -81,7 +83,8 @@ function MainOverlays({ topic, onReset, onCloseOverlay }: MainOverlaysProps): Re
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  const showOverlay = (location.hash !== "");
+  // The replay intro's hashes are Council's to show: it has the meeting they describe.
+  const showOverlay = (location.hash !== "" && !REPLAY_INTRO_HASHES.includes(location.hash));
 
   const renderOverlayContent = (): React.ReactElement | null => {
     switch (location.hash) {
