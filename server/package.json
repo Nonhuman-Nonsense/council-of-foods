@@ -6,7 +6,7 @@
   "description": "",
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=26"
   },
   "main": "dist/server.js",
   "scripts": {
