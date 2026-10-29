@@ -101,11 +101,13 @@ Flavors: `latest`, `test`, `proto`, `asilomar`, `logiqs`. On Apple Silicon, buil
 
 The server uses MongoDB to store council meetings, this needs to be running locally for development.
 
-Example docker prompt for running mongodb locally for development:
+Run MongoDB locally for development, on the same image tag production uses (`mongo:8` in the server compose file):
 
 ```
-docker run -d --name council-mongo -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=secret -p 27017:27017 mongo
+docker run -d --name council-mongo --restart unless-stopped -e MONGO_INITDB_ROOT_USERNAME=mongoadmin -e MONGO_INITDB_ROOT_PASSWORD=secret -p 127.0.0.1:27017:27017 -v council-mongo-data:/data/db mongo:8
 ```
+
+The named volume `council-mongo-data` keeps the data when the container is recreated. Run `docker pull mongo:8` and recreate the container when production is updated. Don't use the untagged `mongo` image: it pulls the newest major version, so local drifts ahead of production (it was on 9.x while production ran 8.3).
 
 ## Converting transparent videos
 
