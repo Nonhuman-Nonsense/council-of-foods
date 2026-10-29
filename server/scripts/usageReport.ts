@@ -6,8 +6,10 @@
  *   npm run usage                                the last 30 days
  *   npm run usage -- --since 7d --venue havremagasinet
  *   npm run usage -- --feature setup-agent --days   the same, day by day
+ *   npm run usage -- --meeting 1608 --calls         one meeting (and the setup that led to it), call by call
  *
- * Also: --json (the summed rows). --since takes 30m, 2h, 3d; it defaults to 30d.
+ * Also: --json (the summed rows). --since takes 30m, 2h, 3d; it defaults to 30d, or to all
+ * time with --meeting.
  *
  * Reading it: "per conv." is one setup (setup agent) or one meeting (everything else), so a
  * growing "input/call" with a low "cached" share is a conversation resent at full price every
@@ -91,7 +93,8 @@ interface Row {
 }
 
 async function main(): Promise<void> {
-    const since = parseSince(arg("since") ?? "30d");
+    const meeting = arg("meeting");
+    const since = parseSince(arg("since") ?? (meeting ? "3650d" : "30d"));
     const venue = arg("venue");
     const feature = arg("feature");
     const byDay = flag("days");
@@ -102,6 +105,28 @@ async function main(): Promise<void> {
         const filter: Filter<StoredUsageEvent> = { ts: { $gte: since } };
         if (venue) filter.venueId = venue;
         if (feature) filter.feature = feature as StoredUsageEvent["feature"];
+        if (meeting) filter.meetingId = Number(meeting);
+
+        if (flag("calls")) {
+            // Each language-model call in order: a working cache reads more of the input every turn.
+            const calls = await usageEventsCollection
+                .find({ ...filter, "measures.input_tokens": { $gt: 0 } })
+                .sort({ ts: 1 })
+                .toArray();
+            printTable(
+                ["time", "feature", "model", "input", "cached", "writes", "output"],
+                calls.map((call) => [
+                    call.ts.toISOString().slice(11, 19),
+                    call.feature,
+                    call.model,
+                    String(call.measures.input_tokens ?? 0),
+                    cachedShare(call.measures.input_tokens ?? 0, call.measures.cached_input_tokens ?? 0),
+                    String(call.measures.cache_write_tokens ?? "-"),
+                    String(call.measures.output_tokens ?? 0),
+                ]),
+            );
+            return;
+        }
 
         // One group per conversation first, so calls and input per setup or meeting fall out of
         // the same pass as the totals.
@@ -168,7 +193,7 @@ async function main(): Promise<void> {
         }
 
         console.log(bold(`\n── usage since ${since.toISOString().slice(0, 16).replace("T", " ")}` +
-            `${venue ? ` · ${venue}` : ""}${feature ? ` · ${feature}` : ""} ──\n`));
+            `${venue ? ` · ${venue}` : ""}${feature ? ` · ${feature}` : ""}${meeting ? ` · meeting ${meeting}` : ""} ──\n`));
         printTable(
             [...(byDay ? ["day"] : []), "feature", "model", "calls", "conv.", "calls/conv.", "input", "input/call",
                 "input/conv.", "cached", "writes", "output", "reasoning", "chars", "audio s"],
