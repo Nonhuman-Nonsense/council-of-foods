@@ -1,5 +1,5 @@
 # Stage 1: Build the React client app
-FROM node:lts-alpine AS client-builder
+FROM node:26-alpine AS client-builder
 
 WORKDIR /usr/src/client
 COPY client/package*.json ./
@@ -9,7 +9,7 @@ COPY shared/ ../shared/
 RUN npm run build
 
 # Stage 2: Build the Node server
-FROM node:lts-alpine AS server-builder
+FROM node:26-alpine AS server-builder
 
 WORKDIR /usr/src/server
 COPY server/package*.json ./
@@ -20,7 +20,7 @@ COPY shared/ ../shared/
 RUN npm run build
 
 # Stage 3: Production Runner
-FROM node:lts-alpine
+FROM node:26-alpine
 
 WORKDIR /usr/src/server
 COPY server/package*.json ./

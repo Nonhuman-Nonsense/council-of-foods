@@ -17,7 +17,7 @@ Usage:
   ./install.sh              Install prebuilt artifacts (or build if missing)
   ./install.sh --rebuild    Force npm ci + build before install (dev checkout)
 
-The script uses sudo for system paths and launchd. Node 24+ must be installed.
+The script uses sudo for system paths and launchd. Node 26+ must be installed.
 
 From a GitHub release (Apple Silicon, no git required):
   curl -fsSL https://raw.githubusercontent.com/Nonhuman-Nonsense/council-of-foods/main/button/bridge/install/macos/install-release.sh | sudo bash
@@ -89,7 +89,7 @@ if [[ "$(uname -m)" != "arm64" ]]; then
 fi
 
 if ! NODE_BIN="$(resolve_node_bin)"; then
-  echo "Node.js not found. Install Node 24+ from https://nodejs.org or set NODE_BIN." >&2
+  echo "Node.js not found. Install Node 26+ from https://nodejs.org or set NODE_BIN." >&2
   exit 1
 fi
 
