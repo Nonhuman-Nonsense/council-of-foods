@@ -56,7 +56,7 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 
 | Feature | Where it is recorded | Provider → model (current config) | Measures |
 |---|---|---|---|
-| Council dialogue, chair (`dialogue`), summary (`summary`) | `DialogGenerator.completeWithRetry`, every attempt | Inworld router → `mistral/mistral-large-3` | input / output / cached / reasoning tokens |
+| Council dialogue, chair (`dialogue`), summary (`summary`) | `DialogGenerator.completeWithRetry`, every attempt | Inworld router → `mistral/mistral-large-3` | input / output / cached / cache-write / reasoning tokens |
 | Letters: plan, draft and weave (`summary`) | `DialogGenerator.generateInCharacter` | Inworld router → `anthropic/claude-sonnet-5-5` (plan, draft, weave; `claude-opus-5-5` until October 2026) | input / output / reasoning tokens |
 | Letters: author ranking, sorting the human's words (`classifier`) | `LetterWriter` via `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
@@ -92,7 +92,8 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 
 Verified response shapes (probed 2026-09-16):
 - Inworld router: OpenAI-style `usage` (`prompt_tokens`, `completion_tokens`,
-  `prompt_tokens_details.cached_tokens`).
+  `prompt_tokens_details.cached_tokens`, and `cache_write_tokens` when a request fills an
+  Anthropic cache).
 - Inworld TTS: `usage: { processedCharactersCount, modelId }`.
 - ElevenLabs: no usage body; an `x-region` header (e.g. `europe-west4`, Google Cloud Netherlands).
 - Inworld realtime `response.done`: `{ input_tokens, output_tokens, input_token_details,
