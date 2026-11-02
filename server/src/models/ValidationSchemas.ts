@@ -1,6 +1,6 @@
 import { GlobalOptionsSchema } from "@logic/GlobalOptions.js";
 import { z } from "zod";
-import { type Character, AVAILABLE_VOICES } from "@shared/ModelTypes.js";
+import { type Character, AVAILABLE_VOICES, CHILD_AUDIENCES } from "@shared/ModelTypes.js";
 import type {
     HandRaisedOptions,
     ReconnectionOptions,
@@ -63,6 +63,7 @@ export const CreateMeetingSchema: z.ZodType<CreateMeetingBody> = z.object({
     sendsLetters: z.boolean().optional(),
     printsLetters: z.boolean().optional(),
     openingAgendaPoint: z.string().max(500).optional(),
+    audience: z.enum(CHILD_AUDIENCES).optional(),
 });
 
 // 1. start_conversation — serverOptions is only applied when socket environment is prototype (see SocketManager / MeetingLifecycleHandler)

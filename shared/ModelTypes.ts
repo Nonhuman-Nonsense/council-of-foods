@@ -10,6 +10,22 @@ export const AVAILABLE_VOICES_INWORLD = [
 
 export type VoiceOption = typeof AVAILABLE_VOICES[number] | typeof AVAILABLE_VOICES_INWORLD[number];
 
+/**
+ * Children a meeting can be held for: `young` about 6–9, `older` about 10–14. A meeting without
+ * one is for adults. The setup agent sets it when it learns children are taking part; the meeting
+ * prompts then carry the audience's instructions from the character setup bundle.
+ */
+export const CHILD_AUDIENCES = ["young", "older"] as const;
+export type ChildAudience = typeof CHILD_AUDIENCES[number];
+
+/** What a character setup bundle adds to the meeting prompts for one audience of children. */
+export interface AudienceInstructions {
+    /** Appended to the chair's prompt, before {@link everyone}: its opening and turn lengths. */
+    chair: string;
+    /** Appended last to every council member's prompt, the chair's included, so it outranks their own rules. */
+    everyone: string;
+}
+
 export interface Topic {
     id: string;
     title: string;
@@ -25,6 +41,8 @@ export interface Topic {
     prompt: string;
     /** Optional agenda items; rendered via [AGENDA_POINTS] in the system prompt at meeting setup. */
     agendaPoints?: string[];
+    /** Agenda items for a meeting held for young children, in place of {@link agendaPoints}. */
+    youngAgendaPoints?: string[];
 }
 
 export interface BaseMeeting {
@@ -42,6 +60,8 @@ export interface BaseMeeting {
     meetingComplete: boolean;
     /** Title of the agenda point the chair opened on; missing before it was kept. */
     openingAgendaPoint?: string;
+    /** The children the meeting was held for; absent for adults. */
+    audience?: ChildAudience;
 }
 
 export interface Meeting extends BaseMeeting {
@@ -97,6 +117,8 @@ export interface CharacterSetupData {
         description: string;
     };
     characters: Character[];
+    /** The prompts' additions for each audience of children; an audience missing here cannot be chosen. */
+    audiences?: Partial<Record<ChildAudience, AudienceInstructions>>;
 }
 
 // For Zod validation

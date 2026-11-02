@@ -36,6 +36,18 @@ describe('createSetupAgentTools', () => {
     expect(tool?.parameters?.properties?.language).toMatchObject({ type: 'string', enum: ['sv'] });
   });
 
+  it.each([
+    { audiences: [] as ('young' | 'older')[], offered: undefined },
+    { audiences: ['young', 'older'] as ('young' | 'older')[], offered: ['adults', 'young', 'older'] },
+  ])('offers set_audience with $offered for audiences $audiences', ({ audiences, offered }) => {
+    const tool = createSetupAgentTools({ ...baseToolParams, audiences }).find((t) => t.name === 'set_audience');
+    if (offered) {
+      expect(tool?.parameters?.properties?.audience).toMatchObject({ type: 'string', enum: offered });
+    } else {
+      expect(tool).toBeUndefined();
+    }
+  });
+
   it('builds enum of topic titles for select_topic', () => {
     const tools = createSetupAgentTools({ ...baseToolParams, topics: TOPICS });
     const tool = tools.find((t) => t.name === 'select_topic');
@@ -125,6 +137,7 @@ describe('setupAgentTools', () => {
       otherLanguages: ['sv'],
       switchLanguage: vi.fn(),
       restartAgent: vi.fn(),
+      audiences: ['young', 'older'],
     };
   });
 
@@ -505,6 +518,34 @@ describe('setupAgentTools', () => {
         ok: false,
         error: 'That name is already used by a council participant. Ask for a different name.',
       });
+    });
+  });
+
+  describe('set_audience', () => {
+    it.each([
+      { from: null, audience: 'young', stored: 'young' },
+      { from: null, audience: 'older', stored: 'older' },
+      { from: 'young' as const, audience: 'adults', stored: null },
+    ])('sets the meeting for $audience', async ({ from, audience, stored }) => {
+      useMeetingSetupStore.getState().setAudience(from);
+      const res = await createSetupAgentToolHandlers(ctx).set_audience({ audience });
+      expect(res.ok).toBe(true);
+      expect(useMeetingSetupStore.getState().audience).toBe(stored);
+    });
+
+    it.each([
+      { case: 'an unknown audience', audiences: ['young', 'older'] as ('young' | 'older')[], audience: 'teens' },
+      { case: 'an audience this language has no prompts for', audiences: ['young'] as ('young' | 'older')[], audience: 'older' },
+    ])('refuses $case and keeps the audience', async ({ audiences, audience }) => {
+      const res = await createSetupAgentToolHandlers({ ...ctx, audiences }).set_audience({ audience });
+      expect(res.ok).toBe(false);
+      expect(useMeetingSetupStore.getState().audience).toBeNull();
+    });
+
+    it('is forgotten when setup starts over', () => {
+      useMeetingSetupStore.getState().setAudience('young');
+      useMeetingSetupStore.getState().resetStore();
+      expect(useMeetingSetupStore.getState().audience).toBeNull();
     });
   });
 

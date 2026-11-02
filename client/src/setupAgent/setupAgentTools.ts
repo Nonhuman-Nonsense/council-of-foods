@@ -1,4 +1,4 @@
-import type { Topic, Character } from "@shared/ModelTypes";
+import type { Topic, Character, ChildAudience } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import {
   buildMeetingCharactersPayload,
@@ -36,6 +36,8 @@ export type SetupAgentToolContext = {
 
   /** Drop the agent's connection and connect afresh. */
   restartAgent: () => void;
+  /** The audiences of children this language's meeting prompts are written for. */
+  audiences: ChildAudience[];
 };
 
 function requiresCharacterStep(step: MeetingSetupPhase): boolean {
@@ -141,6 +143,7 @@ export function createSetupAgentTools({
   characters,
   typedSetup = false,
   audioOutputSwitch = false,
+  audiences = [],
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
@@ -149,6 +152,8 @@ export function createSetupAgentTools({
   typedSetup?: boolean;
   /** The output is split, so the agent may open it up to the room — see `settings/roomAudio`. */
   audioOutputSwitch?: boolean;
+  /** The audiences of children the meeting can be held for; none, no set_audience tool. */
+  audiences?: ChildAudience[];
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
   const characterNames = characters.filter(isSelectableCharacter).map((c) => c.name);
@@ -270,6 +275,21 @@ export function createSetupAgentTools({
           description: { type: "string" },
         },
         required: ["name", "description"],
+      },
+    });
+  }
+
+  if (audiences.length > 0) {
+    tools.push({
+      type: "function",
+      name: "set_audience",
+      description:
+        "Set who the meeting is for, when you learn that children are taking part. young: about 6–9 years old; older: about 10–14; adults: 15 and up, or to undo a mistake. Can be called on any step; the meeting is adapted when it starts.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { audience: { type: "string", enum: ["adults", ...audiences] } },
+        required: ["audience"],
       },
     });
   }
@@ -510,6 +530,25 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       // takes it up.
       ctx.restartAgent();
       return { ok: true, suppressContinuation: true };
+    },
+
+    set_audience: (raw) => {
+      const audience = asString(asObject(raw)?.audience);
+      if (audience === "adults") {
+        useMeetingSetupStore.getState().setAudience(null);
+        return { ok: true, data: { audience } };
+      }
+      const child = ctx.audiences.find((a) => a === audience);
+      if (!child) return { ok: false, error: `Unknown audience: ${audience ?? "(missing)"}. Use one of: adults, ${ctx.audiences.join(", ")}.` };
+      useMeetingSetupStore.getState().setAudience(child);
+      return {
+        ok: true,
+        data: {
+          audience: child,
+          // Instructions are only read when a session connects, so the change of voice comes with the result.
+          note: `From now on, speak to them as to ${child === "young" ? "children of about 6 to 9" : "children of about 10 to 14"}: short sentences, everyday words, warm and a little playful.`,
+        },
+      };
     },
 
     remember_visitor_name: (raw) => {

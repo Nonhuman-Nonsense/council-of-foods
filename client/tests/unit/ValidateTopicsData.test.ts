@@ -4,6 +4,7 @@ import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import fs from 'fs';
 import path from 'path';
 import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
+import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata';
 
 interface Topic {
     id: string;
@@ -12,6 +13,7 @@ interface Topic {
     agentBrief?: string;
     prompt?: string;
     agendaPoints?: string[];
+    youngAgendaPoints?: string[];
 }
 
 interface TopicsData {
@@ -84,6 +86,18 @@ describe('Validate Topics Data JSONs', () => {
                 }
             });
         });
+    });
+
+    /** Without them a young audience's meeting falls back to the adult agenda. */
+    it('gives every topic with an agenda its agenda points for young children wherever they can be chosen', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            const beings = JSON.parse(fs.readFileSync(path.join(SHARED_PROMPTS_DIR, `${CHARACTERS_FILE}_${lang}.json`), 'utf-8')) as { audiences?: Record<string, unknown> };
+            if (!beings.audiences?.young) continue;
+            for (const topic of loadTopicsData(lang).topics.filter((t) => t.agendaPoints?.length)) {
+                expect(topic.youngAgendaPoints?.length, `topic "${topic.id}" in "${lang}" has no youngAgendaPoints`).toBeGreaterThan(0);
+                topic.youngAgendaPoints?.forEach((point) => expect(point.trim().length).toBeGreaterThan(0));
+            }
+        }
     });
 
     it('should have matching topic IDs across all languages', () => {

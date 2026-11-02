@@ -92,6 +92,8 @@ const defaultLocalOptions = {
   selectedTopicId: null,
   editorWidthPercent: 50,
   customTopicVisitorInput: "",
+  /** Kids mode: '' for adults, or 'young' / 'older'. */
+  audience: '',
   languageModelsText: JSON.stringify(defaultLanguageModels.en, null, 2),
   languageModelsError: "",
 };
@@ -163,6 +165,11 @@ createApp({
         en: { system: '', topics: [] }
       },
       available_languages: ['en'],
+      /**
+       * Kids mode text per language, read from the prompt files on every load and never saved:
+       * `{ audiences, youngAgendaPoints: { [topicId]: string[] } }`. Not edited here.
+       */
+      audienceData: {},
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
@@ -337,6 +344,7 @@ createApp({
     this.socket = io();
     this.setupSocketListeners();
     this.startup();
+    this.loadAudienceData();
   },
 
   methods: {
@@ -777,12 +785,56 @@ createApp({
         if (chairPrompt.includes('[RANDOM_AGENDA_POINT]')) {
           replacedCharacters[0].prompt = this.injectRandomAgendaPoint(
             chairPrompt,
-            this.currentTopic.agendaPoints,
+            this.isCustomTopicSelected ? this.currentTopic.agendaPoints : this.meetingAgendaPoints(),
           );
         }
       }
 
+      // As the app does (client/src/newMeeting/meetingSetup.ts): last in every prompt, the chair's own just before.
+      const instructions = this.audienceInstructions();
+      if (instructions) {
+        replacedCharacters.forEach((c, index) => {
+          const chairPart = index === 0 ? `\n\n${instructions.chair}` : '';
+          c.prompt = `${c.prompt}${chairPart}\n\n--\n\n${instructions.everyone}`;
+        });
+      }
+
       return replacedCharacters;
+    },
+
+    async loadAudienceData() {
+      for (const lang of this.available_languages) {
+        try {
+          const [characters, topics] = await Promise.all([
+            fetch(`./${CHARACTERS_FILE}_${lang}.json`).then((res) => res.json()),
+            fetch(`./topics_${lang}.json`).then((res) => res.json()),
+          ]);
+          this.audienceData[lang] = {
+            audiences: characters.audiences || {},
+            youngAgendaPoints: Object.fromEntries(
+              (topics.topics || []).filter((t) => t.youngAgendaPoints?.length).map((t) => [t.id, t.youngAgendaPoints]),
+            ),
+          };
+        } catch (err) {
+          this.log('ERROR', `Failed to load kids mode text for ${lang}:`, err);
+        }
+      }
+    },
+
+    /** The kids mode instructions for the chosen audience in this language, or null for adults. */
+    audienceInstructions() {
+      const audience = this.localOptions.audience;
+      return audience ? this.audienceData[this.options.language]?.audiences?.[audience] || null : null;
+    },
+
+    /** As the app: young children get the topic's own agenda for them, where it has one. */
+    meetingAgendaPoints() {
+      const topic = this.currentTopic;
+      if (this.isCustomTopicSelected || !topic) return [];
+      const young = this.localOptions.audience === 'young'
+        ? this.audienceData[this.options.language]?.youngAgendaPoints?.[topic.id]
+        : null;
+      return young || topic.agendaPoints;
     },
 
     selectTopic(topicId) {
@@ -864,11 +916,12 @@ createApp({
             : this.buildMeetingSystemPrompt(
                 this.currentSystemPrompt,
                 topic.prompt,
-                topic.agendaPoints,
+                this.meetingAgendaPoints(),
               ),
         },
         characters: this.buildCharacters(),
         language: this.options.language,
+        ...(this.audienceInstructions() ? { audience: this.localOptions.audience } : {}),
       };
     },
 

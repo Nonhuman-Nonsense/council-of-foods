@@ -6,7 +6,8 @@ import { createMeeting } from "@api/createMeeting";
 import { HttpStatusError } from "@api/http";
 import { isRootPath, useRouting } from "@/navigation";
 import MeetingSetupAgent from "@setupAgent/MeetingSetupAgent";
-import type { MeetingSetupPhase, MeetingSetupUserEvent } from "./meetingSetup";
+import { rebuildTopic, type MeetingSetupPhase, type MeetingSetupUserEvent } from "./meetingSetup";
+import { getTopicsBundle } from "@main/topicsBundle";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
 import { getVenueId, useCouncilSettings } from "@/settings/councilSettings";
@@ -48,7 +49,7 @@ export default function MeetingSetupShell({
 
   const phase: MeetingSetupPhase = isRootPath(location.pathname) ? "landing" : step;
 
-  const { setSelectedTopic, setCustomTopic, visitorName } = useMeetingSetupStore();
+  const { setSelectedTopic, setCustomTopic, visitorName, audience } = useMeetingSetupStore();
 
   // Before any effect below this, so the setup agent opens its microphone for the output the
   // next visit really has.
@@ -78,6 +79,13 @@ export default function MeetingSetupShell({
     }
   }, [topicSelection?.id, topicSelection?.description, location.pathname, setSelectedTopic, setCustomTopic]);
 
+  // The audience can be learned after the topic was confirmed: its agenda follows.
+  useEffect(() => {
+    if (topicSelection) {
+      setTopicSelection(rebuildTopic(topicSelection, getTopicsBundle(i18n.language), audience ?? undefined));
+    }
+  }, [audience]);
+
   function beginSetup() {
     if (isRootPath(location.pathname)) {
       navigate(newMeetingPath);
@@ -106,9 +114,12 @@ export default function MeetingSetupShell({
       return;
     }
     setCreating(true);
+    // From the store, not this render: the agent may have set the audience in the same turn as it
+    // started the meeting, before the topic above was rebuilt for it.
+    const { audience } = useMeetingSetupStore.getState();
     try {
       const { meetingId, liveKey } = await createMeeting({
-        topic: topicSelection,
+        topic: audience ? rebuildTopic(topicSelection, getTopicsBundle(i18n.language), audience) : topicSelection,
         characters,
         language: i18n.language,
         ...(visitorName.trim() ? { humanName: visitorName.trim() } : {}),
@@ -117,6 +128,7 @@ export default function MeetingSetupShell({
         sendsLetters: capabilities.sendsLetters,
         printsLetters: capabilities.printSummary && printSummariesEnabled,
         ...(openingAgendaPoint ? { openingAgendaPoint } : {}),
+        ...(audience ? { audience } : {}),
       });
       setupSession.clear();
       setMeetingliveKey(liveKey);

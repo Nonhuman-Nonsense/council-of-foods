@@ -3,13 +3,15 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import type { Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK, SINGLE_AGENDA_POINT_PLACEHOLDER } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
-import { buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
+import { availableAudiences, buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
 
 vi.mock("@newMeeting/CharacterSetup", () => ({
   CHAIR_ID: "chair",
   getCharacterSetupBundle: () => ({
     panelWithHumans: " [HUMANS] ",
     singleAgendaPoint: " Stay on the one point.",
+    // Only young: an audience without instructions in the bundle leaves the prompts alone.
+    audiences: { young: { chair: "CHAIR-YOUNG", everyone: "EVERYONE-YOUNG" } },
     characters: [
       {
         id: "chair",
@@ -55,6 +57,7 @@ const topicsBundle = {
       agentBrief: "What is at stake in forests.",
       prompt: "Topic context.",
       agendaPoints: ["Point one", "Point two"],
+      youngAgendaPoints: ["Kid point"],
     },
   ],
 };
@@ -508,6 +511,19 @@ describe("buildTopicFromSelection", () => {
     expect(topic.prompt).toContain("1. Who owns the wind?");
   });
 
+  it.each([
+    { audience: undefined, selectedTopicId: "forestry", agenda: ["Point one", "Point two"] },
+    { audience: "older" as const, selectedTopicId: "forestry", agenda: ["Point one", "Point two"] },
+    { audience: "young" as const, selectedTopicId: "forestry", agenda: ["Kid point"] },
+    { audience: "young" as const, selectedTopicId: "customtopic", agenda: ["Who owns the wind?"] },
+  ])("gives $selectedTopicId the agenda for audience $audience", ({ audience, selectedTopicId, agenda }) => {
+    const topic = buildTopicFromSelection({ topicsBundle, selectedTopicId, customTopic: "Who owns the wind?", audience });
+
+    expect(topic.agendaPoints).toEqual(agenda);
+    expect(topic.prompt).toContain(`1. ${agenda[0]}`);
+    expect(topic.youngAgendaPoints).toBeUndefined();
+  });
+
   it("opens a custom-topic meeting on the visitor's question, not the no-agenda fallback", () => {
     const topic = buildTopicFromSelection({
       topicsBundle,
@@ -620,6 +636,44 @@ describe("buildMeetingCharactersPayload", () => {
     expect(result.characters.map((character) => character.id)).toEqual(["chair", "food-a", "food-b"]);
     expect(result.characters[0].prompt).toContain("Welcome");
     expect(result.characters[1].prompt).toBe("Speak as Food A.");
+  });
+
+  it("puts the audience's instructions last in every council member's prompt, the chair's own just before them", () => {
+    const result = buildMeetingCharactersPayload({
+      language: "en",
+      selectedCharacters: ["chair", "food-a", "panelist0", "food-b"],
+      humans: [{ id: "panelist0", name: "Alex", description: "", voice: "alloy", prompt: "" }],
+      numberOfHumans: 1,
+      labels: { formatHumanCount: (count) => `${count} humans: ` },
+      audience: "young",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    const byId = Object.fromEntries(result.characters.map((character) => [character.id, character.prompt]));
+    for (const id of ["chair", "food-a", "food-b"]) {
+      expect(byId[id].endsWith("EVERYONE-YOUNG")).toBe(true);
+    }
+    expect(byId.chair.indexOf("CHAIR-YOUNG")).toBeGreaterThan(byId.chair.indexOf("Welcome"));
+    expect(byId.chair.indexOf("CHAIR-YOUNG")).toBeLessThan(byId.chair.indexOf("EVERYONE-YOUNG"));
+    expect(byId["food-a"]).not.toContain("CHAIR-YOUNG");
+    expect(byId.panelist0).toBe("");
+  });
+
+  it("leaves the prompts alone for an audience the bundle has no instructions for", () => {
+    const result = buildMeetingCharactersPayload({
+      language: "en",
+      selectedCharacters: ["chair", "food-a", "food-b"],
+      humans: [],
+      numberOfHumans: 0,
+      labels: { formatHumanCount: (count) => `${count} humans: ` },
+      audience: "older",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.characters[1].prompt).toBe("Speak as Food A.");
+    expect(availableAudiences("en")).toEqual(["young"]);
   });
 
   it("allows museum panelists without descriptions", () => {

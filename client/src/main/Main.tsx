@@ -14,7 +14,7 @@ import MainOverlays from "./overlay/MainOverlays";
 import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
-import { buildTopicFromSelection } from "@newMeeting/meetingSetup";
+import { rebuildTopic } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
@@ -150,21 +150,13 @@ export default function Main(props: MainProps) {
     }
 
     if (topicSelection?.id) {
-      const bundle = getTopicsBundle(props.lang);
-      const isKnownTopic =
-        topicSelection.id === bundle.custom_topic.id ||
-        bundle.topics.some((topic) => topic.id === topicSelection.id);
-
-      if (isKnownTopic) {
-        setTopicSelection(
-          buildTopicFromSelection({
-            topicsBundle: bundle,
-            selectedTopicId: topicSelection.id,
-            customTopic:
-              topicSelection.id === bundle.custom_topic.id ? (topicSelection.description ?? "") : "",
-          }),
-        );
-      }
+      setTopicSelection(
+        rebuildTopic(
+          topicSelection,
+          getTopicsBundle(props.lang),
+          useMeetingSetupStore.getState().audience ?? undefined,
+        ),
+      );
     }
 
     if (isMeetingPath(location.pathname) && meetingliveKey) {

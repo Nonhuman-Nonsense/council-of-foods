@@ -7,6 +7,7 @@ import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
 import type { Character } from "@shared/ModelTypes";
 import {
+  availableAudiences,
   buildMeetingSetupReactionMessage,
   buildTopicFromSelection,
   diffCouncil,
@@ -60,9 +61,11 @@ export default function MeetingSetupAgent({
     humans,
     numberOfHumans,
     visitorName,
+    audience,
   } = useMeetingSetupStore();
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
+  const audiences = useMemo(() => availableAudiences(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const agentLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
 
@@ -129,8 +132,10 @@ export default function MeetingSetupAgent({
         selection,
         hasEverHeardVisitor,
         audioOutputSwitch: splitAudioEnabled,
+        audiences,
+        audience,
       }),
-    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection, splitAudioEnabled],
+    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection, splitAudioEnabled, audiences, audience],
   );
 
   // Static: the agent holds every tool from the start, and useSetupAgent
@@ -143,8 +148,9 @@ export default function MeetingSetupAgent({
         characters: setupCharacters,
         typedSetup,
         audioOutputSwitch: splitAudioEnabled,
+        audiences,
       }),
-    [otherLanguages, setupTopics, setupCharacters, typedSetup, splitAudioEnabled],
+    [otherLanguages, setupTopics, setupCharacters, typedSetup, splitAudioEnabled, audiences],
   );
 
   // The handlers are built before the agent they restart exists.
@@ -169,6 +175,8 @@ export default function MeetingSetupAgent({
           topicsBundle,
           selectedTopicId: selectedTopic,
           customTopic,
+          // Read now, not at render: the agent may have set it in this same turn.
+          audience: useMeetingSetupStore.getState().audience ?? undefined,
         }),
       selectTopic: onSelectTopic,
       startMeeting: onStartMeeting,
@@ -181,6 +189,7 @@ export default function MeetingSetupAgent({
       switchLanguage,
       // A tick later, so the tool's result still goes out on the connection that called it.
       restartAgent: () => setTimeout(() => restartAgentRef.current(), 0),
+      audiences,
     }),
     micUpFront: capabilities.micUpFront,
     micOpen: button.pressed,

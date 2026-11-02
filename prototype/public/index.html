@@ -32,6 +32,14 @@
             <option v-for="lang in available_languages" :key="lang" :value="lang">{{ lang }}</option>
           </select>
         </div>
+        <div class="section-group">
+          <label class="sub-label">Audience</label>
+          <select v-model="localOptions.audience" class="styled-select">
+            <option value="">Adults</option>
+            <option value="young" :disabled="!audienceData[options.language]?.audiences?.young">Young children (6–9)</option>
+            <option value="older" :disabled="!audienceData[options.language]?.audiences?.older">Older children (10–14)</option>
+          </select>
+        </div>
 
         <hr>
 

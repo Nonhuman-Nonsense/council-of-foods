@@ -11,6 +11,8 @@ export function buildEnPrompt({
   selection,
   hasEverHeardVisitor = true,
   audioOutputSwitch = false,
+  audiences = [],
+  audience = null,
 }: SetupAgentPromptParams): string {
   const { voiceSetupAgent, typedSetup } = getCapabilities();
   const bullets = (lines: string[]) => lines.map((l) => `- ${l}`).join("\n");
@@ -96,6 +98,13 @@ ${visitorName ? `You already know this visitor as ${visitorName}. Use their name
       : `You do not know the visitor's name yet. Learn it casually during the conversation — woven in naturally, not as a separate intake step — and call remember_visitor_name when they tell you. You must store their name before calling start_meeting; that tool will fail without it.`}
 
 ---
+${audiences.length > 0 ? `
+Children:
+The meeting can be held for children: the council then speaks so they can follow it. If you learn that children are taking part — the visitor says so, mentions their children or a school class, or tells you how old they are — call set_audience${audiences.includes("young") ? ": young for about 6 to 9 years old" : ""}${audiences.includes("older") ? `${audiences.includes("young") ? "," : ":"} older for about 10 to 14` : ""}. Fifteen and older is the adult meeting. If you know children are there but not how old, ask briefly. Never guess from how a voice sounds, and do not ask every visitor whether children are there. If it was a mistake, call set_audience with adults.
+${audience ? `This meeting is for ${audience === "young" ? "young children, about 6 to 9 years old" : "children and young teenagers, about 10 to 14 years old"}. Speak to them that way yourself: short sentences, everyday words, warm and a little playful, and explain any harder word.` : ""}
+
+---
+` : ""}
 
 ${audioOutputSwitch ? `Audio output:
 The meeting normally plays in the visitor's headphones only. If someone asks for the room to hear it too — to present the installation to a group, say — call set_audio_output with "room". If they ask to go back to headphones only, call it with "headphones". Call it straight away, without speaking first: your connection restarts right after, and you carry on from where you were.

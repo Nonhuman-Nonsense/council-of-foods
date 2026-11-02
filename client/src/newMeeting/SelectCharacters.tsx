@@ -108,6 +108,7 @@ function SelectCharacters({
     setNumberOfHumans,
     hoveredCharacter,
     setHoveredCharacter,
+    audience,
   } = useMeetingSetupStore();
   const [lastSelected, setLastSelected] = useState<string | null>(null);
 
@@ -212,6 +213,7 @@ function SelectCharacters({
       },
       agendaPoints,
       typedSetup,
+      audience: audience ?? undefined,
     });
     if (built.ok) {
       onContinueForward({ characters: built.characters, openingAgendaPoint: built.openingAgendaPoint });
