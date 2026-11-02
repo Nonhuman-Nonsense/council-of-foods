@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { DEV_LOG_CATEGORIES, type LogCategory } from "@/logger";
 import { capabilitiesFor, type Capabilities } from "./capabilities";
+import { getRoomAudio, setRoomAudio, useRoomAudioStore } from "./roomAudio";
 
 export { DEV_LOG_CATEGORIES, type LogCategory };
 export { capabilitiesFor, type Capabilities };
@@ -185,7 +186,14 @@ export function getSplitAudioEnabled(): boolean {
   }
 }
 
+/** Whether the output is split right now: the staff setting, unless this visit asked for room audio. */
+export function getSplitAudioActive(): boolean {
+  return getSplitAudioEnabled() && !getRoomAudio();
+}
+
 export function setSplitAudioEnabled(enabled: boolean): void {
+  // Staff get what they click, whatever the visit had asked for.
+  setRoomAudio(false);
   try {
     if (enabled) {
       localStorage.setItem(SPLIT_AUDIO_ENABLED_KEY, "true");
@@ -332,8 +340,11 @@ export function useCouncilSettings(): {
   setPttHardwareEnabled: (enabled: boolean) => void;
   printSummariesEnabled: boolean;
   setPrintSummariesEnabled: (enabled: boolean) => void;
+  /** The staff setting, as stored. */
   splitAudioEnabled: boolean;
   setSplitAudioEnabled: (enabled: boolean) => void;
+  /** Whether the output is split right now — see {@link getSplitAudioActive}. */
+  splitAudioActive: boolean;
   sidetoneLevel: number;
   setSidetoneLevel: (level: number) => void;
   modeSwitchButtonEnabled: boolean;
@@ -350,6 +361,7 @@ export function useCouncilSettings(): {
   const [printSummariesEnabled, setPrintSummariesEnabledState] =
     useState(getPrintSummariesEnabled);
   const [splitAudioEnabled, setSplitAudioEnabledState] = useState(getSplitAudioEnabled);
+  const roomAudio = useRoomAudioStore((s) => s.roomAudio);
   const [sidetoneLevel, setSidetoneLevelState] = useState(getSidetoneLevel);
   const [modeSwitchButtonEnabled, setModeSwitchButtonEnabledState] =
     useState(getModeSwitchButtonEnabled);
@@ -507,6 +519,7 @@ export function useCouncilSettings(): {
     setPrintSummariesEnabled: setPrintSummariesEnabledFromHook,
     splitAudioEnabled,
     setSplitAudioEnabled: setSplitAudioEnabledFromHook,
+    splitAudioActive: splitAudioEnabled && !roomAudio,
     sidetoneLevel,
     setSidetoneLevel: setSidetoneLevelFromHook,
     modeSwitchButtonEnabled,

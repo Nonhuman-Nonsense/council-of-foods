@@ -57,6 +57,7 @@ function mockCouncilSettings(overrides: Partial<ReturnType<typeof useCouncilSett
         setPrintSummariesEnabled: vi.fn(),
         splitAudioEnabled: false,
         setSplitAudioEnabled: vi.fn(),
+        splitAudioActive: false,
         sidetoneLevel: 0,
         setSidetoneLevel: vi.fn(),
         modeSwitchButtonEnabled: false,

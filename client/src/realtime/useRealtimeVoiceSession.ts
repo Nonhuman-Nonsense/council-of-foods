@@ -245,6 +245,11 @@ export type UseRealtimeVoiceSessionResult = {
   setAgentOutputMuted: (muted: boolean) => void;
   /** Push updated instructions/tools on the live data channel. */
   reconfigureSession: (options?: ConfigureSessionOptions) => void;
+  /**
+   * Drop the session and connect afresh, for what only a new connection takes up — the
+   * microphone's echo cancellation, which is fixed when the mic is opened.
+   */
+  restart: () => void;
 };
 
 function attachRemoteAudio(
@@ -408,8 +413,8 @@ export function useRealtimeVoiceSession(
     audioElementRef.current = audioElement;
   }, [audioElement]);
 
-  const { splitAudioEnabled } = useCouncilSettings();
-  const splitAudioRef = useRef(splitAudioEnabled);
+  const { splitAudioActive } = useCouncilSettings();
+  const splitAudioRef = useRef(splitAudioActive);
 
   /**
    * Send the agent where the output wants it: straight from its element, or — on a split
@@ -442,9 +447,9 @@ export function useRealtimeVoiceSession(
   }, [feature]);
 
   useEffect(() => {
-    splitAudioRef.current = splitAudioEnabled;
+    splitAudioRef.current = splitAudioActive;
     applyAudioRoute();
-  }, [splitAudioEnabled, applyAudioRoute]);
+  }, [splitAudioActive, applyAudioRoute]);
 
   const attemptRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -1486,6 +1491,16 @@ export function useRealtimeVoiceSession(
     loop?.interruptAndRespond(text, { reason, audioElapsedMs: cut.audioElapsedMs });
   }, [planOutputCut]);
 
+  const restart = useCallback(() => {
+    if (!sessionActive) return;
+    log.event("REALTIME", "restarting", { feature });
+    cleanup();
+    resetSessionUiState();
+    setConnectionState("idle");
+    retryAttemptsRef.current = 0;
+    void start();
+  }, [sessionActive, feature, cleanup, resetSessionUiState, start]);
+
   const reconfigureSession = useCallback((options?: ConfigureSessionOptions) => {
     const loop = eventLoopRef.current;
     if (!loop) return;
@@ -1509,5 +1524,6 @@ export function useRealtimeVoiceSession(
     interruptAndRespond,
     setAgentOutputMuted,
     reconfigureSession,
+    restart,
   };
 }

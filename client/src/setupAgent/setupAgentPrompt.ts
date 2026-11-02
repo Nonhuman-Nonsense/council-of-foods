@@ -38,6 +38,8 @@ export type SetupAgentPromptParams = {
    * an installation (mic always present) is unaffected.
    */
   hasEverHeardVisitor?: boolean;
+  /** The agent holds `set_audio_output`. */
+  audioOutputSwitch?: boolean;
 };
 
 /** Add an entry here when adding a new language prompt file. */

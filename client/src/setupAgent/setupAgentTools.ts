@@ -9,6 +9,7 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { getCapabilities } from "@/settings/councilSettings";
+import { getRoomAudio, setRoomAudio } from "@/settings/roomAudio";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
 import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
@@ -32,6 +33,9 @@ export type SetupAgentToolContext = {
   /** Navigate to a different language. Empty array on single-language deploys. */
   otherLanguages: string[];
   switchLanguage: (lang: string) => void;
+
+  /** Drop the agent's connection and connect afresh. */
+  restartAgent: () => void;
 };
 
 function requiresCharacterStep(step: MeetingSetupPhase): boolean {
@@ -136,12 +140,15 @@ export function createSetupAgentTools({
   topics,
   characters,
   typedSetup = false,
+  audioOutputSwitch = false,
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
   /** The visitor can type, so the agent may describe a panelist for them. */
   typedSetup?: boolean;
+  /** The output is split, so the agent may open it up to the room — see `settings/roomAudio`. */
+  audioOutputSwitch?: boolean;
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
   const characterNames = characters.filter(isSelectableCharacter).map((c) => c.name);
@@ -277,6 +284,21 @@ export function createSetupAgentTools({
         additionalProperties: false,
         properties: { language: { type: "string", enum: otherLanguages } },
         required: ["language"],
+      },
+    });
+  }
+
+  if (audioOutputSwitch) {
+    tools.push({
+      type: "function",
+      name: "set_audio_output",
+      description:
+        'Choose where the meeting is heard until it is over. "room" plays it on the room\'s speakers as well as the headphones, so a group can listen; "headphones" goes back to the headphones only. Your connection restarts straight after, so call it without speaking first.',
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { output: { type: "string", enum: ["room", "headphones"] } },
+        required: ["output"],
       },
     });
   }
@@ -473,6 +495,20 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
         return { ok: false, error: `Language not available: ${lang}` };
       }
       ctx.switchLanguage(lang);
+      return { ok: true, suppressContinuation: true };
+    },
+
+    set_audio_output: (raw) => {
+      const output = asString(asObject(raw)?.output);
+      if (output !== "room" && output !== "headphones") {
+        return { ok: false, error: 'Output must be "room" or "headphones".' };
+      }
+      const roomAudio = output === "room";
+      if (getRoomAudio() === roomAudio) return { ok: true, data: { output, unchanged: true } };
+      setRoomAudio(roomAudio);
+      // The mic's echo cancellation has to follow the speakers, and only a new connection
+      // takes it up.
+      ctx.restartAgent();
       return { ok: true, suppressContinuation: true };
     },
 

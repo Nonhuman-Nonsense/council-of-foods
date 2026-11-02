@@ -1,5 +1,5 @@
 import type { Character, Topic } from "@shared/ModelTypes";
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { createMeeting } from "@api/createMeeting";
@@ -11,6 +11,7 @@ import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { setUnrecoverableError } from "@main/overlay/errorStore";
 import { getVenueId, useCouncilSettings } from "@/settings/councilSettings";
 import { setupSession } from "@setupAgent/setupSession";
+import { setRoomAudio } from "@/settings/roomAudio";
 
 export interface MeetingSetupShellProps {
   topicSelection: Topic | null;
@@ -48,6 +49,12 @@ export default function MeetingSetupShell({
   const phase: MeetingSetupPhase = isRootPath(location.pathname) ? "landing" : step;
 
   const { setSelectedTopic, setCustomTopic, visitorName } = useMeetingSetupStore();
+
+  // Before any effect below this, so the setup agent opens its microphone for the output the
+  // next visit really has.
+  useLayoutEffect(() => {
+    if (isRootPath(location.pathname)) setRoomAudio(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     if (isRootPath(location.pathname)) {

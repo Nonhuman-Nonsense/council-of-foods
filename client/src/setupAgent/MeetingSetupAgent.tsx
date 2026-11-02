@@ -48,7 +48,7 @@ export default function MeetingSetupAgent({
   onStartMeeting,
 }: MeetingSetupAgentProps) {
   const { i18n, t } = useTranslation();
-  const { capabilities } = useCouncilSettings();
+  const { capabilities, splitAudioEnabled } = useCouncilSettings();
   const { voiceSetupAgent, typedSetup } = capabilities;
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("setup-agent");
@@ -128,8 +128,9 @@ export default function MeetingSetupAgent({
         otherLanguageNames,
         selection,
         hasEverHeardVisitor,
+        audioOutputSwitch: splitAudioEnabled,
       }),
-    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection],
+    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection, splitAudioEnabled],
   );
 
   // Static: the agent holds every tool from the start, and useSetupAgent
@@ -141,9 +142,13 @@ export default function MeetingSetupAgent({
         topics: setupTopics,
         characters: setupCharacters,
         typedSetup,
+        audioOutputSwitch: splitAudioEnabled,
       }),
-    [otherLanguages, setupTopics, setupCharacters, typedSetup],
+    [otherLanguages, setupTopics, setupCharacters, typedSetup, splitAudioEnabled],
   );
+
+  // The handlers are built before the agent they restart exists.
+  const restartAgentRef = useRef(() => {});
 
   const signOfLife = useSignOfLife();
 
@@ -174,11 +179,14 @@ export default function MeetingSetupAgent({
       },
       otherLanguages,
       switchLanguage,
+      // A tick later, so the tool's result still goes out on the connection that called it.
+      restartAgent: () => setTimeout(() => restartAgentRef.current(), 0),
     }),
     micUpFront: capabilities.micUpFront,
     micOpen: button.pressed,
     onMicUnavailable: button.endPress,
   });
+  restartAgentRef.current = agent.restart;
   const { interruptAndRespond, muted } = agent;
   // Any click or keystroke counts as activity — resets the idle nudge and the
   // absolute idle teardown, so the agent doesn't ask "are you there?" (or tear

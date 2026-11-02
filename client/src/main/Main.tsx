@@ -32,6 +32,7 @@ import ModeSwitchButton from "@/museum/ModeSwitchButton";
 import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { useAudioSplit } from "@/audio/audioRouting";
+import { useRoomAudioStore } from "@/settings/roomAudio";
 import { useSidetone } from "@/audio/sidetone";
 import LetterReplyPrinter from "@/museum/print/LetterReplyPrinter";
 import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
@@ -113,11 +114,13 @@ export default function Main(props: MainProps) {
     pttHardwareEnabled,
     modeSwitchButtonEnabled,
     printSummariesEnabled,
-    splitAudioEnabled,
+    splitAudioActive,
     sidetoneLevel,
   } = useCouncilSettings();
-  useAudioSplit(audioContext, splitAudioEnabled);
-  useSidetone(sidetoneLevel, splitAudioEnabled);
+  const roomAudio = useRoomAudioStore((s) => s.roomAudio);
+  useAudioSplit(audioContext, splitAudioActive);
+  // Off while the room hears the meeting: over its speakers the mic would hear itself and howl.
+  useSidetone(roomAudio ? 0 : sidetoneLevel, splitAudioActive);
   const meetingGeneration = useAutoplayStore((s) => s.meetingGeneration);
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   useMuseumCursorHide();

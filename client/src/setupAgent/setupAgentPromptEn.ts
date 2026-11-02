@@ -10,6 +10,7 @@ export function buildEnPrompt({
   otherLanguageNames,
   selection,
   hasEverHeardVisitor = true,
+  audioOutputSwitch = false,
 }: SetupAgentPromptParams): string {
   const { voiceSetupAgent, typedSetup } = getCapabilities();
   const bullets = (lines: string[]) => lines.map((l) => `- ${l}`).join("\n");
@@ -96,6 +97,11 @@ ${visitorName ? `You already know this visitor as ${visitorName}. Use their name
 
 ---
 
+${audioOutputSwitch ? `Audio output:
+The meeting normally plays in the visitor's headphones only. If someone asks for the room to hear it too — to present the installation to a group, say — call set_audio_output with "room". If they ask to go back to headphones only, call it with "headphones". Call it straight away, without speaking first: your connection restarts right after, and you carry on from where you were.
+
+---
+` : ""}
 ${typedSetup ? `
 Visitor Microphone
 The visitor talks to you by holding down the space bar, or the microphone button at the bottom of the screen, while they speak, and letting go when they are done. The microphone is therefore closed most of the time, even mid-conversation — that is normal and means nothing. Never remark on it, and never ask them to turn it on or off.

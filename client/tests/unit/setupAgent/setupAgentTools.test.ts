@@ -3,6 +3,7 @@ import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { MAX_HUMAN_PANELISTS } from '@newMeeting/meetingSetup';
 import { CHAIR_ID } from '@/prompts/characterSetupBundles';
 import { setAppMode } from '@/settings/councilSettings';
+import { getRoomAudio, setRoomAudio } from '@/settings/roomAudio';
 
 const TOPICS = [
   { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One' },
@@ -58,6 +59,13 @@ describe('createSetupAgentTools', () => {
   it('includes human_panelist when isWebMode is true', () => {
     const tools = createSetupAgentTools({ ...baseToolParams, typedSetup: true });
     expect(tools.find((t) => t.name === 'human_panelist')).toBeDefined();
+  });
+
+  it('offers set_audio_output only over a split output', () => {
+    expect(createSetupAgentTools(baseToolParams).find((t) => t.name === 'set_audio_output')).toBeUndefined();
+    const tool = createSetupAgentTools({ ...baseToolParams, audioOutputSwitch: true })
+      .find((t) => t.name === 'set_audio_output');
+    expect(tool?.parameters?.properties?.output).toMatchObject({ enum: ['room', 'headphones'] });
   });
 
   it('includes a begin_setup tool', () => {
@@ -116,6 +124,7 @@ describe('setupAgentTools', () => {
       meetingCharactersLabels: { formatHumanCount: (count) => (count === 1 ? "Human" : `${count} Humans`) },
       otherLanguages: ['sv'],
       switchLanguage: vi.fn(),
+      restartAgent: vi.fn(),
     };
   });
 
@@ -518,6 +527,33 @@ describe('setupAgentTools', () => {
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.switch_language({});
       expect(res).toEqual({ ok: false, error: 'Missing language' });
+    });
+  });
+
+  describe('set_audio_output', () => {
+    beforeEach(() => setRoomAudio(false));
+
+    it.each([
+      ['room', false, true],
+      ['headphones', true, false],
+    ])('switches to %s and restarts the agent', async (output, before, after) => {
+      setRoomAudio(before);
+      const res = await createSetupAgentToolHandlers(ctx).set_audio_output({ output });
+      expect(res).toEqual({ ok: true, suppressContinuation: true });
+      expect(getRoomAudio()).toBe(after);
+      expect(ctx.restartAgent).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the connection alone when the output is already there', async () => {
+      const res = await createSetupAgentToolHandlers(ctx).set_audio_output({ output: 'headphones' });
+      expect(res).toMatchObject({ ok: true, data: { unchanged: true } });
+      expect(ctx.restartAgent).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown output', async () => {
+      const res = await createSetupAgentToolHandlers(ctx).set_audio_output({ output: 'speakers' });
+      expect(res.ok).toBe(false);
+      expect(getRoomAudio()).toBe(false);
     });
   });
 

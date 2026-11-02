@@ -443,6 +443,14 @@ takes effect at once, without a reload; off, the output is the usual stereo mix.
   the agents' voices. Keep speakers that play voices away from the mic, or the agents may hear
   themselves. This part follows the switch only when the mic next opens: reload the page.
 
+**Room audio for one visit.** With the split on, the setup agent can join it back for the
+current visit: ask it to play the meeting in the room too (to present the installation to a
+group, say), or to go back to headphones only. The agent reconnects straight away, so its mic
+opens with the echo canceller the speakers need. It lasts through the meeting and what follows,
+and the next visit at the landing page is back on the staff setting; a reload ends it too.
+Nothing is stored, and flipping **Split audio** on the staff page overrides it. **Hear yourself**
+is silent while the room plays the meeting.
+
 ### Hear yourself
 
 Set **Hear yourself** on the staff page to let a visitor in headphones hear their own voice
