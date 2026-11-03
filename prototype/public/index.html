@@ -161,7 +161,9 @@
                       style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
                       <div v-for="(point, agendaIndex) in currentTopic.agendaPoints" :key="agendaIndex">
                         <label class="sub-label">Agenda Point {{ agendaIndex + 1 }}</label>
-                        <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex]"
+                        <input type="text" class="input-full" v-model="currentTopic.agendaPoints[agendaIndex].title"
+                          :placeholder="'Title of agenda point ' + (agendaIndex + 1)" style="margin-bottom: 4px;">
+                        <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex].text"
                           :placeholder="'Agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
                           style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
                       </div>
@@ -181,7 +183,9 @@
                       style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px;">
                       <div v-for="(point, agendaIndex) in currentTopic.youngAgendaPoints" :key="agendaIndex">
                         <label class="sub-label">Young Agenda Point {{ agendaIndex + 1 }}</label>
-                        <textarea class="input-area" v-model="currentTopic.youngAgendaPoints[agendaIndex]"
+                        <input type="text" class="input-full" v-model="currentTopic.youngAgendaPoints[agendaIndex].title"
+                          :placeholder="'Title of young agenda point ' + (agendaIndex + 1)" style="margin-bottom: 4px;">
+                        <textarea class="input-area" v-model="currentTopic.youngAgendaPoints[agendaIndex].text"
                           :placeholder="'Young agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
                           style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
                       </div>

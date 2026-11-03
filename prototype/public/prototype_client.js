@@ -81,6 +81,18 @@ function countPlayableMessages(conversation) {
   return count;
 }
 
+/**
+ * An agenda point as `{ title, text }` (shared/ModelTypes.ts `AgendaPoint`). Prompts saved before
+ * the title had its own field held one string, title on its first line: that is split here.
+ */
+function toAgendaPoint(point) {
+  if (typeof point === 'string') {
+    const [title, ...rest] = point.trim().split('\n');
+    return { title: title.trim(), text: rest.join('\n').trim() };
+  }
+  return { title: String(point?.title ?? ''), text: String(point?.text ?? '') };
+}
+
 const defaultLocalOptions = {
   theme: '',
   showTrimmed: true,
@@ -703,8 +715,8 @@ createApp({
             description: t.description || "",
             agentBrief: t.agentBrief || "",
             prompt: t.prompt,
-            agendaPoints: Array.isArray(t.agendaPoints) ? [...t.agendaPoints] : [],
-            youngAgendaPoints: Array.isArray(t.youngAgendaPoints) ? [...t.youngAgendaPoints] : [],
+            agendaPoints: Array.isArray(t.agendaPoints) ? t.agendaPoints.map(toAgendaPoint) : [],
+            youngAgendaPoints: Array.isArray(t.youngAgendaPoints) ? t.youngAgendaPoints.map(toAgendaPoint) : [],
           }));
 
           const customTopicSource = topics.custom_topic || {};
@@ -815,7 +827,7 @@ createApp({
           const fromFile = new Map((topics.topics || []).map((t) => [t.id, t.youngAgendaPoints]));
           for (const topic of this.languageData[lang]?.topics || []) {
             if (!Array.isArray(topic.youngAgendaPoints)) {
-              topic.youngAgendaPoints = Array.isArray(fromFile.get(topic.id)) ? [...fromFile.get(topic.id)] : [];
+              topic.youngAgendaPoints = Array.isArray(fromFile.get(topic.id)) ? fromFile.get(topic.id).map(toAgendaPoint) : [];
             }
           }
         } catch (err) {
@@ -845,8 +857,9 @@ createApp({
 
     nonEmptyAgendaPoints(agendaPoints) {
       return (agendaPoints || [])
-        .map((point) => (point || '').trim())
-        .filter((point) => point.length > 0);
+        .map(toAgendaPoint)
+        .map((point) => ({ title: point.title.trim(), text: point.text.trim() }))
+        .filter((point) => point.title.length > 0 || point.text.length > 0);
     },
 
     buildAgendaPointsText(agendaPoints) {
@@ -855,7 +868,9 @@ createApp({
         return '';
       }
 
-      const numbered = points.map((point, index) => `${index + 1}. ${point}`).join('\n\n');
+      const numbered = points
+        .map((point, index) => `${index + 1}. ${[point.title, point.text].filter(Boolean).join('\n')}`)
+        .join('\n\n');
       return `\nToday's Agenda Points:\n\n${numbered}`;
     },
 
@@ -1063,7 +1078,7 @@ createApp({
       if (!Array.isArray(this.currentTopic[list])) {
         this.currentTopic[list] = [];
       }
-      this.currentTopic[list].push("");
+      this.currentTopic[list].push({ title: "", text: "" });
       this.save();
     },
 
@@ -1740,6 +1755,13 @@ createApp({
           lang.topics.forEach((topic) => {
             if (!Array.isArray(topic.agendaPoints)) {
               topic.agendaPoints = [];
+            }
+            // Saved before titles had their own field: one string per point. Only those are
+            // replaced, in place, so a save never swaps the objects being edited.
+            for (const list of [topic.agendaPoints, topic.youngAgendaPoints]) {
+              (list || []).forEach((point, index) => {
+                if (typeof point === 'string') list[index] = toAgendaPoint(point);
+              });
             }
           });
         }

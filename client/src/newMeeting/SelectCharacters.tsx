@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import type { Character } from "@shared/ModelTypes";
+import type { AgendaPoint, Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
 import MediaPreloader from "@main/MediaPreloader";
@@ -26,7 +26,7 @@ export { getCharacterSetupBundle, createDefaultHumans, createHuman, CHAIR_ID } f
 
 export interface SelectCharactersProps {
   topicTitle: string;
-  agendaPoints?: string[];
+  agendaPoints?: AgendaPoint[];
   onContinueForward: (data: { characters: Character[]; openingAgendaPoint?: string }) => void | Promise<void>;
   loading?: boolean;
   /**

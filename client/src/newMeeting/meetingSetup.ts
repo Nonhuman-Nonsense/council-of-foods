@@ -1,4 +1,4 @@
-import type { Character, ChildAudience, Topic } from "@shared/ModelTypes";
+import type { AgendaPoint, Character, ChildAudience, Topic } from "@shared/ModelTypes";
 import {
   injectRandomAgendaPoint,
   injectSingleAgendaPointRule,
@@ -394,7 +394,7 @@ export function buildTopicFromSelection(params: {
     built.description = customTopic;
     // The visitor's question is the whole agenda: the chair opens on it the same
     // way it opens on a listed topic's agenda point, in either language.
-    built.agendaPoints = [customTopic.trim()];
+    built.agendaPoints = [{ title: customTopic.trim(), text: "" }];
   }
   built.prompt = buildMeetingSystemPrompt(
     topicsBundle.system,
@@ -430,7 +430,7 @@ export function buildMeetingCharactersPayload(params: {
   humans: Character[];
   numberOfHumans: number;
   labels: MeetingCharactersI18n;
-  agendaPoints?: string[];
+  agendaPoints?: AgendaPoint[];
   /** The visitor can type, so each human panelist needs a written description. */
   typedSetup?: boolean;
   /** The children the meeting is held for: every council member's prompt gets their instructions. */

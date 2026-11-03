@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, afterEach } from "vitest";
-import type { Character } from "@shared/ModelTypes";
+import type { AgendaPoint, Character } from "@shared/ModelTypes";
 import { RANDOM_AGENDA_POINT_PLACEHOLDER, RANDOM_AGENDA_POINT_FALLBACK, SINGLE_AGENDA_POINT_PLACEHOLDER } from "@shared/agendaPointInjection";
 import { AGENDA_POINTS_PLACEHOLDER, TOPIC_PLACEHOLDER } from "@shared/topicPrompt";
 import { availableAudiences, buildMeetingCharactersPayload, buildMeetingSetupReactionMessage, buildTopicFromSelection, diffCouncil, getMeetingSetupReactionDelayMs, orderSelectedCharactersForInstallation, selectedFoodNames } from "@newMeeting/meetingSetup";
@@ -38,6 +38,8 @@ vi.mock("@newMeeting/CharacterSetup", () => ({
   }),
 }));
 
+const point = (title: string, text = ""): AgendaPoint => ({ title, text });
+
 const topicsBundle = {
   language: "en",
   metadata: { version: "1.0.0", last_updated: "2026-01-01" },
@@ -56,13 +58,13 @@ const topicsBundle = {
       description: "Forest topic",
       agentBrief: "What is at stake in forests.",
       prompt: "Topic context.",
-      agendaPoints: ["Point one", "Point two"],
-      youngAgendaPoints: ["Kid point"],
+      agendaPoints: [point("Point one", "Its text."), point("Point two")],
+      youngAgendaPoints: [point("Kid point")],
     },
   ],
 };
 
-function buildCharactersPayload(agendaPoints?: string[]) {
+function buildCharactersPayload(agendaPoints?: AgendaPoint[]) {
   return buildMeetingCharactersPayload({
     language: "en",
     selectedCharacters: ["chair", "food-a", "food-b"],
@@ -472,10 +474,10 @@ describe("buildTopicFromSelection", () => {
     });
 
     expect(topic.prompt).toContain("Topic context.");
-    expect(topic.prompt).toContain("1. Point one");
+    expect(topic.prompt).toContain("1. Point one\nIts text.");
     expect(topic.prompt).toContain("2. Point two");
     expect(topic.prompt).not.toContain(AGENDA_POINTS_PLACEHOLDER);
-    expect(topic.agendaPoints).toEqual(["Point one", "Point two"]);
+    expect(topic.agendaPoints).toEqual([point("Point one", "Its text."), point("Point two")]);
   });
 
   it("removes [AGENDA_POINTS] for topics without agenda items", () => {
@@ -507,20 +509,20 @@ describe("buildTopicFromSelection", () => {
       customTopic: "  Who owns the wind?  ",
     });
 
-    expect(topic.agendaPoints).toEqual(["Who owns the wind?"]);
+    expect(topic.agendaPoints).toEqual([point("Who owns the wind?")]);
     expect(topic.prompt).toContain("1. Who owns the wind?");
   });
 
   it.each([
-    { audience: undefined, selectedTopicId: "forestry", agenda: ["Point one", "Point two"] },
-    { audience: "older" as const, selectedTopicId: "forestry", agenda: ["Point one", "Point two"] },
-    { audience: "young" as const, selectedTopicId: "forestry", agenda: ["Kid point"] },
-    { audience: "young" as const, selectedTopicId: "customtopic", agenda: ["Who owns the wind?"] },
+    { audience: undefined, selectedTopicId: "forestry", agenda: [point("Point one", "Its text."), point("Point two")] },
+    { audience: "older" as const, selectedTopicId: "forestry", agenda: [point("Point one", "Its text."), point("Point two")] },
+    { audience: "young" as const, selectedTopicId: "forestry", agenda: [point("Kid point")] },
+    { audience: "young" as const, selectedTopicId: "customtopic", agenda: [point("Who owns the wind?")] },
   ])("gives $selectedTopicId the agenda for audience $audience", ({ audience, selectedTopicId, agenda }) => {
     const topic = buildTopicFromSelection({ topicsBundle, selectedTopicId, customTopic: "Who owns the wind?", audience });
 
     expect(topic.agendaPoints).toEqual(agenda);
-    expect(topic.prompt).toContain(`1. ${agenda[0]}`);
+    expect(topic.prompt).toContain(`1. ${agenda[0].title}`);
     expect(topic.youngAgendaPoints).toBeUndefined();
   });
 
@@ -584,7 +586,7 @@ describe("buildMeetingCharactersPayload", () => {
 
     it("injects a numeric random agenda point, and names the same point for the meeting to keep", () => {
     vi.spyOn(Math, "random").mockReturnValue(0.5);
-    const result = buildCharactersPayload(["One\nBriefing", "Two\nBriefing", "Three\nBriefing", "Four\nBriefing"]);
+    const result = buildCharactersPayload([point("One", "Briefing"), point("Two", "Briefing"), point("Three", "Briefing"), point("Four", "Briefing")]);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
 
@@ -605,8 +607,8 @@ describe("buildMeetingCharactersPayload", () => {
   });
 
   it.each([
-    { case: "a single agenda point", agendaPoints: ["Who owns the wind?"], staysOnPoint: true },
-    { case: "several agenda points", agendaPoints: ["One", "Two"], staysOnPoint: false },
+    { case: "a single agenda point", agendaPoints: [point("Who owns the wind?")], staysOnPoint: true },
+    { case: "several agenda points", agendaPoints: [point("One"), point("Two")], staysOnPoint: false },
     { case: "no agenda points", agendaPoints: undefined, staysOnPoint: false },
   ])("gives the chair the stay-on-the-point rule only for $case", ({ agendaPoints, staysOnPoint }) => {
     const result = buildCharactersPayload(agendaPoints);

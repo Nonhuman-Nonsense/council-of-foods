@@ -26,6 +26,17 @@ export interface AudienceInstructions {
     everyone: string;
 }
 
+/**
+ * One point on a topic's agenda. The title is kept apart from the text, because it is shown on
+ * its own — on the replay screen and in print — while the prompt gets both, as `Title` then `text`.
+ */
+export interface AgendaPoint {
+    /** One short line, the point's name. */
+    title: string;
+    /** What the point is about: the sides, the facts, often a closing `Core question:`. May be empty. */
+    text: string;
+}
+
 export interface Topic {
     id: string;
     title: string;
@@ -40,9 +51,9 @@ export interface Topic {
     agentBrief?: string;
     prompt: string;
     /** Optional agenda items; rendered via [AGENDA_POINTS] in the system prompt at meeting setup. */
-    agendaPoints?: string[];
+    agendaPoints?: AgendaPoint[];
     /** Agenda items for a meeting held for young children, in place of {@link agendaPoints}. */
-    youngAgendaPoints?: string[];
+    youngAgendaPoints?: AgendaPoint[];
 }
 
 export interface BaseMeeting {
