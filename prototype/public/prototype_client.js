@@ -166,8 +166,8 @@ createApp({
       },
       available_languages: ['en'],
       /**
-       * Kids mode text per language, read from the prompt files on every load and never saved:
-       * `{ audiences, youngAgendaPoints: { [topicId]: string[] } }`. Not edited here.
+       * Kids mode instructions per language (`{ audiences }`), read from the prompt files on every
+       * load and never saved. Not edited here; a topic's young agenda points are, with the topic.
        */
       audienceData: {},
 
@@ -337,14 +337,14 @@ createApp({
       }
     }
   },
-  mounted() {
+  async mounted() {
     this.audioController = new AudioController();
     this.audioController.setLogCallback(this.log);
 
     this.socket = io();
     this.setupSocketListeners();
-    this.startup();
-    this.loadAudienceData();
+    await this.startup();
+    await this.loadAudienceData();
   },
 
   methods: {
@@ -704,6 +704,7 @@ createApp({
             agentBrief: t.agentBrief || "",
             prompt: t.prompt,
             agendaPoints: Array.isArray(t.agendaPoints) ? [...t.agendaPoints] : [],
+            youngAgendaPoints: Array.isArray(t.youngAgendaPoints) ? [...t.youngAgendaPoints] : [],
           }));
 
           const customTopicSource = topics.custom_topic || {};
@@ -809,16 +810,19 @@ createApp({
             fetch(`./${CHARACTERS_FILE}_${lang}.json`).then((res) => res.json()),
             fetch(`./topics_${lang}.json`).then((res) => res.json()),
           ]);
-          this.audienceData[lang] = {
-            audiences: characters.audiences || {},
-            youngAgendaPoints: Object.fromEntries(
-              (topics.topics || []).filter((t) => t.youngAgendaPoints?.length).map((t) => [t.id, t.youngAgendaPoints]),
-            ),
-          };
+          this.audienceData[lang] = { audiences: characters.audiences || {} };
+          // Topics saved before they had young agenda points get the file's; edited ones keep theirs.
+          const fromFile = new Map((topics.topics || []).map((t) => [t.id, t.youngAgendaPoints]));
+          for (const topic of this.languageData[lang]?.topics || []) {
+            if (!Array.isArray(topic.youngAgendaPoints)) {
+              topic.youngAgendaPoints = Array.isArray(fromFile.get(topic.id)) ? [...fromFile.get(topic.id)] : [];
+            }
+          }
         } catch (err) {
           this.log('ERROR', `Failed to load kids mode text for ${lang}:`, err);
         }
       }
+      this.save();
     },
 
     /** The kids mode instructions for the chosen audience in this language, or null for adults. */
@@ -831,10 +835,8 @@ createApp({
     meetingAgendaPoints() {
       const topic = this.currentTopic;
       if (this.isCustomTopicSelected || !topic) return [];
-      const young = this.localOptions.audience === 'young'
-        ? this.audienceData[this.options.language]?.youngAgendaPoints?.[topic.id]
-        : null;
-      return young || topic.agendaPoints;
+      const young = this.localOptions.audience === 'young' ? this.nonEmptyAgendaPoints(topic.youngAgendaPoints) : [];
+      return young.length > 0 ? young : topic.agendaPoints;
     },
 
     selectTopic(topicId) {
@@ -1036,6 +1038,7 @@ createApp({
         agentBrief: "",
         prompt: "",
         agendaPoints: [],
+        youngAgendaPoints: [],
       };
       this.currentLanguageData.topics.push(newTopic);
       this.log('SYSTEM', 'Topic Added', newTopic);
@@ -1054,19 +1057,20 @@ createApp({
       this.localOptions.selectedTopicId = newTopic.id;
     },
 
-    addAgendaPoint() {
+    /** `list` is 'agendaPoints' or 'youngAgendaPoints'. */
+    addAgendaPoint(list = 'agendaPoints') {
       if (!this.currentTopic) return;
-      if (!Array.isArray(this.currentTopic.agendaPoints)) {
-        this.currentTopic.agendaPoints = [];
+      if (!Array.isArray(this.currentTopic[list])) {
+        this.currentTopic[list] = [];
       }
-      this.currentTopic.agendaPoints.push("");
+      this.currentTopic[list].push("");
       this.save();
     },
 
-    removeAgendaPoint() {
-      if (!this.currentTopic || !Array.isArray(this.currentTopic.agendaPoints)) return;
-      if (this.currentTopic.agendaPoints.length === 0) return;
-      this.currentTopic.agendaPoints.pop();
+    removeAgendaPoint(list = 'agendaPoints') {
+      if (!this.currentTopic || !Array.isArray(this.currentTopic[list])) return;
+      if (this.currentTopic[list].length === 0) return;
+      this.currentTopic[list].pop();
       this.save();
     },
 
@@ -1309,6 +1313,9 @@ createApp({
           ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
             ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
             : {}),
+          ...(this.nonEmptyAgendaPoints(edited.youngAgendaPoints).length > 0
+            ? { youngAgendaPoints: this.nonEmptyAgendaPoints(edited.youngAgendaPoints) }
+            : {}),
         });
       }
 
@@ -1328,6 +1335,9 @@ createApp({
           prompt: edited.prompt,
           ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
             ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
+            : {}),
+          ...(this.nonEmptyAgendaPoints(edited.youngAgendaPoints).length > 0
+            ? { youngAgendaPoints: this.nonEmptyAgendaPoints(edited.youngAgendaPoints) }
             : {}),
         });
       }

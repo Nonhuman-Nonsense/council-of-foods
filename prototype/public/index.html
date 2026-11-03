@@ -153,8 +153,8 @@
                     <div class="sidebar-section-header" style="margin-bottom: 8px;">
                       <label class="sub-label" style="margin-bottom: 0;">Agenda Points (optional)</label>
                       <div>
-                        <button class="icon-btn" type="button" @click="addAgendaPoint">+</button>
-                        <button class="icon-btn" type="button" @click="removeAgendaPoint">-</button>
+                        <button class="icon-btn" type="button" @click="addAgendaPoint()">+</button>
+                        <button class="icon-btn" type="button" @click="removeAgendaPoint()">-</button>
                       </div>
                     </div>
                     <div v-if="currentTopic.agendaPoints && currentTopic.agendaPoints.length > 0"
@@ -168,6 +168,26 @@
                     </div>
                     <small v-else style="display: block; margin-bottom: 15px; opacity: 0.75;">
                       No agenda points.
+                    </small>
+
+                    <div class="sidebar-section-header" style="margin-bottom: 8px;">
+                      <label class="sub-label" style="margin-bottom: 0;">Young Children Agenda Points (optional)</label>
+                      <div>
+                        <button class="icon-btn" type="button" @click="addAgendaPoint('youngAgendaPoints')">+</button>
+                        <button class="icon-btn" type="button" @click="removeAgendaPoint('youngAgendaPoints')">-</button>
+                      </div>
+                    </div>
+                    <div v-if="currentTopic.youngAgendaPoints && currentTopic.youngAgendaPoints.length > 0"
+                      style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px;">
+                      <div v-for="(point, agendaIndex) in currentTopic.youngAgendaPoints" :key="agendaIndex">
+                        <label class="sub-label">Young Agenda Point {{ agendaIndex + 1 }}</label>
+                        <textarea class="input-area" v-model="currentTopic.youngAgendaPoints[agendaIndex]"
+                          :placeholder="'Young agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
+                          style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
+                      </div>
+                    </div>
+                    <small style="display: block; margin-bottom: 15px; opacity: 0.75;">
+                      Used instead of the agenda points above when Audience is Young children{{ currentTopic.youngAgendaPoints && currentTopic.youngAgendaPoints.length > 0 ? '' : ' (none here, so the agenda points above are used)' }}.
                     </small>
                   </template>
 
