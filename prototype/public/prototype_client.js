@@ -82,6 +82,33 @@ function countPlayableMessages(conversation) {
 }
 
 /**
+ * A turn's text as HTML: escaped, line breaks as <br>, and the model's `*…*` as italics without
+ * the asterisks — the rule the app's subtitles follow (client/src/council/output/emphasis.tsx).
+ * A lone asterisk between spaces, or one left without a partner, stays an asterisk.
+ */
+function turnHtml(text) {
+  const escape = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const source = String(text ?? '');
+  const delimiters = [];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] !== '*') continue;
+    const lone = /\s/.test(source[i - 1] ?? ' ') && /\s/.test(source[i + 1] ?? ' ');
+    if (!lone) delimiters.push(i);
+  }
+  if (delimiters.length % 2) delimiters.pop();
+  const pairs = new Set(delimiters);
+  let html = '';
+  let italic = false;
+  let last = 0;
+  for (const i of [...pairs, source.length]) {
+    html += escape(source.slice(last, i));
+    if (i < source.length) html += (italic = !italic) ? '<em>' : '</em>';
+    last = i + 1;
+  }
+  return html.split('\n').join('<br>');
+}
+
+/**
  * An agenda point as `{ title, text }` (shared/ModelTypes.ts `AgendaPoint`). Prompts saved before
  * the title had its own field held one string, title on its first line: that is split here.
  */
@@ -849,6 +876,10 @@ createApp({
       if (this.isCustomTopicSelected || !topic) return [];
       const young = this.localOptions.audience === 'young' ? this.nonEmptyAgendaPoints(topic.youngAgendaPoints) : [];
       return young.length > 0 ? young : topic.agendaPoints;
+    },
+
+    turnHtml(text) {
+      return turnHtml(text);
     },
 
     selectTopic(topicId) {

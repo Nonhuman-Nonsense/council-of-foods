@@ -365,13 +365,13 @@
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
-                v-html="turn.pretrimmed.split('\n').join('<br>')"></div>
+                v-html="turnHtml(turn.pretrimmed)"></div>
 
-              <div v-if="turn.text" v-html="turn.text.split('\n').join('<br>')"></div>
+              <div v-if="turn.text" v-html="turnHtml(turn.text)"></div>
 
               <div v-if="localOptions.showTrimmed && turn.trimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;"
-                v-html="turn.trimmed.split('\n').join('<br>')"></div>
+                v-html="turnHtml(turn.trimmed)"></div>
               </template>
             </div>
 

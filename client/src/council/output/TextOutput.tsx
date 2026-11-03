@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useMobile } from "@/utils";
 import { z } from "@/zIndexLayers";
 import { Sentence } from "@shared/ModelTypes";
 import React from 'react';
 import type { PlaybackStartInfo } from "./AudioOutputMessage";
+import { emphasisRuns, renderEmphasisRuns } from "./emphasis";
 
 interface AudioMessage {
   id?: string;
@@ -42,6 +43,12 @@ function TextOutput({
   // The text currently visible on screen. 
   // Only updated when the sentence actually changes.
   const [currentSnippet, setCurrentSnippet] = useState<string>("");
+  // Which sentence that is, for its italics: emphasis can carry over from the sentence before.
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const runs = useMemo(
+    () => emphasisRuns((currentAudioMessage?.sentences ?? []).map((sentence) => sentence.text)),
+    [currentAudioMessage],
+  );
 
   // --- TIMING REFS (Mutable values that don't trigger re-renders) ---
 
@@ -74,6 +81,7 @@ function TextOutput({
 
     // 3. Reset UI state
     setCurrentSnippetIndex(0);
+    setCurrentIndex(0);
     setCurrentSnippet("");
     lastDisplayedTextRef.current = "";
 
@@ -165,6 +173,7 @@ function TextOutput({
 
             // B. Update Local State (Triggers the visual update)
             setCurrentSnippet(newText);
+            setCurrentIndex(foundIndex);
 
             // C. Update Parent State (Safe here because we are outside the render phase)
             setCurrentSnippetIndex(foundIndex);
@@ -201,7 +210,9 @@ function TextOutput({
 
   return (
     <div style={{ ...textStyle, ...style }}>
-      <p style={paragraphStyle} data-testid="subtitle-text">{currentSnippet}</p>
+      <p style={paragraphStyle} data-testid="subtitle-text">
+        {currentSnippet && runs[currentIndex] ? renderEmphasisRuns(runs[currentIndex]) : currentSnippet}
+      </p>
     </div>
   );
 }
