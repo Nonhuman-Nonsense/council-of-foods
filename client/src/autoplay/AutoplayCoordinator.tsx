@@ -8,6 +8,7 @@ import { useButtonStore } from "@/museum/button/buttonStore";
 import { isRootPath, reloadApp, stripLanguagePrefix } from "@/navigation";
 import routes from "@/routes.json";
 import { getPreferredLanguage } from "@/i18n";
+import { setRoomAudio } from "@/settings/roomAudio";
 import {
   AUTOPLAY_NEXT_MEETING_MS,
   bumpAutoplayActivity,
@@ -100,6 +101,8 @@ export default function AutoplayCoordinator({
     log.event("AUTOPLAY", "enter started");
     setPhase("active");
     setMeetingliveKey(null);
+    // The visit is over and never reached the landing page, which would have ended its room audio.
+    setRoomAudio(false);
     bumpAutoplayActivity("enter-autoplay");
 
     await startAutoplayMeeting();

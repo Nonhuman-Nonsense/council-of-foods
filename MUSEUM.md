@@ -460,7 +460,8 @@ takes effect at once, without a reload; off, the output is the usual stereo mix.
 current visit: ask it to play the meeting in the room too (to present the installation to a
 group, say), or to go back to headphones only. The agent reconnects straight away, so its mic
 opens with the echo canceller the speakers need. It lasts through the meeting and what follows,
-and the next visit at the landing page is back on the staff setting; a reload ends it too.
+and the next visit at the landing page is back on the staff setting. Idle autoplay and a
+reload end it too.
 Nothing is stored, and flipping **Split audio** on the staff page overrides it. **Hear yourself**
 is silent while the room plays the meeting.
 
