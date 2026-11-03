@@ -1,4 +1,4 @@
-import type { Topic, Character } from "@shared/ModelTypes";
+import type { Topic, Character, ChildAudience } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import {
   buildMeetingCharactersPayload,
@@ -9,6 +9,7 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { getCapabilities } from "@/settings/councilSettings";
+import { getRoomAudio, setRoomAudio } from "@/settings/roomAudio";
 import { capitalizeFirstLetter } from "@/utils";
 import type { SetupAgentTopic, SetupAgentCharacter } from "./setupAgentPrompt";
 import type { RealtimeTool, ToolHandler, ToolResult } from "@realtime/realtimeTools";
@@ -32,6 +33,11 @@ export type SetupAgentToolContext = {
   /** Navigate to a different language. Empty array on single-language deploys. */
   otherLanguages: string[];
   switchLanguage: (lang: string) => void;
+
+  /** Drop the agent's connection and connect afresh. */
+  restartAgent: () => void;
+  /** The audiences of children this language's meeting prompts are written for. */
+  audiences: ChildAudience[];
 };
 
 function requiresCharacterStep(step: MeetingSetupPhase): boolean {
@@ -136,12 +142,18 @@ export function createSetupAgentTools({
   topics,
   characters,
   typedSetup = false,
+  audioOutputSwitch = false,
+  audiences = [],
 }: {
   otherLanguages: string[];
   topics: SetupAgentTopic[];
   characters: SetupAgentCharacter[];
   /** The visitor can type, so the agent may describe a panelist for them. */
   typedSetup?: boolean;
+  /** The output is split, so the agent may open it up to the room — see `settings/roomAudio`. */
+  audioOutputSwitch?: boolean;
+  /** The audiences of children the meeting can be held for; none, no set_audience tool. */
+  audiences?: ChildAudience[];
 }): RealtimeTool[] {
   const topicTitles = topics.map((t) => t.title);
   const characterNames = characters.filter(isSelectableCharacter).map((c) => c.name);
@@ -267,6 +279,21 @@ export function createSetupAgentTools({
     });
   }
 
+  if (audiences.length > 0) {
+    tools.push({
+      type: "function",
+      name: "set_audience",
+      description:
+        "Set who the meeting is for, when you learn that children are taking part. young: about 6–9 years old; older: about 10–14; adults: 15 and up, or to undo a mistake. Can be called on any step; the meeting is adapted when it starts.",
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { audience: { type: "string", enum: ["adults", ...audiences] } },
+        required: ["audience"],
+      },
+    });
+  }
+
   if (otherLanguages.length > 0) {
     tools.push({
       type: "function",
@@ -277,6 +304,21 @@ export function createSetupAgentTools({
         additionalProperties: false,
         properties: { language: { type: "string", enum: otherLanguages } },
         required: ["language"],
+      },
+    });
+  }
+
+  if (audioOutputSwitch) {
+    tools.push({
+      type: "function",
+      name: "set_audio_output",
+      description:
+        'Choose where the meeting is heard until it is over. "room" plays it on the room\'s speakers as well as the headphones, so a group can listen; "headphones" goes back to the headphones only. Your connection restarts straight after, so call it without speaking first.',
+      parameters: {
+        type: "object",
+        additionalProperties: false,
+        properties: { output: { type: "string", enum: ["room", "headphones"] } },
+        required: ["output"],
       },
     });
   }
@@ -474,6 +516,39 @@ export function createSetupAgentToolHandlers(ctx: SetupAgentToolContext): Record
       }
       ctx.switchLanguage(lang);
       return { ok: true, suppressContinuation: true };
+    },
+
+    set_audio_output: (raw) => {
+      const output = asString(asObject(raw)?.output);
+      if (output !== "room" && output !== "headphones") {
+        return { ok: false, error: 'Output must be "room" or "headphones".' };
+      }
+      const roomAudio = output === "room";
+      if (getRoomAudio() === roomAudio) return { ok: true, data: { output, unchanged: true } };
+      setRoomAudio(roomAudio);
+      // The mic's echo cancellation has to follow the speakers, and only a new connection
+      // takes it up.
+      ctx.restartAgent();
+      return { ok: true, suppressContinuation: true };
+    },
+
+    set_audience: (raw) => {
+      const audience = asString(asObject(raw)?.audience);
+      if (audience === "adults") {
+        useMeetingSetupStore.getState().setAudience(null);
+        return { ok: true, data: { audience } };
+      }
+      const child = ctx.audiences.find((a) => a === audience);
+      if (!child) return { ok: false, error: `Unknown audience: ${audience ?? "(missing)"}. Use one of: adults, ${ctx.audiences.join(", ")}.` };
+      useMeetingSetupStore.getState().setAudience(child);
+      return {
+        ok: true,
+        data: {
+          audience: child,
+          // Instructions are only read when a session connects, so the change of voice comes with the result.
+          note: `From now on, speak to them as to ${child === "young" ? "children of about 6 to 9" : "children of about 10 to 14"}: short sentences, everyday words, warm and a little playful.`,
+        },
+      };
     },
 
     remember_visitor_name: (raw) => {

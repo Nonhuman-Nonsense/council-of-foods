@@ -95,6 +95,8 @@ export type SetupAgentState = {
   sendUserMessage: (text: string) => void;
   requestAgentResponse: () => void;
   interruptAndRespond: (text: string, reason?: string) => void;
+  /** Reconnect from scratch — see the realtime session's `restart`. */
+  restart: () => void;
 };
 
 /**
@@ -368,5 +370,6 @@ export function useSetupAgent(params: UseSetupAgentParams): SetupAgentState {
     sendUserMessage: session.sendUserMessage,
     requestAgentResponse: session.requestAgentResponse,
     interruptAndRespond: session.interruptAndRespond,
+    restart: session.restart,
   };
 }

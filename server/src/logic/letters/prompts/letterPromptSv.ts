@@ -130,6 +130,8 @@ Svara exakt i samma format, och börja med ämnesraden:
 
 <brevet>`,
 
+        children: (audience) => `Det här mötet hölls för ${audience === "young" ? "barn, ungefär sex till nio år" : "barn och unga, ungefär tio till fjorton år"}, och människan som deltar är en av dem. Instruktionerna ovan om publiken och om hur lång en replik får vara gäller när du pratar med dem, inte det här brevet: skriv till den vuxna mottagaren som ett brev, i vanlig längd. Säg tydligt att det kommer från ett rådsmöte som hölls med barn, och för vidare det de sa och frågade. Skriv så enkelt att ${audience === "young" ? "ett barn kan följa det när det läses upp" : "barn och unga kan läsa det"}, eftersom de kan komma att läsa det också.`,
+
         humanApart: (text, humanName) =>
             `${humanName ? `${humanName}, en människa som deltog i mötet,` : "En människa som deltog i mötet"} ville lägga till, med egna ord:\n”${text}”`,
 

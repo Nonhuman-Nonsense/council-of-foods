@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import errorIcon from "@assets/error.png?inline";
 import AutoButton from "@/AutoButton";
@@ -25,6 +26,43 @@ export interface CouncilErrorProps {
 const TECHNICAL_SOURCES = new Set(["react-error-boundary"]);
 
 function CouncilError({ error }: CouncilErrorProps): React.ReactElement {
+  if (error.unsupportedFeatures) return <UnsupportedBrowser />;
+  return <BrokenCouncil error={error} />;
+}
+
+/** No restart: nothing here will work in this browser, so the only way on is another one. */
+function UnsupportedBrowser(): React.ReactElement {
+  const { t } = useTranslation();
+  // null until tried; false when the clipboard refused, and the link is shown to copy by hand.
+  const [copied, setCopied] = useState<boolean | null>(null);
+  const copyLink = () => {
+    navigator.clipboard
+      .writeText(window.location.href)
+      .then(() => setCopied(true), () => setCopied(false));
+  };
+
+  return (
+    <div>
+      <img alt="error" src={errorIcon} style={{ height: "80px", opacity: "0.7" }} />
+      <h2>{t("error.unsupportedTitle")}</h2>
+      <p style={{ marginTop: "4px", whiteSpace: "pre-line" }}>{t("error.unsupportedMessage")}</p>
+      {copied === false ? (
+        <p style={{ userSelect: "all", wordBreak: "break-all" }}>{window.location.href}</p>
+      ) : (
+        <button
+          type="button"
+          style={{ marginTop: "10px" }}
+          onClick={copyLink}
+          disabled={copied === true || !navigator.clipboard}
+        >
+          {copied ? t("error.linkCopied") : t("error.copyLink")}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function BrokenCouncil({ error }: CouncilErrorProps): React.ReactElement {
   const { t } = useTranslation();
   const { capabilities } = useCouncilSettings();
   const online = useOnline();

@@ -14,6 +14,14 @@ import { HUMAN_HANDLINGS, humanSortingPrompt, type HumanHandling } from "./promp
 import { turnForModel } from "../turnForModel.js";
 
 /**
+ * A step's instruction for a meeting held for children: the note that the audience's rules in the
+ * author's prompt are for its spoken turns comes first, so the instruction's own format stays last.
+ */
+function forAudience(meeting: StoredMeeting, instruction: string): string {
+    return meeting.audience ? `${letterPrompts(meeting.language).children(meeting.audience)}\n\n${instruction}` : instruction;
+}
+
+/**
  * The three steps that turn a finished meeting into a letter (see docs/council-letters.md):
  *
  *   1. {@link rankAuthors} and {@link selectAuthor} — the members ranked by how much they have
@@ -336,12 +344,12 @@ export async function planLetter(
         throw new LetterStepError("plan", "no recipients are available for this topic", "");
     }
 
-    const instruction = letterPrompts(meeting.language).plan({
+    const instruction = forAudience(meeting, letterPrompts(meeting.language).plan({
         beingName: author.name,
         recipientList: formatCandidateList(candidates),
         humanName: humanFirstName(meeting),
         recentAsks: recentAsks.slice(-RECENT_ASKS_SHOWN),
-    });
+    }));
     const remembered = spokenMeeting(meeting);
 
     let raw = "";
@@ -492,7 +500,7 @@ export async function draftLetter(
     const { meeting, options, dialogGenerator } = ctx;
     const author = authorOf(meeting, input.authorId);
 
-    const instruction = letterPrompts(meeting.language).draft({
+    const instruction = forAudience(meeting, letterPrompts(meeting.language).draft({
         form: input.form,
         asksReply: input.asksReply,
         authorId: author.id,
@@ -503,7 +511,7 @@ export async function draftLetter(
         points: input.points,
         meetingId: meeting._id,
         date: formatMeetingDate(new Date(meeting.date), meeting.language),
-    });
+    }));
 
     const { text: raw } = await dialogGenerator.generateInCharacter(
         author, spokenMeeting(meeting), instruction, options.letterWriteLength, `${author.name}'s letter`,
@@ -535,7 +543,7 @@ export async function finishLetter(
     let weave: Letter["weave"] = null;
 
     if (handling === "weave") {
-        const instruction = prompts.weave({
+        const instruction = forAudience(meeting, prompts.weave({
             beingName: author.name,
             recipientName: recipientDisplayName(recipient),
             subject,
@@ -543,7 +551,7 @@ export async function finishLetter(
             addition: human.text,
             humanName,
             meetingId: meeting._id,
-        });
+        }));
         const { text: raw } = await dialogGenerator.generateInCharacter(
             author, meeting, instruction, options.letterWriteLength, `${author.name}'s letter, with the human's words`,
             { withConversation: false, model: { model: options.letterWeaveModel, reasoning: options.letterWeaveReasoning } },

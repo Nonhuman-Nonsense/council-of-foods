@@ -1,4 +1,4 @@
-import type { Character, Meeting, Topic } from "@shared/ModelTypes";
+import type { Character, ChildAudience, Meeting, Topic } from "@shared/ModelTypes";
 import { isSpeakerMessage } from "@shared/ModelTypes";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
@@ -67,6 +67,7 @@ function Council({
   const [participants, setParticipants] = useState<Character[]>([]);
   const [replayManifest, setReplayManifest] = useState<Meeting | null>(null);
   const [humanName, setHumanName] = useState("");
+  const [audience, setAudience] = useState<ChildAudience | null>(null);
   const [agentSpeaking, setAgentSpeaking] = useState(false);
   // Meta-agent lifecycle (inactive | interruption | extension). Stays in Council so it
   // resets on unmount; FoodsCouncilScene and MeetingMetaAgent are the only consumers.
@@ -108,6 +109,7 @@ function Council({
         }
         setTopic(meeting.topic);
         setParticipants(meeting.characters);
+        setAudience(meeting.audience ?? null);
         const storedName = meeting.state?.humanName?.trim();
         if (storedName && storedName.length > 0) {
           setHumanName(storedName);
@@ -326,6 +328,7 @@ function Council({
           participants={participants}
           currentSpeakerName={participants.find((p) => p.id === currentSpeakerId)?.name ?? ""}
           humanName={humanName}
+          audience={audience}
         />
       )}
       {liveKey && capabilities.printSummary && printSummariesEnabled && (

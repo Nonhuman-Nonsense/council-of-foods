@@ -193,4 +193,28 @@ describe("CouncilError overlay", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(hrefSetter).toHaveBeenCalledWith("/");
   });
+
+  // Nothing in this browser will work, so the only way on is another browser.
+  it("unsupported browser: asks for another browser and offers no restart", () => {
+    render(<CouncilError error={{ message: "unsupported", source: "browser-support", unsupportedFeatures: ["ogg-opus"] }} />);
+
+    expect(screen.getByText("error.unsupportedTitle")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "error.copyLink" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "app.restart" })).not.toBeInTheDocument();
+  });
+
+  it("unsupported browser: shows the link to copy by hand when the clipboard refuses", async () => {
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: () => Promise.reject(new Error("denied")) } });
+    Object.defineProperty(window, "location", {
+      value: { href: "https://council.example/en/meeting/1615" },
+      writable: true,
+    });
+    render(<CouncilError error={{ message: "unsupported", source: "browser-support", unsupportedFeatures: ["ogg-opus"] }} />);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "error.copyLink" }));
+    });
+
+    expect(screen.getByText("https://council.example/en/meeting/1615")).toBeInTheDocument();
+  });
 });

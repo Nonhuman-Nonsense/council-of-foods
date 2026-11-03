@@ -1335,6 +1335,18 @@ describe("useRealtimeVoiceSession", () => {
     });
   });
 
+  it("restart closes the session and opens a new one with a fresh microphone", async () => {
+    const { result } = renderHook(() => useRealtimeVoiceSession(defaultParams));
+    await waitFor(() => expect(result.current.connectionState).toBe("ready"));
+    const first = await mockCreateRealtimeConnection.mock.results[0].value;
+
+    act(() => result.current.restart());
+
+    expect(first.close).toHaveBeenCalled();
+    await waitFor(() => expect(mockCreateRealtimeConnection).toHaveBeenCalledTimes(2));
+    expect(navigator.mediaDevices.getUserMedia).toHaveBeenCalledTimes(2);
+  });
+
   it("gives up quietly without retrying when the session is refused", async () => {
     mockClassifyRealtimeError.mockReturnValue("refused");
     mockFetchRealtimeBootstrap.mockRejectedValue(

@@ -7,6 +7,8 @@ import {
   pickAgendaPoint,
 } from "@shared/agendaPointInjection";
 
+const agenda = (...titles: string[]) => titles.map((title) => ({ title, text: "" }));
+
 describe("agendaPointInjection", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -30,7 +32,7 @@ describe("agendaPointInjection", () => {
   describe("injectRandomAgendaPoint", () => {
     it("leaves the prompt unchanged when the placeholder is absent", () => {
       const prompt = "Moderate today's discussion.";
-      expect(injectRandomAgendaPoint(prompt, ["One", "Two"])).toBe(prompt);
+      expect(injectRandomAgendaPoint(prompt, agenda("One", "Two"))).toBe(prompt);
       expect(injectRandomAgendaPoint(prompt)).toBe(prompt);
     });
 
@@ -38,7 +40,7 @@ describe("agendaPointInjection", () => {
       vi.spyOn(Math, "random").mockReturnValue(0.4);
       const result = injectRandomAgendaPoint(
         `Open with ${RANDOM_AGENDA_POINT_PLACEHOLDER}.`,
-        ["a", "b", "c", "d", "e"],
+        agenda("a", "b", "c", "d", "e"),
       );
       expect(result).toBe("Open with 3.");
     });

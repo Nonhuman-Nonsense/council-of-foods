@@ -18,7 +18,8 @@ import {
     type SortedAddition,
 } from "@logic/letters/LetterWriter.js";
 import type { Recipient } from "@logic/letters/recipients.js";
-import { LETTER_FORMS } from "@logic/letters/prompts/letterPrompts.js";
+import { LETTER_FORMS, letterPrompts } from "@logic/letters/prompts/letterPrompts.js";
+import type { ChildAudience } from "@shared/ModelTypes.js";
 import { MockFactory } from "./factories/MockFactory.js";
 
 const chair = MockFactory.createChair();
@@ -159,7 +160,7 @@ describe("withoutContactDetails", () => {
     });
 });
 
-function context(answers: string[], humanName = "Frank Larsson"): { ctx: LetterContext; generate: ReturnType<typeof vi.fn> } {
+function context(answers: string[], humanName = "Frank Larsson", audience?: ChildAudience): { ctx: LetterContext; generate: ReturnType<typeof vi.fn> } {
     const generate = vi.fn();
     for (const text of answers) generate.mockResolvedValueOnce({ text, finishReason: "stop" });
     const ctx = {
@@ -168,6 +169,7 @@ function context(answers: string[], humanName = "Frank Larsson"): { ctx: LetterC
             characters: [chair, reindeer, pine],
             language: "en",
             state: { alreadyInvited: false, humanName },
+            ...(audience ? { audience } : {}),
         }),
         options: MockFactory.createServerOptions(),
         dialogGenerator: { generateInCharacter: generate },
@@ -206,6 +208,28 @@ describe("planLetter", () => {
         const sent = generate.mock.calls[0][2] as string;
         expect(sent).toContain("ask number 40.");
         expect(sent).not.toContain("ask number 1.");
+    });
+});
+
+describe("a meeting held for children", () => {
+    const plan = `{"recipientId": "sveaskog", "points": ["stop"], "spokenText": "I write to Sveaskog."}`;
+    const letter = "Subject: Stop\n\nDear Sveaskog,\nPlease stop.\n\nReindeer";
+    const steps = {
+        plan: async (ctx: LetterContext) => planLetter(ctx, "reindeer", offered),
+        draft: async (ctx: LetterContext) => draftLetter(ctx, { authorId: "reindeer", recipient: recipient("sveaskog"), points: ["stop"], form: "requests", asksReply: false }),
+    };
+
+    it.each([
+        { step: "plan" as const, answer: plan, audience: "young" as const },
+        { step: "draft" as const, answer: letter, audience: "older" as const },
+        { step: "plan" as const, answer: plan, audience: undefined },
+        { step: "draft" as const, answer: letter, audience: undefined },
+    ])("tells the $step step the audience's spoken-turn rules are not for the letter: $audience", async ({ step, answer, audience }) => {
+        const { ctx, generate } = context([answer], "Elsa", audience);
+        await steps[step](ctx);
+        const sent = generate.mock.calls[0][2] as string;
+        const note = letterPrompts("en").children(audience ?? "young");
+        expect(sent.startsWith(note)).toBe(audience !== undefined);
     });
 });
 

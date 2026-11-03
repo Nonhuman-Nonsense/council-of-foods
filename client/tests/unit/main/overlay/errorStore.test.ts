@@ -1,6 +1,12 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { act } from "@testing-library/react";
 import { useErrorStore } from "@main/overlay/errorStore";
+
+const reportTerminalError = vi.hoisted(() => vi.fn());
+vi.mock("@/logger", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/logger")>()),
+  reportTerminalError,
+}));
 
 describe("errorStore — connection error tracking", () => {
   beforeEach(() => {
@@ -124,5 +130,28 @@ describe("errorStore — busy vs lost", () => {
     act(() => useErrorStore.getState().setConnectionError("meta-agent", false));
     expect(useErrorStore.getState().connectionBusy).toBe(false);
     expect(useErrorStore.getState().connectionError).toBe(false);
+  });
+});
+
+describe("errorStore — unsupported browser", () => {
+  beforeEach(() => {
+    useErrorStore.getState().resetForTests();
+    reportTerminalError.mockClear();
+  });
+
+  // Nothing is broken on our side, so ErrorBot never hears of it.
+  it("shows the unsupported screen without reporting it", () => {
+    act(() => useErrorStore.getState().setUnsupportedBrowser(["ogg-opus"]));
+    expect(useErrorStore.getState().unrecoverableError?.unsupportedFeatures).toEqual(["ogg-opus"]);
+    expect(reportTerminalError).not.toHaveBeenCalled();
+  });
+
+  // A replay link on old Safari fails its audio decode a moment later: that is the same
+  // unsupported browser, not a critical fault.
+  it("keeps the unsupported screen over a later failure, without reporting it", () => {
+    act(() => useErrorStore.getState().setUnsupportedBrowser(["ogg-opus"]));
+    act(() => useErrorStore.getState().setUnrecoverableError({ message: "Decoding failed", source: "audio" }));
+    expect(useErrorStore.getState().unrecoverableError?.unsupportedFeatures).toEqual(["ogg-opus"]);
+    expect(reportTerminalError).not.toHaveBeenCalled();
   });
 });
