@@ -194,6 +194,19 @@ meeting ends on the credits while the letter prints.
 each mode does — every difference between the three is one row of that table,
 and nothing in the app branches on the mode itself.
 
+### Kids mode
+
+A meeting can be held for children: when the setup agent hears that children are taking
+part (a parent says so, a school class, an age), it calls `set_audience` with `young`
+(about 6–9) or `older` (about 10–14). It never guesses from a voice and does not ask
+every visitor. The meeting then carries that audience's instructions at the end of every
+character's prompt, voices are a little slower, the chair speaks to them that way when the
+button interrupts, and a letter says it comes from a meeting held with children. The text
+lives in the character setup bundle (`audiences` in `foods_<lang>.json` / `beings_<lang>.json`);
+a language without it has no kids mode. Topics with an agenda can give young children their
+own (`youngAgendaPoints` in `topics_<lang>.json`). The prototype has an Audience switch for
+trying it.
+
 ### Hardware button
 
 Museum and presenter both run the setup agent with push-to-talk; there is no
@@ -442,6 +455,14 @@ takes effect at once, without a reload; off, the output is the usual stereo mix.
 - With the split on, the microphone opens without the browser's echo canceller, which coloured
   the agents' voices. Keep speakers that play voices away from the mic, or the agents may hear
   themselves. This part follows the switch only when the mic next opens: reload the page.
+
+**Room audio for one visit.** With the split on, the setup agent can join it back for the
+current visit: ask it to play the meeting in the room too (to present the installation to a
+group, say), or to go back to headphones only. The agent reconnects straight away, so its mic
+opens with the echo canceller the speakers need. It lasts through the meeting and what follows,
+and the next visit at the landing page is back on the staff setting; a reload ends it too.
+Nothing is stored, and flipping **Split audio** on the staff page overrides it. **Hear yourself**
+is silent while the room plays the meeting.
 
 ### Hear yourself
 

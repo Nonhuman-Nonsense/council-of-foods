@@ -1,3 +1,4 @@
+import type { ChildAudience } from "@shared/ModelTypes.js";
 import { buildEnLetterPrompts } from "./letterPromptEn.js";
 import { buildSvLetterPrompts } from "./letterPromptSv.js";
 
@@ -101,6 +102,11 @@ export interface LetterPrompts {
     draft(params: DraftPromptParams): string;
     /** In the author's voice but without the meeting: folds the human's words into the draft. */
     weave(params: WeavePromptParams): string;
+    /**
+     * Added after the plan, draft and weave instructions of a meeting held for children: the
+     * audience's spoken-turn rules in the author's prompt are not for the letter.
+     */
+    children(audience: ChildAudience): string;
     /** Not a prompt: the human's own words, set apart after the letter's signature. */
     humanApart(text: string, humanName: string | null): string;
     /** Not a prompt: appended after the letter, never seen by a model. */

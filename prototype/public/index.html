@@ -32,6 +32,14 @@
             <option v-for="lang in available_languages" :key="lang" :value="lang">{{ lang }}</option>
           </select>
         </div>
+        <div class="section-group">
+          <label class="sub-label">Audience</label>
+          <select v-model="localOptions.audience" class="styled-select">
+            <option value="">Adults</option>
+            <option value="young" :disabled="!audienceData[options.language]?.audiences?.young">Young children (6–9)</option>
+            <option value="older" :disabled="!audienceData[options.language]?.audiences?.older">Older children (10–14)</option>
+          </select>
+        </div>
 
         <hr>
 
@@ -145,21 +153,45 @@
                     <div class="sidebar-section-header" style="margin-bottom: 8px;">
                       <label class="sub-label" style="margin-bottom: 0;">Agenda Points (optional)</label>
                       <div>
-                        <button class="icon-btn" type="button" @click="addAgendaPoint">+</button>
-                        <button class="icon-btn" type="button" @click="removeAgendaPoint">-</button>
+                        <button class="icon-btn" type="button" @click="addAgendaPoint()">+</button>
+                        <button class="icon-btn" type="button" @click="removeAgendaPoint()">-</button>
                       </div>
                     </div>
                     <div v-if="currentTopic.agendaPoints && currentTopic.agendaPoints.length > 0"
                       style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;">
                       <div v-for="(point, agendaIndex) in currentTopic.agendaPoints" :key="agendaIndex">
                         <label class="sub-label">Agenda Point {{ agendaIndex + 1 }}</label>
-                        <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex]"
+                        <input type="text" class="input-full" v-model="currentTopic.agendaPoints[agendaIndex].title"
+                          :placeholder="'Title of agenda point ' + (agendaIndex + 1)" style="margin-bottom: 4px;">
+                        <textarea class="input-area" v-model="currentTopic.agendaPoints[agendaIndex].text"
                           :placeholder="'Agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
                           style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
                       </div>
                     </div>
                     <small v-else style="display: block; margin-bottom: 15px; opacity: 0.75;">
                       No agenda points.
+                    </small>
+
+                    <div class="sidebar-section-header" style="margin-bottom: 8px;">
+                      <label class="sub-label" style="margin-bottom: 0;">Young Children Agenda Points (optional)</label>
+                      <div>
+                        <button class="icon-btn" type="button" @click="addAgendaPoint('youngAgendaPoints')">+</button>
+                        <button class="icon-btn" type="button" @click="removeAgendaPoint('youngAgendaPoints')">-</button>
+                      </div>
+                    </div>
+                    <div v-if="currentTopic.youngAgendaPoints && currentTopic.youngAgendaPoints.length > 0"
+                      style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px;">
+                      <div v-for="(point, agendaIndex) in currentTopic.youngAgendaPoints" :key="agendaIndex">
+                        <label class="sub-label">Young Agenda Point {{ agendaIndex + 1 }}</label>
+                        <input type="text" class="input-full" v-model="currentTopic.youngAgendaPoints[agendaIndex].title"
+                          :placeholder="'Title of young agenda point ' + (agendaIndex + 1)" style="margin-bottom: 4px;">
+                        <textarea class="input-area" v-model="currentTopic.youngAgendaPoints[agendaIndex].text"
+                          :placeholder="'Young agenda point ' + (agendaIndex + 1) + '...'" v-auto-resize
+                          style="min-height: 60px; resize: none; overflow-y: hidden;"></textarea>
+                      </div>
+                    </div>
+                    <small style="display: block; margin-bottom: 15px; opacity: 0.75;">
+                      Used instead of the agenda points above when Audience is Young children{{ currentTopic.youngAgendaPoints && currentTopic.youngAgendaPoints.length > 0 ? '' : ' (none here, so the agenda points above are used)' }}.
                     </small>
                   </template>
 
@@ -333,13 +365,13 @@
 
               <div v-if="localOptions.showTrimmed && turn.pretrimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 5px;"
-                v-html="turn.pretrimmed.split('\n').join('<br>')"></div>
+                v-html="turnHtml(turn.pretrimmed)"></div>
 
-              <div v-if="turn.text" v-html="turn.text.split('\n').join('<br>')"></div>
+              <div v-if="turn.text" v-html="turnHtml(turn.text)"></div>
 
               <div v-if="localOptions.showTrimmed && turn.trimmed" class="trimmed"
                 style="color: var(--text-secondary); font-size: 0.9em; margin-top: 5px;"
-                v-html="turn.trimmed.split('\n').join('<br>')"></div>
+                v-html="turnHtml(turn.trimmed)"></div>
               </template>
             </div>
 

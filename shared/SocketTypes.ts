@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import type { Character, Sentence, Topic, Message, Meeting } from "./ModelTypes.js";
+import type { Character, ChildAudience, Sentence, Topic, Message, Meeting } from "./ModelTypes.js";
 
 // Re-defining or importing types that are passed over the socket
 
@@ -43,6 +43,8 @@ export interface CreateMeetingBody {
     printsLetters?: boolean;
     /** Title of the agenda point the chair opens the meeting on, for the replay intro. */
     openingAgendaPoint?: string;
+    /** The children the meeting is held for; left out for adults. */
+    audience?: ChildAudience;
 }
 
 export interface ResumeMeetingResponse {

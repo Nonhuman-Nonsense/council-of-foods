@@ -148,6 +148,14 @@ const ensureMeetingIndexes = async (): Promise<void> => {
     );
     Logger.info("init", `Created meetings liveKey index (${LIVEKEY_INDEX_NAME})`);
   }
+
+  // The outbox polls for finished letters every 30 s; partial, so it holds only letter meetings.
+  await meetingsCollection.createIndex(
+    { "letter.finishedAt": 1 },
+    { name: "letter_finishedAt", partialFilterExpression: { "letter.finishedAt": { $exists: true } } }
+  );
+  // The meter's latest meeting per venue.
+  await meetingsCollection.createIndex({ venueId: 1, _id: -1 }, { name: "venueId_id" });
 };
 
 const ensureUsageIndexes = async (events: Collection<StoredUsageEvent>): Promise<void> => {
@@ -157,6 +165,7 @@ const ensureUsageIndexes = async (events: Collection<StoredUsageEvent>): Promise
   await events.createIndex(
     { venueId: 1, ts: 1 }, { name: "usage_venueId_ts", sparse: true }
   );
+  await events.createIndex({ setupId: 1 }, { name: "usage_setupId", sparse: true });
 };
 
 /**

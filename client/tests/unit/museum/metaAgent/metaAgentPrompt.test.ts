@@ -173,6 +173,18 @@ describe("buildMetaAgentStateSnapshot", () => {
   });
 });
 
+describe("STATE SYNC audience", () => {
+  it.each([
+    { build: buildMetaAgentStateSnapshot, audience: "young" as const, told: true },
+    { build: buildMetaAgentStateSnapshot, audience: null, told: false },
+    { build: buildExtensionStateSnapshot, audience: "older" as const, told: true },
+    { build: buildExtensionStateSnapshot, audience: null, told: false },
+  ])("$build.name tells the agent about children: $told for audience $audience", ({ build, audience, told }) => {
+    const payload = JSON.parse(build(makeSnapshot({ audience })).replace(/^\(STATE SYNC: /, "").replace(/\)$/, ""));
+    expect(typeof payload.audience === "string" && payload.audience.length > 0).toBe(told);
+  });
+});
+
 describe("buildExtensionAgentPrompt", () => {
   it("includes extend_meeting and conclude_meeting tools", () => {
     const prompt = buildExtensionAgentPrompt({ bundle: testBundle });

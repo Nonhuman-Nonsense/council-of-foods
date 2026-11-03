@@ -7,6 +7,23 @@ import { Logger } from "@utils/Logger.js";
 import { resolveVenueId } from "@utils/venues.js";
 import { linkSetupUsage } from "@services/UsageService.js";
 import { linkSetupGrants } from "./realtimeUsage.js";
+import { getGlobalOptions } from "@logic/GlobalOptions.js";
+import type { Character, ChildAudience } from "@shared/ModelTypes.js";
+
+/**
+ * How much slower the council speaks for each audience of children, as a factor on every voice's
+ * speed. Kept on the stored characters, so the meeting's replay sounds as it did live.
+ */
+const CHILD_VOICE_SPEED: Record<ChildAudience, number> = { young: 0.92, older: 0.96 };
+
+function voicesFor(characters: Character[], audience: ChildAudience | undefined): Character[] {
+    if (!audience) return characters;
+    const { defaultAudioSpeed } = getGlobalOptions();
+    return characters.map((character) => ({
+        ...character,
+        voiceSpeed: Math.round((character.voiceSpeed ?? defaultAudioSpeed) * CHILD_VOICE_SPEED[audience] * 100) / 100,
+    }));
+}
 
 /**
  * Create a new meeting record (DB only).
@@ -24,7 +41,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
     //Initial meeting record in DB
     const meeting: Omit<StoredMeeting, "_id"> = {
         topic: setup.topic,
-        characters: setup.characters,
+        characters: voicesFor(setup.characters, setup.audience),
         language: setup.language,
         audio: [],
         conversation: [],
@@ -41,6 +58,7 @@ export async function createMeeting(rawBody: unknown, _environment: string): Pro
         printsLetters: setup.printsLetters ?? false,
         ...(venueId ? { venueId } : {}),
         ...(setup.openingAgendaPoint ? { openingAgendaPoint: setup.openingAgendaPoint } : {}),
+        ...(setup.audience ? { audience: setup.audience } : {}),
     };
 
     const result = await insertMeeting(meeting);

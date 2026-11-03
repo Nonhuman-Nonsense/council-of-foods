@@ -30,7 +30,7 @@ import type { RealtimeFunctionTool, ToolHandler } from "@realtime/realtimeTools"
 import { log } from "@/logger";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
-import type { Character, Topic } from "@shared/ModelTypes";
+import type { Character, ChildAudience, Topic } from "@shared/ModelTypes";
 import { useCouncilSettings } from "@/settings/councilSettings";
 
 export type { MetaAgentPhase } from "./useMetaAgent";
@@ -56,6 +56,8 @@ export interface MeetingMetaAgentProps {
   participants: Character[];
   currentSpeakerName: string;
   humanName: string;
+  /** The children the meeting is held for; null or absent for adults. */
+  audience?: ChildAudience | null;
 }
 
 /**
@@ -141,6 +143,7 @@ export default function MeetingMetaAgent({
   participants,
   currentSpeakerName,
   humanName,
+  audience,
 }: MeetingMetaAgentProps) {
   const connectionError = useErrorStore((s) => s.connectionError);
   const button = useButton("meta-agent");
@@ -188,8 +191,9 @@ export default function MeetingMetaAgent({
       currentSpeakerName,
       humanName,
       participationPhase,
+      audience,
     }),
-    [councilState, topic, participants, currentSpeakerName, humanName, participationPhase],
+    [councilState, topic, participants, currentSpeakerName, humanName, participationPhase, audience],
   );
 
   const toolHandlers = useMemo(() => {

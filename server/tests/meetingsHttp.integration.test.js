@@ -224,6 +224,34 @@ describe('HTTP meetings API (integration)', () => {
         expect(meeting.openingAgendaPoint).toBe('Soil Scarification');
     });
 
+    it('POST /api/meetings keeps the children a meeting is for, and slows every voice the more the younger they are', async () => {
+        async function created(audience) {
+            const body = validCreateBody();
+            body.characters[0].voiceSpeed = 1;
+            const createRes = await fetch(`${base()}/api/meetings`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...body, ...(audience ? { audience } : {}) }),
+            });
+            const { meetingId } = await createRes.json();
+            return (await fetch(`${base()}/api/meetings/${meetingId}`)).json();
+        }
+        const [adults, older, young] = await Promise.all([created(undefined), created('older'), created('young')]);
+        expect([adults.audience, older.audience, young.audience]).toEqual([undefined, 'older', 'young']);
+        expect(adults.characters[0].voiceSpeed).toBe(1);
+        expect(older.characters[0].voiceSpeed).toBeLessThan(1);
+        expect(young.characters[0].voiceSpeed).toBeLessThan(older.characters[0].voiceSpeed);
+    });
+
+    it('POST /api/meetings refuses an audience it does not know', async () => {
+        const res = await fetch(`${base()}/api/meetings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...validCreateBody(), audience: 'teens' }),
+        });
+        expect(res.status).toBe(400);
+    });
+
     it('GET /api/meetings/:id names the venue a meeting ran at, and no other', async () => {
         mockConfig.venues = [{
             id: 'havremagasinet',

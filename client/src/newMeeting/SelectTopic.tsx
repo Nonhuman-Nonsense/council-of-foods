@@ -49,6 +49,7 @@ function SelectTopic({
   const {
     selectedTopic, setSelectedTopic,
     customTopic, setCustomTopic,
+    audience,
   } = useMeetingSetupStore();
   const { t, i18n } = useTranslation();
   const { capabilities } = useCouncilSettings();
@@ -103,6 +104,7 @@ function SelectTopic({
         topicsBundle,
         selectedTopicId: selectedTopic,
         customTopic,
+        audience: audience ?? undefined,
       });
       onCommitTopic?.(builtTopic);
       onContinueForward(builtTopic);
@@ -222,6 +224,7 @@ function SelectTopic({
                 topicsBundle,
                 selectedTopicId: selectedTopic,
                 customTopic,
+                audience: audience ?? undefined,
               })
             )
           }

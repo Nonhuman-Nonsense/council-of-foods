@@ -25,12 +25,14 @@ import {
   setPrintSummariesEnabled,
   PRINT_SUMMARIES_ENABLED_KEY,
   getSplitAudioEnabled,
+  getSplitAudioActive,
   setSplitAudioEnabled,
   SPLIT_AUDIO_ENABLED_KEY,
   getSidetoneLevel,
   setSidetoneLevel,
   SIDETONE_LEVEL_KEY,
 } from "@/settings/councilSettings";
+import { setRoomAudio } from "@/settings/roomAudio";
 
 function SettingsProbe() {
   const {
@@ -60,6 +62,7 @@ function SettingsProbe() {
 describe("councilSettings", () => {
   beforeEach(() => {
     localStorage.clear();
+    setRoomAudio(false);
   });
 
   describe("app mode storage", () => {
@@ -136,6 +139,23 @@ describe("councilSettings", () => {
       setSplitAudioEnabled(true);
       setAppMode("web");
       expect(getSplitAudioEnabled()).toBe(true);
+    });
+
+    it("is joined for this visit by room audio, without touching the stored setting", () => {
+      setSplitAudioEnabled(true);
+      setRoomAudio(true);
+      expect(getSplitAudioActive()).toBe(false);
+      expect(localStorage.getItem(SPLIT_AUDIO_ENABLED_KEY)).toBe("true");
+
+      setRoomAudio(false);
+      expect(getSplitAudioActive()).toBe(true);
+    });
+
+    it("drops room audio when staff set the split, so they get what they click", () => {
+      setSplitAudioEnabled(true);
+      setRoomAudio(true);
+      setSplitAudioEnabled(true);
+      expect(getSplitAudioActive()).toBe(true);
     });
   });
 

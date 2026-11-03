@@ -4,6 +4,7 @@ import { AVAILABLE_LANGUAGES } from '@shared/AvailableLanguages';
 import fs from 'fs';
 import path from 'path';
 import { SHARED_PROMPTS_DIR } from '../sharedPromptsDir';
+import { CHARACTERS_FILE } from '@shared/prompts/characterSetupMetadata';
 
 interface Topic {
     id: string;
@@ -11,8 +12,12 @@ interface Topic {
     description?: string;
     agentBrief?: string;
     prompt?: string;
-    agendaPoints?: string[];
+    agendaPoints?: { title?: unknown; text?: unknown }[];
+    youngAgendaPoints?: { title?: unknown; text?: unknown }[];
 }
+
+/** Longest title the replay screen and the printed topics take on one line. */
+const MAX_AGENDA_TITLE_LENGTH = 100;
 
 interface TopicsData {
     metadata: {
@@ -77,13 +82,40 @@ describe('Validate Topics Data JSONs', () => {
                 if (topic.agendaPoints != null) {
                     expect(Array.isArray(topic.agendaPoints)).toBe(true);
                     expect(topic.agendaPoints.length).toBeGreaterThan(0);
-                    topic.agendaPoints.forEach((point) => {
-                        expect(typeof point).toBe('string');
-                        expect(point.trim().length).toBeGreaterThan(0);
-                    });
                 }
             });
         });
+    });
+
+    /** The title is shown on its own — on the replay screen and in print — so it must read as one. */
+    it('gives every agenda point a one-line title and its text, in every language', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            for (const topic of loadTopicsData(lang).topics) {
+                for (const [list, points] of [['agendaPoints', topic.agendaPoints], ['youngAgendaPoints', topic.youngAgendaPoints]] as const) {
+                    (points ?? []).forEach((point, index) => {
+                        const where = `${lang} ${topic.id} ${list}[${index}]`;
+                        expect(typeof point.title, `${where}: title`).toBe('string');
+                        expect(typeof point.text, `${where}: text`).toBe('string');
+                        const title = String(point.title).trim();
+                        expect(title.length, `${where}: empty title`).toBeGreaterThan(0);
+                        expect(title, `${where}: title spans lines`).not.toContain('\n');
+                        expect(title.length, `${where}: title longer than ${MAX_AGENDA_TITLE_LENGTH}`).toBeLessThanOrEqual(MAX_AGENDA_TITLE_LENGTH);
+                        expect(String(point.text).trim().length, `${where}: empty text`).toBeGreaterThan(0);
+                    });
+                }
+            }
+        }
+    });
+
+    /** Without them a young audience's meeting falls back to the adult agenda. */
+    it('gives every topic with an agenda its agenda points for young children wherever they can be chosen', () => {
+        for (const lang of AVAILABLE_LANGUAGES) {
+            const beings = JSON.parse(fs.readFileSync(path.join(SHARED_PROMPTS_DIR, `${CHARACTERS_FILE}_${lang}.json`), 'utf-8')) as { audiences?: Record<string, unknown> };
+            if (!beings.audiences?.young) continue;
+            for (const topic of loadTopicsData(lang).topics.filter((t) => t.agendaPoints?.length)) {
+                expect(topic.youngAgendaPoints?.length, `topic "${topic.id}" in "${lang}" has no youngAgendaPoints`).toBeGreaterThan(0);
+            }
+        }
     });
 
     it('should have matching topic IDs across all languages', () => {
