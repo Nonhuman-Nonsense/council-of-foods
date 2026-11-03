@@ -40,6 +40,8 @@ export type SetupAgentPromptParams = {
   hasEverHeardVisitor?: boolean;
   /** The agent holds `set_audio_output`. */
   audioOutputSwitch?: boolean;
+  /** The room hears the meeting too, for this visit — see `settings/roomAudio`. */
+  roomAudio?: boolean;
   /** The audiences of children this language's meeting prompts are written for; none, no children's section. */
   audiences?: ChildAudience[];
   /** Who the meeting is for, once the agent has set it; null for adults. */

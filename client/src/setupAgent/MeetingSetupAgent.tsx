@@ -20,6 +20,7 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { useButton, useHoldHint } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { useRoomAudioStore } from "@/settings/roomAudio";
 import { useSignOfLife } from "@/signOfLife";
 import { buildSetupAgentPrompt, type SetupAgentSelection } from "./setupAgentPrompt";
 import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgentTools";
@@ -50,6 +51,7 @@ export default function MeetingSetupAgent({
 }: MeetingSetupAgentProps) {
   const { i18n, t } = useTranslation();
   const { capabilities, splitAudioEnabled } = useCouncilSettings();
+  const roomAudio = useRoomAudioStore((s) => s.roomAudio);
   const { voiceSetupAgent, typedSetup } = capabilities;
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("setup-agent");
@@ -132,10 +134,11 @@ export default function MeetingSetupAgent({
         selection,
         hasEverHeardVisitor,
         audioOutputSwitch: splitAudioEnabled,
+        roomAudio,
         audiences,
         audience,
       }),
-    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection, splitAudioEnabled, audiences, audience],
+    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection, splitAudioEnabled, roomAudio, audiences, audience],
   );
 
   // Static: the agent holds every tool from the start, and useSetupAgent

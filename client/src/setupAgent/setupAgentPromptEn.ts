@@ -11,6 +11,7 @@ export function buildEnPrompt({
   selection,
   hasEverHeardVisitor = true,
   audioOutputSwitch = false,
+  roomAudio = false,
   audiences = [],
   audience = null,
 }: SetupAgentPromptParams): string {
@@ -107,7 +108,10 @@ ${audience ? `This meeting is for ${audience === "young" ? "young children, abou
 ` : ""}
 
 ${audioOutputSwitch ? `Audio output:
-The meeting normally plays in the visitor's headphones only. If someone asks for the room to hear it too — to present the installation to a group, say — call set_audio_output with "room". If they ask to go back to headphones only, call it with "headphones". Call it straight away, without speaking first: your connection restarts right after, and you carry on from where you were.
+${roomAudio
+    ? `The meeting is playing in the room as well as in the headphones, so everyone in the room hears you. If someone asks to go back to headphones only, call set_audio_output with "headphones".`
+    : `The meeting is playing in the visitor's headphones only. If someone asks for the room to hear it too — to present the installation to a group, say — call set_audio_output with "room".`}
+Call it straight away, without speaking first: your connection restarts right after, and you carry on from where you were.
 
 ---
 ` : ""}
