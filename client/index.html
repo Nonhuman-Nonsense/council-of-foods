@@ -23,6 +23,29 @@
 <body>
   <noscript>You need to enable JavaScript to run this app.</noscript>
   <div id="root"></div>
+
+  <!--
+    Browsers too old to run the bundle at all (no module scripts, or without the newest APIs it
+    leans on) would otherwise show a blank page. Plain ES5 on purpose. Everything newer is
+    checked in React (src/browserSupport.ts), which shows the same advice in its own overlay.
+  -->
+  <script>
+    (function () {
+      var ok = "noModule" in document.createElement("script") &&
+        typeof window.structuredClone === "function" &&
+        typeof Array.prototype.at === "function" &&
+        !!window.AbortSignal && typeof window.AbortSignal.timeout === "function";
+      if (ok) return;
+      document.documentElement.setAttribute("data-unsupported", "");
+      document.getElementById("root").innerHTML =
+        '<div style="font-family: sans-serif; color: #fff; background: #000; min-height: 100vh; ' +
+        'display: flex; flex-direction: column; justify-content: center; align-items: center; ' +
+        'text-align: center; padding: 24px; box-sizing: border-box;">' +
+        "<h2>This browser can't run the council</h2>" +
+        "<p>Please update it, or open this page in an up-to-date Chrome, Firefox or Safari.</p>" +
+        "</div>";
+    })();
+  </script>
   <script type="module" src="/src/index.jsx"></script>
   <script>
     // Listen for the wheel event

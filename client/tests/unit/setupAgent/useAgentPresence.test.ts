@@ -48,6 +48,7 @@ function baseAgent(overrides: Partial<SetupAgentState> = {}): SetupAgentState {
     start: vi.fn(),
     stop: vi.fn(),
     sendUserMessage: vi.fn(),
+    restart: vi.fn(),
     requestAgentResponse: vi.fn(),
     interruptAndRespond: vi.fn(),
     ...overrides,

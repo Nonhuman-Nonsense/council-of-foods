@@ -36,6 +36,30 @@ describe('TextOutput', () => {
         setCurrentSnippetIndex: vi.fn(),
     });
 
+    it("shows a model's *asterisks* as italics, carried across sentences", () => {
+        const props = {
+            ...defaultProps(),
+            currentAudioMessage: {
+                id: 'msg1',
+                sentences: [
+                    { text: "*Sniffs the ground...", start: 0.0, end: 1.0 },
+                    { text: "finds only gravel.* Sorry.", start: 1.0, end: 2.0 },
+                ],
+            },
+        };
+        render(<TextOutput {...props} />);
+        expect(screen.getByTestId('subtitle-text').querySelector('em')).toHaveTextContent('Sniffs the ground...');
+
+        act(() => {
+            mockAudioContext.currentTime = 1.1;
+            vi.advanceTimersByTime(16);
+        });
+        const subtitle = screen.getByTestId('subtitle-text');
+        expect(subtitle).toHaveTextContent('finds only gravel. Sorry.');
+        expect(subtitle.querySelector('em')).toHaveTextContent('finds only gravel.');
+        expect(subtitle.textContent).not.toContain('*');
+    });
+
     it('initializes with the first sentence', () => {
         const props = defaultProps();
         render(<TextOutput {...props} />);

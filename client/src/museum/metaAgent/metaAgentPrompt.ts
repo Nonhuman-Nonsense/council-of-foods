@@ -1,5 +1,5 @@
 import { AVAILABLE_LANGUAGES } from "@shared/AvailableLanguages";
-import type { Character, Topic } from "@shared/ModelTypes";
+import type { Character, ChildAudience, Topic } from "@shared/ModelTypes";
 import { CHARACTERS_FILE } from "@shared/prompts/characterSetupMetadata";
 import type { CouncilState } from "@council/hooks/useCouncilMachine";
 import type { ParticipationPhase } from "@council/humanInput/participationPhase";
@@ -36,7 +36,19 @@ export type MetaAgentStateSnapshot = {
   currentSpeakerName: string;
   humanName: string;
   participationPhase: ParticipationPhase;
+  /** The children the meeting is held for; null or absent for adults. */
+  audience?: ChildAudience | null;
 };
+
+/** Said in STATE SYNC, so the agent can speak to the children the way the council does. */
+const AUDIENCE_DESCRIPTIONS: Record<ChildAudience, string> = {
+  young: "young children, about 6 to 9 years old",
+  older: "children and young teenagers, about 10 to 14 years old",
+};
+
+/** For both configurations: STATE SYNC says when the meeting is held for children. */
+const AUDIENCE_RULE =
+  "If STATE SYNC gives an audience, the meeting is held for those children and the visitor is likely one of them: speak to them that way — short sentences, everyday words, warm.";
 
 const metaAgentModules = import.meta.glob<MetaAgentPromptBundle>(
   "@shared/prompts/meta_agent_*.json",
@@ -147,6 +159,7 @@ export function buildMetaAgentPrompt(params: {
     "Be concise. The visitor is listening, not reading. Do not reference on-screen UI.",
     PTT_RULE,
     "Use the visitor's name from STATE SYNC when you know it.",
+    AUDIENCE_RULE,
   ].filter(Boolean);
 
   const replacements: Record<string, string> = {
@@ -210,6 +223,7 @@ export function buildMetaAgentStateSnapshot(snapshot: MetaAgentStateSnapshot): s
     currentSpeaker: snapshot.currentSpeakerName || null,
     visitorName,
     participationPhase: snapshot.participationPhase,
+    ...(snapshot.audience ? { audience: AUDIENCE_DESCRIPTIONS[snapshot.audience] } : {}),
   };
 
   return `(STATE SYNC: ${JSON.stringify(payload)})`;
@@ -238,6 +252,7 @@ export function buildExtensionAgentPrompt(params: {
     "Be concise. The visitor is listening, not reading. Do not reference on-screen UI.",
     PTT_RULE,
     "Use the visitor's name from STATE SYNC when you know it.",
+    AUDIENCE_RULE,
   ].filter(Boolean);
 
   const replacements: Record<string, string> = {
@@ -297,6 +312,7 @@ export function buildExtensionStateSnapshot(snapshot: MetaAgentStateSnapshot): s
     currentSpeaker: snapshot.currentSpeakerName || null,
     visitorName,
     participationPhase: snapshot.participationPhase,
+    ...(snapshot.audience ? { audience: AUDIENCE_DESCRIPTIONS[snapshot.audience] } : {}),
   };
 
   return `(STATE SYNC: ${JSON.stringify(payload)})`;

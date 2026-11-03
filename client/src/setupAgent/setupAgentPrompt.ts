@@ -1,4 +1,4 @@
-import type { Topic, Character } from "@shared/ModelTypes";
+import type { Topic, Character, ChildAudience } from "@shared/ModelTypes";
 import type { MeetingSetupPhase } from "@newMeeting/meetingSetup";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { buildEnPrompt } from "./setupAgentPromptEn";
@@ -38,6 +38,14 @@ export type SetupAgentPromptParams = {
    * an installation (mic always present) is unaffected.
    */
   hasEverHeardVisitor?: boolean;
+  /** The agent holds `set_audio_output`. */
+  audioOutputSwitch?: boolean;
+  /** The room hears the meeting too, for this visit — see `settings/roomAudio`. */
+  roomAudio?: boolean;
+  /** The audiences of children this language's meeting prompts are written for; none, no children's section. */
+  audiences?: ChildAudience[];
+  /** Who the meeting is for, once the agent has set it; null for adults. */
+  audience?: ChildAudience | null;
 };
 
 /** Add an entry here when adding a new language prompt file. */

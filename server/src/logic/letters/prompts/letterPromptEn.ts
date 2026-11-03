@@ -128,6 +128,8 @@ Subject: <subject line>
 
 <the letter>`,
 
+        children: (audience) => `This meeting was held for ${audience === "young" ? "young children, about six to nine years old" : "children and young teenagers, about ten to fourteen years old"}, and the human taking part is one of them. The instructions above about the audience and how long a turn may be are for speaking to them, not for this letter: write to its adult recipient as a letter, at its usual length. Say plainly that it comes from a council meeting held with children, and carry what they said and asked. Keep it simple enough that ${audience === "young" ? "a child could follow it read aloud" : "a young teenager could read it"}, since they may read it too.`,
+
         humanApart: (text, humanName) =>
             `${humanName ? `${humanName}, a human who took part in the meeting,` : "A human who took part in the meeting"} asked to add, in their own words:\n“${text}”`,
 

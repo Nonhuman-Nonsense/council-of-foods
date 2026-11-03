@@ -11,7 +11,7 @@ import type { RealtimeSessionServerDefaults } from "./realtimeProtocol";
 import type { IceServer, RealtimeBootstrapResponse } from "@shared/RealtimeSessionTypes";
 import { councilFetch } from "@/api/http";
 import { monitorMicrophone } from "@/audio/sidetone";
-import { getSplitAudioEnabled } from "@/settings/councilSettings";
+import { getSplitAudioActive } from "@/settings/councilSettings";
 
 // ---------------------------------------------------------------------------
 // Error types
@@ -73,10 +73,11 @@ export class MicrophoneUnavailableError extends Error {
  * Echo cancellation is off on a split audio output: there the agents play through Web Audio
  * onto one side, and the canceller coloured the sound it let through. Read at each request,
  * so switching the split takes effect from the next time the microphone is opened.
+ * Room audio puts the agents back in the room, so it needs the canceller again.
  */
 function micConstraints(): MediaStreamConstraints {
   return {
-    audio: { echoCancellation: !getSplitAudioEnabled(), noiseSuppression: true, autoGainControl: false },
+    audio: { echoCancellation: !getSplitAudioActive(), noiseSuppression: true, autoGainControl: false },
   };
 }
 

@@ -6,6 +6,7 @@ import type { Topic } from "@shared/ModelTypes";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import Main from "@main/Main";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
+import { getRoomAudio, setRoomAudio } from "@/settings/roomAudio";
 import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import routes from "@/routes.json";
 import { MockFactory } from "../factories/MockFactory";
@@ -129,6 +130,25 @@ function RootNavigator() {
   return null;
 }
 
+function MeetingNavigator() {
+  const navigate = useNavigate();
+  useEffect(() => {
+    navigate("/");
+  }, [navigate]);
+  return <div data-testid="meeting">Meeting</div>;
+}
+
+function renderMeetingThenRoot() {
+  render(
+    <MemoryRouter initialEntries={[`/${routes.meeting}/42`]}>
+      <Routes>
+        <Route path={`/${routes.meeting}/:meetingId`} element={<MeetingNavigator />} />
+        <Route path="/" element={<MeetingSetupShellHarness />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("Meeting setup reset on navigation", () => {
   beforeEach(() => {
     useMeetingSetupStore.getState().resetStore();
@@ -188,26 +208,19 @@ describe("Meeting setup reset on navigation", () => {
     useMeetingSetupStore.getState().setSelectedCharacters([CHAIR_ID, "food-a", "food-b"]);
     useMeetingSetupStore.getState().setSelectedTopic("old-topic");
 
-    function MeetingNavigator() {
-      const navigate = useNavigate();
-      useEffect(() => {
-        navigate("/");
-      }, [navigate]);
-      return <div data-testid="meeting">Meeting</div>;
-    }
-
-    render(
-      <MemoryRouter initialEntries={[`/${routes.meeting}/42`]}>
-        <Routes>
-          <Route path={`/${routes.meeting}/:meetingId`} element={<MeetingNavigator />} />
-          <Route path="/" element={<MeetingSetupShellHarness />} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderMeetingThenRoot();
 
     await waitFor(() => {
       expect(useMeetingSetupStore.getState().selectedCharacters).toEqual([CHAIR_ID]);
     });
     expect(useMeetingSetupStore.getState().selectedTopic).toBe("");
+  });
+
+  it("puts the next visit back on the staff audio setting", async () => {
+    setRoomAudio(true);
+
+    renderMeetingThenRoot();
+
+    await waitFor(() => expect(getRoomAudio()).toBe(false));
   });
 });

@@ -7,18 +7,21 @@ import {
   CURRENT_DATE_PLACEHOLDER,
   TOPIC_PLACEHOLDER,
   agendaPointCountFromAgendaPoints,
+  agendaPointTitle,
   buildAgendaPointsText,
   buildMeetingSystemPrompt,
   nonEmptyAgendaPoints,
 } from "@shared/topicPrompt";
+
+const point = (title: string, text = "") => ({ title, text });
 
 describe("topicPrompt", () => {
   const systemTemplate = `Welcome.\n\nToday's meeting is about:\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}\n\nEach participant speaks.`;
   const swedishSystemTemplate = `Välkommen.\n\n${TOPIC_PLACEHOLDER}\n${AGENDA_POINTS_PLACEHOLDER}\n\nVarje deltagare talar.`;
 
   it("builds agenda text with numbered items", () => {
-    expect(buildAgendaPointsText(["First item", "Second item"])).toBe(
-      `\n${AGENDA_SECTION_HEADER}\n\n1. First item\n\n2. Second item`,
+    expect(buildAgendaPointsText([point("First item"), point("Second item", "Its text.\n\nCore question: why?")])).toBe(
+      `\n${AGENDA_SECTION_HEADER}\n\n1. First item\n\n2. Second item\nIts text.\n\nCore question: why?`,
     );
     expect(buildAgendaPointsText([])).toBe("");
   });
@@ -33,7 +36,7 @@ describe("topicPrompt", () => {
   });
 
   it("inserts numbered agenda points at [AGENDA_POINTS]", () => {
-    const result = buildMeetingSystemPrompt(systemTemplate, "Topic body.", ["One", "Two"]);
+    const result = buildMeetingSystemPrompt(systemTemplate, "Topic body.", [point("One"), point("Two")]);
     expect(result).toContain(`Topic body.\n\n${AGENDA_SECTION_HEADER}`);
     expect(result).toContain("1. One");
     expect(result).toContain("2. Two");
@@ -41,15 +44,22 @@ describe("topicPrompt", () => {
   });
 
   it("uses the Swedish agenda header when language is sv", () => {
-    const result = buildMeetingSystemPrompt(swedishSystemTemplate, "Ämne.", ["Ett", "Två"], "sv");
+    const result = buildMeetingSystemPrompt(swedishSystemTemplate, "Ämne.", [point("Ett"), point("Två")], "sv");
     expect(result).toContain(AGENDA_SECTION_HEADER_SV);
     expect(result).toContain("1. Ett");
   });
 
   it("derives agenda point count from non-empty items only", () => {
-    expect(agendaPointCountFromAgendaPoints(["One", "", "Two"])).toBe(2);
+    expect(agendaPointCountFromAgendaPoints([point("One"), point(" ", " "), point("", "Only text")])).toBe(2);
     expect(agendaPointCountFromAgendaPoints([])).toBeUndefined();
-    expect(nonEmptyAgendaPoints([" One ", ""])).toEqual(["One"]);
+    expect(nonEmptyAgendaPoints([point(" One ", " Text "), point("")])).toEqual([point("One", "Text")]);
+  });
+
+  it("names an agenda point by its title, whatever its text starts with", () => {
+    const agenda = [point("Soil Scarification", "Ploughing the ground.\nSecond line."), point("Lodgepole Pine")];
+    expect(agendaPointTitle(agenda, 1)).toBe("Soil Scarification");
+    expect(agendaPointTitle(agenda, 2)).toBe("Lodgepole Pine");
+    expect(agendaPointTitle(agenda, 3)).toBeUndefined();
   });
 });
 

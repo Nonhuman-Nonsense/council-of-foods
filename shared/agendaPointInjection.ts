@@ -1,3 +1,4 @@
+import type { AgendaPoint } from "./ModelTypes.js";
 import { agendaPointCountFromAgendaPoints } from "./topicPrompt.js";
 
 export const RANDOM_AGENDA_POINT_PLACEHOLDER = "[RANDOM_AGENDA_POINT]";
@@ -19,7 +20,7 @@ export function pickAgendaPoint(count: number): number {
  */
 export function injectRandomAgendaPoint(
   chairPrompt: string,
-  agendaPoints?: string[],
+  agendaPoints?: AgendaPoint[],
   pinnedPoint?: number,
 ): string {
   if (!chairPrompt.includes(RANDOM_AGENDA_POINT_PLACEHOLDER)) {
@@ -46,7 +47,7 @@ export function injectRandomAgendaPoint(
  */
 export function injectSingleAgendaPointRule(
   chairPrompt: string,
-  agendaPoints?: string[],
+  agendaPoints?: AgendaPoint[],
   rule = "",
 ): string {
   const single = agendaPointCountFromAgendaPoints(agendaPoints) === 1;

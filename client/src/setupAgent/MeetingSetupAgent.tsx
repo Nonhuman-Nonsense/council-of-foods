@@ -7,6 +7,7 @@ import { getTopicsBundle } from "@main/topicsBundle";
 import { getCharacterSetupBundle } from "@newMeeting/CharacterSetup";
 import type { Character } from "@shared/ModelTypes";
 import {
+  availableAudiences,
   buildMeetingSetupReactionMessage,
   buildTopicFromSelection,
   diffCouncil,
@@ -19,6 +20,7 @@ import {
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import { useButton, useHoldHint } from "@/museum/button/useButton";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { useRoomAudioStore } from "@/settings/roomAudio";
 import { useSignOfLife } from "@/signOfLife";
 import { buildSetupAgentPrompt, type SetupAgentSelection } from "./setupAgentPrompt";
 import { createSetupAgentToolHandlers, createSetupAgentTools } from "./setupAgentTools";
@@ -48,7 +50,8 @@ export default function MeetingSetupAgent({
   onStartMeeting,
 }: MeetingSetupAgentProps) {
   const { i18n, t } = useTranslation();
-  const { capabilities } = useCouncilSettings();
+  const { capabilities, splitAudioEnabled } = useCouncilSettings();
+  const roomAudio = useRoomAudioStore((s) => s.roomAudio);
   const { voiceSetupAgent, typedSetup } = capabilities;
   const { switchLanguage, otherLanguages } = useSwitchLanguage();
   const button = useButton("setup-agent");
@@ -60,9 +63,11 @@ export default function MeetingSetupAgent({
     humans,
     numberOfHumans,
     visitorName,
+    audience,
   } = useMeetingSetupStore();
 
   const topicsBundle = useMemo(() => getTopicsBundle(i18n.language), [i18n.language]);
+  const audiences = useMemo(() => availableAudiences(i18n.language), [i18n.language]);
   const characterSetupBundle = useMemo(() => getCharacterSetupBundle(i18n.language), [i18n.language]);
   const agentLanguage = i18n.language.toLowerCase().startsWith("sv") ? "sv" : "en";
 
@@ -128,8 +133,12 @@ export default function MeetingSetupAgent({
         otherLanguageNames,
         selection,
         hasEverHeardVisitor,
+        audioOutputSwitch: splitAudioEnabled,
+        roomAudio,
+        audiences,
+        audience,
       }),
-    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection],
+    [setupCharacters, setupTopics, phase, agentLanguage, visitorName, otherLanguageNames, selection, splitAudioEnabled, roomAudio, audiences, audience],
   );
 
   // Static: the agent holds every tool from the start, and useSetupAgent
@@ -141,9 +150,14 @@ export default function MeetingSetupAgent({
         topics: setupTopics,
         characters: setupCharacters,
         typedSetup,
+        audioOutputSwitch: splitAudioEnabled,
+        audiences,
       }),
-    [otherLanguages, setupTopics, setupCharacters, typedSetup],
+    [otherLanguages, setupTopics, setupCharacters, typedSetup, splitAudioEnabled, audiences],
   );
+
+  // The handlers are built before the agent they restart exists.
+  const restartAgentRef = useRef(() => {});
 
   const signOfLife = useSignOfLife();
 
@@ -164,6 +178,8 @@ export default function MeetingSetupAgent({
           topicsBundle,
           selectedTopicId: selectedTopic,
           customTopic,
+          // Read now, not at render: the agent may have set it in this same turn.
+          audience: useMeetingSetupStore.getState().audience ?? undefined,
         }),
       selectTopic: onSelectTopic,
       startMeeting: onStartMeeting,
@@ -174,11 +190,15 @@ export default function MeetingSetupAgent({
       },
       otherLanguages,
       switchLanguage,
+      // A tick later, so the tool's result still goes out on the connection that called it.
+      restartAgent: () => setTimeout(() => restartAgentRef.current(), 0),
+      audiences,
     }),
     micUpFront: capabilities.micUpFront,
     micOpen: button.pressed,
     onMicUnavailable: button.endPress,
   });
+  restartAgentRef.current = agent.restart;
   const { interruptAndRespond, muted } = agent;
   // Any click or keystroke counts as activity — resets the idle nudge and the
   // absolute idle teardown, so the agent doesn't ask "are you there?" (or tear

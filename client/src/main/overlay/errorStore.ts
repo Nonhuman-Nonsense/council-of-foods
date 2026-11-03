@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import type { ClientErrorKey } from "@shared/SocketTypes";
-import { reportTerminalError, type ClientReportSeverity, type ClientReportImpact } from "@/logger";
+import { log, reportTerminalError, type ClientReportSeverity, type ClientReportImpact } from "@/logger";
+import type { BrowserFeature } from "@/browserSupport";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -43,6 +44,11 @@ export type UnrecoverableError = {
   severity?: ClientReportSeverity;
   /** Overrides the default 'terminal' errorbot client impact. */
   clientImpact?: ClientReportImpact;
+  /**
+   * This browser can't run the council (browserSupport.ts): the overlay asks the visitor to
+   * switch browser instead of restarting. Never reported — nothing is broken on our side.
+   */
+  unsupportedFeatures?: BrowserFeature[];
 };
 
 /** Pass a string for message-only errors (source defaults to `client`). */
@@ -68,6 +74,7 @@ type ErrorStore = {
   setConnectionError: SetConnectionError;
   unrecoverableError: UnrecoverableError | null;
   setUnrecoverableError: SetUnrecoverableError;
+  setUnsupportedBrowser: (missing: BrowserFeature[]) => void;
   resetForTests: () => void;
 };
 
@@ -106,6 +113,8 @@ export const useErrorStore = create<ErrorStore>((set) => ({
       set({ unrecoverableError: null });
       return;
     }
+    // Anything that fails after the browser was found unsupported is that, not a new fault.
+    if (useErrorStore.getState().unrecoverableError?.unsupportedFeatures) return;
     const normalized: UnrecoverableError =
       typeof next === "string" ? { message: next, source: "client" } : next;
     set({ unrecoverableError: normalized });
@@ -113,6 +122,17 @@ export const useErrorStore = create<ErrorStore>((set) => ({
       meetingId: normalized.meetingId,
       severity: normalized.severity,
       clientImpact: normalized.clientImpact,
+    });
+  },
+
+  setUnsupportedBrowser: (missing) => {
+    log.event("SYSTEM", "browser unsupported", { missing, userAgent: navigator.userAgent });
+    set({
+      unrecoverableError: {
+        message: `Browser not supported (missing ${missing.join(", ")})`,
+        source: "browser-support",
+        unsupportedFeatures: missing,
+      },
     });
   },
 

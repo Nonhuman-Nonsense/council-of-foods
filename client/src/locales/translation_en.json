@@ -346,6 +346,10 @@
     "noInternet": "No internet",
     "noInternetDetail": "Check the network cable or Wi‑Fi.",
     "serverUnreachable": "Can't reach the server",
-    "serverUnreachableDetail": "Check the internet connection."
+    "serverUnreachableDetail": "Check the internet connection.",
+    "unsupportedTitle": "This browser can't run the council",
+    "unsupportedMessage": "The council needs to speak and to listen, and this browser can't do both.\nPlease update it, or open this page in an up-to-date Chrome, Firefox or Safari.",
+    "copyLink": "Copy link",
+    "linkCopied": "Link copied"
   }
 }

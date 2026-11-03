@@ -39,6 +39,7 @@ interface CharacterSetupDataFile {
         description: string;
     };
     characters: CharacterDataEntry[];
+    audiences?: Record<string, { chair?: string; everyone?: string }>;
 }
 
 function loadCharacterData(lang: string): CharacterSetupDataFile {
@@ -118,6 +119,18 @@ describe('Validate Food Data JSONs', () => {
             const data = loadCharacterData(lang);
             if (!data.characters[0].prompt?.includes(SINGLE_AGENDA_POINT_PLACEHOLDER)) continue;
             expect(data.singleAgendaPoint?.trim(), `singleAgendaPoint missing in "${lang}"`).toBeTruthy();
+        }
+    });
+
+    /** A meeting is held for an audience only where its language has the text for it. */
+    it('offers the same audiences of children in every language, each with its chair and everyone text', () => {
+        const audiencesOf = (lang: string) => Object.keys(loadCharacterData(lang).audiences ?? {}).sort();
+        for (const lang of AVAILABLE_LANGUAGES) {
+            expect(audiencesOf(lang), `audiences in "${lang}" differ from "${AVAILABLE_LANGUAGES[0]}"`).toEqual(audiencesOf(AVAILABLE_LANGUAGES[0]));
+            for (const [audience, text] of Object.entries(loadCharacterData(lang).audiences ?? {})) {
+                expect(text.chair?.trim(), `${audience}.chair missing in "${lang}"`).toBeTruthy();
+                expect(text.everyone?.trim(), `${audience}.everyone missing in "${lang}"`).toBeTruthy();
+            }
         }
     });
 

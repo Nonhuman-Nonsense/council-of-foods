@@ -1,3 +1,4 @@
+import type { AgendaPoint } from "./ModelTypes.js";
 export const TOPIC_PLACEHOLDER = "[TOPIC]";
 export const AGENDA_POINTS_PLACEHOLDER = "[AGENDA_POINTS]";
 export const AGENDA_SECTION_HEADER = "Today's Agenda Points:";
@@ -20,28 +21,32 @@ export function formatMeetingDate(now: Date, language = "en"): string {
   }).format(now);
 }
 
-export function nonEmptyAgendaPoints(agendaPoints?: string[]): string[] {
-  return (agendaPoints ?? []).map((point) => point.trim()).filter((point) => point.length > 0);
+export function nonEmptyAgendaPoints(agendaPoints?: AgendaPoint[]): AgendaPoint[] {
+  return (agendaPoints ?? [])
+    .map((point) => ({ title: point.title.trim(), text: point.text.trim() }))
+    .filter((point) => point.title.length > 0 || point.text.length > 0);
 }
 
-/** The title of agenda point `point` (1-based, numbered as in the prompt): its first line. */
-export function agendaPointTitle(agendaPoints: string[] | undefined, point: number): string | undefined {
-  return nonEmptyAgendaPoints(agendaPoints)[point - 1]?.split("\n")[0].trim() || undefined;
+/** The title of agenda point `point` (1-based, numbered as in the prompt). */
+export function agendaPointTitle(agendaPoints: AgendaPoint[] | undefined, point: number): string | undefined {
+  return nonEmptyAgendaPoints(agendaPoints)[point - 1]?.title || undefined;
 }
 
-export function agendaPointCountFromAgendaPoints(agendaPoints?: string[]): number | undefined {
+export function agendaPointCountFromAgendaPoints(agendaPoints?: AgendaPoint[]): number | undefined {
   const count = nonEmptyAgendaPoints(agendaPoints).length;
   return count > 0 ? count : undefined;
 }
 
-export function buildAgendaPointsText(agendaPoints?: string[], language = "en"): string {
+export function buildAgendaPointsText(agendaPoints?: AgendaPoint[], language = "en"): string {
   const points = nonEmptyAgendaPoints(agendaPoints);
   if (points.length === 0) {
     return "";
   }
 
   const header = getAgendaSectionHeader(language);
-  const numbered = points.map((point, index) => `${index + 1}. ${point}`).join("\n\n");
+  const numbered = points
+    .map((point, index) => `${index + 1}. ${[point.title, point.text].filter(Boolean).join("\n")}`)
+    .join("\n\n");
   return `\n${header}\n\n${numbered}`;
 }
 
@@ -61,7 +66,7 @@ function removeAgendaPointsPlaceholder(system: string): string {
 export function buildMeetingSystemPrompt(
   system: string,
   topicPrompt: string,
-  agendaPoints?: string[],
+  agendaPoints?: AgendaPoint[],
   language = "en",
   now: Date = new Date(),
 ): string {

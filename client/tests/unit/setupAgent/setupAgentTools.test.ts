@@ -3,6 +3,7 @@ import { useMeetingSetupStore } from '@newMeeting/meetingSetupStore';
 import { MAX_HUMAN_PANELISTS } from '@newMeeting/meetingSetup';
 import { CHAIR_ID } from '@/prompts/characterSetupBundles';
 import { setAppMode } from '@/settings/councilSettings';
+import { getRoomAudio, setRoomAudio } from '@/settings/roomAudio';
 
 const TOPICS = [
   { id: 'topic1', title: 'Topic One', description: 'Desc One', agentBrief: 'Brief One' },
@@ -35,6 +36,18 @@ describe('createSetupAgentTools', () => {
     expect(tool?.parameters?.properties?.language).toMatchObject({ type: 'string', enum: ['sv'] });
   });
 
+  it.each([
+    { audiences: [] as ('young' | 'older')[], offered: undefined },
+    { audiences: ['young', 'older'] as ('young' | 'older')[], offered: ['adults', 'young', 'older'] },
+  ])('offers set_audience with $offered for audiences $audiences', ({ audiences, offered }) => {
+    const tool = createSetupAgentTools({ ...baseToolParams, audiences }).find((t) => t.name === 'set_audience');
+    if (offered) {
+      expect(tool?.parameters?.properties?.audience).toMatchObject({ type: 'string', enum: offered });
+    } else {
+      expect(tool).toBeUndefined();
+    }
+  });
+
   it('builds enum of topic titles for select_topic', () => {
     const tools = createSetupAgentTools({ ...baseToolParams, topics: TOPICS });
     const tool = tools.find((t) => t.name === 'select_topic');
@@ -58,6 +71,13 @@ describe('createSetupAgentTools', () => {
   it('includes human_panelist when isWebMode is true', () => {
     const tools = createSetupAgentTools({ ...baseToolParams, typedSetup: true });
     expect(tools.find((t) => t.name === 'human_panelist')).toBeDefined();
+  });
+
+  it('offers set_audio_output only over a split output', () => {
+    expect(createSetupAgentTools(baseToolParams).find((t) => t.name === 'set_audio_output')).toBeUndefined();
+    const tool = createSetupAgentTools({ ...baseToolParams, audioOutputSwitch: true })
+      .find((t) => t.name === 'set_audio_output');
+    expect(tool?.parameters?.properties?.output).toMatchObject({ enum: ['room', 'headphones'] });
   });
 
   it('includes a begin_setup tool', () => {
@@ -116,6 +136,8 @@ describe('setupAgentTools', () => {
       meetingCharactersLabels: { formatHumanCount: (count) => (count === 1 ? "Human" : `${count} Humans`) },
       otherLanguages: ['sv'],
       switchLanguage: vi.fn(),
+      restartAgent: vi.fn(),
+      audiences: ['young', 'older'],
     };
   });
 
@@ -499,6 +521,34 @@ describe('setupAgentTools', () => {
     });
   });
 
+  describe('set_audience', () => {
+    it.each([
+      { from: null, audience: 'young', stored: 'young' },
+      { from: null, audience: 'older', stored: 'older' },
+      { from: 'young' as const, audience: 'adults', stored: null },
+    ])('sets the meeting for $audience', async ({ from, audience, stored }) => {
+      useMeetingSetupStore.getState().setAudience(from);
+      const res = await createSetupAgentToolHandlers(ctx).set_audience({ audience });
+      expect(res.ok).toBe(true);
+      expect(useMeetingSetupStore.getState().audience).toBe(stored);
+    });
+
+    it.each([
+      { case: 'an unknown audience', audiences: ['young', 'older'] as ('young' | 'older')[], audience: 'teens' },
+      { case: 'an audience this language has no prompts for', audiences: ['young'] as ('young' | 'older')[], audience: 'older' },
+    ])('refuses $case and keeps the audience', async ({ audiences, audience }) => {
+      const res = await createSetupAgentToolHandlers({ ...ctx, audiences }).set_audience({ audience });
+      expect(res.ok).toBe(false);
+      expect(useMeetingSetupStore.getState().audience).toBeNull();
+    });
+
+    it('is forgotten when setup starts over', () => {
+      useMeetingSetupStore.getState().setAudience('young');
+      useMeetingSetupStore.getState().resetStore();
+      expect(useMeetingSetupStore.getState().audience).toBeNull();
+    });
+  });
+
   describe('switch_language', () => {
     it('calls switchLanguage and suppresses continuation', async () => {
       const handlers = createSetupAgentToolHandlers(ctx);
@@ -518,6 +568,33 @@ describe('setupAgentTools', () => {
       const handlers = createSetupAgentToolHandlers(ctx);
       const res = await handlers.switch_language({});
       expect(res).toEqual({ ok: false, error: 'Missing language' });
+    });
+  });
+
+  describe('set_audio_output', () => {
+    beforeEach(() => setRoomAudio(false));
+
+    it.each([
+      ['room', false, true],
+      ['headphones', true, false],
+    ])('switches to %s and restarts the agent', async (output, before, after) => {
+      setRoomAudio(before);
+      const res = await createSetupAgentToolHandlers(ctx).set_audio_output({ output });
+      expect(res).toEqual({ ok: true, suppressContinuation: true });
+      expect(getRoomAudio()).toBe(after);
+      expect(ctx.restartAgent).toHaveBeenCalledTimes(1);
+    });
+
+    it('leaves the connection alone when the output is already there', async () => {
+      const res = await createSetupAgentToolHandlers(ctx).set_audio_output({ output: 'headphones' });
+      expect(res).toMatchObject({ ok: true, data: { unchanged: true } });
+      expect(ctx.restartAgent).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown output', async () => {
+      const res = await createSetupAgentToolHandlers(ctx).set_audio_output({ output: 'speakers' });
+      expect(res.ok).toBe(false);
+      expect(getRoomAudio()).toBe(false);
     });
   });
 

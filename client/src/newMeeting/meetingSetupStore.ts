@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Character } from '@shared/ModelTypes';
+import type { Character, ChildAudience } from '@shared/ModelTypes';
 import { createDefaultHumans } from '@newMeeting/CharacterSetup';
 import { CHAIR_ID } from '@/prompts/characterSetupBundles';
 
@@ -27,6 +27,10 @@ export interface MeetingSetupState {
   // Visitor name (setup agent audience member, not a council panelist)
   visitorName: string;
   setVisitorName: (name: string) => void;
+
+  // The children the meeting is for; null for adults. Set by the setup agent.
+  audience: ChildAudience | null;
+  setAudience: (audience: ChildAudience | null) => void;
 
   // Utilities
   resetStore: () => void;
@@ -79,6 +83,9 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
   visitorName: '',
   setVisitorName: (name) => set({ visitorName: name }),
 
+  audience: null,
+  setAudience: (audience) => set({ audience }),
+
   resetStore: () => {
     set({
       selectedTopic: '',
@@ -88,6 +95,7 @@ export const useMeetingSetupStore = create<MeetingSetupState>((set, get) => ({
       humans: createDefaultHumans(),
       numberOfHumans: 0,
       visitorName: '',
+      audience: null,
     });
   }
 }));

@@ -81,6 +81,45 @@ function countPlayableMessages(conversation) {
   return count;
 }
 
+/**
+ * A turn's text as HTML: escaped, line breaks as <br>, and the model's `*…*` as italics without
+ * the asterisks — the rule the app's subtitles follow (client/src/council/output/emphasis.tsx).
+ * A lone asterisk between spaces, or one left without a partner, stays an asterisk.
+ */
+function turnHtml(text) {
+  const escape = (value) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const source = String(text ?? '');
+  const delimiters = [];
+  for (let i = 0; i < source.length; i++) {
+    if (source[i] !== '*') continue;
+    const lone = /\s/.test(source[i - 1] ?? ' ') && /\s/.test(source[i + 1] ?? ' ');
+    if (!lone) delimiters.push(i);
+  }
+  if (delimiters.length % 2) delimiters.pop();
+  const pairs = new Set(delimiters);
+  let html = '';
+  let italic = false;
+  let last = 0;
+  for (const i of [...pairs, source.length]) {
+    html += escape(source.slice(last, i));
+    if (i < source.length) html += (italic = !italic) ? '<em>' : '</em>';
+    last = i + 1;
+  }
+  return html.split('\n').join('<br>');
+}
+
+/**
+ * An agenda point as `{ title, text }` (shared/ModelTypes.ts `AgendaPoint`). Prompts saved before
+ * the title had its own field held one string, title on its first line: that is split here.
+ */
+function toAgendaPoint(point) {
+  if (typeof point === 'string') {
+    const [title, ...rest] = point.trim().split('\n');
+    return { title: title.trim(), text: rest.join('\n').trim() };
+  }
+  return { title: String(point?.title ?? ''), text: String(point?.text ?? '') };
+}
+
 const defaultLocalOptions = {
   theme: '',
   showTrimmed: true,
@@ -92,6 +131,8 @@ const defaultLocalOptions = {
   selectedTopicId: null,
   editorWidthPercent: 50,
   customTopicVisitorInput: "",
+  /** Kids mode: '' for adults, or 'young' / 'older'. */
+  audience: '',
   languageModelsText: JSON.stringify(defaultLanguageModels.en, null, 2),
   languageModelsError: "",
 };
@@ -163,6 +204,11 @@ createApp({
         en: { system: '', topics: [] }
       },
       available_languages: ['en'],
+      /**
+       * Kids mode instructions per language (`{ audiences }`), read from the prompt files on every
+       * load and never saved. Not edited here; a topic's young agenda points are, with the topic.
+       */
+      audienceData: {},
 
       // Runtime
       audioVoices: ["alloy", "ash", "ballad", "coral", "echo", "fable", "onyx", "nova", "sage", "shimmer", "verse"],
@@ -330,13 +376,14 @@ createApp({
       }
     }
   },
-  mounted() {
+  async mounted() {
     this.audioController = new AudioController();
     this.audioController.setLogCallback(this.log);
 
     this.socket = io();
     this.setupSocketListeners();
-    this.startup();
+    await this.startup();
+    await this.loadAudienceData();
   },
 
   methods: {
@@ -695,7 +742,8 @@ createApp({
             description: t.description || "",
             agentBrief: t.agentBrief || "",
             prompt: t.prompt,
-            agendaPoints: Array.isArray(t.agendaPoints) ? [...t.agendaPoints] : [],
+            agendaPoints: Array.isArray(t.agendaPoints) ? t.agendaPoints.map(toAgendaPoint) : [],
+            youngAgendaPoints: Array.isArray(t.youngAgendaPoints) ? t.youngAgendaPoints.map(toAgendaPoint) : [],
           }));
 
           const customTopicSource = topics.custom_topic || {};
@@ -777,12 +825,61 @@ createApp({
         if (chairPrompt.includes('[RANDOM_AGENDA_POINT]')) {
           replacedCharacters[0].prompt = this.injectRandomAgendaPoint(
             chairPrompt,
-            this.currentTopic.agendaPoints,
+            this.isCustomTopicSelected ? this.currentTopic.agendaPoints : this.meetingAgendaPoints(),
           );
         }
       }
 
+      // As the app does (client/src/newMeeting/meetingSetup.ts): last in every prompt, the chair's own just before.
+      const instructions = this.audienceInstructions();
+      if (instructions) {
+        replacedCharacters.forEach((c, index) => {
+          const chairPart = index === 0 ? `\n\n${instructions.chair}` : '';
+          c.prompt = `${c.prompt}${chairPart}\n\n--\n\n${instructions.everyone}`;
+        });
+      }
+
       return replacedCharacters;
+    },
+
+    async loadAudienceData() {
+      for (const lang of this.available_languages) {
+        try {
+          const [characters, topics] = await Promise.all([
+            fetch(`./${CHARACTERS_FILE}_${lang}.json`).then((res) => res.json()),
+            fetch(`./topics_${lang}.json`).then((res) => res.json()),
+          ]);
+          this.audienceData[lang] = { audiences: characters.audiences || {} };
+          // Topics saved before they had young agenda points get the file's; edited ones keep theirs.
+          const fromFile = new Map((topics.topics || []).map((t) => [t.id, t.youngAgendaPoints]));
+          for (const topic of this.languageData[lang]?.topics || []) {
+            if (!Array.isArray(topic.youngAgendaPoints)) {
+              topic.youngAgendaPoints = Array.isArray(fromFile.get(topic.id)) ? fromFile.get(topic.id).map(toAgendaPoint) : [];
+            }
+          }
+        } catch (err) {
+          this.log('ERROR', `Failed to load kids mode text for ${lang}:`, err);
+        }
+      }
+      this.save();
+    },
+
+    /** The kids mode instructions for the chosen audience in this language, or null for adults. */
+    audienceInstructions() {
+      const audience = this.localOptions.audience;
+      return audience ? this.audienceData[this.options.language]?.audiences?.[audience] || null : null;
+    },
+
+    /** As the app: young children get the topic's own agenda for them, where it has one. */
+    meetingAgendaPoints() {
+      const topic = this.currentTopic;
+      if (this.isCustomTopicSelected || !topic) return [];
+      const young = this.localOptions.audience === 'young' ? this.nonEmptyAgendaPoints(topic.youngAgendaPoints) : [];
+      return young.length > 0 ? young : topic.agendaPoints;
+    },
+
+    turnHtml(text) {
+      return turnHtml(text);
     },
 
     selectTopic(topicId) {
@@ -791,8 +888,9 @@ createApp({
 
     nonEmptyAgendaPoints(agendaPoints) {
       return (agendaPoints || [])
-        .map((point) => (point || '').trim())
-        .filter((point) => point.length > 0);
+        .map(toAgendaPoint)
+        .map((point) => ({ title: point.title.trim(), text: point.text.trim() }))
+        .filter((point) => point.title.length > 0 || point.text.length > 0);
     },
 
     buildAgendaPointsText(agendaPoints) {
@@ -801,7 +899,9 @@ createApp({
         return '';
       }
 
-      const numbered = points.map((point, index) => `${index + 1}. ${point}`).join('\n\n');
+      const numbered = points
+        .map((point, index) => `${index + 1}. ${[point.title, point.text].filter(Boolean).join('\n')}`)
+        .join('\n\n');
       return `\nToday's Agenda Points:\n\n${numbered}`;
     },
 
@@ -864,11 +964,12 @@ createApp({
             : this.buildMeetingSystemPrompt(
                 this.currentSystemPrompt,
                 topic.prompt,
-                topic.agendaPoints,
+                this.meetingAgendaPoints(),
               ),
         },
         characters: this.buildCharacters(),
         language: this.options.language,
+        ...(this.audienceInstructions() ? { audience: this.localOptions.audience } : {}),
       };
     },
 
@@ -983,6 +1084,7 @@ createApp({
         agentBrief: "",
         prompt: "",
         agendaPoints: [],
+        youngAgendaPoints: [],
       };
       this.currentLanguageData.topics.push(newTopic);
       this.log('SYSTEM', 'Topic Added', newTopic);
@@ -1001,19 +1103,20 @@ createApp({
       this.localOptions.selectedTopicId = newTopic.id;
     },
 
-    addAgendaPoint() {
+    /** `list` is 'agendaPoints' or 'youngAgendaPoints'. */
+    addAgendaPoint(list = 'agendaPoints') {
       if (!this.currentTopic) return;
-      if (!Array.isArray(this.currentTopic.agendaPoints)) {
-        this.currentTopic.agendaPoints = [];
+      if (!Array.isArray(this.currentTopic[list])) {
+        this.currentTopic[list] = [];
       }
-      this.currentTopic.agendaPoints.push("");
+      this.currentTopic[list].push({ title: "", text: "" });
       this.save();
     },
 
-    removeAgendaPoint() {
-      if (!this.currentTopic || !Array.isArray(this.currentTopic.agendaPoints)) return;
-      if (this.currentTopic.agendaPoints.length === 0) return;
-      this.currentTopic.agendaPoints.pop();
+    removeAgendaPoint(list = 'agendaPoints') {
+      if (!this.currentTopic || !Array.isArray(this.currentTopic[list])) return;
+      if (this.currentTopic[list].length === 0) return;
+      this.currentTopic[list].pop();
       this.save();
     },
 
@@ -1256,6 +1359,9 @@ createApp({
           ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
             ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
             : {}),
+          ...(this.nonEmptyAgendaPoints(edited.youngAgendaPoints).length > 0
+            ? { youngAgendaPoints: this.nonEmptyAgendaPoints(edited.youngAgendaPoints) }
+            : {}),
         });
       }
 
@@ -1275,6 +1381,9 @@ createApp({
           prompt: edited.prompt,
           ...(this.nonEmptyAgendaPoints(edited.agendaPoints).length > 0
             ? { agendaPoints: this.nonEmptyAgendaPoints(edited.agendaPoints) }
+            : {}),
+          ...(this.nonEmptyAgendaPoints(edited.youngAgendaPoints).length > 0
+            ? { youngAgendaPoints: this.nonEmptyAgendaPoints(edited.youngAgendaPoints) }
             : {}),
         });
       }
@@ -1677,6 +1786,13 @@ createApp({
           lang.topics.forEach((topic) => {
             if (!Array.isArray(topic.agendaPoints)) {
               topic.agendaPoints = [];
+            }
+            // Saved before titles had their own field: one string per point. Only those are
+            // replaced, in place, so a save never swaps the objects being edited.
+            for (const list of [topic.agendaPoints, topic.youngAgendaPoints]) {
+              (list || []).forEach((point, index) => {
+                if (typeof point === 'string') list[index] = toAgendaPoint(point);
+              });
             }
           });
         }

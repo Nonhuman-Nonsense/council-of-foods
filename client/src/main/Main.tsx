@@ -14,7 +14,7 @@ import MainOverlays from "./overlay/MainOverlays";
 import Landing from "@newMeeting/Landing";
 import Navbar from "./Navbar";
 import type { Topic } from "@shared/ModelTypes";
-import { buildTopicFromSelection } from "@newMeeting/meetingSetup";
+import { rebuildTopic } from "@newMeeting/meetingSetup";
 import { useMeetingSetupStore } from "@newMeeting/meetingSetupStore";
 import MeetingSetupShell from "@newMeeting/MeetingSetupShell";
 import NewMeeting from "@newMeeting/NewMeeting";
@@ -32,6 +32,7 @@ import ModeSwitchButton from "@/museum/ModeSwitchButton";
 import ButtonLedDebugOverlay, { useButtonLedDebugOverlay } from "@/museum/button/buttonDebug";
 import { useCouncilSettings } from "@/settings/councilSettings";
 import { useAudioSplit } from "@/audio/audioRouting";
+import { useRoomAudioStore } from "@/settings/roomAudio";
 import { useSidetone } from "@/audio/sidetone";
 import LetterReplyPrinter from "@/museum/print/LetterReplyPrinter";
 import { createAudioContext, useAudioSuspended } from "@/audio/audioContext";
@@ -113,11 +114,13 @@ export default function Main(props: MainProps) {
     pttHardwareEnabled,
     modeSwitchButtonEnabled,
     printSummariesEnabled,
-    splitAudioEnabled,
+    splitAudioActive,
     sidetoneLevel,
   } = useCouncilSettings();
-  useAudioSplit(audioContext, splitAudioEnabled);
-  useSidetone(sidetoneLevel, splitAudioEnabled);
+  const roomAudio = useRoomAudioStore((s) => s.roomAudio);
+  useAudioSplit(audioContext, splitAudioActive);
+  // Off while the room hears the meeting: over its speakers the mic would hear itself and howl.
+  useSidetone(roomAudio ? 0 : sidetoneLevel, splitAudioActive);
   const meetingGeneration = useAutoplayStore((s) => s.meetingGeneration);
   const { ledDebugOverlay } = useButtonLedDebugOverlay();
   useMuseumCursorHide();
@@ -147,21 +150,13 @@ export default function Main(props: MainProps) {
     }
 
     if (topicSelection?.id) {
-      const bundle = getTopicsBundle(props.lang);
-      const isKnownTopic =
-        topicSelection.id === bundle.custom_topic.id ||
-        bundle.topics.some((topic) => topic.id === topicSelection.id);
-
-      if (isKnownTopic) {
-        setTopicSelection(
-          buildTopicFromSelection({
-            topicsBundle: bundle,
-            selectedTopicId: topicSelection.id,
-            customTopic:
-              topicSelection.id === bundle.custom_topic.id ? (topicSelection.description ?? "") : "",
-          }),
-        );
-      }
+      setTopicSelection(
+        rebuildTopic(
+          topicSelection,
+          getTopicsBundle(props.lang),
+          useMeetingSetupStore.getState().audience ?? undefined,
+        ),
+      );
     }
 
     if (isMeetingPath(location.pathname) && meetingliveKey) {
