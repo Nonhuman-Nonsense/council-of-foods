@@ -2,7 +2,7 @@
 Export EcoLogits impact coefficients for the models the council uses.
 
 Run through `npm run footprint:update` (server/), which picks the EcoLogits version and
-runs this with uv. Writes shared/footprint/ecologits.json — see docs/ai-footprint-meter.md.
+runs this with uv. Writes shared/footprint/ecologits.json — see FOOTPRINT.md.
 
 EcoLogits' LLM model is linear per request:
 

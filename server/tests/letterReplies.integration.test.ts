@@ -8,7 +8,7 @@ import { MockFactory } from "./factories/MockFactory.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
- * What comes back to the letters (docs/council-letters.md → Receiving): replies are kept with the
+ * What comes back to the letters (LETTERS.md → Receiving): replies are kept with the
  * letter they answer and sorted; opt-outs, bounces and spam complaints put the recipient on the
  * blocklist; replies and opt-outs are printed once at the letter's venue.
  */

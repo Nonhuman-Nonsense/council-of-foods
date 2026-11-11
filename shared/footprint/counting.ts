@@ -1,7 +1,7 @@
 /**
  * Where the counting stops: what others have published about one AI answer, what nobody
  * counts or discloses, and where the hardware's minerals come from. Shown on the meter and the
- * methodology page next to our own EcoLogits estimate (docs/ai-footprint-meter.md).
+ * methodology page next to our own EcoLogits estimate (FOOTPRINT.md).
  *
  * Every figure is as published; each source draws its boundary differently, which is the point.
  */

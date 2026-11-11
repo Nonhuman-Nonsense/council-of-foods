@@ -24,7 +24,7 @@ import { useMeterFeed } from "./useMeterFeed";
 
 /**
  * The footprint meter: what the council's AI use costs, live, for a tall side screen
- * (docs/ai-footprint-meter.md). What the providers count for the current meeting, then estimates
+ * (FOOTPRINT.md). What the providers count for the current meeting, then estimates
  * for it and since opening — ranges, and floors, never the whole cost — then training, which
  * dwarfs them, and what no figure includes. Copy and layout are to be tuned on the real display.
  */

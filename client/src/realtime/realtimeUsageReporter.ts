@@ -3,7 +3,7 @@ import { councilFetch } from "@/api/http";
 
 /**
  * Forwards a realtime session's `response.usage` objects to the server for the footprint
- * meter (docs/ai-footprint-meter.md). The browser talks to Inworld directly, so only it
+ * meter (FOOTPRINT.md). The browser talks to Inworld directly, so only it
  * sees this usage.
  *
  * Each response is sent as soon as it completes, so the meter moves while the agent speaks.

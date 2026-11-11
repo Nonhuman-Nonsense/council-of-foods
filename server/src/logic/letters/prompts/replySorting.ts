@@ -1,5 +1,5 @@
 /**
- * What came back to a letter (see docs/council-letters.md → Receiving). One prompt for every
+ * What came back to a letter (see LETTERS.md → Receiving). One prompt for every
  * language: the classifier reads Swedish as well as English, and its answer is a keyword. Headers
  * and the subject catch most automatic replies before this is asked.
  */

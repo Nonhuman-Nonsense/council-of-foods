@@ -175,7 +175,7 @@ type GeneratedTurnType =
     | "interjection"
     | "skipped"
     /**
-     * The chair's last words when an installation prints its letters (docs/council-letters.md):
+     * The chair's last words when an installation prints its letters (LETTERS.md):
      * thanks to the author and the human, and where the letter went — or why it was not sent.
      * Live only: replay drops it, with the `credits` after it, and shows the letter instead.
      */
@@ -185,7 +185,7 @@ export interface GeneratedTurnMessage
     extends BaseMessage, SpeakerFields, TextFields, IdentifiedFields, SentenceFields, GeneratedDebugFields {
     type: GeneratedTurnType;
     askParticular?: string;
-    /** On a `summary` that is a letter (see docs/council-letters.md): the letter as written. */
+    /** On a `summary` that is a letter (see LETTERS.md): the letter as written. */
     letter?: LetterView;
 }
 
@@ -374,7 +374,7 @@ export function isSpeakerMessage(message: Message): message is SpeakerMessage {
 }
 
 /**
- * A reply to one of the letters, as an installation prints it (docs/council-letters.md →
+ * A reply to one of the letters, as an installation prints it (LETTERS.md →
  * Receiving): who wrote back by name — never their address — and the letter it answers.
  */
 export interface PrintableLetterReply {

@@ -1,6 +1,6 @@
 /**
  * Runs the letter steps on a set of stored meetings and writes a report to read through (see
- * docs/council-letters.md). The development loop: edit the prompts in
+ * LETTERS.md). The development loop: edit the prompts in
  * src/logic/letters/prompts, run this, read the report.
  *
  * Each meeting gets one addition from the human taking part, rotated through humanLines.ts so

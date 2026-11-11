@@ -3,7 +3,7 @@ import path from "node:path";
 import { z } from "zod";
 
 /**
- * The people and institutions a being may write to (see docs/council-letters.md).
+ * The people and institutions a being may write to (see LETTERS.md).
  *
  * The list is curated by hand and lives with the other per-product content in
  * `shared/prompts/letters/*.json`, one or more files concatenated. A product without the

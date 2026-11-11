@@ -7,7 +7,7 @@ import { meterEvents } from "@services/meterEvents.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
- * Records every AI call's raw usage for the footprint meter (docs/ai-footprint-meter.md).
+ * Records every AI call's raw usage for the footprint meter (FOOTPRINT.md).
  *
  * Recording is a side channel: it never throws and callers never await it on the
  * meeting's critical path — a meeting must not stall or fail because usage could

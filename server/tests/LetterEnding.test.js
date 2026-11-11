@@ -4,7 +4,7 @@ import { buildReplayMeetingManifest, buildResumeConversation } from '@api/replay
 import { MockFactory } from './factories/MockFactory.ts';
 
 /**
- * The letter ending (docs/council-letters.md → "The meeting ending"): the chair's closing line
+ * The letter ending (LETTERS.md → "The meeting ending"): the chair's closing line
  * hands over to an author, the author announces the letter, the human is asked to add something,
  * and the letter becomes the summary, read by its author — or, where the installation prints its
  * letters, the chair says farewell and the meeting ends on the credits, with the letter after

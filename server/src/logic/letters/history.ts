@@ -3,7 +3,7 @@ import type { BlockedRecipient, MeetingLetter, OutboxLetter, StoredMeeting } fro
 import type { Recipient } from "./recipients.js";
 
 /**
- * What earlier letters mean for the next one (see docs/council-letters.md): whose turn it is to
+ * What earlier letters mean for the next one (see LETTERS.md): whose turn it is to
  * rest, which forms and asks were used lately, and who may not be written to again.
  *
  * Variety is read from every finished letter, sent or not — they hang side by side either way.

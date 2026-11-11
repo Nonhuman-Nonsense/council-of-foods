@@ -1,6 +1,6 @@
 /**
  * Generates a set of full-length meetings to develop the letters against (see
- * docs/council-letters.md). Text only, with today's topic and being prompts and production
+ * LETTERS.md). Text only, with today's topic and being prompts and production
  * settings, written to the database in .env and tagged so evalLetters.ts can find them.
  *
  * Every meeting runs through the server's real MeetingManager — speaker selection, directed

@@ -11,7 +11,7 @@ import { fetchRepliesToPrint, markReplyPrinted, sendReplyToPrinter } from "./pri
 export const REPLY_POLL_MS = 60_000;
 
 /**
- * Prints the replies to this venue's letters as they come in (docs/council-letters.md →
+ * Prints the replies to this venue's letters as they come in (LETTERS.md →
  * Receiving), whatever the screen shows. One at a time: render it hidden, lay out the PDF,
  * hand it to the bridge, and tell the server it is printed. A reply the bridge refused is not
  * tried again until the page reloads, so a bad one never loops; the bridge prints each at most

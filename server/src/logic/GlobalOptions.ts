@@ -94,7 +94,7 @@ export const GlobalOptionsSchema = z.object({
     autoplayEarliestMeetingDate: z.string(),
     /**
      * How a meeting ends: a protocol read by the chair, or a letter one of the beings sends.
-     * See docs/council-letters.md.
+     * See LETTERS.md.
      */
     meetingEnding: z.enum(["protocol", "letter"]),
     /** Public site the letter footer links a meeting from: `<site>/<lang>/meeting/<id>`. */

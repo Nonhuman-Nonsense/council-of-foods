@@ -2,7 +2,7 @@ import type { GlobalOptions } from "@logic/GlobalOptions.js";
 import { letterPrompts, type FooterParams } from "./prompts/letterPrompts.js";
 
 /**
- * The footer under every letter (see docs/council-letters.md).
+ * The footer under every letter (see LETTERS.md).
  *
  * Not a prompt: the model never writes or sees it. It is appended after the generated letter,
  * so the disclosure cannot be paraphrased away, dropped when a letter runs long, or reworded by

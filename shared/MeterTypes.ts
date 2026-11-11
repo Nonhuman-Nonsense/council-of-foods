@@ -1,7 +1,7 @@
 import type { UsageEvent, UsageMeasures } from "./UsageTypes.js";
 
 /**
- * Protocol between the server and the footprint meter screen (docs/ai-footprint-meter.md).
+ * Protocol between the server and the footprint meter screen (FOOTPRINT.md).
  *
  * The meter loads a snapshot of summed raw usage over HTTP, then adds each usage event the
  * server pushes on the `/meter` socket namespace. Footprints are computed on the screen from

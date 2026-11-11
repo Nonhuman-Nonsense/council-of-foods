@@ -21,6 +21,10 @@ MongoDB, conversation/TTS orchestration), and `button/` (talk-button stack for i
 - [server/README.md](server/README.md) — backend details and test modes (mock/fast/full).
 - [MUSEUM.md](MUSEUM.md) — physical installations: museum kiosks and presented screenings
   (app mode, button bridge, staff setup).
+- [LETTERS.md](LETTERS.md) — meetings that end in a letter a being sends: the ending's steps,
+  outbox, replies, recipients. Read it **before changing the letter ending or its prompts**.
+- [FOOTPRINT.md](FOOTPRINT.md) — the AI footprint meter: what is recorded, how it is
+  estimated, the meter screen and its sources.
 
 The `docs/` folder is for work-in-progress design docs only; durable architecture
 descriptions live in the root docs above.

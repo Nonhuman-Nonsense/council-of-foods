@@ -283,7 +283,7 @@ audio is missing.
 
 ### The letter ending's markers
 
-A meeting that ends in a letter (`meetingEnding: "letter"`, docs/council-letters.md) uses the
+A meeting that ends in a letter (`meetingEnding: "letter"`, LETTERS.md) uses the
 same pattern twice more before `summary_pending`. The closing line is written with
 `letter_pending` (and the chosen author on `meeting.letter`); the loop resolves it
 (`ANNOUNCE_LETTER`, ahead of pause and raised hand like `GENERATE_SUMMARY`) into the author's

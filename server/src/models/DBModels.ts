@@ -18,7 +18,7 @@ export interface StoredMeeting extends BaseMeeting, Document {
     sendsLetters?: boolean;
     /** Whether the installation prints this meeting's letter: then it ends on a farewell and credits. */
     printsLetters?: boolean;
-    /** The letter a meeting ending in one is writing, then wrote. See docs/council-letters.md. */
+    /** The letter a meeting ending in one is writing, then wrote. See LETTERS.md. */
     letter?: MeetingLetter;
 }
 
@@ -52,7 +52,7 @@ export interface MeetingLetter {
 }
 
 /**
- * A letter on its way out (docs/council-letters.md → Outbox): one per meeting, so a letter can
+ * A letter on its way out (LETTERS.md → Outbox): one per meeting, so a letter can
  * never be queued twice. The worker claims it (`sending`) before calling Brevo, so a crash can
  * lose a letter but never send it twice.
  */
@@ -89,7 +89,7 @@ export interface OutboxLetter extends Document {
 }
 
 /**
- * An email that came back to a letter's reply address (docs/council-letters.md → Receiving).
+ * An email that came back to a letter's reply address (LETTERS.md → Receiving).
  * Replies and opt-outs are printed at the letter's venue; automatic replies and spam are kept,
  * never printed.
  */

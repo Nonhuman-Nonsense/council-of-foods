@@ -249,7 +249,7 @@ print here too, as they arrive: the page asks the bridge for new replies to this
 venue's letters once a minute (the bridge asks the council server with the
 installation key, so the key and the venue must be set), prints each once, and
 tells the server. Automatic replies (out of office) are never printed. See
-[docs/council-letters.md](docs/council-letters.md).
+[LETTERS.md](LETTERS.md).
 
 The **Bridge** panel on `#staff` shows the printer, how many protocols are
 waiting, and **Needs attention** with the reason when something is wrong: out of
@@ -364,7 +364,7 @@ The second screen shows what the installation costs:
   display (setup below).
 - **Methodology:** `/meter/methodology`, linked by the QR code on the meter.
 
-Design and estimation method: [docs/ai-footprint-meter.md](docs/ai-footprint-meter.md).
+Design and estimation method: [FOOTPRINT.md](FOOTPRINT.md).
 
 ### Meter screen (second display)
 

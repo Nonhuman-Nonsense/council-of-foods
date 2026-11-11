@@ -104,7 +104,7 @@ function resolveVisibleCouncilOverlay(params: {
 
 /**
  * What the summary overlay shows: the summary, or the credits that an installation printing its
- * letters ends on instead (docs/council-letters.md). The letter after the credits is for replay.
+ * letters ends on instead (LETTERS.md). The letter after the credits is for replay.
  */
 function isMeetingEnd(message: Message | undefined): boolean {
     return message?.type === "summary" || message?.type === "credits";

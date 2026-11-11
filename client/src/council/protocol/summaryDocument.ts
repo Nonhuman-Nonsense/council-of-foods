@@ -3,7 +3,7 @@ import type { LetterView, Message } from "@shared/ModelTypes";
 
 /**
  * The text of the meeting's summary: the chair's protocol as written, or — when the meeting
- * ended in a letter (docs/council-letters.md) — the letter's message, whose header
+ * ended in a letter (LETTERS.md) — the letter's message, whose header
  * `LetterDocument` lays out. On paper a letter is only the letter: `footer: false` leaves out
  * the email's footer and the note that it was not sent.
  */

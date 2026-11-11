@@ -7,7 +7,7 @@ import { meterEvents } from "@services/meterEvents.js";
 import { Logger } from "@utils/Logger.js";
 
 /**
- * The electricity of the room an installation runs in, measured by smart plugs (docs/ai-footprint-meter.md).
+ * The electricity of the room an installation runs in, measured by smart plugs (FOOTPRINT.md).
  * Keeps the latest reading per plug, accumulates energy from each plug's own counter, and
  * keeps each plug's energy per hour in `room_power_hours`. Everything is stored under the
  * venue the plug was at when it reported, so moving plugs never carries energy along.

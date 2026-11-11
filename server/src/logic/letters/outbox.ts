@@ -7,7 +7,7 @@ import { randomBytes } from "node:crypto";
 import { Logger } from "@utils/Logger.js";
 
 /**
- * The outbox (docs/council-letters.md → Outbox): how a finished letter reaches its recipient.
+ * The outbox (LETTERS.md → Outbox): how a finished letter reaches its recipient.
  *
  * The meeting never sends. A worker, on its own clock, does two things:
  *
