@@ -16,6 +16,7 @@ import {
   type HumanDetails,
 } from "./meetingSetup";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { useCorner } from "@main/BottomBar";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
@@ -120,6 +121,7 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
+  const corner = useCorner();
   const { capabilities } = useCouncilSettings();
   const { typedSetup } = capabilities;
   const { t, i18n } = useTranslation();
@@ -489,15 +491,27 @@ function SelectCharacters({
     return null;
   }
 
+  // On a phone the page fills the frame, its characters and Start button down at
+  // the bottom, clear only of what the setup agent's bottom bar shows under them:
+  // the caption strip, or nothing on the smallest screens, where captions are hidden.
+  // Elsewhere it keeps to the middle three quarters.
+  const frameStyle: React.CSSProperties = isMobile
+    ? {
+        alignSelf: "stretch",
+        boxSizing: "border-box",
+        paddingTop: isMobileXs ? "8px" : "24px",
+        paddingBottom: isMobileXs ? `${corner.inset}px` : "45px",
+      }
+    : { height: "75%", marginBottom: "30px" };
+
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "75%",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "30px",
+        ...frameStyle,
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
