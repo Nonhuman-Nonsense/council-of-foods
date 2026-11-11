@@ -1,8 +1,11 @@
 import { type CSSProperties, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import ConversationControlIcon from "@council/ConversationControlIcon";
+import { LiveAudioVisualizer } from "@council/humanInput/LiveAudioVisualizer";
 import RealtimeCaptionOverlay, {
+  RealtimeMicButton,
   type MicButtonState,
+  type RealtimeMicButtonProps,
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
@@ -44,8 +47,10 @@ type SetupAgentOverlayProps = {
 
 /**
  * Setup wizard agent shell: shared realtime captions, plus the two web
- * controls — a mic toggle at the bottom centre (talk to the agent) and a volume
- * toggle in the corner (turn the agent off entirely, tearing down the session).
+ * controls — a hold-to-talk mic button and a volume toggle in the corner (turn
+ * the agent off entirely, tearing down the session). The mic sits at the bottom
+ * centre, except on a phone, where the centre belongs to the page's own buttons
+ * and the mic goes under the volume toggle instead.
  */
 export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
   const {
@@ -86,10 +91,27 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         ? "on"
         : "off";
 
+  const micButton: RealtimeMicButtonProps | undefined =
+    browserUi && onMicPress
+      ? {
+          state: micButtonState,
+          onPress: () => onMicPress(true),
+          onRelease: () => onMicPress(false),
+          label: t("agent.micHold"),
+          hint: showHoldHint ? t("ptt.holdHint") : null,
+        }
+      : undefined;
+  const micInCorner = isMobile && micButton != null;
+  const cornerIconSize = isMobile ? 30 : 40;
+
   const controlContainerStyle: CSSProperties = {
     position: "fixed",
     bottom: "6px",
     left: "5px",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: "6px",
     opacity: 0.7,
     zIndex: z.setupAgent,
     pointerEvents: "auto",
@@ -116,17 +138,8 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         // showing this on the gesture alone is what swallowed the first
         // second of speech into an untethered track.
         micActive={browserUi ? micLive : micRequested}
-        micButton={
-          browserUi && onMicPress
-            ? {
-                state: micButtonState,
-                onPress: () => onMicPress(true),
-                onRelease: () => onMicPress(false),
-                label: t("agent.micHold"),
-                hint: showHoldHint ? t("ptt.holdHint") : null,
-              }
-            : undefined
-        }
+        micButton={micInCorner ? undefined : micButton}
+        hint={micInCorner ? micButton?.hint : null}
       />
 
       {browserUi ? (
@@ -138,9 +151,26 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
               icon={muted ? "volume_off" : "volume_on"}
               tooltip={muted ? t("agent.turnOn") : t("agent.turnOff")}
               onClick={muted ? onStart : onStop}
-              size={isMobile ? 30 : 40}
+              size={cornerIconSize}
             />
           </div>
+          {micInCorner && micButton ? (
+            <div
+              style={{ ...controlSlotStyle, position: "relative" }}
+              data-testid="realtime-mic-button"
+              data-mic-state={micButton.state}
+            >
+              <RealtimeMicButton micButton={micButton} size={cornerIconSize} spinnerSize={cornerIconSize} />
+              {/* Six bars off to the right, short of the caption strip; outside the
+                  flow, so the mic stays lined up under the volume toggle. Only once
+                  audio is flowing, as with the centre row's visualiser. */}
+              {micLive && micStream ? (
+                <div style={{ position: "absolute", left: "100%", marginLeft: "4px" }}>
+                  <LiveAudioVisualizer stream={micStream} width={30} height={cornerIconSize - 4} />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </>

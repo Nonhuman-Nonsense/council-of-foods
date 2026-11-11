@@ -2,7 +2,7 @@ import { type CSSProperties, type ReactElement, useRef } from "react";
 import Lottie from "react-lottie-player";
 import loadingAnimation from "@assets/animations/loading.json";
 import { LiveAudioVisualizerPair } from "@council/humanInput/LiveAudioVisualizer";
-import { useMobile } from "@/utils";
+import { useMobile, useMobileXs } from "@/utils";
 
 import { z } from "@/zIndexLayers";
 import ConversationControlIcon from "@/council/ConversationControlIcon";
@@ -19,6 +19,38 @@ export type RealtimeSubtitleLayout = "council" | "compact";
  */
 export type MicButtonState = "connecting" | "off" | "on";
 
+export type RealtimeMicButtonProps = {
+  state: MicButtonState;
+  onPress: () => void;
+  onRelease: () => void;
+  label?: string;
+  /** Shown above the button for a moment after a click that should have been a hold. */
+  hint?: string | null;
+};
+
+/**
+ * The hold-to-talk button itself: a spinner while connecting, else the mic icon.
+ * The overlay puts it in its centre row; the setup agent puts it in its corner
+ * stack on a phone, where the centre is needed for the page's own buttons.
+ */
+export function RealtimeMicButton({ micButton, size, spinnerSize }: {
+  micButton: RealtimeMicButtonProps;
+  /** Passed on to ConversationControlIcon; unset keeps its own default. */
+  size?: number;
+  spinnerSize: number;
+}): ReactElement {
+  return micButton.state === "connecting" ? (
+    <Lottie play loop animationData={loadingAnimation} style={{ height: spinnerSize }} />
+  ) : (
+    <ConversationControlIcon
+      icon={micButton.state === "on" ? "record_voice_on" : "record_voice_off"}
+      tooltip={micButton.label}
+      hold={{ onPress: micButton.onPress, onRelease: micButton.onRelease }}
+      size={size}
+    />
+  );
+}
+
 export type RealtimeCaptionOverlayProps = {
   lastCaption: string | null;
   lastUserTranscript: string | null;
@@ -31,14 +63,9 @@ export type RealtimeCaptionOverlayProps = {
    * Turns the centre slot into a working hold-to-talk button (web). Left unset in museum,
    * where the hardware button owns the mic and the icon is a pure indicator.
    */
-  micButton?: {
-    state: MicButtonState;
-    onPress: () => void;
-    onRelease: () => void;
-    label?: string;
-    /** Shown above the button for a moment after a click that should have been a hold. */
-    hint?: string | null;
-  };
+  micButton?: RealtimeMicButtonProps;
+  /** A hold hint for a mic button the caller renders somewhere else. */
+  hint?: string | null;
   /** Hide caption text while reconnecting (e.g. language switch). Errors still show. */
   hideCaptions?: boolean;
   /**
@@ -64,17 +91,25 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     micButton,
     hideCaptions = false,
     notice = null,
+    hint = null,
   } = props;
   const isMobile = useMobile();
+  const isMobileXs = useMobileXs();
+  // A phone in landscape has no height to spare under the setup pages: the
+  // compact captions shrink to a low strip, and on the smallest screens they
+  // go altogether (the agent is still heard). The council layout is a screen
+  // of its own and keeps its size.
+  const phoneStrip = isMobile && subtitleLayout === "compact";
+  const captionsHidden = hideCaptions || (phoneStrip && isMobileXs);
 
   const vizLeftHostRef = useRef<HTMLDivElement>(null);
   const vizRightHostRef = useRef<HTMLDivElement>(null);
 
   const agentFontSize = subtitleLayout === "council"
     ? (isMobile ? "18px" : "25px")
-    : (isMobile ? "18px" : "20px");
+    : (isMobile ? "15px" : "20px");
 
-  const userFontSize = isMobile ? "15px" : "18px";
+  const userFontSize = phoneStrip ? "13px" : isMobile ? "15px" : "18px";
 
   const paragraphStyle: CSSProperties = {
     fontFamily: "Arial, sans-serif",
@@ -95,7 +130,8 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     transform: "translateX(-50%)",
     zIndex: z.realtimeCaption,
     pointerEvents: "none",
-    maxWidth: isMobile ? "92%" : "70%",
+    // On a phone, stay clear of the corner controls on both sides.
+    maxWidth: phoneStrip ? "calc(100% - 140px)" : isMobile ? "92%" : "70%",
     width: "100%",
     color: "white",
     boxSizing: "border-box",
@@ -104,8 +140,8 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     alignItems: "center",
   };
 
-  const holdHint = micButton?.hint ?? null;
-  const hasText = Boolean(notice) || Boolean(holdHint) || (!hideCaptions && Boolean(lastUserTranscript || lastCaption));
+  const holdHint = micButton?.hint ?? hint;
+  const hasText = Boolean(notice) || Boolean(holdHint) || (!captionsHidden && Boolean(lastUserTranscript || lastCaption));
 
   const textBlockStyle: CSSProperties = {
     display: "flex",
@@ -113,10 +149,10 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     alignItems: "center",
     justifyContent: "flex-end",
     textAlign: "center",
-    minHeight: isMobile ? "56px" : "64px",
+    minHeight: phoneStrip ? 0 : isMobile ? "56px" : "64px",
     pointerEvents: hasText ? "auto" : "none",
     userSelect: "text",
-    marginBottom: isMobile ? "4px" : "8px",
+    marginBottom: phoneStrip ? "8px" : isMobile ? "4px" : "8px",
   };
 
   const vizSlotSize = isMobile ? 45 : VIZ_SLOT_HEIGHT_PX;
@@ -131,6 +167,8 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
   // An interactive mic button is the affordance for talking at all, so it stays
   // on screen; the museum indicator only appears while the mic is actually live.
   const rowVisible = micButton != null || (showMicRow && micActive);
+  // The phone strip has no row to hold when nothing goes in it.
+  const rowRendered = !(phoneStrip && micButton == null && !showMicRow);
 
   const vizRowStyle: CSSProperties = {
     display: "flex",
@@ -174,7 +212,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
         ) : null}
       </div>
 
-      <div style={vizRowStyle} data-testid="realtime-ptt-viz-row">
+      {rowRendered && <div style={vizRowStyle} data-testid="realtime-ptt-viz-row">
         <div
           ref={vizLeftHostRef}
           style={{ ...vizHostStyle, width: "100px", transform: "scale(-1, -1)" }}
@@ -186,20 +224,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
           data-mic-state={micButton?.state}
         >
           {micButton ? (
-            micButton.state === "connecting" ? (
-              <Lottie
-                play
-                loop
-                animationData={loadingAnimation}
-                style={{ height: vizSlotSize }}
-              />
-            ) : (
-              <ConversationControlIcon
-                icon={micButton.state === "on" ? "record_voice_on" : "record_voice_off"}
-                tooltip={micButton.label}
-                hold={{ onPress: micButton.onPress, onRelease: micButton.onRelease }}
-              />
-            )
+            <RealtimeMicButton micButton={micButton} spinnerSize={vizSlotSize} />
           ) : showMicRow ? (
             <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
           ) : null}
@@ -218,7 +243,7 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
             smoothingTimeConstant={0.85}
           />
         ) : null}
-      </div>
+      </div>}
     </div>
   );
 }
