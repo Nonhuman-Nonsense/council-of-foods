@@ -52,7 +52,7 @@ type SetupAgentOverlayProps = {
  * controls — a hold-to-talk mic button and a volume toggle in the corner (turn
  * the agent off entirely, tearing down the session). The mic sits at the bottom
  * centre, except on a phone, where the centre belongs to the page's own buttons
- * and the mic goes under the volume toggle instead.
+ * and the mic goes beside the volume toggle instead.
  */
 export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement | null {
   const {
@@ -107,6 +107,15 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
   const micInCorner = isMobile && micButton != null;
   const corner = useCorner();
 
+  // One row along the bottom edge, like the fullscreen button opposite: the volume
+  // toggle at the edge, and on a phone the mic beside it with its bars running
+  // towards the middle.
+  const cornerRowStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: corner.inset,
+  };
+
   const micRowStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
@@ -117,7 +126,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
   // overlay over the setup pages), with no controls for a screen it can't use.
   if (isPortrait) return null;
 
-  // Left corner: the volume toggle, and on a phone the mic under it. Centre: the
+  // Left corner: the volume toggle, and on a phone the mic beside it. Centre: the
   // captions (and the mic row on desktop). The right corner stays free for the
   // fullscreen button. Under them, the setup screens' marquee banner.
   return (
@@ -125,7 +134,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
       zIndex={z.setupAgent}
       left={
         browserUi ? (
-          <>
+          <div style={cornerRowStyle}>
             <CornerSlot>
               {/* No spinner here: this is a standing intention, clickable from
                   first paint whatever the session is doing. */}
@@ -148,7 +157,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
                 ) : null}
               </div>
             ) : null}
-          </>
+          </div>
         ) : null
       }
       centre={

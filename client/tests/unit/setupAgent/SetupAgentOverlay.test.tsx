@@ -47,7 +47,7 @@ describe('SetupAgentOverlay', () => {
 
   // A phone's centre belongs to the page's own buttons (Next, the topics), so the
   // mic joins the volume toggle in the corner.
-  it('puts the mic under the volume toggle on a phone, out of the centre row', () => {
+  it('puts the mic beside the volume toggle on a phone, out of the centre row', () => {
     screenSize.mobile = true;
     try {
       render(<SetupAgentOverlay {...baseProps} browserUi showHoldHint />);

@@ -7,8 +7,8 @@ import { useMobile } from "@/utils";
  *
  * - `inset` — distance from the frame's edges, and the gap between stacked icons.
  * - `size` — one corner icon's square.
- * - `width` — what a bottom bar corner reserves. Wider on a phone, where the mic's
- *   visualiser sits beside it, so the centre stays centred.
+ * - `width` — what a bottom bar corner reserves. Wider on a phone, where the mic and
+ *   its visualiser sit beside the volume toggle, so the centre stays centred.
  * - `opacity` — corner controls are dimmed, to stay out of the way of the page.
  */
 export function useCorner() {
@@ -16,7 +16,8 @@ export function useCorner() {
   return {
     inset: 6,
     size: isMobile ? 30 : 40,
-    width: isMobile ? 64 : 40,
+    // Phone: volume, mic and its visualiser side by side (30 + 6 + 30 + 4 + 30).
+    width: isMobile ? 100 : 40,
     opacity: 0.7,
   };
 }
