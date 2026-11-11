@@ -91,7 +91,6 @@ export default defineConfig(async ({ command, mode }) => {
       },
       chunkSizeWarningLimit: 1600,
       assetsInlineLimit: 10240,
-      sourcemap: mode === 'analyze',
     },
   }
 })

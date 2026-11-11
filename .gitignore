@@ -43,3 +43,6 @@ button/bridge/alerts.env
 # Output of the removed letter print-run tool, if a checkout still has it: real letters and
 # visitors' words, never committed
 server/scripts/letters/print-out/
+
+# Written on demand by generate-test-inventory.mjs (see CLAUDE.md)
+test-inventory.md

@@ -11,10 +11,9 @@ MongoDB, conversation/TTS orchestration), and `button/` (talk-button stack for i
   and what to delete. Read this **before adding or modifying tests**. Key rules: test
   behaviors at module boundaries, one behavior per test, table-driven matrices, search for
   existing coverage before adding a file, never assert prompt wording.
-  [test-inventory.md](test-inventory.md) is a regenerable mechanical scan (large files,
-  duplicate test names, coverage gaps) that supports it — a diagnostic tool, not required
-  reading; re-run `node generate-test-inventory.mjs` before a real audit rather than trusting
-  a stale copy.
+  For an audit, `node generate-test-inventory.mjs` writes `test-inventory.md`, a mechanical
+  scan (large files, duplicate test names, coverage gaps) that supports it. It is not committed:
+  a stale copy misleads.
 - **[RESILIENCE.md](RESILIENCE.md)** — how the live client survives socket drops (pending
   intents + reconciler). Read this **before touching any client→server socket action** or
   reconnect/resume logic. New client-driven socket actions must follow this pattern.
