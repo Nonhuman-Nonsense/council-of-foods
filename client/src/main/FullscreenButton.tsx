@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icons } from "@assets/icons";
 import { z } from "@/zIndexLayers";
+import { useMobile } from "@/utils";
 
 /**
  * FullscreenButton Component
@@ -14,6 +15,9 @@ import { z } from "@/zIndexLayers";
  */
 const FullscreenButton = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  // Same size as the setup agent's corner icons on the other side.
+  const isMobile = useMobile();
+  const iconStyle = isMobile ? styles.iconMobile : styles.icon;
 
   const handleFullscreenChange = () => {
     setIsFullscreen(!!document.fullscreenElement);
@@ -79,12 +83,12 @@ const FullscreenButton = () => {
       {isFullscreen ? (
         <Icons.close_fullscreen
           aria-label="Close fullscreen"
-          style={styles.icon}
+          style={iconStyle}
         />
       ) : (
         <Icons.fullscreen
           aria-label="Open fullscreen"
-          style={styles.icon}
+          style={iconStyle}
         />
       )}
     </div>
@@ -101,6 +105,7 @@ const styles: { [key: string]: React.CSSProperties } = {
     pointerEvents: "auto",
   },
   icon: { width: "35px", height: "35px", cursor: "pointer" },
+  iconMobile: { width: "25px", height: "25px", cursor: "pointer" },
 };
 
 export default FullscreenButton;
