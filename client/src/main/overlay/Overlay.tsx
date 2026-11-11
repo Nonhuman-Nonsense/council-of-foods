@@ -26,7 +26,10 @@ function Overlay({ isActive, isBlurred, layer = "route", children }: OverlayProp
 
   const overlayStyle: React.CSSProperties = {
     position: "absolute",
-    minHeight: "100%",
+    // Exactly the frame, never taller: a page that outgrew it would push everything
+    // anchored to its bottom (the bottom bars) off the screen, since `.App` clips it
+    // anyway, and percentage heights in the pages need a definite height to resolve.
+    height: "100%",
     width: "100%",
     display: "flex",
     alignItems: "center",

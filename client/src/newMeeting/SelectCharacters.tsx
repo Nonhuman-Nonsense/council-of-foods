@@ -505,7 +505,8 @@ function SelectCharacters({
         <div
           style={{
             position: "relative",
-            height: isMobile ? (isMobileXs ? "190px" : "240px") : "380px",
+            // The smallest size keeps the whole page within the frame's 300px minimum.
+            height: isMobile ? (isMobileXs ? "165px" : "240px") : "380px",
             width: isMobile ? "587px" : "500px",
             display: "flex",
             flexDirection: "column",
