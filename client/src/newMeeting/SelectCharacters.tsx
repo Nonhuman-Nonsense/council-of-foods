@@ -427,9 +427,18 @@ function SelectCharacters({
     }
   }
 
-  const subInfoStyle: React.CSSProperties = {
-    margin: isMobile ? (isMobileXs ? "0" : "7px") : undefined,
+  // Start, the hints and the spinner take turns in one slot under the characters.
+  // The slot keeps one height and centres whichever is showing, with no margins of
+  // their own, so swapping them never moves the row above.
+  const infoSlotStyle: React.CSSProperties = {
+    height: isMobile ? (isMobileXs ? "26px" : "32px") : "48px",
+    marginTop: isMobileXs ? "2px" : "5px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
   };
+
+  const subInfoStyle: React.CSSProperties = { margin: 0 };
 
   function buttonOrInfo(): React.ReactElement | null {
     if (loading) {
@@ -454,7 +463,7 @@ function SelectCharacters({
           type="button"
           disabled={loading}
           onClick={continueForward}
-          style={{ margin: isMobileXs ? "0" : "8px 0" }}
+          style={{ margin: 0 }}
         >
           {t("app.start")}
         </button>
@@ -482,7 +491,7 @@ function SelectCharacters({
         <button
           onClick={randomizeSelection}
           className="fadein"
-          style={{ margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}
+          style={{ margin: 0, position: "absolute" }}
         >
           {t("meeting.characters.random")}
         </button>
@@ -530,7 +539,7 @@ function SelectCharacters({
           {infoToShow()}
         </div>
       </div>
-      <div style={{ height: isMobile ? "93px" : "110px" }}>
+      <div>
         <div style={{ display: "flex", alignItems: "center" }}>
           {characters.map((character) => (
             <CharacterButton
@@ -557,9 +566,7 @@ function SelectCharacters({
           )}
         </div>
         {capabilities.browserUi ? (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
-            {buttonOrInfo()}
-          </div>
+          <div style={infoSlotStyle}>{buttonOrInfo()}</div>
         ) : null}
       </div>
       <MediaPreloader
