@@ -82,6 +82,7 @@ function renderLanding(setLastUserEvent: (event: MeetingSetupUserEvent | null) =
                 <Route element={<Outlet context={{ setLastUserEvent }} />}>
                     <Route path="/" element={<Landing />} />
                 </Route>
+                <Route path="/en/new" element={<div data-testid="new-meeting-page" />} />
             </Routes>
         </MemoryRouter>
     );
@@ -116,11 +117,10 @@ describe('Landing', () => {
         expect(screen.queryByText('landing.go')).not.toBeInTheDocument();
     });
 
-    it('Go link points at newMeetingPath', () => {
+    it('Go button navigates to newMeetingPath', () => {
         renderLanding();
-        const link = screen.getByTestId('landing-go');
-        expect(link).toHaveAttribute('href', '/en/new');
-        fireEvent.click(link);
+        fireEvent.click(screen.getByTestId('landing-go'));
+        expect(screen.getByTestId('new-meeting-page')).toBeInTheDocument();
     });
 
     it('reports leaving the welcome screen so the agent can follow along', () => {

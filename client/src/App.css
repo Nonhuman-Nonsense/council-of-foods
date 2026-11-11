@@ -123,8 +123,7 @@ textarea.unfocused:focus {
   outline-offset: 3px;
 }
 
-button,
-a.button {
+button {
   font-family: "Tinos", serif;
   font-style: normal;
   font-size: 25px;
@@ -136,17 +135,14 @@ a.button {
   padding: 0px 16px 0px 16px;
   cursor: pointer;
   user-select: none;
-  text-decoration: none;
 }
 
-button:hover:not(.control),
-a.button:hover {
+button:hover:not(.control) {
   background-color: white;
   color: rgba(0, 0, 0, 0.9);
 }
 
-button.selected,
-a.button.selected {
+button.selected {
   background-color: white;
   color: rgba(0, 0, 0, 0.9);
 }
