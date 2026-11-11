@@ -61,7 +61,7 @@
     "jsdom": "^31.0.0",
     "sharp": "^0.35.5",
     "typescript-eslint": "^8.72.1",
-    "vite-plugin-checker": "^0.14.5",
+    "vite-plugin-checker": "^1.0.0",
     "vitest": "^5.0.5"
   }
 }
