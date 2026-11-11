@@ -532,7 +532,7 @@ function SelectCharacters({
   // On a phone the page fills the frame, its characters and Start button down at
   // the bottom, clear only of what the setup agent's bottom bar shows under them:
   // the caption strip, or nothing on the smallest screens, where captions are hidden.
-  // Elsewhere it keeps to the middle three quarters.
+  // Elsewhere it is as tall as its content, centred in the frame.
   const frameStyle: React.CSSProperties = isMobile
     ? {
         alignSelf: "stretch",
@@ -540,7 +540,7 @@ function SelectCharacters({
         paddingTop: isMobileXs ? "8px" : "24px",
         paddingBottom: isMobileXs ? `${corner.inset}px` : "45px",
       }
-    : { height: "75%", marginBottom: "30px" };
+    : { marginBottom: "30px" };
 
   return (
     <div
@@ -618,9 +618,9 @@ function SelectCharacters({
           )}
           </div>
         </div>
-        {capabilities.browserUi ? (
-          <div style={infoSlotStyle}>{buttonOrInfo()}</div>
-        ) : null}
+        {/* Rendered on installations too, empty: the page is centred, so the slot's
+            space keeps it at the same height with or without on-screen buttons. */}
+        <div style={infoSlotStyle}>{capabilities.browserUi ? buttonOrInfo() : null}</div>
       </div>
       <MediaPreloader
         foodIds={selectedCharacters.filter(
