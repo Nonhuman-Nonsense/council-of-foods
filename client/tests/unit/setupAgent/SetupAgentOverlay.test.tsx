@@ -3,11 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import SetupAgentOverlay from '@setupAgent/SetupAgentOverlay';
 import '@testing-library/jest-dom';
 
-const screenSize = vi.hoisted(() => ({ mobile: false }));
+const screenSize = vi.hoisted(() => ({ mobile: false, portrait: false }));
 
 vi.mock('@/utils', () => ({
   useMobile: () => screenSize.mobile,
   useMobileXs: () => false,
+  usePortrait: () => screenSize.portrait,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -73,6 +74,22 @@ describe('SetupAgentOverlay', () => {
       expect(screen.queryByTestId('live-audio-viz')).not.toBeInTheDocument();
     } finally {
       screenSize.mobile = false;
+    }
+  });
+
+  // Upright, the phone shows only the rotate prompt; controls over it would be
+  // for a screen the visitor can't use yet.
+  it('shows no controls or captions on a phone held upright', () => {
+    screenSize.mobile = true;
+    screenSize.portrait = true;
+    try {
+      render(<SetupAgentOverlay {...baseProps} browserUi lastCaption="Hello" />);
+      expect(screen.queryByTestId('icon-volume_on')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('realtime-mic-button')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('agent-caption')).not.toBeInTheDocument();
+    } finally {
+      screenSize.mobile = false;
+      screenSize.portrait = false;
     }
   });
 

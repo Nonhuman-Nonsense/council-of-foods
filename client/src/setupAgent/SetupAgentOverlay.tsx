@@ -8,7 +8,7 @@ import RealtimeCaptionOverlay, {
   type RealtimeMicButtonProps,
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
-import { useMobile } from "@/utils";
+import { useMobile, usePortrait } from "@/utils";
 import { z } from "@/zIndexLayers";
 import BottomBar, { CornerSlot, useCorner } from "@main/BottomBar";
 import ButtonBanner from "@museum/button/ButtonBanner";
@@ -54,7 +54,7 @@ type SetupAgentOverlayProps = {
  * centre, except on a phone, where the centre belongs to the page's own buttons
  * and the mic goes under the volume toggle instead.
  */
-export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
+export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement | null {
   const {
     isConnecting,
     lastCaption,
@@ -73,6 +73,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     onStop,
   } = props;
   const isMobile = useMobile();
+  const isPortrait = usePortrait();
   const { t } = useTranslation();
 
   // The one thing SetupAgentOverlay adds on top of what it's told: whether
@@ -111,6 +112,10 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     alignItems: "center",
     gap: "4px",
   };
+
+  // A phone held upright gets only the rotate prompt (the landing's own, or the
+  // overlay over the setup pages), with no controls for a screen it can't use.
+  if (isPortrait) return null;
 
   // Left corner: the volume toggle, and on a phone the mic under it. Centre: the
   // captions (and the mic row on desktop). The right corner stays free for the
