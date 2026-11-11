@@ -607,7 +607,7 @@ cd button/bridge && npm i && npm run dev:mock   # or npm run dev
 Open the dev URL at `/#staff`, set **Museum** (or **Presenter**) +
 **Hardware button**. With **Print summaries** on, the mock bridge "prints" into
 `button/bridge/.print-spool/mock-printed/`. See
-[button/bridge/README.md](button/bridge/README.md#printing). Playwright e2e: `cd client && npm run e2e` (starts mock bridge).
+[button/bridge/README.md](button/bridge/README.md#printing).
 
 ---
 

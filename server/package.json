@@ -12,7 +12,6 @@
   "scripts": {
     "start": "node dist/server/server.js",
     "build": "node node_modules/@typescript/native/bin/tsc && tsc-alias",
-    "e2e-server": "cross-env NODE_ENV=test tsx server.ts",
     "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec \"node node_modules/@typescript/native/bin/tsc --noEmit && tsx server.ts\"",
     "proto": "cross-env NODE_ENV=prototype node dist/server/server.js",
     "protodev": "cross-env NODE_ENV=prototype nodemon --exec \"node node_modules/@typescript/native/bin/tsc --noEmit && tsx server.ts\"",

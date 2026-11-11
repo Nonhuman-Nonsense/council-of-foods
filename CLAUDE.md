@@ -51,8 +51,7 @@ they can switch on beats a screenshot — and say when it is ready to test.
 
 - Server: `cd server && npm test` (type-check + all tests, mocked APIs);
   `npm run test:unit` / `test:integration` for the split; `npm run dev` to run.
-- Client: `cd client && npm test` (type-check + all tests); `npm run e2e` (Playwright — needs
-  `npm run e2e-server` running in `server/`); `npm run dev` to run.
+- Client: `cd client && npm test` (type-check + all tests); `npm run dev` to run.
 - Lint either side with `npm run lint`.
 - Read an installation's stored browser log (stored whenever #staff → Logging is on):
   `cd server && npm run logs -- --venue <id> --unanswered --since 24h`, then `--setup <id>`.

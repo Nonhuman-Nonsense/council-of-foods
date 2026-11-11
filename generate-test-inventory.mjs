@@ -19,7 +19,7 @@ function walk(dir, out = []) {
   for (const e of readdirSync(dir)) {
     const p = join(dir, e);
     if (statSync(p).isDirectory()) {
-      if (e === 'node_modules' || e === 'playwright-report' || e === 'test-results') continue;
+      if (e === 'node_modules') continue;
       walk(p, out);
     } else if (/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(e)) out.push(p);
   }
@@ -113,8 +113,8 @@ before a major refactor or when the suite feels like it's drifted, not on a fixe
 **Totals:** ${rows.length} test files, ~${rows.reduce((a, r) => a + r.cases, 0)} cases
 (client ${clientRows.length} files / ${clientRows.reduce((a, r) => a + r.cases, 0)} cases, server ${serverRows.length} files / ${serverRows.reduce((a, r) => a + r.cases, 0)} cases).
 
-Columns: **ms** = wall time for the file in the profiling run (blank if no report; Playwright
-e2e specs always run outside vitest). **asserts/case** = expect() calls per test — very low
+Columns: **ms** = wall time for the file in the profiling run (blank if no report).
+**asserts/case** = expect() calls per test — very low
 values can flag weak tests, very high values flag multi-behavior tests. **churn** = commits
 touching the file in the last 6 months (high churn = high-maintenance).
 

@@ -30,10 +30,6 @@ Runs tests against the **Real OpenAI API** using production settings.
 npm run test:full
 ```
 
-## E2E Testing
-End-to-End tests are located in the client directory but rely on the server running in test mode.
-The `npm run e2e-server` script launches the server using `test-options.json`.
-
 ## Email and installations
 Email goes through Brevo's transactional API (`MailService`), from `COUNCIL_MAIL_FROM`. The sender name ("Council of Foods") also titles the emails. Without `COUNCIL_BREVO_API_KEY` and `COUNCIL_MAIL_FROM`, nothing is emailed.
 

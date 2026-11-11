@@ -26,7 +26,6 @@ export default tseslint.config(
     ignores: [
       'dist/**',
       'node_modules/**',
-      'playwright-report/**',
       'coverage/**',
       // Generated font bundles
       'src/Tinos.ts',
@@ -83,7 +82,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['playwright.config.ts', 'scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs'],
     languageOptions: {
       globals: globals.node,
     },
