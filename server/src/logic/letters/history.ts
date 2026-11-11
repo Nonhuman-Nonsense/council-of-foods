@@ -13,7 +13,7 @@ import type { Recipient } from "./recipients.js";
  */
 
 /** Earlier letters read back for variety: enough for the author rest, the form cycle and the asks shown. */
-export const RECENT_LETTERS = 12;
+const RECENT_LETTERS = 12;
 /** An institution takes at most one sent letter a day; a person exactly one, ever. */
 const INSTITUTION_REST_MS = 24 * 60 * 60 * 1000;
 
