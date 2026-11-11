@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Icons } from "@assets/icons";
 import { z } from "@/zIndexLayers";
-import { useMobile } from "@/utils";
+import { useCorner } from "./BottomBar";
 
 /**
  * FullscreenButton Component
@@ -15,9 +15,7 @@ import { useMobile } from "@/utils";
  */
 const FullscreenButton = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
-  // Same size as the setup agent's corner icons on the other side.
-  const isMobile = useMobile();
-  const iconStyle = isMobile ? styles.iconMobile : styles.icon;
+  const corner = useCorner();
 
   const handleFullscreenChange = () => {
     setIsFullscreen(!!document.fullscreenElement);
@@ -75,10 +73,28 @@ const FullscreenButton = () => {
     }
   };
 
+  const iconStyle = { width: corner.size - 5, height: corner.size - 5 };
+
   return (
+    // Absolute in the frame, not fixed to the window, and placed from the same
+    // corner as the bottom bar's: below the frame's minimum height it stays in
+    // the frame's corner instead of riding up with the window.
     <div
       onClick={toggleFullscreen}
-      style={styles.container}
+      style={{
+        position: "absolute",
+        right: corner.inset,
+        bottom: corner.inset,
+        width: corner.size,
+        height: corner.size,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        opacity: corner.opacity,
+        zIndex: z.fullscreenButton,
+        pointerEvents: "auto",
+      }}
     >
       {isFullscreen ? (
         <Icons.close_fullscreen
@@ -95,17 +111,5 @@ const FullscreenButton = () => {
   );
 };
 
-const styles: { [key: string]: React.CSSProperties } = {
-  container: {
-    position: "fixed",
-    bottom: "6px",
-    right: "10px",
-    opacity: 0.7,
-    zIndex: z.fullscreenButton,
-    pointerEvents: "auto",
-  },
-  icon: { width: "35px", height: "35px", cursor: "pointer" },
-  iconMobile: { width: "25px", height: "25px", cursor: "pointer" },
-};
 
 export default FullscreenButton;

@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import type { TranslationKey } from "@/i18n";
@@ -11,16 +11,23 @@ import { useRouting } from "@/navigation";
 const BUTTON_BANNER_SEGMENT_COUNT = 14;
 const REPLAY_BANNER_SEGMENT_COUNT = 3;
 
-interface ButtonBannerProps {
-  /** When true, flows inside the council footer flex instead of fixed viewport bottom. */
-  inline?: boolean;
-}
+/** Fills the bottom bar's full-width banner row. */
+const wrapperStyle: CSSProperties = {
+  width: "100%",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  overflow: "visible",
+  pointerEvents: "none",
+  flexShrink: 0,
+};
 
 /**
  * Bottom marquee banner. Visibility and content are driven by `useButtonBanner`
- * consumers via `buttonStore`.
+ * consumers via `buttonStore`. Goes in a BottomBar's `banner` row — the setup
+ * agent's on the setup screens, the meeting footer's in a meeting.
  */
-export default function ButtonBanner({ inline = false }: ButtonBannerProps): ReactElement | null {
+export default function ButtonBanner(): ReactElement | null {
   const activeButtonBanner = useButtonStore((state) => state.activeButtonBanner);
   const buttonOwner = useButtonStore((state) => state.buttonOwner);
   const bannerMessageKey = useButtonStore((state) =>
@@ -31,8 +38,6 @@ export default function ButtonBanner({ inline = false }: ButtonBannerProps): Rea
   );
   const { t } = useTranslation();
   const { rootPath } = useRouting();
-
-  const wrapperClass = inline ? "council-shell__banner" : "bottom-ui-banner-anchor";
 
   if (!activeButtonBanner) {
     return null;
@@ -56,7 +61,7 @@ export default function ButtonBanner({ inline = false }: ButtonBannerProps): Rea
     );
 
     return (
-      <div className={wrapperClass}>
+      <div style={wrapperStyle}>
         <MarqueeRollingBanner
           visible={activeButtonBanner}
           isPaused={bannerContent.isPaused}
@@ -77,7 +82,7 @@ export default function ButtonBanner({ inline = false }: ButtonBannerProps): Rea
   const message = t(messageKey);
 
   return (
-    <div className={wrapperClass}>
+    <div style={wrapperStyle}>
       <MarqueeRollingBanner
         visible={activeButtonBanner}
         segmentCount={BUTTON_BANNER_SEGMENT_COUNT}

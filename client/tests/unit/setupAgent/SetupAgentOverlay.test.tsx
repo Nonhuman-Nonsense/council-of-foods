@@ -16,6 +16,9 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+// The banner has its own tests; here it only fills the bar's banner row.
+vi.mock('@museum/button/ButtonBanner', () => ({ default: () => null }));
+
 vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
   LiveAudioVisualizerPair: () => <div data-testid="live-audio-viz" />,
   LiveAudioVisualizer: () => <div data-testid="live-audio-viz-single" />,

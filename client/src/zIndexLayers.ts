@@ -30,8 +30,6 @@ export const z = {
   navbar: 10,
   councilControlsRaised: 10,
   fullscreenButton: 10,
-  /** Fixed bottom banners (replay marquee, PTT hint). */
-  bottomBanner: 11,
   overlayCloseButton: 20,
   /** Blocking modals: autoplay warning, council error, reconnecting. */
   systemOverlay: 20,

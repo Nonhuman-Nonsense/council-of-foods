@@ -10,6 +10,8 @@ import RealtimeCaptionOverlay, {
 } from "@realtime/RealtimeCaptionOverlay";
 import { useMobile } from "@/utils";
 import { z } from "@/zIndexLayers";
+import BottomBar, { CornerSlot, useCorner } from "@main/BottomBar";
+import ButtonBanner from "@museum/button/ButtonBanner";
 
 type SetupAgentOverlayProps = {
   isConnecting: boolean;
@@ -102,77 +104,66 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         }
       : undefined;
   const micInCorner = isMobile && micButton != null;
-  const cornerIconSize = isMobile ? 30 : 40;
+  const corner = useCorner();
 
-  const controlContainerStyle: CSSProperties = {
-    position: "fixed",
-    bottom: "6px",
-    left: "5px",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: "6px",
-    opacity: 0.7,
-    zIndex: z.setupAgent,
-    pointerEvents: "auto",
-  };
-
-  const controlSlotStyle: CSSProperties = {
+  const micRowStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    overflow: "visible",
+    gap: "4px",
   };
 
+  // Left corner: the volume toggle, and on a phone the mic under it. Centre: the
+  // captions (and the mic row on desktop). The right corner stays free for the
+  // fullscreen button. Under them, the setup screens' marquee banner.
   return (
-    <>
-      <RealtimeCaptionOverlay
-        lastCaption={lastCaption}
-        lastUserTranscript={lastUserTranscript}
-        hideCaptions={isConnecting || muted}
-        notice={notice}
-        subtitleLayout={subtitleLayout}
-        showMicRow={showMicRow}
-        micStream={micStream}
-        // Web: wait for audio to actually be flowing, not just requested —
-        // showing this on the gesture alone is what swallowed the first
-        // second of speech into an untethered track.
-        micActive={browserUi ? micLive : micRequested}
-        micButton={micInCorner ? undefined : micButton}
-        hint={micInCorner ? micButton?.hint : null}
-      />
-
-      {browserUi ? (
-        <div style={controlContainerStyle}>
-          <div style={controlSlotStyle}>
-            {/* No spinner here: this is a standing intention, clickable from
-                first paint whatever the session is doing. */}
-            <ConversationControlIcon
-              icon={muted ? "volume_off" : "volume_on"}
-              tooltip={muted ? t("agent.turnOn") : t("agent.turnOff")}
-              onClick={muted ? onStart : onStop}
-              size={cornerIconSize}
-            />
-          </div>
-          {micInCorner && micButton ? (
-            <div
-              style={{ ...controlSlotStyle, position: "relative" }}
-              data-testid="realtime-mic-button"
-              data-mic-state={micButton.state}
-            >
-              <RealtimeMicButton micButton={micButton} size={cornerIconSize} spinnerSize={cornerIconSize} />
-              {/* Six bars off to the right, short of the caption strip; outside the
-                  flow, so the mic stays lined up under the volume toggle. Only once
-                  audio is flowing, as with the centre row's visualiser. */}
-              {micLive && micStream ? (
-                <div style={{ position: "absolute", left: "100%", marginLeft: "4px" }}>
-                  <LiveAudioVisualizer stream={micStream} width={30} height={cornerIconSize - 4} />
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
-    </>
+    <BottomBar
+      zIndex={z.setupAgent}
+      left={
+        browserUi ? (
+          <>
+            <CornerSlot>
+              {/* No spinner here: this is a standing intention, clickable from
+                  first paint whatever the session is doing. */}
+              <ConversationControlIcon
+                icon={muted ? "volume_off" : "volume_on"}
+                tooltip={muted ? t("agent.turnOn") : t("agent.turnOff")}
+                onClick={muted ? onStart : onStop}
+                size={corner.size}
+              />
+            </CornerSlot>
+            {micInCorner && micButton ? (
+              <div style={micRowStyle} data-testid="realtime-mic-button" data-mic-state={micButton.state}>
+                <CornerSlot>
+                  <RealtimeMicButton micButton={micButton} size={corner.size} spinnerSize={corner.size} />
+                </CornerSlot>
+                {/* One side of the visualiser, inside the corner's reserved width.
+                    Only once audio is flowing, as with the centre row's. */}
+                {micLive && micStream ? (
+                  <LiveAudioVisualizer stream={micStream} width={30} height={corner.size - 4} />
+                ) : null}
+              </div>
+            ) : null}
+          </>
+        ) : null
+      }
+      centre={
+        <RealtimeCaptionOverlay
+          lastCaption={lastCaption}
+          lastUserTranscript={lastUserTranscript}
+          hideCaptions={isConnecting || muted}
+          notice={notice}
+          subtitleLayout={subtitleLayout}
+          showMicRow={showMicRow}
+          micStream={micStream}
+          // Web: wait for audio to actually be flowing, not just requested —
+          // showing this on the gesture alone is what swallowed the first
+          // second of speech into an untethered track.
+          micActive={browserUi ? micLive : micRequested}
+          micButton={micInCorner ? undefined : micButton}
+          hint={micInCorner ? micButton?.hint : null}
+        />
+      }
+      banner={<ButtonBanner />}
+    />
   );
 }

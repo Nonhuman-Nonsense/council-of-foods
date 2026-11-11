@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useButton } from "@museum/button/useButton";
 import { useButtonBanner } from "@museum/button/useButtonBanner";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
+import { z } from "@/zIndexLayers";
+import BottomBar from "@main/BottomBar";
 import RisingMic from "@council/humanInput/RisingMic";
 import Loading from "@main/Loading";
 import { BUSY_NOTICE_DELAY_MS } from "@main/overlay/Reconnecting";
@@ -425,14 +427,19 @@ export default function MeetingMetaAgent({
     <>
       {showExtensionLoader && <Loading />}
       {showMic && <RisingMic />}
-      <RealtimeCaptionOverlay
-        notice={showBusyNotice ? t("error.busyRetrying") : null}
-        lastCaption={lastCaption}
-        lastUserTranscript={lastUserTranscript}
-        subtitleLayout="council"
-        showMicRow
-        micStream={micStream}
-        micActive={button.pressed}
+      <BottomBar
+        zIndex={z.realtimeCaption}
+        centre={
+          <RealtimeCaptionOverlay
+            notice={showBusyNotice ? t("error.busyRetrying") : null}
+            lastCaption={lastCaption}
+            lastUserTranscript={lastUserTranscript}
+            subtitleLayout="council"
+            showMicRow
+            micStream={micStream}
+            micActive={button.pressed}
+          />
+        }
       />
     </>
   );

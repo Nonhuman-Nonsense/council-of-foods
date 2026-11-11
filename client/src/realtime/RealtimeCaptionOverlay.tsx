@@ -4,7 +4,6 @@ import loadingAnimation from "@assets/animations/loading.json";
 import { LiveAudioVisualizerPair } from "@council/humanInput/LiveAudioVisualizer";
 import { useMobile, useMobileXs } from "@/utils";
 
-import { z } from "@/zIndexLayers";
 import ConversationControlIcon from "@/council/ConversationControlIcon";
 
 /** Matches HumanInput center viz slot height (desktop). */
@@ -40,7 +39,7 @@ export function RealtimeMicButton({ micButton, size, spinnerSize }: {
   spinnerSize: number;
 }): ReactElement {
   return micButton.state === "connecting" ? (
-    <Lottie play loop animationData={loadingAnimation} style={{ height: spinnerSize }} />
+    <Lottie play loop animationData={loadingAnimation} style={{ width: spinnerSize, height: spinnerSize }} />
   ) : (
     <ConversationControlIcon
       icon={micButton.state === "on" ? "record_voice_on" : "record_voice_off"}
@@ -123,15 +122,11 @@ export default function RealtimeCaptionOverlay(props: RealtimeCaptionOverlayProp
     opacity: 0.85,
   };
 
+  // A column; the caller places it, in the centre of a BottomBar.
   const captionContainerStyle: CSSProperties = {
-    position: "fixed",
-    left: "50%",
-    bottom: 0,
-    transform: "translateX(-50%)",
-    zIndex: z.realtimeCaption,
     pointerEvents: "none",
-    // On a phone, stay clear of the corner controls on both sides.
-    maxWidth: phoneStrip ? "calc(100% - 140px)" : isMobile ? "92%" : "70%",
+    // The phone strip already sits between the corners, so it can use all of it.
+    maxWidth: phoneStrip ? "100%" : isMobile ? "92%" : "70%",
     width: "100%",
     color: "white",
     boxSizing: "border-box",
