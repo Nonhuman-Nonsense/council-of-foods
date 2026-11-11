@@ -29,7 +29,7 @@ import { findVenue, resolveVenueId } from "@utils/venues.js";
 import { latestOpenSetup } from "./realtimeUsage.js";
 
 /**
- * The footprint meter screen (docs/ai-footprint-meter.md): a snapshot over HTTP, then every
+ * The footprint meter screen (FOOTPRINT.md): a snapshot over HTTP, then every
  * recorded usage pushed live on the `/meter` namespace. Usage totals are not sensitive, so
  * neither needs authentication.
  */

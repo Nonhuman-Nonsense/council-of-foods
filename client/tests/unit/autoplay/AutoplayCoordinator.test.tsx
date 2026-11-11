@@ -5,6 +5,7 @@ import type { ComponentProps, ReactNode } from "react";
 import { MemoryRouter } from "react-router";
 import AutoplayCoordinator from "@/autoplay/AutoplayCoordinator";
 import { buildLanguagePath } from "@/navigation";
+import { getRoomAudio, setRoomAudio } from "@/settings/roomAudio";
 import routes from "@/routes.json";
 import { capabilitiesFor } from "@/settings/capabilities";
 import {
@@ -222,6 +223,18 @@ describe("AutoplayCoordinator setup-entry idle", () => {
       { replace: true },
     );
     expect(useAutoplayStore.getState().meetingGeneration).toBe(1);
+  });
+
+  it("puts an abandoned visit's room audio back in the headphones", async () => {
+    setRoomAudio(true);
+    renderCoordinator();
+
+    await advanceIdlePastThreshold();
+    await act(async () => {
+      screen.getByText("autoplay.stillThere.confirm").click();
+    });
+
+    expect(getRoomAudio()).toBe(false);
   });
 
   it("surfaces autoplay fetch failure via unrecoverable error", async () => {

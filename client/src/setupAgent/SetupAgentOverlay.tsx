@@ -1,12 +1,17 @@
 import { type CSSProperties, type ReactElement } from "react";
 import { useTranslation } from "react-i18next";
 import ConversationControlIcon from "@council/ConversationControlIcon";
+import { LiveAudioVisualizer } from "@council/humanInput/LiveAudioVisualizer";
 import RealtimeCaptionOverlay, {
+  RealtimeMicButton,
   type MicButtonState,
+  type RealtimeMicButtonProps,
   type RealtimeSubtitleLayout,
 } from "@realtime/RealtimeCaptionOverlay";
-import { useMobile } from "@/utils";
+import { useMobile, usePortrait } from "@/utils";
 import { z } from "@/zIndexLayers";
+import BottomBar, { CornerSlot, useCorner } from "@main/BottomBar";
+import ButtonBanner from "@museum/button/ButtonBanner";
 
 type SetupAgentOverlayProps = {
   isConnecting: boolean;
@@ -44,10 +49,12 @@ type SetupAgentOverlayProps = {
 
 /**
  * Setup wizard agent shell: shared realtime captions, plus the two web
- * controls — a mic toggle at the bottom centre (talk to the agent) and a volume
- * toggle in the corner (turn the agent off entirely, tearing down the session).
+ * controls — a hold-to-talk mic button and a volume toggle in the corner (turn
+ * the agent off entirely, tearing down the session). The mic sits at the bottom
+ * centre, except on a phone, where the centre belongs to the page's own buttons
+ * and the mic goes beside the volume toggle instead.
  */
-export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement {
+export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactElement | null {
   const {
     isConnecting,
     lastCaption,
@@ -66,6 +73,7 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
     onStop,
   } = props;
   const isMobile = useMobile();
+  const isPortrait = usePortrait();
   const { t } = useTranslation();
 
   // The one thing SetupAgentOverlay adds on top of what it's told: whether
@@ -86,63 +94,90 @@ export default function SetupAgentOverlay(props: SetupAgentOverlayProps): ReactE
         ? "on"
         : "off";
 
-  const controlContainerStyle: CSSProperties = {
-    position: "fixed",
-    bottom: "6px",
-    left: "5px",
-    opacity: 0.7,
-    zIndex: z.setupAgent,
-    pointerEvents: "auto",
-  };
+  const micButton: RealtimeMicButtonProps | undefined =
+    browserUi && onMicPress
+      ? {
+          state: micButtonState,
+          onPress: () => onMicPress(true),
+          onRelease: () => onMicPress(false),
+          label: t("agent.micHold"),
+          hint: showHoldHint ? t("ptt.holdHint") : null,
+        }
+      : undefined;
+  const micInCorner = isMobile && micButton != null;
+  const corner = useCorner();
 
-  const controlSlotStyle: CSSProperties = {
+  // One row along the bottom edge, like the fullscreen button opposite: the volume
+  // toggle at the edge, and on a phone the mic beside it with its bars running
+  // towards the middle.
+  const cornerRowStyle: CSSProperties = {
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    overflow: "visible",
+    gap: corner.inset,
   };
 
-  return (
-    <>
-      <RealtimeCaptionOverlay
-        lastCaption={lastCaption}
-        lastUserTranscript={lastUserTranscript}
-        hideCaptions={isConnecting || muted}
-        notice={notice}
-        subtitleLayout={subtitleLayout}
-        showMicRow={showMicRow}
-        micStream={micStream}
-        // Web: wait for audio to actually be flowing, not just requested —
-        // showing this on the gesture alone is what swallowed the first
-        // second of speech into an untethered track.
-        micActive={browserUi ? micLive : micRequested}
-        micButton={
-          browserUi && onMicPress
-            ? {
-                state: micButtonState,
-                onPress: () => onMicPress(true),
-                onRelease: () => onMicPress(false),
-                label: t("agent.micHold"),
-                hint: showHoldHint ? t("ptt.holdHint") : null,
-              }
-            : undefined
-        }
-      />
+  const micRowStyle: CSSProperties = {
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+  };
 
-      {browserUi ? (
-        <div style={controlContainerStyle}>
-          <div style={controlSlotStyle}>
-            {/* No spinner here: this is a standing intention, clickable from
-                first paint whatever the session is doing. */}
-            <ConversationControlIcon
-              icon={muted ? "volume_off" : "volume_on"}
-              tooltip={muted ? t("agent.turnOn") : t("agent.turnOff")}
-              onClick={muted ? onStart : onStop}
-              size={isMobile ? 30 : 40}
-            />
+  // A phone held upright gets only the rotate prompt (the landing's own, or the
+  // overlay over the setup pages), with no controls for a screen it can't use.
+  if (isPortrait) return null;
+
+  // Left corner: the volume toggle, and on a phone the mic beside it. Centre: the
+  // captions (and the mic row on desktop). The right corner stays free for the
+  // fullscreen button. Under them, the setup screens' marquee banner.
+  return (
+    <BottomBar
+      zIndex={z.setupAgent}
+      left={
+        browserUi ? (
+          <div style={cornerRowStyle}>
+            <CornerSlot>
+              {/* No spinner here: this is a standing intention, clickable from
+                  first paint whatever the session is doing. */}
+              <ConversationControlIcon
+                icon={muted ? "volume_off" : "volume_on"}
+                tooltip={muted ? t("agent.turnOn") : t("agent.turnOff")}
+                onClick={muted ? onStart : onStop}
+                size={corner.size}
+              />
+            </CornerSlot>
+            {micInCorner && micButton ? (
+              <div style={micRowStyle} data-testid="realtime-mic-button" data-mic-state={micButton.state}>
+                <CornerSlot>
+                  <RealtimeMicButton micButton={micButton} size={corner.size} spinnerSize={corner.size} />
+                </CornerSlot>
+                {/* One side of the visualiser, inside the corner's reserved width.
+                    Only once audio is flowing, as with the centre row's. */}
+                {micLive && micStream ? (
+                  <LiveAudioVisualizer stream={micStream} width={30} height={corner.size - 4} />
+                ) : null}
+              </div>
+            ) : null}
           </div>
-        </div>
-      ) : null}
-    </>
+        ) : null
+      }
+      centre={
+        <RealtimeCaptionOverlay
+          lastCaption={lastCaption}
+          lastUserTranscript={lastUserTranscript}
+          hideCaptions={isConnecting || muted}
+          notice={notice}
+          subtitleLayout={subtitleLayout}
+          showMicRow={showMicRow}
+          micStream={micStream}
+          // Web: wait for audio to actually be flowing, not just requested —
+          // showing this on the gesture alone is what swallowed the first
+          // second of speech into an untethered track.
+          micActive={browserUi ? micLive : micRequested}
+          micButton={micInCorner ? undefined : micButton}
+          hint={micInCorner ? micButton?.hint : null}
+        />
+      }
+      banner={<ButtonBanner />}
+    />
   );
 }

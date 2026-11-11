@@ -22,6 +22,7 @@ import type { ParticipationPhase } from "./participationPhase";
 import { useButton } from "@/museum/button/useButton";
 import { useButtonBanner } from "@/museum/button/useButtonBanner";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import BottomBar from "@main/BottomBar";
 
 const MAX_INPUT_LENGTH = 10000;
 const FINISHING_QUIET_MS = 2000;
@@ -980,14 +981,6 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
   // During warm phase: connected silently, no UI.
   if (phase !== "active") return null;
 
-  const wrapperStyle: React.CSSProperties = {
-    position: "absolute",
-    bottom: "0",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  };
-
   const divStyle: React.CSSProperties = {
     width: isMobile ? "45px" : "56px",
     height: isMobile ? "45px" : "56px",
@@ -1030,69 +1023,76 @@ function HumanInput({ phase, isPanelist, letterAuthorName, currentSpeakerName, o
         ? t("human.letter", { name: letterAuthorName })
         : t("human.placeholder");
 
-  return (<>
-    <div style={wrapperStyle}>
-      <RisingMic />
-      <div style={{ zIndex: z.humanInputField, position: "relative", pointerEvents: "auto" }}>
-        <TextareaAutosize
-          ref={inputArea}
-          style={textStyle}
-          onChange={inputChanged}
-          onFocus={inputFocused}
-          onKeyDown={checkEnter}
-          className="unfocused"
-          minRows={1}
-          maxRows={6}
-          value={inputValue}
-          cacheMeasurements={false}
-          maxLength={maxInputLength}
-          placeholder={placeholder}
-        />
-      </div>
-      <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
-        <div
-          ref={vizLeftHostRef}
-          style={{ ...divStyle, transform: "scale(-1, -1)" }}
-        />
-        <div style={divStyle}>
-          {isWaitingForRealtime &&
-            <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
-          }
-          {!isWaitingForRealtime && !pttTurn &&
-            <ConversationControlIcon
-              icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
-              hold={{ onPress: () => handleMicPress(true), onRelease: () => handleMicPress(false) }}
+  // The centre of a bottom bar, so the field and the mic row sit where every
+  // screen's bottom content does, clear of the corners. No zIndex on the bar: the
+  // pieces below keep their own layers against the council scene and controls.
+  return (
+    <BottomBar
+      centre={
+        <>
+          <RisingMic />
+          <div style={{ zIndex: z.humanInputField, position: "relative", pointerEvents: "auto" }}>
+            <TextareaAutosize
+              ref={inputArea}
+              style={textStyle}
+              onChange={inputChanged}
+              onFocus={inputFocused}
+              onKeyDown={checkEnter}
+              className="unfocused"
+              minRows={1}
+              maxRows={6}
+              value={inputValue}
+              cacheMeasurements={false}
+              maxLength={maxInputLength}
+              placeholder={placeholder}
             />
-          }
-          {pttTurn && connectionState === 'recording' &&
-            <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
-          }
-        </div>
-        <div style={divStyle} ref={vizRightHostRef}>
-          {canSubmitNow && !pttTurn &&
-            <ConversationControlIcon
-              icon={"send_message"}
-              tooltip={"Mute"}
-              onClick={submitAndContinue}
+          </div>
+          <div style={{ display: "flex", flexDirection: "row", pointerEvents: "auto", justifyContent: "center" }}>
+            <div
+              ref={vizLeftHostRef}
+              style={{ ...divStyle, transform: "scale(-1, -1)" }}
             />
-          }
-        </div>
-        {connectionState === 'recording' && micStream && (
-          <LiveAudioVisualizerPair
-            stream={micStream}
-            leftHostRef={vizLeftHostRef}
-            rightHostRef={vizRightHostRef}
-            width={100}
-            height={40}
-            barWidth={3}
-            gap={2}
-            barColor="#ffffff"
-            smoothingTimeConstant={0.85}
-          />
-        )}
-      </div>
-    </div>
-  </>);
+            <div style={divStyle}>
+              {isWaitingForRealtime &&
+                <Lottie play loop animationData={loading} style={{ height: isMobile ? 45 : 56 }} />
+              }
+              {!isWaitingForRealtime && !pttTurn &&
+                <ConversationControlIcon
+                  icon={(connectionState === 'recording' ? "record_voice_on" : "record_voice_off")}
+                  hold={{ onPress: () => handleMicPress(true), onRelease: () => handleMicPress(false) }}
+                />
+              }
+              {pttTurn && connectionState === 'recording' &&
+                <ConversationControlIcon icon="record_voice_on" onClick={() => undefined} />
+              }
+            </div>
+            <div style={divStyle} ref={vizRightHostRef}>
+              {canSubmitNow && !pttTurn &&
+                <ConversationControlIcon
+                  icon={"send_message"}
+                  tooltip={"Mute"}
+                  onClick={submitAndContinue}
+                />
+              }
+            </div>
+            {connectionState === 'recording' && micStream && (
+              <LiveAudioVisualizerPair
+                stream={micStream}
+                leftHostRef={vizLeftHostRef}
+                rightHostRef={vizRightHostRef}
+                width={100}
+                height={40}
+                barWidth={3}
+                gap={2}
+                barColor="#ffffff"
+                smoothingTimeConstant={0.85}
+              />
+            )}
+          </div>
+        </>
+      }
+    />
+  );
 }
 
 export default HumanInput;

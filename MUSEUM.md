@@ -249,7 +249,7 @@ print here too, as they arrive: the page asks the bridge for new replies to this
 venue's letters once a minute (the bridge asks the council server with the
 installation key, so the key and the venue must be set), prints each once, and
 tells the server. Automatic replies (out of office) are never printed. See
-[docs/council-letters.md](docs/council-letters.md).
+[LETTERS.md](LETTERS.md).
 
 The **Bridge** panel on `#staff` shows the printer, how many protocols are
 waiting, and **Needs attention** with the reason when something is wrong: out of
@@ -364,7 +364,7 @@ The second screen shows what the installation costs:
   display (setup below).
 - **Methodology:** `/meter/methodology`, linked by the QR code on the meter.
 
-Design and estimation method: [docs/ai-footprint-meter.md](docs/ai-footprint-meter.md).
+Design and estimation method: [FOOTPRINT.md](FOOTPRINT.md).
 
 ### Meter screen (second display)
 
@@ -460,7 +460,8 @@ takes effect at once, without a reload; off, the output is the usual stereo mix.
 current visit: ask it to play the meeting in the room too (to present the installation to a
 group, say), or to go back to headphones only. The agent reconnects straight away, so its mic
 opens with the echo canceller the speakers need. It lasts through the meeting and what follows,
-and the next visit at the landing page is back on the staff setting; a reload ends it too.
+and the next visit at the landing page is back on the staff setting. Idle autoplay and a
+reload end it too.
 Nothing is stored, and flipping **Split audio** on the staff page overrides it. **Hear yourself**
 is silent while the room plays the meeting.
 
@@ -606,7 +607,7 @@ cd button/bridge && npm i && npm run dev:mock   # or npm run dev
 Open the dev URL at `/#staff`, set **Museum** (or **Presenter**) +
 **Hardware button**. With **Print summaries** on, the mock bridge "prints" into
 `button/bridge/.print-spool/mock-printed/`. See
-[button/bridge/README.md](button/bridge/README.md#printing). Playwright e2e: `cd client && npm run e2e` (starts mock bridge).
+[button/bridge/README.md](button/bridge/README.md#printing).
 
 ---
 

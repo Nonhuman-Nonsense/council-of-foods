@@ -272,3 +272,54 @@ export function LiveAudioVisualizerPair({
     </>
   );
 }
+
+/**
+ * One canvas of the same spectrum bars as the pair: the visualiser where there
+ * is room on one side only (the setup agent's corner mic on a phone).
+ */
+export function LiveAudioVisualizer({
+  stream,
+  width = 30,
+  height = 26,
+  barWidth = 3,
+  gap = 2,
+  backgroundColor = "transparent",
+  barColor = "#ffffff",
+  fftSize = 1024,
+  maxDecibels = -10,
+  minDecibels = -90,
+  smoothingTimeConstant = 0.85,
+}: LiveAudioVisualizerProps): ReactElement {
+  const { analyser } = useMediaStreamAnalyser(stream, {
+    fftSize,
+    maxDecibels,
+    minDecibels,
+    smoothingTimeConstant,
+  });
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (!analyser) return;
+    const data = new Uint8Array(analyser.frequencyBinCount);
+    let frame = 0;
+    const tick = () => {
+      const canvas = canvasRef.current;
+      if (!canvas || !hasLiveAudioTrack(stream)) return;
+      analyser.getByteFrequencyData(data);
+      draw(calculateBarData(data, canvas.width, barWidth, gap), canvas, barWidth, gap, backgroundColor, barColor);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [analyser, stream, barWidth, gap, backgroundColor, barColor]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      data-testid="live-audio-viz-single"
+      width={width}
+      height={height}
+      style={{ aspectRatio: "unset", display: "block" }}
+    />
+  );
+}

@@ -9,7 +9,7 @@ import type { MeetingLetter } from "@models/DBModels.js";
 import { MockFactory } from "./factories/MockFactory.js";
 
 /**
- * The outbox (docs/council-letters.md → Outbox): finished letters are queued once, and sent at
+ * The outbox (LETTERS.md → Outbox): finished letters are queued once, and sent at
  * most once, from the being that wrote them — or not at all, depending on the sending mode, the
  * blocklist, whether a person already had their letter, and the daily ceiling.
  */

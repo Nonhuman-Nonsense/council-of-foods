@@ -1,7 +1,7 @@
 /**
  * The scale this screen's figures sit in: what AI's build-out costs around the world, as
  * published. Shown on the meter and, with sources, on the methodology page
- * (docs/ai-footprint-meter.md). Every figure is as its source gives it; checked 3 October 2026.
+ * (FOOTPRINT.md). Every figure is as its source gives it; checked 3 October 2026.
  */
 
 export interface WorldFigure {

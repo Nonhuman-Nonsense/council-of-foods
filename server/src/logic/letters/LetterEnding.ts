@@ -27,7 +27,7 @@ import { loadLetterHistory, type LetterHistory } from "./history.js";
 import { letterBlocklistCollection, lettersCollection } from "@services/DbService.js";
 
 /**
- * The letter ending of a meeting (docs/council-letters.md → "The meeting ending"), on top of
+ * The letter ending of a meeting (LETTERS.md → "The meeting ending"), on top of
  * the plain letter steps in LetterWriter.ts. Each phase ends in a durable marker, written in one
  * go with what was said, so a reconnect resumes exactly there (RESILIENCE.md):
  *

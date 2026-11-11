@@ -29,6 +29,7 @@ import { CHAIR_ID } from "@/prompts/characterSetupBundles";
 import { notifyAutoplay } from "@/autoplay/autoplayStore";
 import type { SummaryPlaybackState } from "@council/summaryScrollSync";
 import { useErrorStore, setUnrecoverableError } from "@main/overlay/errorStore";
+import BottomBar from "@main/BottomBar";
 
 interface CouncilProps {
   liveKey: string | null;
@@ -380,45 +381,53 @@ function Council({
           )}
         </div>
 
-        {/* Footer — Output, controls, and banner in the bottom flex column. */}
-        <div className="council-shell__footer" style={{ pointerEvents: "auto" }}>
-          {/* Stays mounted while the meta agent has the floor: unmounting would
-              discard the interrupted message's place, so it is held instead. */}
-          <Output
-            textMessages={textMessages}
-            audioMessages={audioMessages}
-            playingNowIndex={playingNowIndex}
-            councilState={councilState}
-            isMuted={isMuted}
-            isPaused={isPaused}
-            currentSnippetIndex={currentSnippetIndex}
-            setCurrentSnippetIndex={setCurrentSnippetIndex}
-            audioContext={audioContext}
-            handleOnFinishedPlaying={handleOnFinishedPlaying}
-            onSummaryPlaybackChange={setSummaryPlayback}
-            held={metaAgentPhase !== "inactive"}
-          />
-          {controlsVisible && metaAgentPhase === "inactive" && (
-            <ConversationControls
-              hidden={!capabilities.browserUi}
-              onSkipBackward={handleOnSkipBackward}
-              onSkipForward={handleOnSkipForward}
-              onRaiseHand={handleOnRaiseHand}
-              isRaisedHand={isRaisedHand}
-              isWaitingToInterject={isWaitingToInterject}
-              isMuted={isMuted}
-              onMuteUnmute={toggleMute}
-              isPaused={isPaused}
-              onPausePlay={() => setPaused(!isPaused)}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
-              canRaiseHand={canRaiseHand}
-              onTopOfOverlay={visibleOverlay === "summary" && location.hash === ""}
-              humanName={humanName}
-            />
-          )}
-          <ButtonBanner inline />
-        </div>
+        {/* Footer — Output and controls in the centre of the bottom bar, the banner
+            under them, in the shell's flow, so the overlay region above stops short
+            of it. Above the backdrop, so they stay visible while a council overlay is open. */}
+        <BottomBar
+          placement="footer"
+          zIndex={z.councilShellFooter}
+          centre={
+            <>
+              {/* Stays mounted while the meta agent has the floor: unmounting would
+                  discard the interrupted message's place, so it is held instead. */}
+              <Output
+                textMessages={textMessages}
+                audioMessages={audioMessages}
+                playingNowIndex={playingNowIndex}
+                councilState={councilState}
+                isMuted={isMuted}
+                isPaused={isPaused}
+                currentSnippetIndex={currentSnippetIndex}
+                setCurrentSnippetIndex={setCurrentSnippetIndex}
+                audioContext={audioContext}
+                handleOnFinishedPlaying={handleOnFinishedPlaying}
+                onSummaryPlaybackChange={setSummaryPlayback}
+                held={metaAgentPhase !== "inactive"}
+              />
+              {controlsVisible && metaAgentPhase === "inactive" && (
+                <ConversationControls
+                  hidden={!capabilities.browserUi}
+                  onSkipBackward={handleOnSkipBackward}
+                  onSkipForward={handleOnSkipForward}
+                  onRaiseHand={handleOnRaiseHand}
+                  isRaisedHand={isRaisedHand}
+                  isWaitingToInterject={isWaitingToInterject}
+                  isMuted={isMuted}
+                  onMuteUnmute={toggleMute}
+                  isPaused={isPaused}
+                  onPausePlay={() => setPaused(!isPaused)}
+                  canGoBack={canGoBack}
+                  canGoForward={canGoForward}
+                  canRaiseHand={canRaiseHand}
+                  onTopOfOverlay={visibleOverlay === "summary" && location.hash === ""}
+                  humanName={humanName}
+                />
+              )}
+            </>
+          }
+          banner={<ButtonBanner />}
+        />
 
         {/* The replay intro covers the footer too, unlike council overlays: nothing has played yet,
             so the paused first subtitle and the replay banner would only talk over it. */}

@@ -3,7 +3,7 @@ import table from "./ecologits.json" with { type: "json" };
 
 /**
  * Environmental impacts of AI usage, from EcoLogits coefficients exported into
- * ecologits.json by scripts/ecologits/export.py (see docs/ai-footprint-meter.md).
+ * ecologits.json by scripts/ecologits/export.py (see FOOTPRINT.md).
  *
  * EcoLogits models one request as linear in output tokens and generation time:
  *

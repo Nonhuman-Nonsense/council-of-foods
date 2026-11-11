@@ -48,7 +48,7 @@ export async function promoteMeetingCompleteIfReady(
  */
 export class MeetingLifecycleHandler {
     manager: ILifecycleContext;
-    /** The letter ending (meetingEnding "letter"); see docs/council-letters.md. */
+    /** The letter ending (meetingEnding "letter"); see LETTERS.md. */
     letterEnding: LetterEnding;
 
     constructor(meetingManager: ILifecycleContext) {

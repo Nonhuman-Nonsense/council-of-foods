@@ -96,8 +96,9 @@ itself, not logic. Logic tests belong in mock mode.
   code; unmaintained duplication rots the same way.
 - **Choose the lowest level that expresses the behavior.** Pure function → unit test of the
   function. Hook/state machine → hook test. Cross-component or socket wiring → integration
-  test. Full user journey → e2e, of which we keep only a few happy-path smoke flows, because
-  they are slow and flaky by nature.
+  test. Full user journey → the app-level flow tests in `client/tests/foods/` plus the server's
+  HTTP + socket integration tests. There is no browser e2e suite: the one we had only repeated
+  those, slowly, against the real APIs.
 - **Speed is a feature.** The mock-mode suites run on every change (by humans and agents).
   A test that adds seconds needs to earn them; prefer fake timers over real waits.
 - **Fake timers whenever a behavior is gated by a real `setTimeout`/`setInterval` of
@@ -140,7 +141,6 @@ itself, not logic. Logic tests belong in mock mode.
   `TEST_MODE=fast|full` switches to the real OpenAI API — see
   [server/README.md](server/README.md).
 - **Client** — `client/tests/unit/` (Vitest + Testing Library, jsdom), `client/tests/foods/`
-  (app-level wiring of routes/data), `client/tests/e2e/` (Playwright, needs
-  `npm run e2e-server` in `server/`).
+  (app-level wiring of routes/data).
 - **Shared** protocol/helpers (`shared/`) are tested from whichever side consumes them —
   don't create a third suite.

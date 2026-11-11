@@ -30,10 +30,6 @@ Runs tests against the **Real OpenAI API** using production settings.
 npm run test:full
 ```
 
-## E2E Testing
-End-to-End tests are located in the client directory but rely on the server running in test mode.
-The `npm run e2e-server` script launches the server using `test-options.json`.
-
 ## Email and installations
 Email goes through Brevo's transactional API (`MailService`), from `COUNCIL_MAIL_FROM`. The sender name ("Council of Foods") also titles the emails. Without `COUNCIL_BREVO_API_KEY` and `COUNCIL_MAIL_FROM`, nothing is emailed.
 
@@ -76,7 +72,7 @@ Use the server's **read-only** user for this product's database, never the app's
 ## Footprint meter
 
 AI usage is recorded for the footprint meter (`/meter`); see
-[docs/ai-footprint-meter.md](../docs/ai-footprint-meter.md). Room electricity comes from smart
+[FOOTPRINT.md](../FOOTPRINT.md). Room electricity comes from smart
 plugs posting `POST /api/installation/room-power` with the installation key. Plug setup: [MUSEUM.md](../MUSEUM.md#room-power-plugs).
 `npm run footprint:check` / `footprint:update` keep the EcoLogits table current (needs uv).
 

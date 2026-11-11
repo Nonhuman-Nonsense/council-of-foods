@@ -4,10 +4,9 @@ A second screen in the installation that shows what the council costs the planet
 speaks for the forest — energy, water, carbon and minerals — and makes visible that most of
 that cost lands somewhere else, on someone else.
 
-**Status (2026-09-30):** built and running — recording, estimation, meter screen, methodology
-page, training block and room power plugs. To do: tune the screen on the real display, and the
-open items at the end. Installation setup lives in [MUSEUM.md](../MUSEUM.md) ("Venue and
-footprint meter", "Meter screen", "Room power plugs").
+Installation setup lives in [MUSEUM.md](MUSEUM.md) ("Venue and footprint meter", "Meter
+screen", "Room power plugs"); the server side of the plugs and the usage routes in
+[server/README.md](server/README.md).
 
 ---
 
@@ -171,7 +170,7 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
 
 - **URLs** (same in dev and production): `/meter?venue=<id>` and `/meter/methodology`, served
   from `client/dist/meter.html` by `registerMeterPage` (in dev, a plugin in
-  `client/vite.config.mts`). `?demo` fakes a feed (TEMPORARY, marked on screen);
+  `client/vite.config.mts`). `?demo` fakes a feed, marked "DEMO DATA" on screen;
   `?rotate=90|-90` turns the meter for a display the OS cannot rotate.
 - **Data:** `GET /api/meter?venue=<id>` returns a `MeterSnapshot` (`shared/MeterTypes.ts`):
   usage totals for all councils, the venue and its latest meeting, plus the room's plugs.
@@ -229,8 +228,7 @@ projector (BenQ TH682ST) draws ≈ 244 W typical, 320 W max.
   audio, assumptions, sources), training, and all councils.
 - **Mining places** (`MINERAL_PLACES`): tantalum at Rubaya (DR Congo), cobalt around Kolwezi
   (DR Congo), gallium in China, copper at Escondida (Chile) — documented places in each
-  mineral's supply, never a claim about which mine fed our hardware. Wording to be reviewed
-  before the opening.
+  mineral's supply, never a claim about which mine fed our hardware.
 
 ---
 
@@ -274,14 +272,12 @@ documented, citable impacts on local communities, and without claiming which min
 
 ## Open items
 
-- Tune layout and copy on the real display; then remove `?demo`.
-- Review the mining places' wording (`shared/footprint/counting.ts`) before the opening.
+- Review the mining places' wording (`shared/footprint/counting.ts`).
 - Comparisons that make numbers tangible (one per metric, true at both small and large scale).
 - Minerals and places content, with reviewed wording about affected communities.
 - Human input's speech to text is counted by microphone time, since Inworld reports none for
   transcription-only sessions; switch to their figure if they start reporting it.
 - Input (prefill) tokens are not modelled (EcoLogits limitation).
-- Drop the unused `usage_totals` collection left from the first version.
 - Later: a live map of probable data-centre regions; a mining-sites layer; backfilling past
   meetings; asking providers for regions and per-request data.
 - Open question: should "All councils" combine Foods and Forest, or stay per deployment?

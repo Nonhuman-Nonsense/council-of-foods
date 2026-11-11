@@ -1,10 +1,13 @@
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import RealtimeCaptionOverlay from "@realtime/RealtimeCaptionOverlay";
 import "@testing-library/jest-dom";
 
+const screenSize = vi.hoisted(() => ({ mobile: false, mobileXs: false }));
+
 vi.mock("@/utils", () => ({
-  useMobile: () => false,
+  useMobile: () => screenSize.mobile,
+  useMobileXs: () => screenSize.mobileXs,
 }));
 
 vi.mock("react-i18next", () => ({
@@ -18,6 +21,51 @@ vi.mock("@council/humanInput/LiveAudioVisualizer", () => ({
 }));
 
 describe("RealtimeCaptionOverlay", () => {
+  afterEach(() => {
+    screenSize.mobile = false;
+    screenSize.mobileXs = false;
+  });
+
+  // The smallest phones have no room for the setup agent's captions under the
+  // page (it is still heard), but the council layout is a screen of its own.
+  it("drops the captions only for the compact layout on the smallest phones", () => {
+    const cases = [
+      { mobile: false, mobileXs: false, layout: "compact", shown: true },
+      { mobile: true, mobileXs: false, layout: "compact", shown: true },
+      { mobile: true, mobileXs: true, layout: "compact", shown: false },
+      { mobile: true, mobileXs: true, layout: "council", shown: true },
+    ] as const;
+
+    for (const { mobile, mobileXs, layout, shown } of cases) {
+      screenSize.mobile = mobile;
+      screenSize.mobileXs = mobileXs;
+      const { unmount } = render(
+        <RealtimeCaptionOverlay
+          lastUserTranscript="A user line"
+          lastCaption="An agent line"
+          subtitleLayout={layout}
+        />,
+      );
+      const label = `mobile=${mobile} xs=${mobileXs} layout=${layout}`;
+      expect(screen.queryByTestId("agent-caption") != null, label).toBe(shown);
+      expect(screen.queryByTestId("agent-user") != null, label).toBe(shown);
+      unmount();
+    }
+  });
+
+  it("still explains a wait on the smallest phones", () => {
+    screenSize.mobile = true;
+    screenSize.mobileXs = true;
+    render(
+      <RealtimeCaptionOverlay
+        lastUserTranscript={null}
+        lastCaption="An agent line"
+        notice="Busy, retrying"
+      />,
+    );
+    expect(screen.getByTestId("agent-notice")).toHaveTextContent("Busy, retrying");
+  });
+
   it("renders user transcript above agent caption", () => {
     render(
       <RealtimeCaptionOverlay

@@ -10,7 +10,7 @@ import { withoutContactDetails } from "./LetterWriter.js";
 import { REPLY_KINDS, replySortingPrompt, type ReplyKind } from "./prompts/replySorting.js";
 
 /**
- * What comes back to the letters (docs/council-letters.md → Receiving).
+ * What comes back to the letters (LETTERS.md → Receiving).
  *
  * Replies arrive from Brevo's inbound parsing: every email to `<being>.<meeting>@<reply domain>`
  * is posted to the server already split into the message, the signature and the quoted letter.

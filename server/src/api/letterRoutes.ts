@@ -25,7 +25,7 @@ import type { PrintableLetterReply } from "@shared/ModelTypes.js";
 import { requireInstallationKey } from "./installationKey.js";
 
 /**
- * What comes back to the letters (docs/council-letters.md → Receiving).
+ * What comes back to the letters (LETTERS.md → Receiving).
  *
  * Brevo posts to two webhooks with COUNCIL_LETTERS_WEBHOOK_SECRET as its token
  * (`Authorization: Bearer <secret>`, Brevo's "Token" authentication):

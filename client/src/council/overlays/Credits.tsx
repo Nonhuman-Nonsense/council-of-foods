@@ -30,7 +30,7 @@ export function creditsRollPosition(time: number): number {
 }
 
 /**
- * The end of a meeting at an installation that prints its letters (docs/council-letters.md):
+ * The end of a meeting at an installation that prints its letters (LETTERS.md):
  * after the chair's farewell, every meeting ends the same way — "Thank You", then the credits
  * rolling like a film's, on a fixed clock — while the letter comes out of the printer. Nothing is
  * read aloud. The talk button, or a click anywhere, starts a new meeting; once the credits have

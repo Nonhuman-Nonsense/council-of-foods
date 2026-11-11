@@ -1,5 +1,5 @@
 /**
- * How a human's addition goes into the letter (see docs/council-letters.md). One prompt for every
+ * How a human's addition goes into the letter (see LETTERS.md). One prompt for every
  * language: the classifier reads Swedish as well as English, and its answer is a keyword.
  *
  * Not moderation for its own sake. The aim is to keep the human's voice honest without putting

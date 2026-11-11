@@ -12,7 +12,6 @@
   "scripts": {
     "start": "node dist/server/server.js",
     "build": "node node_modules/@typescript/native/bin/tsc && tsc-alias",
-    "e2e-server": "cross-env NODE_ENV=test tsx server.ts",
     "dev": "cross-env NODE_ENV=development USE_TEST_OPTIONS=true nodemon --exec \"node node_modules/@typescript/native/bin/tsc --noEmit && tsx server.ts\"",
     "proto": "cross-env NODE_ENV=prototype node dist/server/server.js",
     "protodev": "cross-env NODE_ENV=prototype nodemon --exec \"node node_modules/@typescript/native/bin/tsc --noEmit && tsx server.ts\"",
@@ -27,8 +26,6 @@
     "footprint:check": "node ../scripts/ecologits/update.mjs --check",
     "footprint:update": "node ../scripts/ecologits/update.mjs",
     "letters:corpus": "cross-env NODE_ENV=production tsx scripts/letters/generateCorpus.ts",
-    "letters:export": "cross-env NODE_ENV=production tsx scripts/letters/exportForPrint.ts",
-    "letters:print": "cross-env NODE_ENV=production tsx scripts/letters/printLetters.ts",
     "letters:eval": "cross-env NODE_ENV=production tsx scripts/letters/evalLetters.ts",
     "voices:loudness": "cross-env NODE_ENV=production tsx scripts/voiceLoudness.ts",
     "logs": "cross-env NODE_ENV=production tsx scripts/clientLogs.ts",

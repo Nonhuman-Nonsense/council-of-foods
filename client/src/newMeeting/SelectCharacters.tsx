@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { scrollFadeStyle, useScrollEdges } from "@/scrollEdges";
 import type { AgendaPoint, Character } from "@shared/ModelTypes";
 import { toTitleCase, useMobile, useMobileXs } from "@/utils";
 import { useTranslation } from "react-i18next";
@@ -16,6 +17,7 @@ import {
   type HumanDetails,
 } from "./meetingSetup";
 import { useCouncilSettings } from "@/settings/councilSettings";
+import { useCorner } from "@main/BottomBar";
 import { getCharacterSetupBundle } from "./CharacterSetup";
 
 import Lottie from "react-lottie-player";
@@ -79,6 +81,13 @@ function panelistIndexFromId(id: string): number | null {
   return Number.isInteger(index) ? index : null;
 }
 
+/** Space at each end of the character row, so the first and last icons sit off the screen edge. */
+const ROW_GUTTER_PX = 12;
+/** Fade at the row's edges where it scrolls on. */
+const ROW_FADE_PX = 32;
+/** Fade at the description's edges where it scrolls on. */
+const DESCRIPTION_FADE_PX = 20;
+
 /**
  * The shared participant-selection screen used before meeting creation.
  * Foods-specific asset and prompt sources stay named `foods`, while the
@@ -120,6 +129,9 @@ function SelectCharacters({
 
   const isMobile = useMobile();
   const isMobileXs = useMobileXs();
+  const corner = useCorner();
+  const rowScrollRef = useRef<HTMLDivElement>(null);
+  const rowEdges = useScrollEdges(rowScrollRef, "x");
   const { capabilities } = useCouncilSettings();
   const { typedSetup } = capabilities;
   const { t, i18n } = useTranslation();
@@ -425,9 +437,18 @@ function SelectCharacters({
     }
   }
 
-  const subInfoStyle: React.CSSProperties = {
-    margin: isMobile ? (isMobileXs ? "0" : "7px") : undefined,
+  // Start, the hints and the spinner take turns in one slot under the characters.
+  // The slot keeps one height and centres whichever is showing, with no margins of
+  // their own, so swapping them never moves the row above.
+  const infoSlotStyle: React.CSSProperties = {
+    height: isMobile ? (isMobileXs ? "26px" : "32px") : "48px",
+    marginTop: isMobileXs ? "2px" : "5px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
   };
+
+  const subInfoStyle: React.CSSProperties = { margin: 0 };
 
   function buttonOrInfo(): React.ReactElement | null {
     if (loading) {
@@ -452,7 +473,7 @@ function SelectCharacters({
           type="button"
           disabled={loading}
           onClick={continueForward}
-          style={{ margin: isMobileXs ? "0" : "8px 0" }}
+          style={{ margin: 0 }}
         >
           {t("app.start")}
         </button>
@@ -480,7 +501,7 @@ function SelectCharacters({
         <button
           onClick={randomizeSelection}
           className="fadein"
-          style={{ margin: isMobileXs ? "0" : "8px 0", position: "absolute" }}
+          style={{ margin: 0, position: "absolute" }}
         >
           {t("meeting.characters.random")}
         </button>
@@ -489,15 +510,47 @@ function SelectCharacters({
     return null;
   }
 
+  // A selection made out of sight (by the setup agent, or a half-hidden icon) is
+  // scrolled fully into the row's view. Only the row scrolls: scrollIntoView would
+  // also move the clipped frame around it.
+  const lastSelectedId = selectedCharacters[selectedCharacters.length - 1];
+  useEffect(() => {
+    const scroller = rowScrollRef.current;
+    if (!scroller || !lastSelectedId) return;
+    const button = Array.from(scroller.querySelectorAll<HTMLElement>("[data-character-id]")).find(
+      (el) => el.dataset.characterId === lastSelectedId,
+    );
+    if (!button) return;
+    const box = scroller.getBoundingClientRect();
+    const item = button.getBoundingClientRect();
+    const overLeft = item.left - (box.left + ROW_GUTTER_PX);
+    const overRight = item.right - (box.right - ROW_GUTTER_PX);
+    const by = overLeft < 0 ? overLeft : overRight > 0 ? overRight : 0;
+    if (by !== 0) scroller.scrollBy?.({ left: by, behavior: "smooth" });
+  }, [lastSelectedId]);
+
+  // On a phone the page fills the frame, its characters and Start button down at
+  // the bottom, clear only of what the setup agent's bottom bar shows under them:
+  // the caption strip, or nothing on the smallest screens, where captions are hidden.
+  // Elsewhere it is as tall as its content, centred in the frame.
+  const frameStyle: React.CSSProperties = isMobile
+    ? {
+        alignSelf: "stretch",
+        boxSizing: "border-box",
+        paddingTop: isMobileXs ? "8px" : "24px",
+        paddingBottom: isMobileXs ? `${corner.inset}px` : "45px",
+      }
+    : { marginBottom: "30px" };
+
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
-        height: "75%",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: isMobile ? (isMobileXs ? "9px" : "20px") : "30px",
+        width: "100%",
+        ...frameStyle,
       }}
     >
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -505,7 +558,11 @@ function SelectCharacters({
         <div
           style={{
             position: "relative",
-            height: isMobile ? (isMobileXs ? "190px" : "240px") : "380px",
+            // On a phone the panel takes whatever the frame leaves between the title
+            // and the characters; elsewhere it has room for a fixed height.
+            ...(isMobile
+              ? { flex: "1 1 auto", minHeight: 0, marginBottom: "8px" }
+              : { height: "380px" }),
             width: isMobile ? "587px" : "500px",
             display: "flex",
             flexDirection: "column",
@@ -515,8 +572,27 @@ function SelectCharacters({
           {infoToShow()}
         </div>
       </div>
-      <div style={{ height: isMobile ? "93px" : "110px" }}>
-        <div style={{ display: "flex", alignItems: "center" }}>
+      <div style={{ alignSelf: "stretch" }}>
+        {/* The row scrolls sideways when it is wider than the screen. Centred while it
+            fits; once it doesn't, the auto margins collapse and it starts at the left,
+            water first, running off the right edge, which fades where there is more. */}
+        <div
+          ref={rowScrollRef}
+          className="scroll--hide-scrollbar"
+          style={{
+            overflowX: "auto",
+            ...scrollFadeStyle("x", rowEdges, ROW_FADE_PX),
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              width: "max-content",
+              margin: "0 auto",
+              padding: `0 ${ROW_GUTTER_PX}px`,
+            }}
+          >
           {characters.map((character) => (
             <CharacterButton
               key={isPanelistId(character.id) ? character.id : character.name}
@@ -540,12 +616,11 @@ function SelectCharacters({
               selectLimitReached={selectedCharacters.length >= maxCharacters}
             />
           )}
-        </div>
-        {capabilities.browserUi ? (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: isMobileXs ? "2px" : "5px" }}>
-            {buttonOrInfo()}
           </div>
-        ) : null}
+        </div>
+        {/* Rendered on installations too, empty: the page is centred, so the slot's
+            space keeps it at the same height with or without on-screen buttons. */}
+        <div style={infoSlotStyle}>{capabilities.browserUi ? buttonOrInfo() : null}</div>
       </div>
       <MediaPreloader
         foodIds={selectedCharacters.filter(
@@ -567,21 +642,41 @@ interface CharacterInfoProps {
 
 function CharacterInfo({ character }: CharacterInfoProps): React.ReactElement | null {
   const isMobile = useMobile();
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
+  const descriptionEdges = useScrollEdges(descriptionRef, "y", character?.name);
   if (!character) return null;
 
+  // The name stays put; a description longer than the panel scrolls under it,
+  // fading at whichever edge has more.
   return (
     <div
       style={{
         position: "absolute",
         top: 0,
         height: "100%",
+        width: "100%",
+        display: "flex",
+        flexDirection: "column",
         transition: "opacity 0.5s ease",
         opacity: character !== null ? 1 : 0,
         pointerEvents: character !== null ? "all" : "none",
       }}
     >
       <h2 style={{ margin: isMobile ? "0" : "-15px 0 0 0" }}>{toTitleCase(character.name)}</h2>
-      <p style={{ margin: isMobile ? "0" : undefined, whiteSpace: "pre-wrap" }}>
+      <p
+        // Keyed on the character, so another one's description opens at the top.
+        key={character.name}
+        ref={descriptionRef}
+        className="scroll"
+        style={{
+          margin: isMobile ? "0" : undefined,
+          whiteSpace: "pre-wrap",
+          flex: "1 1 auto",
+          minHeight: 0,
+          overflowY: "auto",
+          ...scrollFadeStyle("y", descriptionEdges, DESCRIPTION_FADE_PX),
+        }}
+      >
         {character.description?.split("\n").map((item, key) => {
           return (
             // Lines from a static string split, never reordered — index is a stable key.
@@ -801,6 +896,7 @@ function CharacterButton({
 
   return (
     <div
+      data-character-id={character.id}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={buttonStyle}

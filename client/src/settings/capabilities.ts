@@ -117,7 +117,7 @@ export type Capabilities = {
    */
   kioskHeartbeat: boolean;
   /**
-   * A meeting that ends in a letter may send it by email (docs/council-letters.md), when the
+   * A meeting that ends in a letter may send it by email (LETTERS.md), when the
    * human was there to answer. Only the installations: on the web anyone could write to real
    * people from their sofa. There the letter is still written and shown, marked unsent.
    */

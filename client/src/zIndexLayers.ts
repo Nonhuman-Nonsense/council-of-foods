@@ -30,15 +30,15 @@ export const z = {
   navbar: 10,
   councilControlsRaised: 10,
   fullscreenButton: 10,
-  /** Fixed bottom banners (replay marquee, PTT hint). */
-  bottomBanner: 11,
   overlayCloseButton: 20,
   /** Blocking modals: autoplay warning, council error, reconnecting. */
   systemOverlay: 20,
   /** Staff-only overlays (e.g. #staff) that must appear above system error overlays. */
   staffOverlay: 25,
+  /** The setup agent's bottom bar: above the setup pages, below the rotate prompt. */
+  setupAgent: 50,
+  /** Covers everything in the route shell while a phone is held upright. */
   rotatePrompt: 100,
-  setupAgent: 10000,
   modeSwitchButton: 10001,
   buttonDebug: 10002,
 } as const;

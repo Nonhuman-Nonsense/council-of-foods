@@ -4,7 +4,7 @@
  * whole, never divided per request (no provider publishes how many requests a model serves).
  *
  * Only figures a provider has published. Where nothing is published, that absence is the entry.
- * See docs/ai-footprint-meter.md.
+ * See FOOTPRINT.md.
  */
 
 export interface TrainingDisclosure {

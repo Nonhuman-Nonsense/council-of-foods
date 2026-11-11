@@ -22,7 +22,7 @@ function forAudience(meeting: StoredMeeting, instruction: string): string {
 }
 
 /**
- * The three steps that turn a finished meeting into a letter (see docs/council-letters.md):
+ * The three steps that turn a finished meeting into a letter (see LETTERS.md):
  *
  *   1. {@link rankAuthors} and {@link selectAuthor} — the members ranked by how much they have
  *      to say to someone outside the room, and the best of them who has not written lately;

@@ -25,7 +25,7 @@ export const EnvSchema = z.object({
     /** e.g. `Council of Foods <council@council-of-foods.com>`; the name also titles emails. */
     COUNCIL_MAIL_FROM: unsetIfBlank(z.string().regex(/^.+<[^<>\s]+@[^<>\s]+>$/, "expected Name <address>")),
     /**
-     * Whether meetings' letters go out (docs/council-letters.md): `off` queues them and sends
+     * Whether meetings' letters go out (LETTERS.md): `off` queues them and sends
      * nothing (the default, and the kill switch), `test` sends every letter to
      * COUNCIL_LETTERS_TEST_TO instead of its recipient, `live` sends to the recipient.
      */

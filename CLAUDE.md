@@ -11,10 +11,9 @@ MongoDB, conversation/TTS orchestration), and `button/` (talk-button stack for i
   and what to delete. Read this **before adding or modifying tests**. Key rules: test
   behaviors at module boundaries, one behavior per test, table-driven matrices, search for
   existing coverage before adding a file, never assert prompt wording.
-  [test-inventory.md](test-inventory.md) is a regenerable mechanical scan (large files,
-  duplicate test names, coverage gaps) that supports it — a diagnostic tool, not required
-  reading; re-run `node generate-test-inventory.mjs` before a real audit rather than trusting
-  a stale copy.
+  For an audit, `node generate-test-inventory.mjs` writes `test-inventory.md`, a mechanical
+  scan (large files, duplicate test names, coverage gaps) that supports it. It is not committed:
+  a stale copy misleads.
 - **[RESILIENCE.md](RESILIENCE.md)** — how the live client survives socket drops (pending
   intents + reconciler). Read this **before touching any client→server socket action** or
   reconnect/resume logic. New client-driven socket actions must follow this pattern.
@@ -22,6 +21,10 @@ MongoDB, conversation/TTS orchestration), and `button/` (talk-button stack for i
 - [server/README.md](server/README.md) — backend details and test modes (mock/fast/full).
 - [MUSEUM.md](MUSEUM.md) — physical installations: museum kiosks and presented screenings
   (app mode, button bridge, staff setup).
+- [LETTERS.md](LETTERS.md) — meetings that end in a letter a being sends: the ending's steps,
+  outbox, replies, recipients. Read it **before changing the letter ending or its prompts**.
+- [FOOTPRINT.md](FOOTPRINT.md) — the AI footprint meter: what is recorded, how it is
+  estimated, the meter screen and its sources.
 
 The `docs/` folder is for work-in-progress design docs only; durable architecture
 descriptions live in the root docs above.
@@ -51,8 +54,7 @@ they can switch on beats a screenshot — and say when it is ready to test.
 
 - Server: `cd server && npm test` (type-check + all tests, mocked APIs);
   `npm run test:unit` / `test:integration` for the split; `npm run dev` to run.
-- Client: `cd client && npm test` (type-check + all tests); `npm run e2e` (Playwright — needs
-  `npm run e2e-server` running in `server/`); `npm run dev` to run.
+- Client: `cd client && npm test` (type-check + all tests); `npm run dev` to run.
 - Lint either side with `npm run lint`.
 - Read an installation's stored browser log (stored whenever #staff → Logging is on):
   `cd server && npm run logs -- --venue <id> --unanswered --since 24h`, then `--setup <id>`.

@@ -3,8 +3,12 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import SetupAgentOverlay from '@setupAgent/SetupAgentOverlay';
 import '@testing-library/jest-dom';
 
+const screenSize = vi.hoisted(() => ({ mobile: false, portrait: false }));
+
 vi.mock('@/utils', () => ({
-  useMobile: () => false,
+  useMobile: () => screenSize.mobile,
+  useMobileXs: () => false,
+  usePortrait: () => screenSize.portrait,
 }));
 
 vi.mock('react-i18next', () => ({
@@ -13,8 +17,12 @@ vi.mock('react-i18next', () => ({
   }),
 }));
 
+// The banner has its own tests; here it only fills the bar's banner row.
+vi.mock('@museum/button/ButtonBanner', () => ({ default: () => null }));
+
 vi.mock('@council/humanInput/LiveAudioVisualizer', () => ({
   LiveAudioVisualizerPair: () => <div data-testid="live-audio-viz" />,
+  LiveAudioVisualizer: () => <div data-testid="live-audio-viz-single" />,
 }));
 
 // Keep the icon identity — which control is which is the thing under test.
@@ -36,6 +44,54 @@ describe('SetupAgentOverlay', () => {
     onStop: vi.fn(),
     onMicPress: vi.fn(),
   };
+
+  // A phone's centre belongs to the page's own buttons (Next, the topics), so the
+  // mic joins the volume toggle in the corner.
+  it('puts the mic beside the volume toggle on a phone, out of the centre row', () => {
+    screenSize.mobile = true;
+    try {
+      render(<SetupAgentOverlay {...baseProps} browserUi showHoldHint />);
+
+      const mic = screen.getByTestId('realtime-mic-button');
+      expect(mic.parentElement).toContainElement(screen.getByTestId('icon-volume_on'));
+      expect(mic.compareDocumentPosition(screen.getByTestId('icon-volume_on')) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+      expect(screen.queryByTestId('realtime-ptt-viz-row')).not.toBeInTheDocument();
+      // The hint for a click that should have been a hold still shows.
+      expect(screen.getByTestId('agent-hold-hint')).toBeInTheDocument();
+    } finally {
+      screenSize.mobile = false;
+    }
+  });
+
+  it('shows one side of the visualiser by the corner mic on a phone once audio flows', () => {
+    screenSize.mobile = true;
+    try {
+      const { rerender } = render(<SetupAgentOverlay {...baseProps} browserUi micRequested />);
+      expect(screen.queryByTestId('live-audio-viz-single')).not.toBeInTheDocument();
+
+      rerender(<SetupAgentOverlay {...baseProps} browserUi micRequested micStream={{} as MediaStream} />);
+      expect(screen.getByTestId('realtime-mic-button')).toContainElement(screen.getByTestId('live-audio-viz-single'));
+      expect(screen.queryByTestId('live-audio-viz')).not.toBeInTheDocument();
+    } finally {
+      screenSize.mobile = false;
+    }
+  });
+
+  // Upright, the phone shows only the rotate prompt; controls over it would be
+  // for a screen the visitor can't use yet.
+  it('shows no controls or captions on a phone held upright', () => {
+    screenSize.mobile = true;
+    screenSize.portrait = true;
+    try {
+      render(<SetupAgentOverlay {...baseProps} browserUi lastCaption="Hello" />);
+      expect(screen.queryByTestId('icon-volume_on')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('realtime-mic-button')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('agent-caption')).not.toBeInTheDocument();
+    } finally {
+      screenSize.mobile = false;
+      screenSize.portrait = false;
+    }
+  });
 
   it('offers a volume toggle when the visitor has a pointer', () => {
     render(<SetupAgentOverlay {...baseProps} browserUi />);

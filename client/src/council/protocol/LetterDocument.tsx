@@ -6,7 +6,7 @@ import type { TFunction } from "i18next";
 import type { LetterView, PrintableLetterReply } from "@shared/ModelTypes";
 
 /**
- * Letters and the replies to them, laid out as an email (docs/council-letters.md): the From / To
+ * Letters and the replies to them, laid out as an email (LETTERS.md): the From / To
  * / Sent / Subject block with the QR code to the meeting beside it, the message, and REPLY at the
  * foot of every page of a reply. The same layout prints, downloads, and — via
  * {@link LetterHeader} — heads the letter on the summary screen.
