@@ -33,7 +33,7 @@ const LANGUAGE_MODEL_KEYS = [
 ];
 
 const defaultLanguageModelProfile = {
-  conversationModel: "anthropic/claude-sonnet-5-5",
+  conversationModel: "mistral-direct/mistral-large-2512",
   conversationReasoning: "none",
   voiceModel: "gpt-4o-mini-tts",
   inworldVoiceModel: "inworld-tts-1.5-mini",
@@ -48,8 +48,8 @@ const defaultLanguageModels = {
 const defaultOptions = {
   languageModels: JSON.parse(JSON.stringify(defaultLanguageModels)),
   temperature: 1,
-  maxTokens: 600,
-  chairMaxTokens: 600,
+  maxTokens: 400,
+  chairMaxTokens: 400,
   defaultAudioSpeed: 1.15,
 
   trimSentance: true,

@@ -19,6 +19,8 @@ export const EnvSchema = z.object({
     TEST_MODE: z.enum(TEST_MODES).optional(),
     USE_TEST_OPTIONS: z.enum(["true", "false"]).transform((val) => val === "true").optional(),
     INWORLD_API_KEY: z.string().min(1),
+    /** Only for `mistral-direct/` models, which call Mistral's API instead of the Inworld router. */
+    MISTRAL_API_KEY: unsetIfBlank(z.string()),
     ELEVENLABS_API_KEY: z.string().min(1).optional(),
     // Email (Brevo transactional API). Without both, nothing is emailed.
     COUNCIL_BREVO_API_KEY: unsetIfBlank(z.string()),

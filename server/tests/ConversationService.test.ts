@@ -103,11 +103,13 @@ describe("ConversationService", () => {
     it.each([
         { model: "openai-direct/gpt-5.2", provider: "openai", reportedModel: "gpt-5.2" },
         { model: "mistral/mistral-large-3", provider: "inworld", reportedModel: "mistral/mistral-large-3" },
+        { model: "mistral-direct/mistral-large-4-0", provider: "mistral", reportedModel: "mistral-large-4-0" },
     ])("reports token usage for $model", async ({ model, provider, reportedModel }) => {
         const usage = { prompt_tokens: 9, completion_tokens: 12, prompt_tokens_details: { cached_tokens: 0 } };
         const direct = createMockClient({ usage });
         const inworld = createMockClient({ usage });
-        const service = createConversationService(() => direct.client as never, () => inworld.client);
+        const mistral = createMockClient({ usage });
+        const service = createConversationService(() => direct.client as never, () => inworld.client, () => mistral.client);
 
         const result = await service.createChatCompletion(createParams(model));
 
@@ -115,6 +117,54 @@ describe("ConversationService", () => {
             provider,
             model: reportedModel,
             measures: { input_tokens: 9, output_tokens: 12 },
+        });
+    });
+
+    describe("mistral-direct", () => {
+        function setup(content: unknown = "mistral-response") {
+            const inworld = createMockClient();
+            const mistral = createMockClient();
+            mistral.create.mockResolvedValue({ id: "mistral-id", choices: [{ message: { content }, finish_reason: "stop" }] });
+            const service = createConversationService(() => { throw new Error("not used"); }, () => inworld.client, () => mistral.client);
+            return { service, inworld, mistral };
+        }
+
+        it("calls Mistral's own API with the prefix stripped, never the router", async () => {
+            const { service, inworld, mistral } = setup();
+
+            const result = await service.createChatCompletion(createParams("mistral-direct/mistral-large-2512"));
+
+            expect(result).toMatchObject({ id: "mistral-id", content: "mistral-response" });
+            expect(mistral.create).toHaveBeenCalledWith(expect.objectContaining({
+                model: "mistral-large-2512",
+                max_completion_tokens: 123,
+                stop: ["\n---"],
+            }));
+            expect(inworld.create).not.toHaveBeenCalled();
+        });
+
+        it.each([
+            { reasoning: "none" as const, sent: undefined },
+            { reasoning: "low" as const, sent: "low" },
+        ])("sends reasoning $reasoning as Mistral's reasoning_effort ($sent)", async ({ reasoning, sent }) => {
+            const { service, mistral } = setup();
+
+            await service.createChatCompletion({ ...createParams("mistral-direct/mistral-large-4-0"), reasoning });
+
+            const request = mistral.create.mock.calls[0][0];
+            expect(request.reasoning_effort).toBe(sent);
+            expect(request).not.toHaveProperty("extra_body");
+        });
+
+        it("keeps only the text of a reply that also carries its thinking", async () => {
+            const { service } = setup([
+                { type: "thinking", thinking: [{ type: "text", text: "Mull it over." }] },
+                { type: "text", text: "Stone remembers." },
+            ]);
+
+            const result = await service.createChatCompletion(createParams("mistral-direct/mistral-large-4-0"));
+
+            expect(result.content).toBe("Stone remembers.");
         });
     });
 

@@ -213,7 +213,7 @@ function AroundTheWorld(): ReactElement {
 
 /** How Google, Mistral and this screen each count one answer: the boundary is the difference. */
 function WhosCounting(): ReactElement {
-  const dialogue = findEcologitsModel("inworld", "mistral/mistral-large-3");
+  const dialogue = findEcologitsModel("mistral", "mistral-large-2512");
   const ours = dialogue ? estimateImpacts(dialogue, ONE_ANSWER) : null;
   const published = (value: number | undefined, unit: string) =>
     value === undefined ? "not published" : formatRange({ low: value, high: value, unit }, 3);
