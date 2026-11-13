@@ -8,6 +8,13 @@ import type { UsageMeasures } from "@shared/UsageTypes.js";
 
 const INWORLD_BASE_URL = "https://api.inworld.ai/v1";
 const OPENAI_DIRECT_PREFIX = "openai-direct/";
+/**
+ * Mistral's own API, for when the router serves a Mistral model differently from Mistral itself.
+ * In November 2026 it did: through Inworld, `mistral/mistral-large-2512` started reasoning on every
+ * call and ignored the effort setting, while Mistral still served it without reasoning.
+ */
+const MISTRAL_BASE_URL = "https://api.mistral.ai/v1";
+const MISTRAL_DIRECT_PREFIX = "mistral-direct/";
 type ConversationReasoning = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
 
 export interface ConversationCompletionParams {
@@ -31,7 +38,7 @@ export interface ConversationCompletionResult {
     finishReason: string | null;
     /** Who served the completion and what it consumed, for the footprint meter. */
     usage?: {
-        /** Who we called: "inworld" (router) or "openai". */
+        /** Who we called: "inworld" (router), "openai" or "mistral". */
         provider: string;
         /** As requested, e.g. "mistral/mistral-large-3". */
         model: string;
@@ -53,6 +60,8 @@ interface ChatCompletionClient {
                 temperature: number;
                 stop?: string[];
                 reasoning_effort?: ConversationReasoning;
+                /** Anthropic's own thinking switch; the router passes it through as it is. */
+                thinking?: { type: "between_tools" };
                 extra_body?: {
                     reasoning: {
                         effort: ConversationReasoning;
@@ -64,7 +73,8 @@ interface ChatCompletionClient {
                 id?: string | null;
                 choices?: Array<{
                     message?: {
-                        content?: string | null;
+                        /** Mistral's reasoning models answer in chunks: a thinking one, then text. */
+                        content?: string | null | Array<{ type: string; text?: string }>;
                     };
                     finish_reason?: string | null;
                 }>;
@@ -75,11 +85,28 @@ interface ChatCompletionClient {
 }
 
 export interface ResolvedConversationModel {
-    provider: "inworld" | "openai-direct";
+    provider: "inworld" | "openai-direct" | "mistral-direct";
     model: string;
 }
 
 let inworldClient: OpenAI | undefined;
+let mistralClient: OpenAI | undefined;
+
+function getMistralClient(): OpenAI {
+    if (!config.MISTRAL_API_KEY) {
+        throw new Error("A mistral-direct/ model needs MISTRAL_API_KEY in the server's environment");
+    }
+    if (!mistralClient) {
+        mistralClient = new OpenAI({
+            baseURL: MISTRAL_BASE_URL,
+            apiKey: config.MISTRAL_API_KEY,
+            maxRetries: 3,
+            timeout: OUTBOUND_HTTP_TIMEOUT_MS,
+        });
+    }
+
+    return mistralClient;
+}
 
 function getInworldClient(): OpenAI {
     if (!inworldClient) {
@@ -121,6 +148,13 @@ export function resolveConversationModel(model: string): ResolvedConversationMod
         return {
             provider: "openai-direct",
             model: model.slice(OPENAI_DIRECT_PREFIX.length),
+        };
+    }
+
+    if (model.startsWith(MISTRAL_DIRECT_PREFIX)) {
+        return {
+            provider: "mistral-direct",
+            model: model.slice(MISTRAL_DIRECT_PREFIX.length),
         };
     }
 
@@ -189,6 +223,32 @@ export function cacheRequestFields(
     return { messages: marked, prompt_cache_key: cacheKey };
 }
 
+/**
+ * Models that think unless told otherwise, and are told otherwise only with Anthropic's
+ * `thinking: {type: "between_tools"}`: sending nothing leaves adaptive thinking on, and
+ * `{type: "disabled"}` is a 400. Probed through the Inworld router (November 2026): with nothing
+ * sent, a council turn on Sonnet 5.5 spent 399 of its 400 tokens thinking and said nothing.
+ */
+const THINKING_OFF_BETWEEN_TOOLS = new Set(["anthropic/claude-sonnet-5-5"]);
+
+const USAGE_PROVIDER: Record<ResolvedConversationModel["provider"], string> = {
+    "inworld": "inworld",
+    "openai-direct": "openai",
+    "mistral-direct": "mistral",
+};
+
+/** Who a configured model is billed to, and under what name: the footprint meter's key for it. */
+export function usageIdentityFor(configuredModel: string): { provider: string; model: string } {
+    const resolved = resolveConversationModel(configuredModel);
+    return { provider: USAGE_PROVIDER[resolved.provider], model: resolved.model };
+}
+
+/** The reply's text: a plain string, or the text chunks of a reply that also carries its thinking. */
+function completionText(content: string | null | undefined | Array<{ type: string; text?: string }>): string | null {
+    if (!Array.isArray(content)) return content ?? null;
+    return content.filter((chunk) => chunk.type === "text").map((chunk) => chunk.text ?? "").join("");
+}
+
 async function requestChatCompletion(
     client: ChatCompletionClient,
     params: ConversationCompletionParams,
@@ -203,7 +263,9 @@ async function requestChatCompletion(
         stop: params.stop,
     };
 
-    if (provider === "inworld" && params.reasoning !== "none") {
+    if (provider === "inworld" && params.reasoning === "none" && THINKING_OFF_BETWEEN_TOOLS.has(model)) {
+        requestParams.thinking = { type: "between_tools" };
+    } else if (provider === "inworld" && params.reasoning !== "none") {
         requestParams.extra_body = buildInworldReasoningExtraBody(params.reasoning);
     } else if (params.reasoning !== "none") {
         requestParams.reasoning_effort = params.reasoning;
@@ -213,10 +275,10 @@ async function requestChatCompletion(
 
     return {
         id: completion.id ?? null,
-        content: completion.choices?.[0]?.message?.content ?? null,
+        content: completionText(completion.choices?.[0]?.message?.content),
         finishReason: completion.choices?.[0]?.finish_reason ?? "stop",
         usage: {
-            provider: provider === "openai-direct" ? "openai" : provider,
+            provider: USAGE_PROVIDER[provider],
             model,
             measures: parseChatCompletionUsage(completion.usage),
         },
@@ -226,6 +288,7 @@ async function requestChatCompletion(
 export function createConversationService(
     getOpenAI: () => OpenAI,
     getInworld: () => ChatCompletionClient = getInworldClient,
+    getMistral: () => ChatCompletionClient = getMistralClient,
 ): ConversationService {
     return {
         async createChatCompletion(params: ConversationCompletionParams): Promise<ConversationCompletionResult> {
@@ -233,6 +296,10 @@ export function createConversationService(
 
             if (resolvedModel.provider === "openai-direct") {
                 return requestChatCompletion(getOpenAI(), params, resolvedModel.model, resolvedModel.provider);
+            }
+
+            if (resolvedModel.provider === "mistral-direct") {
+                return requestChatCompletion(getMistral(), params, resolvedModel.model, resolvedModel.provider);
             }
 
             return requestChatCompletion(getInworld(), {

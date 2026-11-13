@@ -299,6 +299,289 @@
         }
       ]
     },
+    "mistral|mistral-large-2512": {
+      "ecologitsModel": "mistralai/mistral-large-2512",
+      "role": "writing",
+      "basis": "ecologits",
+      "usageMeasure": "output_tokens",
+      "tokensPerUnit": 1,
+      "datacenterZones": [
+        "SWE"
+      ],
+      "activeParameters": [
+        41,
+        41
+      ],
+      "totalParameters": [
+        675,
+        675
+      ],
+      "quantizationBits": [
+        8,
+        16
+      ],
+      "low": {
+        "secondsPerToken": 0.0625,
+        "firstTokenSeconds": 0.64,
+        "perToken": {
+          "energy": 1.1855246555412148e-06,
+          "gwp": 4.180159935438323e-08,
+          "adpe": 9.21271209821078e-14,
+          "wcf": 7.24247232110262e-06
+        },
+        "perGenerationSecond": {
+          "energy": 1.2083333333084922e-05,
+          "gwp": 3.030224999985584e-06,
+          "adpe": 1.4680403895862087e-10,
+          "wcf": 7.381812499968671e-05
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 2.604166666666666e-06,
+          "adpe": 1.4586504312531706e-10,
+          "wcf": 0.0
+        },
+        "gpus": 16
+      },
+      "high": {
+        "secondsPerToken": 0.0625,
+        "firstTokenSeconds": 0.64,
+        "perToken": {
+          "energy": 2.3710493110824295e-06,
+          "gwp": 8.360319870876647e-08,
+          "adpe": 1.842542419642156e-13,
+          "wcf": 1.448494464220524e-05
+        },
+        "perGenerationSecond": {
+          "energy": 2.4166666666169845e-05,
+          "gwp": 6.060449999971168e-06,
+          "adpe": 2.9360807791724174e-10,
+          "wcf": 0.00014763624999937342
+        },
+        "embodiedPerGenerationSecond": {
+          "energy": 0.0,
+          "gwp": 5.208333333333332e-06,
+          "adpe": 2.917300862506341e-10,
+          "wcf": 0.0
+        },
+        "gpus": 32
+      },
+      "assumptions": [
+        "Called on Mistral's own API at its default endpoint, which Mistral says runs in Sweden; EcoLogits' Mistral data-centre profile with the Swedish electricity mix applies.",
+        "EcoLogits listed Mistral Large 3 with Mistral Large 2's size until 0.11.2, which took Mistral's published 675B total / 41B active mixture-of-experts after we reported it.",
+        "Served with 8-bit (FP8, published) to 16-bit weights: EcoLogits sizes the GPU fleet by memory, so this halves or doubles the GPUs a request occupies (16 to 32 H100-class GPUs). EcoLogits itself assumes 16-bit."
+      ],
+      "warnings": [
+        "The model architecture is multimodal, expect lower precision. For further information visit https://ecologits.ai/tutorial/warnings_and_errors/#model-arch-multimodal"
+      ],
+      "sources": [
+        "https://help.mistral.ai/en/articles/156206-when-using-mistral-ai-s-api-where-is-my-data-stored",
+        "https://github.com/mlco2/ecologits/pull/262",
+        "https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512-NVFP4"
+      ],
+      "samples": [
+        {
+          "units": 1,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              7.22719132220788e-06,
+              1.445438264441576e-05
+            ],
+            "gwp": [
+              1.5569140993543832e-06,
+              3.1138281987087664e-06
+            ],
+            "adpe": [
+              7.349414660030732e-11,
+              1.4698829320061463e-10
+            ],
+            "wcf": [
+              4.415153482110261e-05,
+              8.830306964220522e-05
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              1.3020833333333333e-06,
+              2.6041666666666666e-06
+            ],
+            "adpe": [
+              7.293252156265854e-11,
+              1.4586504312531708e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 40,
+          "requestSeconds": 3.0,
+          "impacts": {
+            "energy": [
+              8.36709862216486e-05,
+              0.0001673419724432972
+            ],
+            "gwp": [
+              1.0762738974175329e-05,
+              2.1525477948350657e-05
+            ],
+            "adpe": [
+              4.440972017152356e-10,
+              8.881944034304712e-10
+            ],
+            "wcf": [
+              0.0005111532678441048,
+              0.0010223065356882097
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              7.8125e-06,
+              1.5625e-05
+            ],
+            "adpe": [
+              4.375951293759513e-10,
+              8.751902587519026e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 0.5,
+          "impacts": {
+            "energy": [
+              0.00048025152888315256,
+              0.0009605030577663051
+            ],
+            "gwp": [
+              1.823575224175329e-05,
+              3.647150448350658e-05
+            ],
+            "adpe": [
+              1.1025286787216832e-10,
+              2.2050573574433664e-10
+            ],
+            "wcf": [
+              0.002933897990941048,
+              0.005867795981882096
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              1.3020833333333333e-06,
+              2.6041666666666666e-06
+            ],
+            "adpe": [
+              7.293252156265854e-11,
+              1.4586504312531708e-10
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 400,
+          "requestSeconds": 20.0,
+          "impacts": {
+            "energy": [
+              0.0007158765288831526,
+              0.0014317530577663052
+            ],
+            "gwp": [
+              7.73251397417533e-05,
+              0.0001546502794835066
+            ],
+            "adpe": [
+              2.972931627565852e-09,
+              5.945863255131704e-09
+            ],
+            "wcf": [
+              0.004373351428441048,
+              0.008746702856882097
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              5.208333333333334e-05,
+              0.00010416666666666667
+            ],
+            "adpe": [
+              2.9173008625063423e-09,
+              5.834601725012685e-09
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        },
+        {
+          "units": 2000,
+          "requestSeconds": null,
+          "impacts": {
+            "energy": [
+              0.003889199311082429,
+              0.007778398622164858
+            ],
+            "gwp": [
+              0.0004643206677087665,
+              0.000928641335417533
+            ],
+            "adpe": [
+              1.8628713696729054e-08,
+              3.725742739345811e-08
+            ],
+            "wcf": [
+              0.02375945386720524,
+              0.04751890773441048
+            ]
+          },
+          "manufacturing": {
+            "energy": [
+              0,
+              0
+            ],
+            "gwp": [
+              0.0003271875,
+              0.000654375
+            ],
+            "adpe": [
+              1.832648401826484e-08,
+              3.665296803652968e-08
+            ],
+            "wcf": [
+              0,
+              0
+            ]
+          }
+        }
+      ]
+    },
     "inworld|google-ai-studio/gemini-2.5-flash": {
       "ecologitsModel": "google_genai/gemini-2.5-flash",
       "role": "writing",

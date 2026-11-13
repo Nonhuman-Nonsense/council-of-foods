@@ -4,7 +4,8 @@ import type { EcologitsModel } from "@shared/footprint/ecologits";
 /** What each model does in the council, and readable names for EcoLogits' data-centre zones. */
 
 export const MODEL_ROLES: Record<string, string> = {
-  "inworld|mistral/mistral-large-3": "Writes what the council members say",
+  "inworld|mistral/mistral-large-3": "Wrote what the council members said, until November 2026",
+  "mistral|mistral-large-2512": "Writes what the council members say",
   "inworld|google-ai-studio/gemini-2.5-flash": "Picks who speaks next",
   "inworld|anthropic/claude-opus-5-5": "Writes the council's letters",
   "inworld|anthropic/claude-sonnet-5-5": "Thinks for the chair and the guide, and writes the council's letters",

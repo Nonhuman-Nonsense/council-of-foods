@@ -33,7 +33,7 @@ const LANGUAGE_MODEL_KEYS = [
 ];
 
 const defaultLanguageModelProfile = {
-  conversationModel: "mistral/mistral-large-3",
+  conversationModel: "mistral-direct/mistral-large-2512",
   conversationReasoning: "none",
   voiceModel: "gpt-4o-mini-tts",
   inworldVoiceModel: "inworld-tts-1.5-mini",

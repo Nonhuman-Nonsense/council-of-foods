@@ -55,7 +55,7 @@ place, not watt-hours. Don't let an energy-only comparison argue that AI is harm
 
 | Feature | Where it is recorded | Provider → model (current config) | Measures |
 |---|---|---|---|
-| Council dialogue, chair (`dialogue`), summary (`summary`) | `DialogGenerator.completeWithRetry`, every attempt | Inworld router → `mistral/mistral-large-3` | input / output / cached / cache-write / reasoning tokens |
+| Council dialogue, chair (`dialogue`), summary (`summary`) | `DialogGenerator.completeWithRetry`, every attempt | Mistral's API → `mistral-large-2512` (`mistral-direct/` in `global-options.json`; through the Inworld router as `mistral/mistral-large-3` until November 2026) | input / output / cached / cache-write / reasoning tokens |
 | Letters: plan, draft and weave (`summary`) | `DialogGenerator.generateInCharacter` | Inworld router → `anthropic/claude-sonnet-5-5` (plan, draft, weave; `claude-opus-5-5` until October 2026) | input / output / reasoning tokens |
 | Letters: author ranking, sorting the human's words (`classifier`) | `LetterWriter` via `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
 | Speaker classifier (`classifier`) | `SpeakerClassifierBase` | Inworld router → `google-ai-studio/gemini-2.5-flash` | tokens |
@@ -255,7 +255,7 @@ cooling only. That difference is itself worth showing.
 |---|---|
 | Inworld (router, TTS, STT, realtime) | Runs on Google Cloud; the default deployment we call is in the US (EU and India on enterprise contracts), cloud region not published |
 | Google AI Studio (Gemini) | Google's global fleet; no per-request region |
-| Mistral | Its API runs in Sweden by default, or the US on its US endpoint; which one Inworld calls is not published (Inworld does call Mistral's own API: the router reports the attempt as `mistral/mistral-large-3` on its own credentials). The meter's range spans both electricity mixes (`zones` in `export.py`) |
+| Mistral | Its API runs in Sweden by default, or the US on its US endpoint. The council calls the default endpoint directly, so Sweden is assumed. Through Inworld (until November 2026) which one was called is not published, so those calls span both electricity mixes (`zones` in `export.py`) |
 | ElevenLabs | `x-region` header per response; US by default, EU/India/Singapore on enterprise plans |
 | Soniox | US by default; EU and Japan available |
 
