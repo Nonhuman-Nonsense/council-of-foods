@@ -162,6 +162,17 @@ describe("ConversationService", () => {
             model: "mistral/mistral-large-3",
         }));
         expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("extra_body");
+        expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("thinking");
+    });
+
+    it("turns thinking off for a model that only stops thinking when told to", async () => {
+        const inworld = createMockClient();
+        const service = createConversationService(() => { throw new Error("not used"); }, () => inworld.client);
+
+        await service.createChatCompletion(createParams("anthropic/claude-sonnet-5-5"));
+
+        expect(inworld.create.mock.calls[0][0]).toMatchObject({ thinking: { type: "between_tools" } });
+        expect(inworld.create.mock.calls[0][0]).not.toHaveProperty("extra_body");
     });
 
     it("converts an all-system first-turn stack into a valid routed request", async () => {

@@ -53,6 +53,8 @@ interface ChatCompletionClient {
                 temperature: number;
                 stop?: string[];
                 reasoning_effort?: ConversationReasoning;
+                /** Anthropic's own thinking switch; the router passes it through as it is. */
+                thinking?: { type: "between_tools" };
                 extra_body?: {
                     reasoning: {
                         effort: ConversationReasoning;
@@ -189,6 +191,14 @@ export function cacheRequestFields(
     return { messages: marked, prompt_cache_key: cacheKey };
 }
 
+/**
+ * Models that think unless told otherwise, and are told otherwise only with Anthropic's
+ * `thinking: {type: "between_tools"}`: sending nothing leaves adaptive thinking on, and
+ * `{type: "disabled"}` is a 400. Probed through the Inworld router (November 2026): with nothing
+ * sent, a council turn on Sonnet 5.5 spent 399 of its 400 tokens thinking and said nothing.
+ */
+const THINKING_OFF_BETWEEN_TOOLS = new Set(["anthropic/claude-sonnet-5-5"]);
+
 async function requestChatCompletion(
     client: ChatCompletionClient,
     params: ConversationCompletionParams,
@@ -203,7 +213,9 @@ async function requestChatCompletion(
         stop: params.stop,
     };
 
-    if (provider === "inworld" && params.reasoning !== "none") {
+    if (provider === "inworld" && params.reasoning === "none" && THINKING_OFF_BETWEEN_TOOLS.has(model)) {
+        requestParams.thinking = { type: "between_tools" };
+    } else if (provider === "inworld" && params.reasoning !== "none") {
         requestParams.extra_body = buildInworldReasoningExtraBody(params.reasoning);
     } else if (params.reasoning !== "none") {
         requestParams.reasoning_effort = params.reasoning;
