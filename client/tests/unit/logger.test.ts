@@ -214,8 +214,14 @@ describe("installGlobalErrorHandlers", () => {
   });
 
   // Host-environment noise, not bugs in our code: an in-app browser's bridge,
-  // a browser extension, and autoplay policy refusing someone's play().
+  // a browser extension, autoplay policy refusing someone's play(), and the browser's
+  // masked report of an error in a script it injected.
   it.each([
+    {
+      name: "masked error from a script we can't see",
+      type: "error" as const,
+      event: new ErrorEvent("error", { message: "Script error.", filename: "", lineno: 0 }),
+    },
     {
       name: "in-app browser webkit bridge",
       type: "error" as const,
