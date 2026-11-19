@@ -275,6 +275,9 @@ const WINDOW_ERROR_NOISE_PATTERNS: RegExp[] = [
   /No Listener: tabs:/i,
   // Safari's autoplay policy refusing someone's play() — ours all handle it; never actionable.
   /play method is not allowed by the user agent/i,
+  // A CefSharp host (Outlook/Defender's Safe Links link scanner, other Windows apps) calling
+  // a .NET bridge object our page doesn't have.
+  /Object Not Found Matching Id:\d+, MethodName:/i,
 ];
 
 // Caps how many distinct window-level errors get reported per page load, and skips exact
